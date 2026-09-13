@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+	<string name="menu_settings">Settings</string>
+	<string name="menu_insert_disk">Insert Disk</string>
+	<string name="menu_keyboard">Keyboard</string>
+	<string name="menu_create_disk">Create a new disk&#8230;</string>
+	<string name="menu_import_file">Import file&#8230;</string>
+	<string name="menu_manage_disks">Manage Disks&#8230;</string>
+	<string name="menu_keyboards">Keyboards&#8230;</string>
+	<string name="menu_mouse">Mouse Type&#8230;</string>
+	<string name="menu_speed">Speed</string>
+	<string name="btn_quit">Quit</string>
+	<string name="btn_continue">Continue</string>
+	<string name="btn_ok">OK</string>
+	<string name="btn_yes">Yes</string>
+	<string name="btn_no">No</string>
+	<string name="removeDiskWarning">Are you sure you want to remove the disk \"%1$s\"?\nAll it\'s content will be deleted permanently!</string>
+	<string name="noDiskSelected">No Disk was selected.</string>
+	<string name="cantRemoveDisk">Unable to remove the disk \"%1$s\".</string>
+	<string name="aboutText">based on Mini vMac 37.03 by Paul C. Pratt\n\nMini vMac contains the work of many people.\nThis version is maintained by:\nGil Osher (http://miniv.gil.ninja)\n\nBased on a version by:\nJesús A. Álvarez (http://namedfork.net)\n\nMini vMac is distributed under the terms of the GNU Public License, version 2.\n\nMini vMac is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.</string>
+	<string name="privacyPolicy"><a href="https://miniv.gil.ninja/privacypolicy.html">Privacy Policy</a></string>
+	<string name="thirdparty_license">Copyright (c) 2014, Austin Andrews (http://materialdesignicons.com/),\nwith Reserved Font Name Material Design Icons.\nCopyright (c) 2014, Google (http://www.google.com/design/)\nuses the license at https://github.com/google/material-design-icons/blob/master/LICENSE\n\nThis Font Software is licensed under the SIL Open Font License, Version 1.1.\nThis license is copied below, and is also available with a FAQ at:\nhttp://scripts.sil.org/OFL</string>
+	<string name="thirdparty_license_header">Third Party Licenses</string>
+	<string name="version">version %s</string>
+	<string name="build">build %d</string>
+	<string name="permissionsExplain">Mini vMac need access to your external storage in order to read the ROM file and to read and write to the disk images.</string>
+	<string name="errNoPermissions">Sorry, but Mini vMac must have external storage permissions to start.</string>
+	<string name="errNoDataDir">Cannot read data directory: %1$s\n\nThis directory should contain a ROM file named \&quot;%2$s\&quot; and the disk images.\n\nPlease refer https://www.gryphel.com/c/minivmac/start.html for more info.</string>
+	<string name="errNoROM">Error loading ROM file.\n\n Please choose a new file from the settings menu.</string>
+	<string name="errInitEmu">Sorry, Could not initialize emulation</string>
+	<string name="errCreateDisk">Sorry, I couldn\'t create the disk because an I/O error occurred. Make sure you got enough space on your SD card.</string>
+	<string name="errFileExist">File already exists. Please choose a different disk name.</string>
+	<string name="errGeneral">Can\'t create disk.</string>
+	<string name="errTooManyDisks">I can not mount that many Disk Images. Try ejecting one.</string>
+	<string name="name">Name:</string>
+	<string name="size">Size:</string>
+	<string name="disk_manager_title">Disk Images</string>
+	<string name="create">Create</string>
+	<string name="newDisk">New&#8230;</string>
+	<string name="importDisk">Import</string>
+	<string name="exportDisk">Export</string>
+	<string name="remove">Remove</string>
+	<string name="sizeTextStub">125.00 MiB</string>
+	<string name="creatingDisk">Creating disk. Please wait&#8230;</string>
+	<string name="send_to">Send To</string>
+	<string name="sizeInBytes">%s bytes</string>
+	<string name="sizeInKiB">%s KiB</string>
+	<string name="sizeInMiB">%s MiB</string>
+	<string name="progressInKiB"> %4.0f KiB</string>
+	<string name="progressInMiB"> %3.2f MiB</string>
+	<string name="copyingFile">Copying File…</string>
+	<string name="validatingRom">Validating ROM…</string>
+	<string name="copyingRom">Copying ROM…</string>
+	<string name="btn_restart_emulator">Restart Emulator</string>
+	<string name="toggle_system_ui">Toggle Menu</string>
+
+	<!-- Settings view -->
+	<string name="pref_emulator_title">Emulator</string>
+	<string name="pref_machine">Machine&#8230;</string>
+	<string name="pref_machine_title">Select the machine model:</string>
+	<string name="pref_machine_mac128k">Macintosh 128k (128k, 512x342)</string>
+	<string name="pref_machine_mac512ke">Macintosh 512ke (512k, 512x342)</string>
+	<string name="pref_machine_macPlus">Macintosh Plus (4M, 512x342)</string>
+	<string name="pref_machine_macSE">Macintosh SE (4M, 512x342)</string>
+	<string name="pref_machine_macClassic">Macintosh Classic (4M, 512x342)</string>
+	<string name="pref_machine_macSEFDHD">Macintosh SE FDHD (4M, 512x342)</string>
+	<string name="pref_machine_macII">Macintosh II (8M, 640x480)</string>
+	<string name="pref_machine_macIIx">Macintosh IIx (8M, 640x480)</string>
+	<string name="pref_machine_macII_1024">Macintosh II (8M, 1024x768)</string>
+	<string name="pref_machine_macIIx_1024">Macintosh IIx (8M, 1024x768)</string>
+	<string name="pref_machine_macII_512">Macintosh II (8M, 512x342)</string>
+	<string name="pref_machine_macIIx_512">Macintosh IIx (8M, 512x342)</string>
+	<string name="pref_rom">ROM File&#8230;</string>
+	<string name="pref_rom_summ">No ROM file was selected</string>
+	<string name="pref_view_title">View</string>
+	<string name="pref_scale">Scale</string>
+	<string name="pref_scale_summ">Fit target screen to host screen</string>
+	<string name="pref_scroll">Scroll</string>
+	<string name="pref_scroll_summ">Use the arrow keys to scroll the screen</string>
+	<string name="pref_control_title">Control</string>
+	<string name="prefs_speed">Speed&#8230;</string>
+	<string name="prefs_speed_title">Select Speed:</string>
+	<string name="prefs_speed_0">1x</string>
+	<string name="prefs_speed_1">2x</string>
+	<string name="prefs_speed_2">4x</string>
+	<string name="prefs_speed_3">8x</string>
+	<string name="prefs_speed_4">16x</string>
+	<string name="prefs_speed_5">32x</string>
+	<string name="prefs_speed_A">All Out</string>
+	<string name="prefs_keyboards_title">Select Keyboard Layout:</string>
+	<string name="prefs_kbd_gb">English (British)</string>
+	<string name="prefs_kbd_us">English (U.S.)</string>
+	<string name="prefs_kbd_fr">French</string>
+	<string name="prefs_kbd_he">Hebrew</string>
+	<string name="prefs_kbd_es">Spanish</string>
+	<string name="prefs_kbd_es_iso">Spanish (ISO)</string>
+	<string name="prefs_mouse_title">Select Mouse Type:</string>
+	<string name="prefs_mouse_touchscreen">Touchscreen</string>
+	<string name="prefs_mouse_trackpad">Trackpad</string>
+	<string name="prefs_reset">Reset</string>
+	<string name="prefs_interrupt">Interrupt</string>
+	<string name="prefs_poweroff">Force Power Off</string>
+	<string name="pref_learn_title">Learn</string>
+	<string name="prefs_start">How to start&#8230;</string>
+	<string name="prefs_home">Visit our website&#8230;</string>
+	<string name="prefs_about">About</string>
+	<string name="rom_load_error">Unable to load this ROM file. Please choose a valid ROM file.</string>
+	<string name="browse_error">Your device does not support file browsing.</string>
+
+	<string name="welcome_title">Welcome to %s</string>
+	<string name="welcome_desc">For this emulator to work, a valid %s ROM file must be provided. Please click the \"Browse&#8230;\" button to select the file from your device.\n\nPlease refer https://www.gryphel.com/c/minivmac/start.html for more info.\n
+	</string>
+	<string name="migration_title">If you are migrating from an older version of %s:</string>
+	<string name="migration_desc">Due to the new Android permissions model, the app will no longer be able to read the ROM file and disks images from your external SD card. You will have to manually select your ROM file using the \"Browse&#8230;\" button below and then manually import all your disks from the \"Manage Disks\" screen.\nThe ROM file and disk images will be copied to the local app storage on your device. </string>
+	<string name="welcome_browse">Browse&#8230;</string>
+
+	<!-- URLs -->
+	<string name="url_homepage">http://miniv.gil.ninja/</string>
+	<string name="url_start">https://www.gryphel.com/c/minivmac/start.html</string>
+</resources>

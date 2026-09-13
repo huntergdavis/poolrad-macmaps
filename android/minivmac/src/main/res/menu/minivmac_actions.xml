@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+      xmlns:minivmac="http://schemas.android.com/apk/res-auto">
+    <item android:id="@+id/action_speed"
+        android:icon="@drawable/ic_action_speedometer"
+        android:title="@string/menu_speed"
+        minivmac:showAsAction="always">
+        <menu>
+            <group android:id="@+id/speed_group"
+                   android:checkableBehavior="single" />
+        </menu>
+    </item>
+    <item android:id="@+id/action_keyboard"
+        android:icon="@drawable/ic_action_keyboard"
+        android:title="@string/menu_keyboard"
+        minivmac:showAsAction="always" />
+    <item android:id="@+id/action_insert_disk"
+        android:icon="@drawable/ic_action_floppy"
+        android:title="@string/menu_insert_disk"
+        minivmac:showAsAction="always">
+        <menu>
+            <group android:id="@+id/actions_grp">
+                <item android:id="@+id/action_manage_disks"
+                    android:icon="@drawable/ic_floppy"
+                    android:title="@string/menu_manage_disks" />
+                <item android:id="@+id/action_import_file"
+                      android:icon="@drawable/ic_import"
+                      android:title="@string/menu_import_file" />
+            </group>
+            <group android:id="@+id/disks_group" />
+        </menu>
+    </item>
+    <item android:id="@+id/action_poolrad"
+        android:title="@string/poolrad_menu"
+        minivmac:showAsAction="always">
+        <menu>
+            <item android:id="@+id/action_code_wheel"
+                android:title="@string/code_wheel_title" />
+            <item android:id="@+id/action_capture_ram"
+                android:title="@string/capture_ram" />
+        </menu>
+    </item>
+    <item android:id="@+id/action_settings"
+        android:icon="@drawable/ic_action_settings"
+        android:title="@string/menu_settings"
+        minivmac:showAsAction="ifRoom" />
+</menu>

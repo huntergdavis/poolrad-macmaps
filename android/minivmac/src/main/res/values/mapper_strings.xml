@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="poolrad_menu">PoolRad</string>
+    <string name="code_wheel_title">Code wheel lookup</string>
+    <string name="capture_ram">Capture RAM (debug)</string>
+    <string name="capture_pending">Capturing a private RAM snapshot…</string>
+    <string name="capture_saved">Saved private snapshot: %1$s</string>
+    <string name="capture_failed">RAM capture failed; see debug log.</string>
+    <string name="capture_unavailable">Emulator not ready for capture.</string>
+</resources>

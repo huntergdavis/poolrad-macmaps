@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+	<PreferenceCategory
+		app:title="@string/pref_emulator_title"
+		app:key="pref_key_emulator_settings">
+		<Preference
+			app:key="pref_rom"
+			app:title="@string/pref_rom"
+			app:summary="@string/pref_rom_summ"
+			app:icon="@drawable/ic_chip" />
+		<ListPreference
+			app:key="pref_machine"
+			app:title="@string/pref_machine"
+			app:icon="@drawable/ic_machine"
+			app:dialogTitle="@string/pref_machine_title"
+			app:dialogIcon="@drawable/ic_machine"
+			app:entries="@array/machine_entries"
+			app:entryValues="@array/machine_values" />
+		<Preference
+			app:key="pref_disk_manager"
+			app:title="@string/menu_manage_disks"
+			app:icon="@drawable/ic_floppy" />
+		<ListPreference
+			app:key="pref_keyboards"
+			app:title="@string/menu_keyboards"
+			app:icon="@drawable/ic_keyboard"
+			app:dialogTitle="@string/prefs_keyboards_title"
+			app:dialogIcon="@drawable/ic_keyboard"
+			app:defaultValue="us"
+			app:entries="@array/kbd_entries"
+			app:entryValues="@array/kbd_values"/>
+		<ListPreference
+			app:key="pref_mouse"
+			app:title="@string/menu_mouse"
+			app:icon="@drawable/ic_mouse"
+			app:dialogTitle="@string/prefs_mouse_title"
+			app:dialogIcon="@drawable/ic_mouse"
+			app:entries="@array/mouse_entries"
+			app:entryValues="@array/mouse_values"
+			app:useSimpleSummaryProvider="true"
+			app:defaultValue="touchscreen" />
+	</PreferenceCategory>
+	<PreferenceCategory
+		app:title="@string/pref_view_title"
+		app:key="pref_key_view_settings">
+	    <SwitchPreferenceCompat
+			app:key="pref_scale"
+			app:title="@string/pref_scale"
+			app:summary="@string/pref_scale_summ"
+			app:icon="@drawable/ic_scale"
+			app:defaultValue="true" />
+	    <SwitchPreferenceCompat
+			app:key="pref_scroll"
+			app:title="@string/pref_scroll"
+			app:summary="@string/pref_scroll_summ"
+			app:icon="@drawable/ic_scroll"
+			app:defaultValue="false" />
+    </PreferenceCategory>
+    <PreferenceCategory
+		app:title="@string/pref_control_title"
+		app:key="pref_key_control_settings">
+		<ListPreference
+			app:key="pref_speed"
+			app:title="@string/prefs_speed"
+			app:icon="@drawable/ic_speedometer"
+			app:dialogTitle="@string/prefs_speed_title"
+			app:dialogIcon="@drawable/ic_speedometer"
+			app:entries="@array/speed_entries"
+			app:entryValues="@array/speed_values">
+		</ListPreference>
+	    <Preference
+			app:key="pref_reset"
+			app:title="@string/prefs_reset"
+			app:icon="@drawable/ic_reset" />
+	    <Preference
+			app:key="pref_interrupt"
+			app:title="@string/prefs_interrupt"
+			app:icon="@drawable/ic_interrupt" />
+		<Preference
+			app:key="pref_poweroff"
+			app:title="@string/prefs_poweroff"
+			app:icon="@drawable/ic_power" />
+	</PreferenceCategory>
+    <PreferenceCategory
+		app:title="@string/pref_learn_title"
+		app:key="pref_key_learn_settings">
+	    <Preference app:title="@string/prefs_start"
+			app:key="pref_website_start"
+			app:icon="@drawable/ic_help_circle">
+		</Preference>
+		<Preference app:title="@string/prefs_home"
+			app:key="pref_website"
+			app:icon="@drawable/ic_web">
+		</Preference>
+	    <Preference
+			app:key="pref_about"
+			app:title="@string/prefs_about"
+			app:icon="@drawable/icon" />
+	</PreferenceCategory>
+</PreferenceScreen>

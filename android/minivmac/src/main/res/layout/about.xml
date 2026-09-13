@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="20dip">
+	<LinearLayout
+		android:layout_width="match_parent"
+		android:layout_height="wrap_content"
+		android:orientation="vertical"
+		android:paddingLeft="4dp"
+		android:paddingRight="4dp">
+			<TextView
+				android:id="@+id/versionText"
+                android:text="@string/version"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textSize="14sp" />
+			<TextView android:id="@+id/aboutText"
+                android:text="@string/aboutText"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:paddingBottom="20dp"
+				android:textSize="16sp"
+				android:autoLink="web" />
+			<TextView android:id="@+id/privacyPolicyText"
+				android:text="@string/privacyPolicy"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:paddingBottom="20dp"
+				android:textSize="16sp" />
+			<TextView
+				android:id="@+id/license_header"
+				android:text="@string/thirdparty_license_header"
+				android:textStyle="bold"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:textSize="12sp" />
+			<TextView android:id="@+id/licenseText"
+				android:text="@string/thirdparty_license"
+				android:layout_width="wrap_content"
+				android:layout_height="wrap_content"
+				android:paddingTop="10dp"
+				android:textSize="10sp"
+				android:autoLink="web" />
+		</LinearLayout>
+</ScrollView>
