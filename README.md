@@ -43,8 +43,9 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 
 **Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
 Phlan and on the adjoining Slums gate round trip. Other transitions and
-dedicated combat/wilderness maps, broader NPC coverage, and physical stylus/e-ink
-behavior remain unfinished.
+dedicated combat/wilderness maps and broader NPC coverage remain unfinished.
+The user confirms stylus drawing and two-finger zoom/scroll work well on their
+e-ink tablet; rotation, keyboard layout and vendor-specific pen checks remain open.
 [Exploration trail](docs/EXPLORATION.md) · [Handwritten notes](docs/NOTEBOOK.md) · [Flag pages & symbols](docs/MAP_INK.md)
 
 ## Install

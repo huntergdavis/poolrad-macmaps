@@ -8,8 +8,10 @@ Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 ## Where we are
 
 A working personal Android companion inside Mini vMac, not a game rewrite.
-The user reports that it is working well on the tablet. Detailed physical
-e-ink/stylus acceptance remains a separate check, not inferred from that report.
+On 2026-09-14 the user explicitly verified stylus drawing and two-finger
+zoom/scroll on the physical e-ink tablet and approved the experience. This is
+user-performed acceptance, not an agent hardware test. Unreported rotation,
+keyboard and vendor-specific pen behavior remain separate checks under Q1.
 
 | Status | Delivered |
 | --- | --- |
@@ -43,11 +45,12 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.12.0 | Walked tiles, optional visited-only fog, directional feet and recent return directions per notebook/area; backed up with notes |
 | Done — 0.13.0 | Guided tutorial positions/footprints restored; explicit camp/combat/loading/wilderness reference states |
 | Done — 0.13.0 | Compact flag-editor title/tool row and 2.1× sketch height; Pen only and per-note Save PNG removed |
+| User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: dedicated tactical/wilderness maps, party conditions/equipment,
-Journal, a dedicated Notes index, or physical pen acceptance. Separate area-wide drawing
+Journal, a dedicated Notes index, or the remaining rotation/keyboard hardware checks. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -205,20 +208,20 @@ No OCR, handwriting-to-text service, or cloud dependency.
   map-plus-whitespace drawing attached to each flag, not another standalone
   area-wide editor/menu item. The ink-only erasing and stable-coordinate
   requirements carry forward into F3; no separate completion checkbox.
-- [ ] **N3 — Pen-tablet polish.** Large flag hit targets, dark strokes, palm
-  rejection where Android reports usable stylus data, optional pen-only mode,
+- [x] **N3 — Pen-tablet polish.** Large flag hit targets, dark strokes, palm
+  rejection where Android reports usable stylus data,
   finger navigation, cancellation-safe strokes, and no animated note opening.
   Test real hardware rather than promise vendor-specific pen latency/eraser
   behavior from an emulator. Default pencil-style black ink, not color-only UI.
-  **Software implemented 0.5.3; hardware acceptance pending:** remembered Pen
-  only, pen/eraser tool handling, per-pointer palm/cancel protection, finger
-  pinch/pan + Fit, larger nearby-flag choices and animation-free dialogs.
-  170 Java tests and 13 synthetic Android input checks pass; the six prior ink
-  render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
-  Do not repeat implementation or mark hardware done from emulator results.
-  While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item: M4 and the remaining P1 work follow the completed
-  B1/B2/W1/UI1/party slices. Fresh-save HP is corrected in 0.10.0 below.
+  **Software delivered; user accepted physical pen/e-ink workflow 2026-09-14:**
+  the user reports stylus drawing works great, two fingers zoom/scroll, and the
+  e-ink experience looks great. This closes everyday pen-workflow acceptance;
+  it is not an agent-performed tablet test or a measurement of latency/palm
+  rejection. Pen only was intentionally removed by F12, not reintroduced.
+  Synthetic input/renderer checks cover cancellation and pen/eraser handling.
+  Rotation, keyboard layout, vendor eraser/side buttons and detailed palm
+  behavior remain unreported under Q1. Device model/version are requested.
+  [Guide and acceptance scope](PEN_NOTES.md).
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -387,6 +390,10 @@ are gates for the affected feature, not a second giant framework project.
   **Emulator finding (0.5.3):** forcing display size with ADB recreated the
   activity and rebooted the guest, although saved notes survived. Investigate
   real rotation/window changes separately; do not claim seamless resizing.
+  **User confirmation 2026-09-14:** stylus drawing, two-finger zoom/scroll and
+  overall e-ink presentation work well. N3 is accepted. This item remains open
+  for the unreported keyboard/rotation and vendor-specific checks, not to
+  repeat that successful everyday pen test.
 - [ ] **Q2 — Input/archive check.** Investigate the `PoolRad2/ITEM2.DAX`
   extraction error on a copy. All maps parse, but that does not establish every
   encounter/item is intact. Do not replace the user's original archive.

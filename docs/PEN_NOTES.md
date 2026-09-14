@@ -32,9 +32,18 @@ changes, Fit, and closing also cancel an unfinished stroke.
 This follows [Android's stylus and palm-rejection event guidance](https://developer.android.com/develop/ui/views/touch-and-input/stylus-input/advanced-stylus-features).
 `FLAG_CANCELED` is reported on Android 13+; older versions still have
 `ACTION_CANCEL`. We do not infer palms from pressure or promise vendor palm
-classification. **Physical stylus, side buttons, pen latency, palm rejection
-quality and e-ink ghosting remain untested.** There is no longer a pen-only UI
-fallback; actual pen/palm behavior still needs checking on the intended tablet.
+classification. The user has verified physical stylus drawing, two-finger
+zoom/scroll and a good e-ink experience. Side buttons, measured latency,
+detailed palm rejection and rotation/keyboard behavior remain unreported.
+There is no longer a pen-only UI fallback.
+
+## Physical acceptance — reported by the user, 2026-09-14
+
+The user tested on their e-ink device and confirmed: “Stylus works great.
+Two fingers to zoom or scroll.” They also explicitly approved the e-ink result.
+This accepts N3's everyday handwritten-note workflow. These are the user's
+physical-device observations, not emulator results or an agent hardware test.
+Tablet model and Android version have been requested, not assumed.
 
 ## Earlier pen-engine checks (0.5.3)
 
@@ -66,7 +75,7 @@ for sketch height, fixed Close, narrow scrolling, larger text, preserved strokes
 and finger input. Its measurements describe the content View; the installed
 dialog's real bounds and save controls must also be checked in the app.
 
-## Remaining N3 tablet check
+## Remaining device-specific checks (Q1)
 
 On the actual tablet, open a disposable flag page and check:
 
@@ -81,6 +90,8 @@ On the actual tablet, open a disposable flag page and check:
 5. Check thin black strokes, flag choices, keyboard layout, refresh/ghosting and
    actual pen latency on e-ink. Record tablet model, Android version and findings.
 
-Until those checks are performed, N3's hardware acceptance stays unticked.
+N3's everyday pen workflow is user-accepted. The broader checklist above is
+retained for unreported rotation/keyboard, palm and vendor-tool details; do not
+claim every step was performed based on the narrower user report.
 Notebook export/import and previously exported page PNGs are covered in the
 [backup guide](NOTEBOOK_BACKUPS.md).
