@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 152 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 170 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -146,6 +146,13 @@ No OCR, handwriting-to-text service, or cloud dependency.
   finger navigation, cancellation-safe strokes, and no animated note opening.
   Test real hardware rather than promise vendor-specific pen latency/eraser
   behavior from an emulator. Default pencil-style black ink, not color-only UI.
+  **Software implemented 0.5.3; hardware acceptance pending:** remembered Pen
+  only, pen/eraser tool handling, per-pointer palm/cancel protection, finger
+  pinch/pan + Fit, larger nearby-flag choices and animation-free dialogs.
+  170 Java tests and 13 synthetic Android input checks pass; the six prior ink
+  render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
+  Do not repeat implementation or mark hardware done from emulator results.
+  While awaiting the actual tablet check, N4 is the next actionable software slice.
 - [ ] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -229,6 +236,9 @@ are gates for the affected feature, not a second giant framework project.
 - [ ] **Q1 — Physical e-ink pass.** Keyboard open/closed, rotation, readable
   game scaling, touch alignment, screen refresh/ghosting, and stylus behavior.
   Offer a manual redraw if useful; no mandatory continuous flashing refresh.
+  **Emulator finding (0.5.3):** forcing display size with ADB recreated the
+  activity and rebooted the guest, although saved notes survived. Investigate
+  real rotation/window changes separately; do not claim seamless resizing.
 - [ ] **Q2 — Input/archive check.** Investigate the `PoolRad2/ITEM2.DAX`
   extraction error on a copy. All maps parse, but that does not establish every
   encounter/item is intact. Do not replace the user's original archive.

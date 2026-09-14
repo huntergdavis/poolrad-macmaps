@@ -25,6 +25,11 @@ fixed-aspect paper keeps handwriting in proportion when the window changes size.
 An interrupted, unfinished stroke is cancelled rather than joined to the next one.
 Closing a note commits finished strokes, not an interrupted gesture.
 
+**Pen-friendly controls:** optional remembered **Pen only**, two-finger zoom/pan,
+one-finger movement in pen-only mode, and **Fit page**. A nearby finger tap can
+open a large flag-choice list without accidentally creating another note.
+[Controls, input behavior and the remaining tablet check](PEN_NOTES.md).
+
 ## Separate campaigns
 
 **PoolRad → Notebooks** switches notebooks or creates a separate empty one.
@@ -62,8 +67,9 @@ as your only copy of irreplaceable campaign notes. No Android cloud backup is us
 
 Version 2 adds symbols and a wide composite page; version-1 handwriting moves
 into its right half without distortion, with an original-byte backup before
-the first rewrite. Physical stylus/palm-rejection/e-ink polish (N3) and notebook
-backup/import (N4) remain unfinished. Emulator checks are not tablet acceptance.
+the first rewrite. N3's pen controls are implemented; physical stylus/palm/e-ink
+acceptance and notebook backup/import (N4) remain unfinished. Emulator checks
+are not tablet acceptance.
 
 ## Local acceptance — 0.4.0
 

@@ -34,10 +34,14 @@ public final class LiveMapView extends View {
     private int touchPointer = -1, touchTile = -1;
     private float touchX, touchY;
     private String touchArea;
+    private boolean preciseTouch;
 
     public interface Listener {
         void onAreaChanged(AreaIdentity area);
         void onTileTapped(AreaIdentity area, int x, int y);
+        default void onNearbyFlagsTapped(AreaIdentity area, int x, int y, int[] candidates) {
+            onTileTapped(area, x, y);
+        }
     }
 
     public void setListener(Listener value) { listener = value; }
@@ -46,14 +50,14 @@ public final class LiveMapView extends View {
     public void showPartySample(byte[] sample) {
         PartyState next = PartyState.parse(sample);
         if (party == null ? next == null : party.sameDisplay(next)) return;
-        party = next; touchTile = touchPointer = -1; refreshDescription(); invalidate();
+        party = next; cancelTap(); refreshDescription(); invalidate();
     }
     private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size()); }
     private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth,p.mapHeight,density); }
     public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
         Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
         if (notebook.equals(label) && flags.equals(copy)) return;
-        notebook = label; flags = copy; refreshDescription(); invalidate();
+        cancelTap(); notebook = label; flags = copy; refreshDescription(); invalidate();
     }
 
     private void refreshDescription() {
@@ -91,6 +95,7 @@ public final class LiveMapView extends View {
         }
         AreaIdentity current = currentArea();
         if (!(previous == null ? current == null : current != null && previous.id().equals(current.id()))) {
+            cancelTap();
             flags = Collections.emptyMap();
             if (listener != null) listener.onAreaChanged(current);
         }
@@ -102,9 +107,11 @@ public final class LiveMapView extends View {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
+            preciseTouch = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
+                    || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER;
             touchTile = viewport().tileAt(touchX, touchY);
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
-            getParent().requestDisallowInterceptTouchEvent(true);
+            if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
         } else if (action == MotionEvent.ACTION_MOVE) {
             int pointer = event.findPointerIndex(touchPointer);
             if (pointer < 0 || Math.hypot(event.getX(pointer) - touchX, event.getY(pointer) - touchY)
@@ -113,19 +120,40 @@ public final class LiveMapView extends View {
             AreaIdentity area = currentArea();
             int tile = viewport().tileAt(event.getX(), event.getY());
             if (tile >= 0 && tile == touchTile && event.getPointerId(0) == touchPointer
+                    && (event.getFlags() & MotionEvent.FLAG_CANCELED) == 0
+                    && Math.hypot(event.getX() - touchX, event.getY() - touchY)
+                        <= ViewConfiguration.get(getContext()).getScaledTouchSlop()
                     && listener != null
                     && (touchArea == null ? area == null : area != null && touchArea.equals(area.id()))) {
-                performClick(); listener.onTileTapped(area, tile % 16, tile / 16);
+                performClick();
+                int[] nearby = preciseTouch || flags.containsKey(tile) ? new int[0]
+                        : viewport().nearbyFlags(touchX, touchY, flags.keySet(), 24 * density);
+                if (nearby.length == 0) listener.onTileTapped(area, tile % 16, tile / 16);
+                else listener.onNearbyFlagsTapped(area, tile % 16, tile / 16, nearby);
             }
-            touchPointer = touchTile = -1;
-            getParent().requestDisallowInterceptTouchEvent(false);
-        } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN) {
-            touchPointer = touchTile = -1;
+            cancelTap();
+        } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN
+                || action == MotionEvent.ACTION_POINTER_UP) {
+            cancelTap();
         }
         return true; // No map gesture, including a cancelled one, reaches the Mac.
     }
 
     @Override public boolean performClick() { super.performClick(); return true; }
+
+    private void cancelTap() {
+        touchPointer = touchTile = -1;
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
+    }
+
+    @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
+        super.onSizeChanged(w, h, oldW, oldH); cancelTap();
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (!focused) cancelTap();
+    }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);

@@ -1,4 +1,10 @@
-# 0.5.2 — Party health through combat
+# 0.5.3 — Pen-friendly map notes
+
+[Release notes](releases/0.5.3.md): remembered pen-only input, finger zoom/pan,
+Fit page, canceled/palm-pointer protection and larger nearby-flag choices.
+Software checks pass; physical pen/e-ink acceptance remains open.
+
+## 0.5.2 — Party health through combat
 
 [Release notes](releases/0.5.2.md): the health reader separates heroes from
 enemies in the original Mac combat list. Current/max HP and party order remain

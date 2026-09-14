@@ -25,6 +25,8 @@ public final class UpperHalfReferenceDialog {
     public static AlertDialog show(Activity activity, String title, View content, Runnable onDismiss) {
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(title)
                 .setView(content).setNegativeButton("Close", null).create();
+        // E-ink-friendly: no fade/slide when opening or closing notes and their pickers.
+        if (dialog.getWindow() != null) dialog.getWindow().setWindowAnimations(0);
         View host = activity.getWindow().getDecorView();
         Runnable resize = () -> {
             if (!dialog.isShowing()) return;

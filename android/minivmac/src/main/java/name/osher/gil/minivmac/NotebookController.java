@@ -2,12 +2,15 @@ package name.osher.gil.minivmac;
 
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
+import android.widget.CheckBox;
+import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -33,6 +36,7 @@ import name.osher.gil.minivmac.notebook.NotebookSelection;
 /** User-owned notes only. This class has no reference to the emulator Core. */
 public final class NotebookController implements LiveMapView.Listener {
     private static final String ACTIVE = "poolrad_notebook_id";
+    private static final String PEN_ONLY = "poolrad_notes_pen_only";
     // One ordered queue also lets an old Activity finish its saves before a new one reads them.
     private static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private final Activity activity;
@@ -77,6 +81,7 @@ public final class NotebookController implements LiveMapView.Listener {
     }
     private Button button(LinearLayout parent, String label) {
         Button view = new Button(activity); view.setText(label); view.setAllCaps(false);
+        view.setMinHeight(dp(48)); view.setMinimumHeight(dp(48));
         parent.addView(view, new LinearLayout.LayoutParams(-1, -2)); return view;
     }
     private void toast(String message) { Toast.makeText(activity.getApplicationContext(), message, Toast.LENGTH_LONG).show(); }
@@ -144,6 +149,41 @@ public final class NotebookController implements LiveMapView.Listener {
         });
     }
 
+    @Override public void onNearbyFlagsTapped(AreaIdentity target, int x, int y, int[] candidates) {
+        if (disposed || target == null || notebook == null || !flagsReady || opening || session != null) return;
+        final NotebookStore.Notebook book = notebook;
+        final int request = generation;
+        final boolean[] selected = {false};
+        opening = true;
+        LinearLayout choices = column();
+        choices.addView(text("A symbol is close to your tap. Open its page, or create a flag on the tile you tapped."));
+        for (int tile : candidates) {
+            NoteIcon icon = flags.get(tile);
+            if (icon == null) continue;
+            button(choices, icon.label() + " · tile " + tile % 16 + ", " + tile / 16)
+                    .setOnClickListener(v -> chooseNearby(book, target, request, tile % 16, tile / 16, selected));
+        }
+        button(choices, "New flag here · tile " + x + ", " + y)
+                .setOnClickListener(v -> chooseNearby(book, target, request, x, y, selected));
+        ScrollView scroll = new ScrollView(activity); scroll.addView(choices);
+        picker = UpperHalfReferenceDialog.show(activity, "Choose a flag", scroll, () -> {
+            if (!selected[0]) opening = false;
+        });
+    }
+
+    private void chooseNearby(NotebookStore.Notebook book, AreaIdentity target, int request, int x, int y,
+            boolean[] selected) {
+        if (selected[0]) return;
+        selected[0] = true;
+        opening = false;
+        picker.dismiss();
+        if (disposed || request != generation || notebook != book || area == null
+                || !area.id().equals(target.id())) {
+            toast("The map or notebook changed. Tap the flag again."); return;
+        }
+        onTileTapped(target, x, y);
+    }
+
     public void chooseNotebook() {
         if (opening || session != null || disposed) return;
         opening = true;
@@ -199,7 +239,8 @@ public final class NotebookController implements LiveMapView.Listener {
         boolean closing, deleting;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, symbol, delete;
+        Button pen, eraser, undo, redo, symbol, delete, fit;
+        CheckBox penOnly;
         AlertDialog dialog;
     }
 
@@ -214,14 +255,25 @@ public final class NotebookController implements LiveMapView.Listener {
         current.undo = tool(tools, "Undo"); current.redo = tool(tools, "Redo");
         current.symbol = tool(tools, "Symbol");
         current.delete = tool(tools, "Delete…"); current.delete.setContentDescription("Delete flag and linked handwritten note");
-        content.addView(tools);
-        TextView hint = text("Draw on the map at left; write at right. Pinned map snapshot.");
+        HorizontalScrollView toolScroll = new HorizontalScrollView(activity);
+        toolScroll.setHorizontalScrollBarEnabled(true); toolScroll.addView(tools);
+        content.addView(toolScroll);
+        LinearLayout inputTools = new LinearLayout(activity);
+        current.penOnly = new CheckBox(activity); current.penOnly.setText("Pen only");
+        current.penOnly.setTextColor(Color.BLACK);
+        current.penOnly.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
+        current.penOnly.setMinHeight(dp(48)); current.penOnly.setFocusable(false);
+        current.penOnly.setChecked(prefs.getBoolean(PEN_ONLY, false));
+        inputTools.addView(current.penOnly, new LinearLayout.LayoutParams(-2, dp(48)));
+        current.fit = tool(inputTools, "Fit page"); content.addView(inputTools);
+        TextView hint = text("Pinch to zoom; two fingers move the page. Pen only: one finger moves, without drawing.");
         hint.setTextSize(12); content.addView(hint);
         current.status = text("Saved locally · " + book.label()); current.status.setTextSize(12);
         current.status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         content.addView(current.status);
         current.sheet = new InkSheetView(activity);
         current.sheet.setMap(pinned, symbols, x, y); current.sheet.setNote(note);
+        current.sheet.setPenOnly(current.penOnly.isChecked());
         content.addView(current.sheet, new LinearLayout.LayoutParams(-1, 0, 1));
         current.dialog = UpperHalfReferenceDialog.show(activity,
                 target.label() + " · tile " + x + ", " + y, content, () -> {
@@ -254,6 +306,11 @@ public final class NotebookController implements LiveMapView.Listener {
         current.redo.setOnClickListener(v -> current.sheet.redo());
         current.symbol.setOnClickListener(v -> chooseSymbol(current));
         current.delete.setOnClickListener(v -> confirmDelete(current));
+        current.penOnly.setOnCheckedChangeListener((button, checked) -> {
+            current.sheet.setPenOnly(checked);
+            prefs.edit().putBoolean(PEN_ONLY, checked).apply();
+        });
+        current.fit.setOnClickListener(v -> current.sheet.fitPage());
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
         updateTools(current);
     }
@@ -262,7 +319,7 @@ public final class NotebookController implements LiveMapView.Listener {
         Button button = new Button(activity); button.setText(name); button.setAllCaps(false);
         button.setMinWidth(0); button.setMinimumWidth(0); button.setTextSize(12);
         button.setPadding(dp(3), 0, dp(3), 0);
-        row.addView(button, new LinearLayout.LayoutParams(0, dp(48), 1)); return button;
+        row.addView(button, new LinearLayout.LayoutParams(dp(72), dp(48))); return button;
     }
 
     private void updateTools(Session current) {
@@ -270,6 +327,7 @@ public final class NotebookController implements LiveMapView.Listener {
         current.sheet.setEnabled(enabled);
         current.pen.setEnabled(enabled); current.eraser.setEnabled(enabled); current.delete.setEnabled(enabled);
         current.symbol.setEnabled(enabled);
+        current.fit.setEnabled(enabled); current.penOnly.setEnabled(enabled);
         current.symbol.setText(current.icon.label());
         current.symbol.setContentDescription("Change map symbol. Current: " + current.icon.label());
         current.undo.setEnabled(enabled && current.sheet.canUndo()); current.redo.setEnabled(enabled && current.sheet.canRedo());

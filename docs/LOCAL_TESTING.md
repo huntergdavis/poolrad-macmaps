@@ -62,6 +62,35 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.5.3 pen-note software acceptance (2026-09-14)
+
+The Mac II universal/all-four-ABI build succeeds, versionCode 70. **170 Java
+tests, zero failures/errors/skips**, all three native sanitizer suites, 13 new
+synthetic Android pen-input checks, six existing composite-sheet checks and
+seven party-pane View checks pass. The input harness exercises the actual
+`InkSheetView` with Android pointer events, not a replacement input model.
+[Controls, test details and physical acceptance checklist](PEN_NOTES.md).
+
+An in-place update retains the original temple note and its migration backup
+byte-for-byte. A disposable page accepts finger ink with Pen only off; enabling
+Pen only prevents further finger gestures from changing the stored note bytes.
+All 72 bundled rune images remain unchanged; no ROMs, disks, game archives or
+private notes are in the public APK. The prototype signing certificate is
+unchanged. These are local emulator/software checks, not CI or physical pen/
+e-ink acceptance. N3 remains open for the actual tablet check.
+
+The installed candidate's nearby-flag chooser opens the existing 2,2 page
+from a finger tap on adjacent tile 1,2, without creating a second note. Pen
+only remains enabled after the update/relaunch. A delayed selection was
+declined during live sampling; the generation guard rejects changed map/
+notebook context, so this is not evidence of uninterrupted mode recognition.
+
+Forced ADB `wm size 480x1000` recreated the activity and rebooted the Mac core;
+it did **not** validate the open editor's narrow-window toolbar. Restoring
+1200×1600 left all saved note/backup hashes unchanged. Test ordinary rotation
+and real resizable-window behavior separately under Q1; save the game before
+forcing display configuration changes. Do not describe this as seamless resume.
+
 ## 0.5.2 party-health acceptance (2026-09-14)
 
 The Mac II universal/all-four-ABI build succeeds, versionCode 69. **152 Java

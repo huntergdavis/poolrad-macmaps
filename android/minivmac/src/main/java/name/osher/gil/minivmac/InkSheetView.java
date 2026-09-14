@@ -22,6 +22,7 @@ import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.InkHistory;
 import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.InkSheetLayout;
+import name.osher.gil.minivmac.notebook.InkViewport;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 
 /** One flag's fixed 8:3 paper: map left, writing right, and ink across both halves. */
@@ -33,6 +34,7 @@ public final class InkSheetView extends View {
     private final RectF sheet = new RectF();
     private final MapArtwork artwork = new MapArtwork();
     private InkSheetLayout layout = new InkSheetLayout(0, 0, 0);
+    private InkViewport viewport = new InkViewport(0, 0, 0);
     private PoolRadState mapSnapshot;
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private final InkHistory history = new InkHistory(InkNote.empty());
@@ -40,8 +42,12 @@ public final class InkSheetView extends View {
     private final Path activePath = new Path();
     private final float density;
     private int activePointer = MotionEvent.INVALID_POINTER_ID;
+    private int activeTool;
     private boolean eraser;
     private boolean activeEraser;
+    private boolean penOnly, activeStylus, blockFingers, navigating, penHovering;
+    private int navFirst = -1, navSecond = -1;
+    private float navX, navY, navSpan;
     private boolean activeHasSegment;
     private float activeStartX;
     private float activeStartY;
@@ -83,13 +89,32 @@ public final class InkSheetView extends View {
     public void setOnChangeListener(Runnable listener) { onChange = listener; }
     public boolean canUndo() { return history.canUndo(); }
     public boolean canRedo() { return history.canRedo(); }
+    public boolean isPenOnly() { return penOnly; }
+    public float zoomFactor() { return viewport.scale(); }
+
+    public void setPenOnly(boolean enabled) {
+        cancelActiveStroke();
+        penOnly = enabled;
+        describeInput();
+    }
+
+    public void fitPage() {
+        cancelActiveStroke();
+        viewport.fit();
+        invalidate();
+    }
 
     public void setEraser(boolean enabled) {
         cancelActiveStroke();
         eraser = enabled;
-        setContentDescription(enabled
-                ? "Flag note. Eraser selected. Only ink is erased; map and flags are protected."
-                : "Flag note. Pen selected. Draw over the left map and right writing space.");
+        describeInput();
+    }
+
+    private void describeInput() {
+        setContentDescription("Flag note. Map left, writing space right. "
+                + (eraser ? "Eraser selected; only ink is erased. " : "Black pen selected. ")
+                + (penOnly ? "Pen only: a finger moves the page without drawing. " : "Pen or one finger draws. ")
+                + "Two fingers zoom and move the page. Fit page restores the whole sheet.");
     }
 
     public void undo() {
@@ -105,6 +130,9 @@ public final class InkSheetView extends View {
     public void cancelActiveStroke() {
         history.cancelStroke();
         activePointer = MotionEvent.INVALID_POINTER_ID;
+        activeStylus = navigating = false;
+        blockFingers = true; // Never turn the tail of a canceled gesture into a new stroke.
+        navFirst = navSecond = -1;
         activePath.reset();
         activeHasSegment = false;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -114,7 +142,8 @@ public final class InkSheetView extends View {
     @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
         super.onSizeChanged(width, height, oldWidth, oldHeight);
         cancelActiveStroke(); // A rotated coordinate system must not splice into a live stroke.
-        layout = new InkSheetLayout(width, height, 6 * density);
+        viewport = new InkViewport(width, height, 6 * density);
+        layout = viewport.paper;
         sheet.set(layout.left, layout.top, layout.left + layout.width, layout.top + layout.height);
         rebuildStrokes();
     }
@@ -126,11 +155,20 @@ public final class InkSheetView extends View {
 
     @Override public void onWindowFocusChanged(boolean hasWindowFocus) {
         super.onWindowFocusChanged(hasWindowFocus);
-        if (!hasWindowFocus) cancelActiveStroke();
+        if (!hasWindowFocus) { penHovering = false; cancelActiveStroke(); }
     }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        int saved = canvas.save();
+        try {
+            canvas.translate(viewport.offsetX(), viewport.offsetY());
+            canvas.scale(viewport.scale(), viewport.scale());
+            drawPaper(canvas);
+        } finally { canvas.restoreToCount(saved); }
+    }
+
+    private void drawPaper(Canvas canvas) {
         paint.setXfermode(null);
         paint.setColor(Color.WHITE);
         paint.setStyle(Paint.Style.FILL);
@@ -193,37 +231,40 @@ public final class InkSheetView extends View {
             switch (action) {
                 case MotionEvent.ACTION_DOWN:
                     cancelActiveStroke();
-                    if (sheet.isEmpty() || !sheet.contains(event.getX(), event.getY())) return true;
-                    activeEraser = eraser;
-                    float x = normalX(event.getX());
-                    float y = normalY(event.getY());
-                    history.beginStroke(activeEraser, activeEraser ? ERASER_WIDTH : PEN_WIDTH, x, y);
-                    activePointer = event.getPointerId(0);
-                    activeStartX = toX(x);
-                    activeStartY = toY(y);
-                    activePath.moveTo(activeStartX, activeStartY);
+                    blockFingers = false;
                     if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
-                    invalidate();
+                    if (stylus(event, 0)) begin(event, 0);
+                    else if (penHovering) blockFingers = true;
+                    else if (penOnly) { navigating = true; navigate(event, -1, false); }
+                    else begin(event, 0);
                     return true;
                 case MotionEvent.ACTION_MOVE:
+                    if (navigating) { navigate(event, -1, true); return true; }
                     if (!history.isDrawing()) return true;
                     int index = event.findPointerIndex(activePointer);
-                    if (index < 0) { cancelActiveStroke(); return true; }
-                    for (int i = 0; i < event.getHistorySize(); i++)
-                        append(event.getHistoricalX(index, i), event.getHistoricalY(index, i));
-                    append(event.getX(index), event.getY(index));
+                    if (index < 0 || activeTool != event.getToolType(index)) { cancelActiveStroke(); return true; }
+                    appendEvent(event, index);
                     invalidate();
                     return true;
                 case MotionEvent.ACTION_POINTER_DOWN:
+                    int added = event.getActionIndex();
+                    if (stylus(event, added)) {
+                        if (!activeStylus) { cancelActiveStroke(); begin(event, added); }
+                    } else if (!activeStylus && !blockFingers && !penHovering) {
+                        cancelActiveStroke(); blockFingers = false;
+                        navigating = true; navigate(event, -1, false);
+                    }
+                    return true;
                 case MotionEvent.ACTION_POINTER_UP:
-                    cancelActiveStroke();
+                    int lifted = event.getActionIndex();
+                    if (event.getPointerId(lifted) == activePointer) end(event, lifted);
+                    else if (navigating) navigate(event, lifted, false);
+                    // A different (possibly rejected palm) pointer does not cancel the real pen.
                     return true;
                 case MotionEvent.ACTION_UP:
-                    if (history.isDrawing()) {
-                        int pointer = event.findPointerIndex(activePointer);
-                        if (pointer < 0) cancelActiveStroke();
-                        else finish(event, pointer);
-                    }
+                    if (event.getPointerId(event.getActionIndex()) == activePointer)
+                        end(event, event.getActionIndex());
+                    else cancelActiveStroke();
                     performClick();
                     return true;
                 case MotionEvent.ACTION_CANCEL:
@@ -242,6 +283,77 @@ public final class InkSheetView extends View {
 
     @Override public boolean performClick() { super.performClick(); return true; }
 
+    @Override public boolean onHoverEvent(MotionEvent event) {
+        if (stylus(event, 0)) {
+            penHovering = event.getActionMasked() != MotionEvent.ACTION_HOVER_EXIT;
+            if (penHovering && !activeStylus) cancelActiveStroke();
+            return true;
+        }
+        return super.onHoverEvent(event);
+    }
+
+    private static boolean stylus(MotionEvent event, int index) {
+        int tool = event.getToolType(index);
+        return tool == MotionEvent.TOOL_TYPE_STYLUS || tool == MotionEvent.TOOL_TYPE_ERASER;
+    }
+
+    private void begin(MotionEvent event, int index) {
+        if (sheet.isEmpty() || !sheet.contains(viewport.paperX(event.getX(index)),
+                viewport.paperY(event.getY(index)))) return;
+        activeStylus = stylus(event, index);
+        activeTool = event.getToolType(index);
+        activeEraser = eraser || event.getToolType(index) == MotionEvent.TOOL_TYPE_ERASER;
+        float x = normalX(event.getX(index)), y = normalY(event.getY(index));
+        history.beginStroke(activeEraser, activeEraser ? ERASER_WIDTH : PEN_WIDTH, x, y);
+        activePointer = event.getPointerId(index);
+        activeStartX = toX(x); activeStartY = toY(y);
+        activePath.moveTo(activeStartX, activeStartY);
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+        invalidate();
+    }
+
+    private void appendEvent(MotionEvent event, int index) {
+        for (int i = 0; i < event.getHistorySize(); i++)
+            append(event.getHistoricalX(index, i), event.getHistoricalY(index, i));
+        append(event.getX(index), event.getY(index));
+    }
+
+    private void end(MotionEvent event, int index) {
+        // Android 13+ marks a rejected pointer's UP. The constant is inlined on older APIs.
+        // https://developer.android.com/develop/ui/views/touch-and-input/stylus-input/advanced-stylus-features
+        if ((event.getFlags() & MotionEvent.FLAG_CANCELED) != 0
+                || event.getToolType(index) != activeTool) cancelActiveStroke();
+        else finish(event, index);
+    }
+
+    /** Only finger streams navigate. Pointer changes rebase instead of jumping the page. */
+    private void navigate(MotionEvent event, int excluded, boolean move) {
+        int first = -1, second = -1;
+        for (int i = 0; i < event.getPointerCount(); i++) {
+            if (i == excluded || stylus(event, i)) continue;
+            if (first < 0) first = i;
+            else if (second < 0) second = i;
+        }
+        if (first < 0) { navFirst = navSecond = -1; return; }
+        // Stable IDs are independent of the array order Android chooses for this event.
+        if (second >= 0 && event.getPointerId(first) > event.getPointerId(second)) {
+            int swap = first; first = second; second = swap;
+        }
+        int firstId = event.getPointerId(first), secondId = second < 0 ? -1 : event.getPointerId(second);
+        float x = event.getX(first), y = event.getY(first), span = 0;
+        if (second >= 0) {
+            span = (float) Math.hypot(x - event.getX(second), y - event.getY(second));
+            x = (x + event.getX(second)) / 2; y = (y + event.getY(second)) / 2;
+        }
+        if (move && firstId == navFirst && secondId == navSecond) {
+            if (second >= 0 && navSpan > 0 && span > 0) viewport.zoom(span / navSpan, navX, navY);
+            viewport.pan(x - navX, y - navY);
+            invalidate();
+        }
+        navFirst = firstId; navSecond = secondId; navX = x; navY = y; navSpan = span;
+        if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
+    }
+
     private void append(float px, float py) {
         float x = normalX(px), y = normalY(py);
         if (history.appendPoint(x, y)) {
@@ -251,7 +363,7 @@ public final class InkSheetView extends View {
     }
 
     private void finish(MotionEvent event, int index) {
-        append(event.getX(index), event.getY(index));
+        appendEvent(event, index);
         boolean committed = history.finishStroke();
         cancelActiveStroke();
         if (committed) changed();
@@ -279,8 +391,8 @@ public final class InkSheetView extends View {
         }
     }
 
-    private float normalX(float x) { return layout.normalX(x); }
-    private float normalY(float y) { return layout.normalY(y); }
+    private float normalX(float x) { return layout.normalX(viewport.paperX(x)); }
+    private float normalY(float y) { return layout.normalY(viewport.paperY(y)); }
     private float toX(float x) { return layout.toX(x); }
     private float toY(float y) { return layout.toY(y); }
 
