@@ -13,14 +13,21 @@ array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JO
   `git@github.com:huntergdavis/poolrad-macmaps.git`, branch `main`.
 - Read **[docs/BACKLOG.md](docs/BACKLOG.md)** and current Git status/history.
   Do not resume the old Grind/Melt Squad projects from chat history.
-- **Next actionable software item: R3 — spell readiness.** Same shape as R1:
-  find the per-character prepared/spent spell table in the Mac executable,
-  extend the probe to a PRP4 packet keeping PRP1/2/3 readable, and surface it in
-  the character details only. No invented mana gauge or instant restoration.
-  User-agreed order after R3: R4 equipment, R2 training, R7 useful places, R9
-  automatic encountered entries, then P3. R6 is largely absorbed by F10 and
-  should be reduced to the search-mode indicator and coordinates on demand,
-  or closed.
+- **Next actionable software item: R4 — equipment at a glance.** Partly
+  researched; read [docs/EQUIPMENT_MEMORY.md](docs/EQUIPMENT_MEMORY.md) first.
+  The readied-item handle array at character `+0xd8` (slot 0 weapon, slot 2
+  armor) is confirmed against the code and against the one capture taken during
+  live combat. **It is blocked on a stable item name:** the item record's
+  leading string is the game's own scratch render buffer and can read back as
+  `" Yes  Shield "` or a bare fragment, so it must not be displayed. Confirm the
+  item type id and resolve it against the game's own `ITEMS` data through the
+  existing `DaxReader` before implementing anything. Then reuse R3's pattern:
+  extend the probe to PRP5 keeping PRP1..4 readable, emit only display fields,
+  surface in character details, no equipment editing. A purged item handle is
+  *unavailable*, never "nothing readied".
+  Order after R4: R2 training, R7 useful places, R9 automatic encountered
+  entries, then P3. R6 is largely absorbed by F10 — reduce it to the search-mode
+  indicator and coordinates on demand, or close it.
 - All P0 items are checked. Q1/Q3 still need actual tablet model/Android details
   and specific keyboard/rotation/vendor observations, already requested.
   The user HAS accepted stylus drawing, two-finger zoom/scroll and ordinary
