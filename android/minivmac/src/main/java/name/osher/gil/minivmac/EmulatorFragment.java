@@ -258,6 +258,7 @@ public class EmulatorFragment extends Fragment
                 case EXPLORATION: mNotebook.showExploration(); break;
                 case LEVELS: LevelsReferenceDialog.show(requireActivity()); break;
                 case SPELLS: SpellReferenceDialog.show(requireActivity()); break;
+                case JOURNAL: ((MiniVMac) requireActivity()).journal().show(); break;
                 case EQUIPMENT: EquipmentReferenceDialog.show(requireActivity()); break;
                 case MONEY: MoneyReferenceDialog.show(requireActivity()); break;
                 case WHEEL:

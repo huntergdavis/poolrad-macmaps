@@ -28,6 +28,7 @@ public class MiniVMac extends AppCompatActivity
 	private String mRestoredCompanionTab = CompanionPane.MAP;
 	private ScreenshotController screenshotController;
 	private NotebookTransferController notebookTransfers;
+	private JournalController journal;
 	private PersonalSetupController personalSetup;
 
 	private boolean mUIVisible = true;
@@ -40,6 +41,7 @@ public class MiniVMac extends AppCompatActivity
 			mRestoredCompanionTab = savedInstanceState.getString(EmulatorFragment.STATE_COMPANION_TAB, CompanionPane.MAP);
 		screenshotController = new ScreenshotController(this, savedInstanceState);
 		notebookTransfers = new NotebookTransferController(this, savedInstanceState);
+		journal = new JournalController(this);
 
 		mGestureDetector = new GestureDetector(this, new MiniVMac.SingleTapGestureListener());
 
@@ -70,6 +72,7 @@ public class MiniVMac extends AppCompatActivity
 	}
 
 	public NotebookTransferController notebookTransfers() { return notebookTransfers; }
+	public JournalController journal() { return journal; }
 
 	@Override
 	protected void onSaveInstanceState(@NonNull Bundle outState) {
@@ -86,6 +89,7 @@ public class MiniVMac extends AppCompatActivity
 		if (personalSetup != null) personalSetup.onDestroy();
 		screenshotController.onDestroy();
 		notebookTransfers.onDestroy();
+		journal.onDestroy();
 		super.onDestroy();
 	}
 

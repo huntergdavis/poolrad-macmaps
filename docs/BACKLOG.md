@@ -24,7 +24,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 346 Java tests plus three existing native reader suites |
+| Done | 29 GEO records decoded; 355 Java tests plus three existing native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -46,12 +46,14 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.13.0 | Guided tutorial positions/footprints restored; explicit camp/combat/loading/wilderness reference states |
 | Done — 0.13.0 | Compact flag-editor title/tool row and 2.1× sketch height; Pen only and per-note Save PNG removed |
 | Done — 0.13.1 | Source-checked wall-first symbols remove phantom doors; two doorway appearances and blocked walls spot-checked in the original game |
+| Done — 0.14.0 | Offline illustrated journal/proclamation/tavern lookup, private book import, recent numbers and per-notebook bookmarks |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: dedicated tactical/wilderness maps, party conditions/equipment,
-Journal, a dedicated Notes index, or the remaining rotation/keyboard hardware checks. Separate area-wide drawing
+automatic journal detection, journal/map-note linking, a dedicated Notes index,
+or the remaining rotation/keyboard hardware checks. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -423,7 +425,8 @@ are gates for the affected feature, not a second giant framework project.
 
 ### P1 — five requested reference panels
 
-Each is a separate **PoolRad menu option**, not another permanent panel. All
+Each is a separate **Info tool** (moved from the PoolRad menu by UI1), not
+another permanent panel. All
 five use only the upper half, leave the lower game view undimmed, scroll within
 their own bounds, and work offline. Search/keypad controls must stay in that
 upper panel too; do not pop a system keyboard over the game for numeric lookup.
@@ -456,13 +459,25 @@ rules. Make provenance visible and include concise explanations in our own words
   **Delivered 0.3.0:** mixed coin inputs and exact remainders, including the
   emulator check 5 gp + 1 cp = 1,001 cp. Own keypad stays above the game;
   [Mac-table provenance](MONEY_REFERENCE.md).
-- [ ] **REF5 — Adventure journal lookup.** Enter the number the game gives,
+- [x] **REF5 — Adventure journal lookup.** Enter the number the game gives,
   open that entry immediately, and keep recent numbers/bookmarks for fast
   reopening. Support the correct entry type (journal/proclamation/tavern tale),
   validate its real number range, and preserve illustrations/diagrams. Use the
   user's supplied journal files where possible; no online service required.
   No read-ahead dump or assumption that the user's example numbers exist.
   Linking entries to handwritten map notes is the later R5 extension.
+  **Delivered 0.14.0:** Info → Journal opens 58 journal entries, 18 sparse
+  proclamations and 23 tavern tales from a one-time private local import, with
+  14 original illustrations, full-width image pages, recent numbers and
+  per-notebook bookmarks. The public APK contains no journal/game payload.
+  Actual Android import, invalid replacement preserving the old book,
+  category/number validation, bookmark retention through in-place update,
+  illustration scrolling and keyboard-open lookup pass. Build, 355 Java tests,
+  81 Python helper tests and eight Android companion View checks pass.
+  Automatic encountered references remain R9; notebook links/history backups
+  remain R5. New-reader physical tablet acceptance is untested, without
+  invalidating the user's earlier handwritten-notes acceptance.
+  [Import and use](JOURNAL.md) · [evidence](LOCAL_TESTING.md).
 
 ## P2 — research-backed additions, not yet implementations
 
@@ -482,6 +497,8 @@ research for sources and portability limits.
 - [ ] **R5 — Journal ↔ handwritten notebook.** Extend REF5 by linking viewed
   entries/bookmarks to map flags, handwritten comments, and manually checked
   tasks. No automatic quest truth or read-ahead spoiler dump.
+  Include the new per-notebook journal lookup history/bookmarks in notebook
+  backup/restore; REF5 currently stores these locally in app preferences only.
 - [ ] **R6 — Exploration aids.** Search-mode indicator, coordinates on demand,
   with visited-only reveal and directional breadcrumbs promoted to P0 F10 above.
 - [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,

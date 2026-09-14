@@ -20,7 +20,7 @@ HP bars, AC, class symbols and tap-for-details when there is room. The sidebar
 collapses in narrow/short windows without reducing the guest's allocation.
 Walked squares and recorded directional footprints stay with each notebook's
 area; optional fog hides unvisited geometry without changing the original game.
-**Info** groups six working tools, in order: **Exploration trail**, Levels &
+**Info** groups seven working tools, in order: **Exploration trail**, **Journal**, Levels &
 skills, Spells, Weapons & armor, Money conversion, and the illustrated Code
 wheel. [Exploration trail](EXPLORATION.md) controls fog, footprints and the
 recent observed route, with separate confirmed actions to clear feet or reset
@@ -75,8 +75,9 @@ half-window fallback. No dimming or opening animation is added.
 
 ## Scope and verification
 
-This implements the first UI1 slice from the original 2026-09-13 proposal.
-Journal awaits the numbered-entry reader. Handwritten pages already work from
+The original UI1 slice now includes [Journal](JOURNAL.md) as a working Info
+tool: private-book import, numbered lookup, illustrations and bookmarks.
+Handwritten pages already work from
 Map; a dedicated Notes index remains future navigation, not an empty tab.
 Native session recovery after forced activity recreation is the separate Q1
 backlog item, not a benefit claimed for tab restoration.

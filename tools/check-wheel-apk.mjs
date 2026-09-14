@@ -22,6 +22,6 @@ for (const name of expected) {
     assert.ok(bundled.readUInt16LE(8) > 0 && bundled.readUInt16LE(8) <= 256);
     total += bundled.length;
 }
-assert.ok(!entries.some(name => /\.(rom|dsk|dax|ram|sit|probe)$/i.test(name)), 'Private game inputs must not be bundled');
+assert.ok(!entries.some(name => /\.(rom|dsk|dax|ram|sit|probe|prjr)$/i.test(name)), 'Private game inputs and journal books must not be bundled');
 assert.ok(!entries.some(name => name.startsWith('assets/personal/')), 'Personal-package payload/metadata must not enter public APKs');
 console.log(`PASS: all 72 rune GIFs are bundled unchanged (${total} bytes); no ROMs, disks, or game archives.`);

@@ -1,5 +1,55 @@
 # Local Android prototype
 
+## REF5 — offline adventure journal (2026-09-14, v0.14.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.14.0.apk`, SHA-256
+`84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
+It contains the reader, not the copyrighted reference book. The private
+`scratch/poolrad-journal-0.14.0.prjr` is 200,819 bytes, SHA-256
+`a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
+Source documents and forks came from Q2's verified extraction and were not
+modified. See [JOURNAL.md](JOURNAL.md) for conversion and tablet import.
+
+On isolated `poolrad-package-test`, emulator-5584, API 30, 1200×1600:
+
+- Info → Journal opened its first-use instructions; the actual Android local
+  document picker imported the book. The private stored bytes matched exactly.
+- Journal 59 was rejected by the number picker without a recent-history entry.
+  Journal 37, Proclamation 59 and Tavern tale 1 opened their correct categories.
+- Journal 37's bookmark and recent lookup survived a clean guest exit and an
+  in-place APK update. Replacing the reference with the final polished book
+  retained that history. No notebook, disk or app data was reset.
+- Selecting a deliberately invalid 77-byte file through the real picker left
+  the previous book's SHA-256 unchanged and retained the bookmark; the reader
+  remained usable. Cancellation is also handled without writes in the callback,
+  but a separate live cancellation trial was not performed in this pass.
+- The preview showed the complete original atlas. A live visual check caught
+  a blank nested-scroll enlargement; the final APK replaces it with a normal
+  full-width vertically scrolling image page. `scratch/ref5-atlas-fixed.png`
+  shows the original heading/map at readable width above the undimmed guest;
+  the Close control remains inside the companion. Earlier blank captures are
+  diagnostic evidence, not the final release behavior.
+- With the virtual keyboard open, the reader/picker ends at y=500 instead of
+  y=630. Entering 37, scrolling the keypad to Read, and opening its illustrated
+  entry worked with Close at y=427–495, above the guest. Captures:
+  `scratch/ref5-keypad-keyboard.png`, `scratch/ref5-entry-keyboard.png`.
+  The illustration scroll changed visible content without moving the guest.
+
+Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **355 tests,
+zero failures/errors/skips**. Python helpers pass **81 tests** (archive 21,
+personal boot 14, package 16, pinned fetch 25, journal 5). Eight detached Android
+companion View checks exercise the seven real tool buttons, retained map,
+small/large-text layouts and touch boundaries. `check-wheel-apk.mjs` verifies
+all 72 bundled runes and rejects private journal/game payloads; signature
+verification succeeds. No native-reader changes were made or native suites
+rerun in this pass. No GitHub Actions workflow is configured.
+
+Manual recent lookups are not automatically encountered references (R9).
+Journal history is local per notebook but not in notebook exports yet (R5).
+Physical tablet acceptance of this new reader, two-notebook live switching and
+full gameplay coverage are not claimed. Prior user acceptance of handwritten
+notes on e-ink remains valid. Only emulator-5584 was used; 5580 was not touched.
+
 ## Build
 
 Use JDK 17, Android SDK 34, build-tools 34.0.0, and NDK 27.0.12077973.

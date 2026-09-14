@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="companion_tool_journal">Journal</string>
     <string name="companion_tab_map">Map</string>
     <string name="companion_tab_info">Info</string>
     <string name="companion_tab_accessibility">%1$s tab</string>

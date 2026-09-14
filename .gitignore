@@ -30,4 +30,5 @@ release.properties
 *.class
 __pycache__/
 *.pyc
+*.prjr
 android/minivmac/private-assets/
