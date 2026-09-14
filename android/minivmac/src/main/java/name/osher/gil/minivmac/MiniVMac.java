@@ -27,6 +27,7 @@ public class MiniVMac extends AppCompatActivity
 	private Fragment _currentFragment;
 	private ScreenshotController screenshotController;
 	private NotebookTransferController notebookTransfers;
+	private PersonalSetupController personalSetup;
 
 	private boolean mUIVisible = true;
 	private GestureDetector mGestureDetector;
@@ -41,10 +42,15 @@ public class MiniVMac extends AppCompatActivity
 
 		// Check that the the file-system is readable
 		if (!FileManager.getInstance().init(this)) {
-			Utils.showAlert(this, String.format(getString(R.string.errNoDataDir), FileManager.getInstance().getRomDir().getPath(),
-					getString(R.string.defaultRomFileName)), true);
+			Utils.showAlert(this, "Local emulator storage could not be opened. Existing files were not changed.", true);
+			return;
 		}
 
+		personalSetup = new PersonalSetupController(this, this::showConfiguredStart);
+		if (!personalSetup.startIfNeeded()) showConfiguredStart();
+	}
+
+	private void showConfiguredStart() {
 		// Check if ROM file was already provided and copied to the ROM directory
 		SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(this);
 		if (sharedPref.getString(SettingsFragment.KEY_PREF_ROM, null) == null) {
@@ -71,6 +77,7 @@ public class MiniVMac extends AppCompatActivity
 
 	@Override
 	protected void onDestroy() {
+		if (personalSetup != null) personalSetup.onDestroy();
 		screenshotController.onDestroy();
 		notebookTransfers.onDestroy();
 		super.onDestroy();

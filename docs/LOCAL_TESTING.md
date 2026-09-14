@@ -62,6 +62,83 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.7.0 personal-package acceptance (2026-09-14)
+
+Both Mac II universal/all-four-ABI variants build, versionCode 72, with
+**213 Java tests, zero failures/errors/skips**. The 15 new installer tests use
+synthetic ROM/disks and cover verified atomic publication, exact lengths/hashes,
+strict metadata, legacy-media refusal, mutable/deleted media preservation,
+failure cleanup, publication races and root lookup during a blocked copy.
+`python3 tools/test-personal-package.py -v` passes all 16 synthetic builder
+tests. All three existing native probe suites also pass under address/undefined
+sanitizers. These are focused local checks, not new CI or a long soak matrix.
+
+The public APK was built in the same invocation as the personal APK, with the
+private-bundle property present and generated private assets retained. The
+public artifact checker passes: all 72 rune GIFs are unchanged, no ROM/disk/game
+archives, and no `assets/personal/` payload or metadata. The personal assets are
+present only in the opt-in variant. A subsequent `preparePersonalAssets`
+invocation **without** the property fails with the explicit input-path error,
+despite the cached prior private build. Both APKs use the existing prototype
+signing certificate.
+
+The separate API 30 `poolrad-package-test` AVD on `emulator-5584` is configured
+at 1200×1600 / density 200 before boot. The existing campaign on `emulator-5580`
+is not used or reset for these checks. Personal input is the previously verified
+F9 combined System 7/game disk plus the supplied matching Mac II ROM, copied
+through the new helper into ignored `scratch/b1-private-bundle`. Original ROM
+and combined-disk hashes remain unchanged.
+
+A read-only app-files directory on an otherwise empty disposable installation
+provokes a real setup failure before publication. **Use my own files** shows
+the ordinary ROM browser and remembers the choice after reopening; no bundled
+media appears. A temporary setup View initially remained behind the welcome
+fragment; removing it before the handoff fixed that observed defect, and the
+repeated UI check shows only the normal welcome controls. After resetting only
+this still-empty fixture, the same failure followed by restoring permission and
+**Retry personal setup** publishes the ROM/disk and starts the guest without
+ROM-selection or disk-import clicks. Its normal startup alias reaches the
+original game's title screen without a Finder launch click.
+
+Re-opening during copying does not hold the UI on the installer's copy lock;
+that backend interleaving has a bounded concurrency test. The brief FileManager
+root-selection step is separately synchronized to prevent stale legacy paths
+from replacing the newly published personal paths. Error/recovery content is
+scrollable. Neither measure claims physical rotation/stylus/e-ink acceptance.
+See [personal packaging and recovery](PERSONAL_PACKAGE.md).
+
+The shell-managed AVD processes exited during this route; a separate-session
+launch (`setsid -f`) was used to continue without resetting the device. Restarting
+the same AVD retained its installed data. An Android System UI startup timeout
+was dismissed with Wait; its event identifies `SystemUIAuxiliaryDumpService`
+at 03:47:14, before PoolRad was launched at 03:47:35. With PoolRad stopped,
+SHA-256 comparison across both a personal APK
+update and an update back to the public APK proves the disk, ROM, manifest and
+receipt all remain byte-identical. The disk already differs from the bundled
+starting image because of ordinary guest writes; updates do not restore that
+starting image. On relaunch the public APK uses the retained personal disk,
+including the original Mac's expected improper-shutdown warning after the AVD
+interruption. A normal OK click continues its startup alias into the game.
+This is not claimed as an uninterrupted boot or physical-device acceptance.
+On the separate-session emulator, the public APK's retained SampleParty loads
+through the original File → Load picker to New Phlan 15,1 W, with the live map
+and Rolf's opening tutorial visible. No party statistics, movement or save
+contents are edited to obtain this result.
+Companion HP bars were not visible on that fresh SampleParty; this does not
+repeat the earlier postcombat health acceptance. Party polling is enabled and
+unchanged by B1. Fresh-save slot/heap coverage is recorded under P1, with the
+cause still unverified; no RAM capture or guessed health was substituted.
+After normal game Quit and Finder Shut Down, Manage Disks lists the retained
+32 MiB `disk1.dsk`. Export resolves its new personal-storage FileProvider URI
+and opens Android's chooser without an invalid-root error. This bare AVD has
+no app accepting that disk type; no recipient is selected and actual external
+disk-file delivery is untested. The existing Import control remains available.
+
+Final public universal APK SHA-256:
+`837e5f313c95f13b6830b08ace58df6748fb5df5743b0243221b6919d7629834`.
+The personal APK is separate, kept locally in ignored scratch storage, and is
+not a public release asset.
+
 ## 0.6.0 notebook protection acceptance (2026-09-14)
 
 The universal/all-four-ABI build succeeds, versionCode 71. **198 Java tests,

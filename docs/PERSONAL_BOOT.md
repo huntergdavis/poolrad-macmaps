@@ -4,7 +4,10 @@
 **Pool of Radiance game disk** into one private 32 MiB HFS image. It retains the
 original filesystem and adds the game plus a normal **Startup Items alias**.
 No timed launch clicks, RAM patches, replacement Finder or game download.
-The Macintosh ROM is still imported separately.
+The Macintosh ROM is imported separately in the public APK. The optional
+[personal APK builder](PERSONAL_PACKAGE.md) can bundle your ROM and this disk
+for verified, automatic first-use import; its private output stays out of Git
+and public releases.
 
 **Verified locally:** the combined disk cold-boots and automatically launches
 the original game on an isolated Android emulator. The code-wheel helper

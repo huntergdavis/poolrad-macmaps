@@ -1,4 +1,11 @@
-# 0.6.0 — Keep your cartography
+# 0.7.0 — Your personal starting point
+
+[Release notes](releases/0.7.0.md): opt-in private APK packaging, verified
+first-use import and automatic boot, with save-preserving updates and manual
+recovery. The public APK remains bring-your-own-files. 213 Java tests, 16
+synthetic builder tests and three native suites pass; physical acceptance stays open.
+
+## 0.6.0 — Keep your cartography
 
 [Release notes](releases/0.6.0.md): complete local notebook backups and restore,
 fitted map-and-handwriting PNGs, and deliberate notebook removal. Existing

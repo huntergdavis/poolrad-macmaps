@@ -19,6 +19,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import name.osher.gil.minivmac.personal.PersonalPackage;
 
 /**
  * Created by dolfin on 16/12/2015.
@@ -47,19 +48,28 @@ public class FileManager {
         return mInstance;
     }
 
-    public Boolean init(Context context) {
+    public synchronized Boolean init(Context context) {
+        mIsInitialized = false;
         mContentResolver = context.getContentResolver();
         // Private app storage; file-picker imports do not require shared storage.
         mCacheDir = context.getCacheDir();
-        File dataDir = context.getFilesDir();
+        final File dataDir;
+        try {
+            // A public APK update must keep using a previously installed personal copy.
+            dataDir = PersonalPackage.dataRoot(context.getFilesDir());
+        } catch (IOException invalidPersonalCopy) {
+            Log.e(TAG, "Personal storage receipt is unavailable; refusing to switch disk roots", invalidPersonalCopy);
+            mIsInitialized = false;
+            return false;
+        }
         mRomDir = new File(dataDir, DIRECTORY_ROM);
         mDisksDir = new File(dataDir, DIRECTORY_DISKS);
         mDownloadDir = new File(mCacheDir, DIRECTORY_DOWNLOADS);
         if (dataDir.isDirectory() && dataDir.canRead() &&
                 mCacheDir.isDirectory() && mCacheDir.canRead()) {
-            mRomDir.mkdirs();
-            mDisksDir.mkdirs();
-            mDownloadDir.mkdirs();
+            if ((!mRomDir.isDirectory() && !mRomDir.mkdirs()) ||
+                    (!mDisksDir.isDirectory() && !mDisksDir.mkdirs()) ||
+                    (!mDownloadDir.isDirectory() && !mDownloadDir.mkdirs())) return false;
             mIsInitialized = true;
             return true;
         }

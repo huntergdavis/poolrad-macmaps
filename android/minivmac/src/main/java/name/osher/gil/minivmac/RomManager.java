@@ -66,6 +66,8 @@ public class RomManager {
 
     public String getRomName() { return _romName; }
 
+    static String knownRomName(long checksum) { return _romVersions.get((int) checksum); }
+
     public String getRomFileName() { return _romFileName; }
 
     public long getRomChecksum() {

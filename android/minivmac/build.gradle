@@ -7,7 +7,8 @@ android {
     ndkVersion '27.0.12077973'
 
     defaultConfig {
-        versionCode 71
+        versionCode 72
+        buildConfigField 'boolean', 'PERSONAL_PACKAGE', 'false'
 
         minSdkVersion 21
         targetSdkVersion 34
@@ -20,6 +21,13 @@ android {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.txt'
         }
+        personal {
+            initWith debug
+            matchingFallbacks = ['debug']
+            signingConfig signingConfigs.debug
+            versionNameSuffix '-personal'
+            buildConfigField 'boolean', 'PERSONAL_PACKAGE', 'true'
+        }
     }
 
     flavorDimensions = ['machine']
@@ -27,7 +35,7 @@ android {
         macPlus {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.plus'
-            versionName '0.6.0'
+            versionName '0.7.0'
 
             externalNativeBuild {
                 ndkBuild {
@@ -39,7 +47,7 @@ android {
         macII {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.ii'
-            versionName '0.6.0'
+            versionName '0.7.0'
 
             externalNativeBuild {
                 ndkBuild {
@@ -67,7 +75,43 @@ android {
         viewBinding true
         buildConfig true
     }
+    // Never attach private files to main/debug/release, even when the property is present.
+    sourceSets.personal.assets.srcDir layout.buildDirectory.dir('generated/personalAssets')
     namespace 'name.osher.gil.minivmac'
+}
+
+androidComponents {
+    beforeVariants(selector().withBuildType('personal')) { variant ->
+        if (variant.productFlavors.any { it.second == 'macPlus' }) variant.enable = false
+    }
+}
+
+def personalBundle = providers.gradleProperty('poolradPersonalBundle')
+def personalAssets = layout.buildDirectory.dir('generated/personalAssets')
+def personalTool = rootProject.file('../tools/prepare-personal-package.py')
+tasks.register('preparePersonalAssets') {
+    inputs.file personalTool
+    inputs.property 'bundlePath', personalBundle.orElse('')
+    inputs.files { personalBundle.isPresent() ? fileTree(file(personalBundle.get())) : files() }
+    outputs.dir personalAssets
+    doLast {
+        if (!personalBundle.isPresent()) throw new GradleException(
+                'Personal build requires -PpoolradPersonalBundle=/absolute/prepared/bundle. See docs/PERSONAL_PACKAGE.md. Public builds need no private files.')
+        File source = file(personalBundle.get()).canonicalFile
+        File destination = personalAssets.get().asFile.canonicalFile
+        File expected = new File(layout.buildDirectory.get().asFile.canonicalFile, 'generated/personalAssets')
+        if (destination != expected)
+            throw new GradleException('Refusing a redirected generated personal-assets directory.')
+        if (source.toPath().startsWith(destination.toPath()) || destination.toPath().startsWith(source.toPath()))
+            throw new GradleException('Private input and generated output must be separate directories.')
+        // Validate before removing only this task's disposable generated output.
+        exec { commandLine 'python3', personalTool, 'verify', source }
+        delete destination
+        exec { commandLine 'python3', personalTool, 'stage', source, destination }
+    }
+}
+tasks.matching { it.name == 'mergeMacIIPersonalAssets' }.configureEach {
+    dependsOn 'preparePersonalAssets'
 }
 
 tasks.register('verifyRuneArtwork') {

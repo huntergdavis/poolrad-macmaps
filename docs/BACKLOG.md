@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 198 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 213 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -33,11 +33,12 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.5.2 | Current/max party health through combat; real damage, healing, reorder and reload verified |
 | Done — 0.5.3 | Pen-only input, finger zoom/pan and larger flag targets; physical pen acceptance remains open |
 | Done — 0.6.0 | Complete notebook backups/restore, readable PNG pages and confirmed notebook removal |
+| Done — 0.7.0 | Opt-in personal APK, verified first-use import, save-preserving updates; public APK stays BYO-files |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, expanded party details,
-bundled personal APK, physical pen acceptance, or wallpaper
+optional asset-fetching pipeline, physical pen acceptance, or wallpaper
 controls. Separate area-wide drawing was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -155,7 +156,7 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item; B1 is next after the completed N4 slice.
+  actionable software item; B2 is next after the completed B1 slice.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -174,11 +175,19 @@ After the immediate P0 fixes, prioritize the ready-to-play package, startup and
 wallpaper below, then Journal and the remaining comfort work. Correctness checks
 are gates for the affected feature, not a second giant framework project.
 
-- [ ] **B1 — Ready-to-play personal package.** An opt-in bundled build imports
+- [x] **B1 — Ready-to-play personal package.** An opt-in bundled build imports
   the supplied boot/game images (and a compatible ROM if permitted), verifies
   their hashes, and copies them into private writable storage only on first use.
   Updating the app must never replace existing disks/saves. Keep a recovery/import
   path and a public bring-your-own-files flavor. No private images in Git.
+  **Delivered 0.7.0:** the explicit personal build verifies and installs the
+  supplied ROM/combined startup disk, then boots and launches the original game.
+  Write-failure Retry and remembered manual import pass on a fresh emulator.
+  Personal and public in-place APK updates preserve the already-modified disk,
+  ROM and receipt byte-for-byte. Public artifact checks reject private payloads
+  even with a prior personal build cached. 213 Java tests and 16 synthetic
+  builder tests pass. [Guide](PERSONAL_PACKAGE.md) · [evidence and emulator
+  interruptions](LOCAL_TESTING.md). Physical tablet acceptance is not claimed.
 - [ ] **B2 — Optional asset-fetching build pipeline.** Fetch explicitly configured
   images from a pinned repository/source into ignored private build inputs;
   verify checksums and fail clearly when absent or changed. No implicit checkout
@@ -216,6 +225,11 @@ are gates for the affected feature, not a second giant framework project.
   Auto-collapse the sidebar on narrow windows rather than shrink the game.
   **Immediate health subset promoted to F7:** current/max HP and compact names
   are now requested first. AC, portraits and expanded details remain here.
+  **Fresh-save coverage follow-up from 0.7.0:** the original SampleParty on the
+  combined disk loads New Phlan/Rolf and the live map, but companion HP bars
+  remain unavailable. B1 does not change the party reader or its polling.
+  Inspect fresh-save slot/heap validation before claiming the postcombat F7
+  acceptance covers this starting state; the cause is not yet established.
 - [ ] **W1 — PoolRad → Desktop appearance.** First offer a quiet flat guest
   desktop and Restore original. Then an optional restrained monochrome fantasy
   motif or user-imported image, previewed before applying. This is the actual

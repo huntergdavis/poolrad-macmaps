@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.6.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.6.0)
+[0.7.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.7.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.6.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.6.0/poolrad-macmaps-0.6.0.apk)
+   [`poolrad-macmaps-0.7.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.7.0/poolrad-macmaps-0.7.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -28,6 +28,12 @@ The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
    Load/create your party normally; the map appears when supported area state
    is available. For automatic launch from one combined disk, use the optional
    [personal boot-disk builder](PERSONAL_BOOT.md).
+
+For a private APK that supplies **your own files** on first launch, see the
+[personal-package guide](PERSONAL_PACKAGE.md). It skips steps 3–5 on a fresh
+installation when the combined disk includes the startup alias. Existing
+installs are left alone, and updates never replace their writable disks.
+The public APK above remains bring-your-own-files.
 
 The tested configuration is the Mac II flavor with a 256 KiB Mac II ROM and
 the game application named `Pool of Radiance v1.1`. The mapper currently relies
