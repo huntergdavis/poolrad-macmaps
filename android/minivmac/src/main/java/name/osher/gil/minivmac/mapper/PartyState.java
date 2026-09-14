@@ -12,6 +12,9 @@ public final class PartyState {
     public static final int ROW_SIZE = 20;
     public static final int PACKET_SIZE = 8 + MAX_MEMBERS * ROW_SIZE;
     public static final int CONDITION_PACKET_SIZE = PACKET_SIZE + MAX_MEMBERS * 2;
+    /** Eight per-member spell blocks follow the condition pairs. */
+    public static final int SPELL_STRIDE = 8, SPELL_LEVELS = 3, SPELL_SLOTS = 21;
+    public static final int SPELL_PACKET_SIZE = CONDITION_PACKET_SIZE + MAX_MEMBERS * SPELL_STRIDE;
     public static final int POISONED = 1, HELPLESS = 2;
     private static final String[] CONDITION_LABELS = {
             "Okay", "Animated", "Temporarily gone", "Running", "Unconscious",
@@ -39,12 +42,20 @@ public final class PartyState {
         /** Only poison/helplessness flags; -1 means the effect list was unavailable. */
         public final int trackedEffects;
         private final boolean hasConditionSample;
+        /**
+         * Memorized spells the game reports ready to cast, and those the player
+         * chose that still need rest, counted per spell level 1..3. Null means
+         * this member's spell array could not be read; it is never guessed.
+         */
+        private final int[] ready, awaitingRest;
         private Member(String name, int currentHp, int maxHp, Integer armorClass, int characterClass,
-                       int condition, int trackedEffects, boolean hasConditionSample) {
+                       int condition, int trackedEffects, boolean hasConditionSample,
+                       int[] ready, int[] awaitingRest) {
             this.name = name; this.currentHp = currentHp; this.maxHp = maxHp;
             this.armorClass = armorClass; this.characterClass = characterClass;
             this.condition = condition; this.trackedEffects = trackedEffects;
             this.hasConditionSample = hasConditionSample;
+            this.ready = ready; this.awaitingRest = awaitingRest;
         }
         public float healthFraction() { return currentHp / (float) maxHp; }
         public String classLabel() { return characterClass < 0 ? "Class unavailable" : CLASS_LABELS[characterClass]; }
@@ -76,6 +87,44 @@ public final class PartyState {
             if (hasConditionSample && (condition < 0 || trackedEffects < 0)) return "?";
             return "";
         }
+        public boolean spellsAvailable() { return ready != null; }
+        /** Spells of this level the game will let the character cast right now. */
+        public int spellsReady(int level) {
+            return ready == null || level < 1 || level > SPELL_LEVELS ? 0 : ready[level - 1];
+        }
+        /** Spells chosen through the game's own Memorize screen that still need rest. */
+        public int spellsAwaitingRest(int level) {
+            return awaitingRest == null || level < 1 || level > SPELL_LEVELS ? 0 : awaitingRest[level - 1];
+        }
+        public int spellsReadyTotal() {
+            int total = 0; for (int l = 1; l <= SPELL_LEVELS; l++) total += spellsReady(l); return total;
+        }
+        public int spellsAwaitingRestTotal() {
+            int total = 0; for (int l = 1; l <= SPELL_LEVELS; l++) total += spellsAwaitingRest(l); return total;
+        }
+        /** True only when the game itself is holding spells that rest would finish. */
+        public boolean restWouldMemorize() { return spellsAwaitingRestTotal() > 0; }
+        private static String byLevel(Member member, boolean waiting) {
+            StringBuilder out = new StringBuilder();
+            for (int level = 1; level <= SPELL_LEVELS; level++) {
+                int count = waiting ? member.spellsAwaitingRest(level) : member.spellsReady(level);
+                if (count == 0) continue;
+                if (out.length() > 0) out.append(", ");
+                out.append("level ").append(level).append(" \u00d7 ").append(count);
+            }
+            return out.toString();
+        }
+        public String spellsReadyLabel() {
+            if (ready == null) return "Spell readiness unavailable";
+            String detail = byLevel(this, false);
+            return detail.isEmpty() ? "No spells ready to cast" : "Ready to cast: " + detail;
+        }
+        public String spellsAwaitingRestLabel() {
+            if (awaitingRest == null) return "Spell readiness unavailable";
+            String detail = byLevel(this, true);
+            return detail.isEmpty() ? "Nothing waiting on rest" : "Awaiting rest: " + detail;
+        }
+
         public String badgeMeaning() {
             switch (badge()) {
                 case "X": return "Dead";
@@ -110,10 +159,12 @@ public final class PartyState {
 
     /** Null means unavailable. A previous packet must not remain labeled live. */
     public static PartyState parse(byte[] data) {
-        if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R'
-                || data[2] != 'P' || (data[3] != '1' && data[3] != '2' && data[3] != '3')) return null;
-        boolean conditions = data[3] == '3';
-        if (data.length != (conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE)) return null;
+        if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
+                || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4')) return null;
+        boolean spells = data[3] == '4';
+        boolean conditions = spells || data[3] == '3';
+        if (data.length != (spells ? SPELL_PACKET_SIZE : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
+            return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
         if (count < 1 || count > MAX_MEMBERS || data[5] != 0 || data[6] != 0 || data[7] != 0) return null;
@@ -123,6 +174,8 @@ public final class PartyState {
             if (index >= count) {
                 for (int offset = 0; offset < ROW_SIZE; offset++) if (data[start + offset] != 0) return null;
                 if (conditions && (data[PACKET_SIZE + index * 2] != 0 || data[PACKET_SIZE + index * 2 + 1] != 0)) return null;
+                if (spells) for (int offset = 0; offset < SPELL_STRIDE; offset++)
+                    if (data[CONDITION_PACKET_SIZE + index * SPELL_STRIDE + offset] != 0) return null;
                 continue;
             }
             int length = 0;
@@ -165,13 +218,35 @@ public final class PartyState {
                 if (effects == 255) effects = -1;
                 else if (effects > (POISONED | HELPLESS)) return null;
             }
+            int[] ready = null, awaitingRest = null;
+            if (spells) {
+                int block = CONDITION_PACKET_SIZE + index * SPELL_STRIDE;
+                int status = data[block] & 255;
+                if (status != 0 && status != 255) return null;
+                if (data[block + 7] != 0) return null;
+                if (status == 255) {
+                    for (int offset = 1; offset < SPELL_STRIDE; offset++)
+                        if (data[block + offset] != 0) return null;
+                } else {
+                    ready = new int[SPELL_LEVELS]; awaitingRest = new int[SPELL_LEVELS];
+                    int total = 0;
+                    for (int level = 0; level < SPELL_LEVELS; level++) {
+                        ready[level] = data[block + 1 + level] & 255;
+                        awaitingRest[level] = data[block + 4 + level] & 255;
+                        total += ready[level] + awaitingRest[level];
+                    }
+                    // The game's own array holds at most 21 slots; more is malformed.
+                    if (total > SPELL_SLOTS) return null;
+                }
+            }
             final String name;
             try {
                 // ASCII names need no optional charset. Accented Mac names are
                 // decoded as Mac Roman, never misrepresented as UTF-8/Latin-1.
                 name = new String(data, start, length, Charset.forName(extended ? "x-MacRoman" : "US-ASCII"));
             } catch (IllegalArgumentException unavailableCharset) { return null; }
-            members.add(new Member(name, current, maximum, armorClass, characterClass, condition, effects, conditions));
+            members.add(new Member(name, current, maximum, armorClass, characterClass,
+                    condition, effects, conditions, ready, awaitingRest));
         }
         return new PartyState(members, data);
     }

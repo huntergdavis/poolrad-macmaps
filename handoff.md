@@ -1,8 +1,9 @@
 # PoolRad Mac Maps — continuation handoff
 
-Updated 2026-09-14. **R8 is complete for v0.17.0**, following R5 in v0.16.0 and
-R1 in v0.15.0. See [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk
-checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
+Updated 2026-09-14. **R3 is complete for v0.18.0**, following R8 (0.17.0),
+R5 (0.16.0) and R1 (0.15.0). See
+[docs/SPELL_READINESS.md](docs/SPELL_READINESS.md) for the memorized-spell
+array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
 [docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for backup contents, and
 [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
 
@@ -41,6 +42,28 @@ checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
   debug build succeeds. No new guest gameplay/device acceptance was performed.
 - Q2 itself was tools-only; REF5 now advances the public app to v0.14.0.
   Existing installed disks, saves and private APK bundle remain unchanged.
+
+## R3 delivered
+
+- Character details gained per-level **Ready to cast** and **Awaiting rest**
+  counts, plus a rest reminder shown only when something is actually waiting.
+  The party sidebar is unchanged, so no View harness needed updating.
+- Source of truth is the character's own **21-slot array at `+0x17`**:
+  `0` empty, `1..0x7f` ready, `0x80|id` awaiting rest. Five agreeing code sites
+  (CODE4 `+0x0ac2` memorize, CODE4 `+0x27c6` rest, CODE6 `+0x2790` cast list,
+  CODE3 `+0x1562` cast consume, CODE6 `+0x4450` reset). Spell level is byte `+1`
+  of the 16-byte entry at `A5-0xe84`.
+- **Only counts leave the native reader.** New 248-byte PRP4 packet; PRP1/2/3
+  still parse with spells unavailable.
+- **393 Java tests and the rebuilt native suite pass.** Native coverage includes
+  every spell id 1..127 in both states and every invalid level byte.
+- Live: memorizing Cure Light Wounds gave "Awaiting rest: level 1 × 1" matching
+  the guest's own pending list and its `Cleric Spells: 3` → `2` line; the city
+  watch interrupting the rest returned both to empty together.
+  **A completed rest was never observed** — every rest in that street was
+  interrupted — so "ready to cast" rests on the decoder tests, not live play.
+- The game's `Cleric Spells: N` allowance at record `+0xba + class*4 + level` is
+  a **remaining** count, not a daily capacity. It is deliberately not presented.
 
 ## R8 delivered
 
@@ -150,9 +173,10 @@ Everything below remains ignored; do not publish it.
   SHA-256 `a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
   Copy this separately to the tablet and import under Info → Journal. The older
   `scratch/poolrad-journal.prjr` was a test draft; use the versioned file instead.
-- Public universal APK: `scratch/poolrad-macmaps-0.17.0.apk`;
-  SHA-256 `b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`.
-  Earlier builds remain for comparison: 0.16.0
+- Public universal APK: `scratch/poolrad-macmaps-0.18.0.apk`;
+  SHA-256 `fe396d9ae192fd67155bbfdb0e84cba755941ea7f5a45ee3dd8bda07ade19f94`.
+  Earlier builds remain for comparison: 0.17.0
+  `b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`, 0.16.0
   `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`, 0.15.0
   `b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`, 0.14.0
   `84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
@@ -190,11 +214,12 @@ REF5 uses the isolated `poolrad-package-test` AVD on emulator-5584. Shut down
 the guest normally before stopping it. **emulator-5580 is not owned by this
 task: do not kill/reset/install over it.** Check current ADB/process state before
 reusing 5584. No app data was cleared or campaign disk replaced for REF5.
-At handoff, 5584 is left running the final 0.17.0 APK. `disk1.dsk` has been
-restored from a checkpoint and cold-boots clean; two checkpoints are stored
-(`8a918d7d…` and the `ba177721…` safety copy) and can be deleted freely. The
-party sidebar, journal history, tasks, flag links and the checkpoint panel have
-been checked, not a new campaign playthrough. **Driving guest menus works with `adb shell input
+At handoff, 5584 is left running the final 0.18.0 APK with `SampleParty` loaded
+in New Phlan after the guided tour, out of camp. Two checkpoints are stored
+(`8a918d7d…` and the `ba177721…` safety copy) and can be deleted freely.
+The party sidebar, journal history, tasks, flag links, the checkpoint panel and
+the spell lines have been checked, not a new campaign playthrough. Nothing was
+saved inside the guest; the memorize experiments live only in guest RAM. **Driving guest menus works with `adb shell input
 motionevent DOWN/MOVE/UP`**, which holds the classic Mac menu open across
 separate commands so it can be screenshotted; a plain `input tap` or `input
 swipe` closes it again before capture. Do not

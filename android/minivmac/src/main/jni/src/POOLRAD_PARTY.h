@@ -12,7 +12,10 @@
 #define POOLRAD_PARTY_MAX_LINKS (POOLRAD_PARTY_MAX_MEMBERS + POOLRAD_PARTY_MAX_COMBATANTS)
 #define POOLRAD_PARTY_ROW_SIZE 20
 #define POOLRAD_PARTY_BASE_SIZE (8 + POOLRAD_PARTY_MAX_MEMBERS * POOLRAD_PARTY_ROW_SIZE)
-#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_BASE_SIZE + 2 * POOLRAD_PARTY_MAX_MEMBERS)
+#define POOLRAD_PARTY_CONDITION_SIZE (POOLRAD_PARTY_BASE_SIZE + 2 * POOLRAD_PARTY_MAX_MEMBERS)
+#define POOLRAD_PARTY_SPELL_STRIDE 8
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_CONDITION_SIZE \
+        + POOLRAD_PARTY_SPELL_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -32,6 +35,13 @@
 #define POOLRAD_PARTY_POISONED 1
 #define POOLRAD_PARTY_HELPLESS 2
 #define POOLRAD_PARTY_EFFECT_LIMIT 64
+/* CODE6 +0x27d8, CODE4 +0x2896 and CODE6 +0x4472 all bound this array at 21. */
+#define POOLRAD_PARTY_SPELL_OFFSET 0x17
+#define POOLRAD_PARTY_SPELL_SLOTS 21
+#define POOLRAD_PARTY_SPELL_TABLE_BACK 0xe84
+#define POOLRAD_PARTY_SPELL_ENTRY 16
+#define POOLRAD_PARTY_SPELL_LEVELS 3
+#define POOLRAD_PARTY_SPELLS_UNAVAILABLE 0xff
 
 /* CODE3 +0x2406 looks up an effect ID at node+0, following node+6 handles.
  * CODE11 +0x0ea2 allocates 10-byte nodes. As with characters, verify logical
@@ -62,6 +72,42 @@ static unsigned char poolrad_party_effects(const unsigned char *ram, size_t size
         handle = poolrad_u32(ram + node + 6) & 0x00ffffff;
     }
     return (unsigned char) flags;
+}
+
+/* Memorized-spell readiness, from the character's own 21-slot array at +0x17.
+ * CODE4 +0x0ac2..+0x0b08 stores a chosen spell into the first zero slot with
+ * bit 7 SET; CODE4 +0x27c6..+0x288a clears that bit while resting and reports
+ * "has memorized"; CODE6 +0x2790..+0x27cc offers only slots below 0x80 to Cast;
+ * CODE3 +0x1562..+0x15a2 zeroes the matching slot when one is cast. So a slot
+ * is empty (0), ready to cast (1..0x7f) or awaiting rest (bit 7 set).
+ * The spell's level is byte +1 of its 16-byte entry in the game's own table at
+ * A5-0xe84, indexed by the low seven bits (CODE6 +0x23fa..+0x2402).
+ * Only per-level counts leave this reader: never a spell list or raw slot bytes.
+ * Any unreadable table, out-of-range level or bad bound makes this one member's
+ * counts unavailable; names, health, AC, class and condition stay valid.
+ */
+static int poolrad_party_spells(const unsigned char *ram, size_t size, uint32_t a5,
+        uint32_t record, unsigned char *out) {
+    uint32_t table;
+    unsigned ready[POOLRAD_PARTY_SPELL_LEVELS] = {0}, waiting[POOLRAD_PARTY_SPELL_LEVELS] = {0};
+    if (a5 < POOLRAD_PARTY_SPELL_TABLE_BACK) return 0;
+    table = a5 - POOLRAD_PARTY_SPELL_TABLE_BACK;
+    if (!poolrad_range(table, 128 * POOLRAD_PARTY_SPELL_ENTRY, size)) return 0;
+    for (unsigned slot = 0; slot < POOLRAD_PARTY_SPELL_SLOTS; slot++) {
+        unsigned value = ram[record + POOLRAD_PARTY_SPELL_OFFSET + slot];
+        unsigned id = value & 0x7f, level;
+        if (value == 0) continue; /* CODE4 +0x0ade treats zero as a free slot. */
+        level = ram[table + id * POOLRAD_PARTY_SPELL_ENTRY + 1];
+        if (level < 1 || level > POOLRAD_PARTY_SPELL_LEVELS) return 0;
+        if (value & 0x80) waiting[level - 1]++; else ready[level - 1]++;
+    }
+    out[0] = 0;
+    for (unsigned level = 0; level < POOLRAD_PARTY_SPELL_LEVELS; level++) {
+        out[1 + level] = (unsigned char) ready[level];
+        out[4 + level] = (unsigned char) waiting[level];
+    }
+    out[7] = 0;
+    return 1;
 }
 
 /* PRP3: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
@@ -160,10 +206,18 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
         packet[POOLRAD_PARTY_BASE_SIZE + count * 2] = ram[record + POOLRAD_PARTY_CONDITION_OFFSET] <= 8
                 ? ram[record + POOLRAD_PARTY_CONDITION_OFFSET] : POOLRAD_PARTY_UNKNOWN_CONDITION;
         packet[POOLRAD_PARTY_BASE_SIZE + count * 2 + 1] = poolrad_party_effects(ram, size, record);
+        {
+            unsigned char *spells = packet + POOLRAD_PARTY_CONDITION_SIZE
+                    + count * POOLRAD_PARTY_SPELL_STRIDE;
+            if (!poolrad_party_spells(ram, size, a5, record, spells)) {
+                spells[0] = POOLRAD_PARTY_SPELLS_UNAVAILABLE;
+                for (unsigned i = 1; i < POOLRAD_PARTY_SPELL_STRIDE; i++) spells[i] = 0;
+            }
+        }
         count++;
     }
     if (count == 0) return 0;
-    memcpy(packet, "PRP3", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP4", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

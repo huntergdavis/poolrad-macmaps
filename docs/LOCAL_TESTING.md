@@ -1,5 +1,50 @@
 # Local Android prototype
 
+## R3 — spell readiness (2026-09-14, v0.18.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.18.0.apk`, SHA-256
+`fe396d9ae192fd67155bbfdb0e84cba755941ea7f5a45ee3dd8bda07ade19f94`, versionCode 84.
+Offsets, the five code sites and the PRP4 packet: [SPELL_READINESS.md](SPELL_READINESS.md).
+
+Automated suites:
+
+- Native `tools/test-party-probe.c` built with `-Wall -Wextra` passes, now also
+  covering an empty array, all 21 slots filled alternating ready and awaiting
+  across three levels, **every spell id 1..127 in both states**, every invalid
+  level byte (0 and 4..255), spell id 0 with bit 7 set, per-member independence
+  with one unreadable member beside two readable ones, and the table bound.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **393 tests,
+  zero failures/errors/skips** (385 before); `PartySpellTest` adds eight.
+- `check-wheel-apk.mjs` passes. The party sidebar is unchanged, so the existing
+  View harnesses were not affected; Python helpers were not re-run.
+- Private RAM replay: all captures decode with an entirely empty spell array,
+  which is the documented empty state, with HP/AC/class/condition unchanged.
+
+Live on isolated `poolrad-package-test`, emulator-5584, after a normal game quit,
+**Special → Shut Down** and a `/proc/<pid>/fd` check showing no `.dsk` handle:
+
+- Baseline: Zarram (Cleric) read `No spells ready to cast` and `Nothing waiting
+  on rest` — available and empty, not "unavailable": `scratch/r3-baseline.png`.
+- Playing the original game's Encamp → Magic → Memorize and choosing **Cure
+  Light Wounds** moved the game's own allowance line from `Cleric Spells: 3` to
+  `2` (`scratch/r3-game-memorize.png`). The companion then read **Awaiting rest:
+  level 1 × 1** with the rest reminder, while the guest's own *Zarram's Spells
+  to be memorized* window listed exactly `*Cure Light Wounds` under `1st Level`:
+  `scratch/r3-awaiting-rest.png`. The level and the state both match the game.
+- The game calculated `Rest Time: 00:04:15`, and the city watch interrupted the
+  rest after five game-minutes. The companion then read `Nothing waiting on
+  rest`, and the game's allowance had returned to `Cleric Spells: 3` — the
+  pending spell really was discarded: `scratch/r3-after-interrupt.png`.
+
+**Not claimed: a completed rest was never observed.** Every rest attempt in that
+New Phlan street was interrupted by the city watch, so the transition to *Ready
+to cast* is covered by the decoder tests over all 127 spell ids rather than by
+live play. The per-level allowance the game prints (`Cleric Spells: 3`) is a
+**remaining** count, not a daily capacity — that is why it is not presented.
+No character was played into casting, and physical e-ink acceptance of these
+lines is untested. The user's `m1gate` save was never opened; only the
+`SampleParty` load was used, and nothing was saved to the guest.
+
 ## R8 — disk save checkpoints (2026-09-14, v0.17.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.17.0.apk`, SHA-256

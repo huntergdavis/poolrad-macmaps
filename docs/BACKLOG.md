@@ -50,13 +50,14 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.15.0 | Verified party condition badges, poison/helpless effects and condition text on tap |
 | Done — 0.16.0 | Journal history inside the notebook and its backup; player-made flag links and checked tasks |
 | Done — 0.17.0 | Verified disk checkpoints with automatic undo copy, taken only while the Mac is shut down |
+| Done — 0.18.0 | Per-level memorized-spell readiness, awaiting-rest counts and a rest reminder in character details |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: dedicated tactical/wilderness maps, party equipment, training and
-spell readiness, automatic journal detection, a dedicated Notes index, or the
-remaining rotation/keyboard hardware checks. Party conditions ship in 0.15.0 and
+Not done: dedicated tactical/wilderness maps, party equipment, training,
+automatic journal detection, a dedicated Notes index, or the remaining
+rotation/keyboard hardware checks. Party conditions ship in 0.15.0 and
 journal/map-note linking in 0.16.0; equipment and the other character panels
 do not. Separate area-wide drawing
 was replaced by the shipped flag pages.
@@ -507,9 +508,23 @@ research for sources and portability limits.
   [Badges and Mac evidence](PARTY_CONDITIONS.md) · [checks](LOCAL_TESTING.md).
 - [ ] **R2 — Training readiness.** Small XP progress and a training reminder;
   respect class/race limits and normal training, not automatic level-ups.
-- [ ] **R3 — Spell readiness.** Prepared-versus-spent spell uses and optional
+- [x] **R3 — Spell readiness.** Prepared-versus-spent spell uses and optional
   resting reminder in expanded party details. No invented mana gauge or
   instant spell restoration.
+  **Delivered 0.18.0:** character details now say which memorized spells the
+  game will let that character cast right now and which ones they chose that
+  still need rest, counted per spell level, with a rest reminder only when
+  something is actually waiting. Read from the character's own 21-slot array at
+  `+0x17`, whose three states are fixed by five agreeing code sites, with the
+  spell level taken from the game's own table. Only counts leave the reader —
+  never a spell list or a raw slot byte. The new PRP4 packet keeps PRP1/2/3
+  readable with spells unavailable. No mana gauge, and the app never memorizes,
+  casts, rests or restores anything. 393 Java tests and the rebuilt native suite
+  pass. **Live:** memorizing Cure Light Wounds in the original game produced
+  "Awaiting rest: level 1 × 1" matching the guest's own pending list and its
+  3→2 allowance, and the city watch interrupting the rest returned both to
+  empty. A completed rest was never observed, so "ready to cast" rests on the
+  decoder tests. [Evidence](SPELL_READINESS.md) · [checks](LOCAL_TESTING.md).
 - [ ] **R4 — Equipment at a glance.** Readied weapon/armor, ammunition if
   verified, and a carrying-load/movement warning; no equipment editing.
 - [x] **R5 — Journal ↔ handwritten notebook.** Extend REF5 by linking viewed

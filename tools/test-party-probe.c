@@ -63,6 +63,21 @@ static void effects_unknown(void) {
     assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == POOLRAD_PARTY_UNKNOWN_EFFECTS);
 }
 
+/* Writes a spell-table entry: byte +1 of the 16-byte record is its level. */
+static void spell_level(unsigned id, unsigned level) {
+    ram[fixture_a5 - POOLRAD_PARTY_SPELL_TABLE_BACK + id * POOLRAD_PARTY_SPELL_ENTRY + 1] =
+            (unsigned char) level;
+}
+static const unsigned char *spells_of(unsigned member) {
+    return output + POOLRAD_PARTY_CONDITION_SIZE + member * POOLRAD_PARTY_SPELL_STRIDE;
+}
+static void spells_unavailable(unsigned member) {
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(spells_of(member)[0] == POOLRAD_PARTY_SPELLS_UNAVAILABLE);
+    for (unsigned i = 1; i < POOLRAD_PARTY_SPELL_STRIDE; i++) assert(spells_of(member)[i] == 0);
+    assert(output[24] == 10 && output[25] == 10); /* Health survives missing spells. */
+}
+
 static void combat_fixture(unsigned members, unsigned combatants) {
     /* Keep the largest fixture clear of A5 globals and the geometry block. */
     fixture(0x6000, 0x2000, 0x8000, members + combatants);
@@ -76,7 +91,7 @@ static void combat_fixture(unsigned members, unsigned combatants) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP3", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP4", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -153,6 +168,86 @@ static void tests(void) {
         assert(poolrad_party_probe(ram, sizeof(ram), output));
         assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == ((18 + pad) % 4 ? 255 : 1));
     }
+
+    /* Memorized-spell readiness: empty, ready and awaiting-rest slots. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned id = 1; id < 128; id++) spell_level(id, (id % 3) + 1);
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    for (unsigned i = 0; i < POOLRAD_PARTY_SPELL_STRIDE; i++) assert(spells_of(0)[i] == 0);
+
+    /* Every slot filled, alternating ready and awaiting, across all three levels. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned id = 1; id < 128; id++) spell_level(id, (id % 3) + 1);
+    for (unsigned slot = 0; slot < POOLRAD_PARTY_SPELL_SLOTS; slot++) {
+        unsigned id = slot + 1;
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + slot] =
+                (unsigned char) ((slot % 2) ? id | 0x80 : id);
+    }
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    {
+        unsigned ready[3] = {0}, waiting[3] = {0};
+        for (unsigned slot = 0; slot < POOLRAD_PARTY_SPELL_SLOTS; slot++) {
+            unsigned id = slot + 1, level = (id % 3) + 1;
+            if (slot % 2) waiting[level - 1]++; else ready[level - 1]++;
+        }
+        assert(spells_of(0)[0] == 0);
+        for (unsigned level = 0; level < 3; level++) {
+            assert(spells_of(0)[1 + level] == ready[level]);
+            assert(spells_of(0)[4 + level] == waiting[level]);
+        }
+        assert(spells_of(0)[7] == 0);
+    }
+
+    /* Bit 7 alone distinguishes awaiting rest from ready for the same spell. */
+    for (unsigned id = 1; id < 128; id++) {
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        for (unsigned n = 1; n < 128; n++) spell_level(n, ((n + 1) % 3) + 1);
+        unsigned level = ((id + 1) % 3) + 1;
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = (unsigned char) id;
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(spells_of(0)[1 + level - 1] == 1 && spells_of(0)[4 + level - 1] == 0);
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = (unsigned char) (id | 0x80);
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(spells_of(0)[1 + level - 1] == 0 && spells_of(0)[4 + level - 1] == 1);
+    }
+
+    /* An out-of-range spell level is unavailable, never counted or clamped. */
+    for (unsigned level = 0; level < 256; level++) {
+        if (level >= 1 && level <= POOLRAD_PARTY_SPELL_LEVELS) continue;
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        for (unsigned n = 1; n < 128; n++) spell_level(n, 1);
+        spell_level(9, level);
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = 9;
+        spells_unavailable(0);
+    }
+
+    /* Slot 0x80 is awaiting rest for spell id 0, whose level must still be valid. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned n = 0; n < 128; n++) spell_level(n, 2);
+    ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = 0x80;
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(spells_of(0)[5] == 1 && spells_of(0)[2] == 0);
+
+    /* Members keep independent counts and unavailability. */
+    fixture(0xe000, 0x2000, 0x3000, 3);
+    for (unsigned n = 1; n < 128; n++) spell_level(n, 1);
+    spell_level(40, 9); /* Only the third member's spell has a bad level. */
+    ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = 5;
+    ram[member_record(1) + POOLRAD_PARTY_SPELL_OFFSET] = 6 | 0x80;
+    ram[member_record(2) + POOLRAD_PARTY_SPELL_OFFSET] = 40;
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(spells_of(0)[0] == 0 && spells_of(0)[1] == 1 && spells_of(0)[4] == 0);
+    assert(spells_of(1)[0] == 0 && spells_of(1)[1] == 0 && spells_of(1)[4] == 1);
+    assert(spells_of(2)[0] == POOLRAD_PARTY_SPELLS_UNAVAILABLE);
+
+    /* The whole 128-entry table must be in range before any level is read. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned n = 1; n < 128; n++) spell_level(n, 1);
+    ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET] = 3;
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(spells_of(0)[0] == 0 && spells_of(0)[1] == 1);
+    assert(fixture_a5 - POOLRAD_PARTY_SPELL_TABLE_BACK
+            + 128 * POOLRAD_PARTY_SPELL_ENTRY <= sizeof(ram));
 
     fixture(0xf000, 0x2400, 0x4800, 8); // All bases relocate; no fixed capture address is used.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 8);
@@ -256,7 +351,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness and failure clearing passed.");
 }
 
 static int replay(const char *path) {
@@ -282,7 +377,13 @@ static int replay(const char *path) {
         else fprintf(stderr, "AC %d; ", row[18] < 128 ? row[18] : (int) row[18] - 256);
         if (row[19] == POOLRAD_PARTY_UNKNOWN_CLASS) fputs("class unknown; ", stderr);
         else fprintf(stderr, "class %u; ", row[19]);
-        fprintf(stderr,"condition %u; tracked effects %u\n", output[POOLRAD_PARTY_BASE_SIZE + i * 2], output[POOLRAD_PARTY_BASE_SIZE + i * 2 + 1]);
+        fprintf(stderr,"condition %u; tracked effects %u; ", output[POOLRAD_PARTY_BASE_SIZE + i * 2], output[POOLRAD_PARTY_BASE_SIZE + i * 2 + 1]);
+        {
+            const unsigned char *sp = output + POOLRAD_PARTY_CONDITION_SIZE + i * POOLRAD_PARTY_SPELL_STRIDE;
+            if (sp[0] == POOLRAD_PARTY_SPELLS_UNAVAILABLE) fputs("spells unavailable\n", stderr);
+            else fprintf(stderr, "ready %u/%u/%u; awaiting rest %u/%u/%u\n",
+                    sp[1], sp[2], sp[3], sp[4], sp[5], sp[6]);
+        }
     }
     return fwrite(output, 1, sizeof(output), stdout) == sizeof(output) ? 0 : 1;
 }

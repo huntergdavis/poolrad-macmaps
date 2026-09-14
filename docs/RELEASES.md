@@ -1,5 +1,11 @@
 # Releases
 
+## 0.18.0 — Which spells are actually ready
+
+[Release notes](releases/0.18.0.md): per-level memorized-spell readiness,
+awaiting-rest counts and a rest reminder in character details, read from the
+game's own memorized list. No mana gauge and no spell restoration.
+
 ## 0.17.0 — A copy you can go back to
 
 [Release notes](releases/0.17.0.md): verified copies of a writable disk, taken
