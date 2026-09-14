@@ -66,6 +66,8 @@ and original disks; a normal Mac startup alias launches the game.
 **Your own ready-to-play APK:** [bundle those personal files](docs/PERSONAL_PACKAGE.md)
 for automatic first-use setup. Later updates never replace your writable disks.
 Private builds stay local; the public download remains bring-your-own-files.
+An optional [pinned-source build](docs/PERSONAL_ASSET_FETCH.md) can fetch your
+explicitly configured inputs once and reuse the verified local cache.
 
 ## Project
 

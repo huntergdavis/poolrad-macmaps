@@ -87,17 +87,58 @@ androidComponents {
 }
 
 def personalBundle = providers.gradleProperty('poolradPersonalBundle')
+def personalSources = providers.gradleProperty('poolradPersonalSources')
+def allowAssetFetch = providers.gradleProperty('poolradAllowAssetFetch')
 def personalAssets = layout.buildDirectory.dir('generated/personalAssets')
 def personalTool = rootProject.file('../tools/prepare-personal-package.py')
+def fetchTool = rootProject.file('../tools/fetch-personal-assets.py')
+File verifiedFetchedBundle = null
+def fetchedPersonalBundle = {
+    File config = file(personalSources.get())
+    if (!config.isFile() || config.length() < 1 || config.length() > 65536)
+        throw new GradleException('Personal source manifest is missing, empty or larger than 64 KiB. See docs/PERSONAL_ASSET_FETCH.md.')
+    String digest = java.security.MessageDigest.getInstance('SHA-256').digest(config.bytes).encodeHex().toString()
+    // Private inputs are deliberately outside build/, so clean does not force a download.
+    file("private-assets/fetched/${digest}")
+}
+def resolvePersonalBundle = {
+    if (personalBundle.isPresent() && personalSources.isPresent())
+        throw new GradleException('Choose poolradPersonalBundle OR poolradPersonalSources, not both.')
+    if (personalSources.isPresent()) return verifiedFetchedBundle ?: fetchedPersonalBundle()
+    if (personalBundle.isPresent()) return file(personalBundle.get())
+    throw new GradleException('Personal build requires -PpoolradPersonalBundle=/absolute/prepared/bundle or explicit poolradPersonalSources. See docs/PERSONAL_PACKAGE.md. Public builds need no private files.')
+}
+tasks.register('fetchPersonalAssets') {
+    group = 'build setup'
+    description = 'Explicitly fetch or verify pinned private ROM/disk inputs. Never publishes an APK.'
+    // No up-to-date shortcut: each invocation re-verifies all cached payloads.
+    doLast {
+        if (!personalSources.isPresent())
+            throw new GradleException('Asset fetching requires -PpoolradPersonalSources=/absolute/private/sources.json. No default download sources exist.')
+        File destination = resolvePersonalBundle()
+        if (allowAssetFetch.orElse('false').get() != 'true')
+            throw new GradleException('Pass -PpoolradAllowAssetFetch=true to acknowledge private inputs/APKs. See docs/PERSONAL_ASSET_FETCH.md.')
+        def arguments = ['python3', fetchTool, '--config', file(personalSources.get()),
+                         '--output', destination, '--config-sha256', destination.name,
+                         '--acknowledge-private-assets']
+        if (gradle.startParameter.offline) arguments.add('--offline')
+        exec { commandLine arguments }
+        // Do not reselect another cache if the manifest is edited during this build.
+        verifiedFetchedBundle = destination
+    }
+}
 tasks.register('preparePersonalAssets') {
+    dependsOn { personalSources.isPresent() ? ['fetchPersonalAssets'] : [] }
     inputs.file personalTool
     inputs.property 'bundlePath', personalBundle.orElse('')
-    inputs.files { personalBundle.isPresent() ? fileTree(file(personalBundle.get())) : files() }
+    inputs.property 'sourcesPath', personalSources.orElse('')
+    inputs.files {
+        personalBundle.isPresent() || personalSources.isPresent() ? fileTree(resolvePersonalBundle()) : files()
+    }
     outputs.dir personalAssets
+    outputs.upToDateWhen { false }
     doLast {
-        if (!personalBundle.isPresent()) throw new GradleException(
-                'Personal build requires -PpoolradPersonalBundle=/absolute/prepared/bundle. See docs/PERSONAL_PACKAGE.md. Public builds need no private files.')
-        File source = file(personalBundle.get()).canonicalFile
+        File source = resolvePersonalBundle().canonicalFile
         File destination = personalAssets.get().asFile.canonicalFile
         File expected = new File(layout.buildDirectory.get().asFile.canonicalFile, 'generated/personalAssets')
         if (destination != expected)

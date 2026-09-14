@@ -62,6 +62,44 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## B2 source-fetch build acceptance (2026-09-14)
+
+This is build tooling on `main` after 0.7.0, not a new Android runtime version.
+`python3 tools/test-fetch-personal-assets.py -v` passes **25 focused tests**:
+strict metadata/source pins, no-follow redirects, streaming lengths/hashes,
+ROM integrity, finite read timeouts, safe input-labeled errors, stage cleanup,
+private output confinement, and immutable/offline cache checks. The tests use
+synthetic bytes; the redirect test exercises the real handler against loopback.
+The existing 16 personal-package tests and three native sanitizer suites pass.
+The Android unit task was rerun, not merely accepted as up to date: **213 tests,
+zero failures/errors/skips**.
+
+A separate local HTTPS server serves a checksum-valid but nonbootable synthetic
+ROM and a 512-byte fake disk. Its short-lived test certificate is trusted only
+through `SSL_CERT_FILE` in the test build environment; production TLS validation
+is not disabled. The actual Gradle source-manifest route makes exactly two
+requests, verifies and packages those exact bytes in the Mac II universal
+personal APK. It also builds the public APK, whose artifact checker confirms
+all 72 unchanged rune GIFs and no `assets/personal/` metadata or private payload.
+
+Missing acknowledgement, conflicting bundle/source properties and an offline
+cache miss all fail **before any request**. With the HTTPS server stopped,
+offline preparation succeeds from its verified cache. Changing that fixture's
+cached disk then makes preparation fail even though old generated assets exist;
+it neither repairs the input nor falls back to the old assets. Restoring only
+the synthetic fixture permits the next offline preparation. A separate public
+build also succeeds with deliberately nonexistent/conflicting private paths,
+confirming it does not resolve private configuration at all.
+
+The ignored local route and logs are `scratch/check-b2-build.py` and
+`android/minivmac/private-assets/b2-acceptance-2n8mkpiu/`. No real game or firmware
+was served over the network, and no fetched input or personal APK was uploaded.
+The earlier `poolradPersonalBundle` route is also rebuilt using the existing
+private B1 bundle, leaving local personal APK output with the supplied starting
+media rather than synthetic test bytes. No guest is started for these checks.
+Runtime, current campaigns, signing configuration and public APK version stay
+unchanged. Physical tablet/stylus/e-ink acceptance remains pending.
+
 ## 0.7.0 personal-package acceptance (2026-09-14)
 
 Both Mac II universal/all-four-ABI variants build, versionCode 72, with

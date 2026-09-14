@@ -9,7 +9,9 @@ is needed on a fresh installation.
 The public download still contains **no ROM, system disk, game or saves**.
 This opt-in build is for private use; keep its inputs and APK out of Git and
 public releases. Putting files in an APK does not change their redistribution
-requirements. Nothing is downloaded by this helper or at runtime.
+requirements. Nothing is downloaded by this helper or at runtime. An optional
+[explicit, checksum-pinned fetch/build workflow](PERSONAL_ASSET_FETCH.md) is
+available separately if your private inputs live at direct HTTPS sources.
 
 ## Prepare once
 

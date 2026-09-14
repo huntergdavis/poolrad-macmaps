@@ -156,7 +156,7 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item; B2 is next after the completed B1 slice.
+  actionable software item; W1 is next after the completed B1/B2 slices.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -188,13 +188,23 @@ are gates for the affected feature, not a second giant framework project.
   even with a prior personal build cached. 213 Java tests and 16 synthetic
   builder tests pass. [Guide](PERSONAL_PACKAGE.md) · [evidence and emulator
   interruptions](LOCAL_TESTING.md). Physical tablet acceptance is not claimed.
-- [ ] **B2 — Optional asset-fetching build pipeline.** Fetch explicitly configured
+- [x] **B2 — Optional asset-fetching build pipeline.** Fetch explicitly configured
   images from a pinned repository/source into ignored private build inputs;
   verify checksums and fail clearly when absent or changed. No implicit checkout
   side effects. Treat the resulting bundled APK as containing those same images:
   public distribution requires a redistribution-rights review, not merely an
   archive.org/GitHub URL or an abandonware label. Personal artifacts must not be
   uploaded to public releases by default. [Distribution reference](https://www.copyright.gov/help/faq/faq-digital.html).
+  **Delivered 2026-09-14 (build tools, after 0.7.0):** an explicitly configured
+  HTTPS manifest feeds the personal Gradle build; full Git commit pins where
+  applicable, exact sizes/SHA-256 and the existing ROM verifier gate every bundle.
+  Verified caches work offline without repeat downloads. Missing opt-in, mixed
+  input modes, absent/corrupt caches and changed payloads fail without fallback
+  or overwrite. A real loopback HTTPS → personal APK route passes with synthetic
+  assets, and the public APK remains private-data-free even in the same build.
+  25 fetch tests, 16 existing builder tests, 213 Java tests and three native suites
+  pass. No checkout hook, default remote assets, public upload or runtime changes.
+  [Usage](PERSONAL_ASSET_FETCH.md) · [acceptance](LOCAL_TESTING.md).
 - **A1 and W1 below are next in this P1 group:** reliable guest auto-launch and
   a restrained, recoverable custom Mac desktop. Together with B1/B2 these form
   the modern ready-to-play onboarding slice; they do not change the game rules.

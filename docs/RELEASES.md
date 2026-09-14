@@ -1,4 +1,12 @@
-# 0.7.0 — Your personal starting point
+# Build tools — pinned personal sources (2026-09-14)
+
+Available on `main` after 0.7.0: an [explicit source-manifest build](PERSONAL_ASSET_FETCH.md)
+fetches checksum-pinned private inputs and reuses verified caches offline. No
+default assets, checkout hooks, runtime downloads or public personal-APK uploads.
+25 fetch tests and the local HTTPS → APK route pass. This changes build tooling
+only; the public Android download remains 0.7.0.
+
+## 0.7.0 — Your personal starting point
 
 [Release notes](releases/0.7.0.md): opt-in private APK packaging, verified
 first-use import and automatic boot, with save-preserving updates and manual
