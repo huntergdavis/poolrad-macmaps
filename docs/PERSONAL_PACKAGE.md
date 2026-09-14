@@ -42,8 +42,11 @@ must also match a supported Mac II signature. Unknown files, symlinks, malformed
 metadata or an existing output directory are rejected.
 
 This checks package integrity and the ROM profile, not the health of every
-game archive, HFS file or save. The earlier `ITEM2.DAX` input warning remains
-[tracked](LOCAL_TESTING.md#resource-fork-safe-test-disk).
+game archive, HFS file or save. Q2 recovered the previously empty `ITEM2.DAX`
+and added source/DAX checks to the disk-preparation tools; run those checks
+before preparing a new bundle. [Archive findings and recovery](ARCHIVE_CHECK.md).
+Existing private bundles and installed writable disks are not automatically
+replaced, and a fresh bundled disk must not overwrite a player's campaign.
 
 ## Build and install
 

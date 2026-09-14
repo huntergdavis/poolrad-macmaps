@@ -46,10 +46,12 @@ archive. This does not verify the physical tablet's e-ink refresh behavior.
 
 ### Resource-fork-safe test disk
 
-Install `unar` and `hfsutils`. Extract privately:
+Install Python 3, `unar` and `hfsutils`. Extract privately into a new directory
+and require an audit before building a disk:
 
 ```sh
 unar -q -s -k visible -o scratch/extracted scratch/input/Pool_Of_Radiance.SIT
+python3 tools/verify-game-extraction.py --archive scratch/input/Pool_Of_Radiance.SIT scratch/extracted
 node tools/prepare-test-game.mjs 'scratch/extracted/Pool Of Radiance' scratch/test-disks/NEW-game.dsk
 ```
 
@@ -58,9 +60,15 @@ forks in MacBinary II, then delegates HFS creation/copying to `hfsutils`. It
 does not ship game data or implement HFS. The game application has an empty
 data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchable.
 
-**Known input issue:** `unar` reported an extraction error for
-`PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
-party loads, but this is not proof that every encounter/item file is healthy.
+**Q2 resolved, 2026-09-14:** unar 1.10.8 leaves `PoolRad2/ITEM2.DAX` empty, so
+the commands above intentionally fail on that extraction. **Stop on either
+extraction or audit failure.** An alternate decoder recovered all 632 bytes
+with the archived CRC; a new corrected copy passes all 108 files/114 nonempty
+forks and 81 DAX files/606 records. A new HFS disk independently preserves all
+file content. See [recovery evidence, tests and limits](ARCHIVE_CHECK.md).
+The builder now rejects malformed DAX before making another disk. Existing
+installed disks and personal bundles remain unchanged; booting the tutorial
+does not establish a complete campaign's integrity.
 
 ## M4 wall and doorway symbols (0.13.1, 2026-09-14)
 

@@ -8,6 +8,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 import machfs
 from macresources import Resource, make_file, parse_file
@@ -104,6 +105,17 @@ class PersonalBootTest(unittest.TestCase):
         self.assertEqual(0, len(parsed[builder.STARTUP[:-1]]))
         self.assertEqual(b"saved progress", parsed["Pool Of Radiance", "PoolRadSave", "My Party"].data)
         self.assertFalse(report["startup"])
+
+    def test_damaged_dax_rejected_before_any_disk_build(self):
+        boot, game = volumes()
+        game["Pool Of Radiance", "PoolRad2"] = machfs.Folder()
+        path = ("Pool Of Radiance", "PoolRad2", "ITEM2.DAX")
+        for damaged in (b"", b"truncated index"):
+            game[path] = file(b"BINA", damaged)
+            with patch.object(builder, "grow_hfs") as grow:
+                with self.assertRaisesRegex(ValueError, "ITEM2.DAX"):
+                    self.build(boot=boot, game=game)
+                grow.assert_not_called()
 
     def test_rejects_invalid_image_size_magic_and_original_startup_override(self):
         boot, game = volumes()

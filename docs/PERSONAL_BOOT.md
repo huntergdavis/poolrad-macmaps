@@ -26,6 +26,12 @@ Close the game, shut down the guest safely, and export copies of the boot and
 writable game disks. **Use the game disk containing your current saves**, not a
 pristine archive. Never copy a disk while the emulator is writing to it.
 
+The builder now rejects empty/malformed DAX before creating a combined disk.
+If an older input contains the empty ITEM2 extraction, follow the
+[archive-integrity findings](ARCHIVE_CHECK.md) first. Do not substitute a fresh
+sample campaign for a disk containing your saves; installed disks are not
+automatically repaired by an APK update.
+
 Install Python 3, venv support and `hfsutils` through your OS package manager.
 From this repository:
 
@@ -110,8 +116,10 @@ image. Preserve the later disk first. No special Shift-key behavior is assumed.
 The supplied 24 MiB boot volume is `Mini vMac Boot v2`, with 2,027,008 free bytes.
 The actual System `vers` resource identifies **7.5.5**; the blessed System Folder
 is CNID **173** and Startup Items is empty. The game has **108 content files**,
-including saves with both forks. Already-empty `PoolRad2/ITEM2.DAX` is preserved
-and reported, not claimed repaired.
+including saves with both forks. The earlier acceptance disk preserved and
+reported an already-empty `PoolRad2/ITEM2.DAX`; that was not a repair. Q2 later
+recovered and verified the original file on new copies, and the current builder
+rejects that bad input before copying. [Evidence and existing-save limits](ARCHIVE_CHECK.md).
 
 The preserved 32 MiB boot-only control reaches Finder on isolated emulator
 **5582**, with the same original ROM and `libmnvmcoreii.so`/8 MiB guest-memory

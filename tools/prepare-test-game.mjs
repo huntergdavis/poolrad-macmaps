@@ -4,12 +4,16 @@ import { readFileSync, readdirSync, existsSync, mkdirSync, mkdtempSync,
   writeFileSync, openSync, ftruncateSync, closeSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const [sourceArg, diskArg] = process.argv.slice(2);
 if (!sourceArg || !diskArg) throw Error('Usage: node tools/prepare-test-game.mjs EXTRACTED_FOLDER NEW_DISK.dsk');
 const source = resolve(sourceArg), disk = resolve(diskArg);
 if (existsSync(disk)) throw Error('Refusing to overwrite an existing disk: ' + disk);
 const run = (command, args) => execFileSync(command, args, { stdio: 'inherit' });
+// Reject damaged DAX before staging or creating a destination disk. Full source
+// fork/CRC verification is a separate --archive audit; see ARCHIVE_CHECK.md.
+run('python3', [fileURLToPath(new URL('./verify-game-extraction.py', import.meta.url)), source]);
 const scratch = resolve('scratch');
 mkdirSync(scratch, { recursive: true });
 const staging = mkdtempSync(join(scratch, 'macbinary-'));

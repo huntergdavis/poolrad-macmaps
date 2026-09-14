@@ -20,6 +20,7 @@ import tempfile
 import machfs
 from macresources import Resource, make_file, parse_file
 from mac_alias import Alias, VolumeInfo, TargetInfo
+from game_content import dax_records
 
 SYSTEM = ("System Folder", "System")
 FINDER = ("System Folder", "Finder")
@@ -207,6 +208,14 @@ def prepare(boot_raw, game_raw, size_mib=32, startup=True):
     version = system_version(boot[SYSTEM])
     if GAME not in dict(game.iter_paths()) or game[GAME].type != b"APPL" or not game[GAME].rsrc:
         raise ValueError("Missing fork-preserved Pool of Radiance v1.1 application")
+    # Booting and parsing GEO alone did not expose the old empty ITEM2 fork.
+    # Fail before growing/copying a disk, not after producing another bad image.
+    for path, obj in game.iter_paths():
+        if isinstance(obj, machfs.File) and path[-1].upper().endswith(".DAX"):
+            try:
+                dax_records(obj.data)
+            except ValueError as error:
+                raise ValueError(":".join(path) + ": " + str(error)) from error
     # Preserve boot blocks byte-for-byte; require their existing normal Finder
     # startup instead of silently inheriting a different startup application.
     for offset, name in ((10, b"System"), (26, b"Finder"), (90, b"Finder")):
@@ -285,9 +294,6 @@ def prepare(boot_raw, game_raw, size_mib=32, startup=True):
         raise ValueError("Boot block/blessing verification failed")
 
     warnings = []
-    empty_item = ("Pool Of Radiance", "PoolRad2", "ITEM2.DAX")
-    if empty_item in game_before and game_before[empty_item]["dataBytes"] == 0:
-        warnings.append("Source PoolRad2/ITEM2.DAX is empty; preserved unchanged, not repaired")
     report = {
         "format": "poolrad-personal-boot-v1", "systemVersion": version,
         "startup": startup, "startupAlias": list(STARTUP) if startup else None,

@@ -405,9 +405,18 @@ are gates for the affected feature, not a second giant framework project.
   overall e-ink presentation work well. N3 is accepted. This item remains open
   for the unreported keyboard/rotation and vendor-specific checks, not to
   repeat that successful everyday pen test.
-- [ ] **Q2 — Input/archive check.** Investigate the `PoolRad2/ITEM2.DAX`
+- [x] **Q2 — Input/archive check.** Investigate the `PoolRad2/ITEM2.DAX`
   extraction error on a copy. All maps parse, but that does not establish every
   encounter/item is intact. Do not replace the user's original archive.
+  **Delivered 2026-09-14:** alternate extraction recovers the declared 632 bytes
+  with matching CRC; only that data fork is replaced in a new extraction copy.
+  All 108 files/114 nonempty forks and 81 DAX files/606 records pass the new
+  source audit. A new private HFS disk independently preserves all file content.
+  Both disk builders reject damaged DAX before creating another disk. 76 Python
+  helper tests and 346 freshly executed Java tests pass; Android build succeeds.
+  Original archive, installed disks/saves and private APK bundle remain unchanged.
+  No full-game/tablet acceptance or automatic installed-disk repair is claimed.
+  [Recovery, provenance and safe adoption](ARCHIVE_CHECK.md).
 - [ ] **Q3 — Reproducible personal updates.** Record the actual tablet model,
   Android/emulated-machine configuration, keep the same signing key, and keep
   upgrade/ROM/disk setup instructions short. No Play Store release required.
