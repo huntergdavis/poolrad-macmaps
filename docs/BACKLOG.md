@@ -527,6 +527,16 @@ research for sources and portability limits.
   decoder tests. [Evidence](SPELL_READINESS.md) · [checks](LOCAL_TESTING.md).
 - [ ] **R4 — Equipment at a glance.** Readied weapon/armor, ammunition if
   verified, and a carrying-load/movement warning; no equipment editing.
+  **Research banked, not implemented (2026-09-14).** The readied items are a
+  handle array at character record `+0xd8` — slot 0 weapon, slot 2 armor —
+  confirmed against the code and against the one capture taken in live combat,
+  which decodes the sample party's real kit. Blocked on a **stable name
+  source**: the item record's leading string is the game's own scratch render
+  buffer and sometimes reads back as a fragment or with a stray magic column,
+  so it must not be shown. Needs the item type id confirmed and resolved against
+  the game's `ITEMS` data before anything ships. Purged item handles must read
+  as unavailable, never as "nothing readied".
+  [Findings and open questions](EQUIPMENT_MEMORY.md).
 - [x] **R5 — Journal ↔ handwritten notebook.** Extend REF5 by linking viewed
   entries/bookmarks to map flags, handwritten comments, and manually checked
   tasks. No automatic quest truth or read-ahead spoiler dump.
