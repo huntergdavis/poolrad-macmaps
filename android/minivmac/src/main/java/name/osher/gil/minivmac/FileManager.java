@@ -14,12 +14,12 @@ import android.webkit.MimeTypeMap;
 import androidx.annotation.Nullable;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import name.osher.gil.minivmac.personal.PersonalPackage;
+import name.osher.gil.minivmac.desktop.DiskAccessGate;
 
 /**
  * Created by dolfin on 16/12/2015.
@@ -122,6 +122,16 @@ public class FileManager {
     }
 
     public boolean makeNewDisk(int size, String fileName, String path, Handler progressHandler) {
+        try (DiskAccessGate.Lease ignored = DiskAccessGate.GLOBAL.beginHostIo()) {
+            return makeNewDiskWithAccess(size, fileName, path, progressHandler);
+        } catch (IOException busy) {
+            Log.w(TAG, "Disk creation is unavailable", busy);
+            handleError(null, R.string.errGeneral, progressHandler);
+            return false;
+        }
+    }
+
+    private boolean makeNewDiskWithAccess(int size, String fileName, String path, Handler progressHandler) {
         File disk = new File(path, fileName);
         try {
             if (disk.exists() && isInCache(disk.getAbsolutePath())) {
@@ -139,20 +149,11 @@ public class FileManager {
             return false;
         }
 
-        FileOutputStream writer;
-        try {
-            writer = new FileOutputStream(disk);
-        } catch (FileNotFoundException e) {
-            Log.e(TAG, "makeNewDisk: File not found", e);
-            handleError(disk, R.string.errGeneral, progressHandler);
-            return false;
-        }
-
         byte[] buffer = new byte[ZERO_BUFFER_SIZE];
         for (int i = 0 ; i < ZERO_BUFFER_SIZE ; i++)
             buffer[i] = 0;
 
-        try {
+        try (FileOutputStream writer = new FileOutputStream(disk)) {
             int sizeLeft = size;
             while (sizeLeft > 0) {
                 int i = Math.min(sizeLeft, ZERO_BUFFER_SIZE);
@@ -166,7 +167,6 @@ public class FileManager {
                 }
             }
 
-            writer.close();
         } catch (IOException e) {
             handleError(disk, R.string.errCreateDisk, progressHandler);
             return false;
@@ -187,6 +187,12 @@ public class FileManager {
     }
 
     public void copy(InputStream in, File dst, IProgressCallback callback) throws IOException {
+        try (DiskAccessGate.Lease ignored = DiskAccessGate.GLOBAL.beginHostIo()) {
+            copyWithAccess(in, dst, callback);
+        }
+    }
+
+    private void copyWithAccess(InputStream in, File dst, IProgressCallback callback) throws IOException {
         if (dst.exists()) {
             dst.delete();
         }
@@ -218,8 +224,13 @@ public class FileManager {
         }
     }
 
-    public void delete(File file) {
-        file.delete();
+    public boolean delete(File file) {
+        try (DiskAccessGate.Lease ignored = DiskAccessGate.GLOBAL.beginHostIo()) {
+            return file.delete();
+        } catch (IOException busy) {
+            Log.w(TAG, "Disk removal is unavailable", busy);
+            return false;
+        }
     }
 
     public String getFileName(Uri uri) {

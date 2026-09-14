@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 213 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 251 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -34,12 +34,14 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.5.3 | Pen-only input, finger zoom/pan and larger flag targets; physical pen acceptance remains open |
 | Done — 0.6.0 | Complete notebook backups/restore, readable PNG pages and confirmed notebook removal |
 | Done — 0.7.0 | Opt-in personal APK, verified first-use import, save-preserving updates; public APK stays BYO-files |
+| Done | Explicit pinned-source private builds, verified offline cache, no checkout downloads or public private-asset uploads |
+| Done — 0.8.0 | Real Mac desktop White/Mist/Stonework previews, safe offline Apply and original-setting restoration |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, expanded party details,
-optional asset-fetching pipeline, physical pen acceptance, or wallpaper
-controls. Separate area-wide drawing was replaced by the shipped flag pages.
+companion tabs, Journal, or physical pen acceptance. Separate area-wide drawing
+was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
 while scope is expanding.
@@ -156,7 +158,7 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item; W1 is next after the completed B1/B2 slices.
+  actionable software item; UI1 is next after the completed B1/B2/W1 slices.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -205,9 +207,10 @@ are gates for the affected feature, not a second giant framework project.
   25 fetch tests, 16 existing builder tests, 213 Java tests and three native suites
   pass. No checkout hook, default remote assets, public upload or runtime changes.
   [Usage](PERSONAL_ASSET_FETCH.md) · [acceptance](LOCAL_TESTING.md).
-- **A1 and W1 below are next in this P1 group:** reliable guest auto-launch and
-  a restrained, recoverable custom Mac desktop. Together with B1/B2 these form
-  the modern ready-to-play onboarding slice; they do not change the game rules.
+- **A1 and W1 below are delivered:** reliable guest auto-launch and a
+  recoverable custom Mac desktop complete the B1/B2 onboarding group.
+  Continue with UI1 companion tabs, Journal and the remaining comfort work;
+  none changes the original game rules.
 
 - [ ] **UI1 — Companion tabs.** Keep the Mac display and keyboard in place;
   switch only the upper companion pane. Start with working Map and Info tabs
@@ -240,13 +243,24 @@ are gates for the affected feature, not a second giant framework project.
   remain unavailable. B1 does not change the party reader or its polling.
   Inspect fresh-save slot/heap validation before claiming the postcombat F7
   acceptance covers this starting state; the cause is not yet established.
-- [ ] **W1 — PoolRad → Desktop appearance.** First offer a quiet flat guest
+- [x] **W1 — PoolRad → Desktop appearance.** First offer a quiet flat guest
   desktop and Restore original. Then an optional restrained monochrome fantasy
   motif or user-imported image, previewed before applying. This is the actual
   emulated Mac desktop, not merely the Android margins. Inspect the active
   guest desktop utility/settings; make changes only to the personal boot-disk
   copy and keep a recoverable previous setting. A menu control may need a small
   guest-side mechanism; do not fake it by painting over game windows.
+  **Delivered 0.8.0:** White, Mist and original monochrome Stonework previews;
+  normal guest Shut Down enables Apply. The supported System 7.5.5 disk is
+  staged and changed only in its existing desktop-resource appearance bytes.
+  An immutable original-setting backup survives app updates. Restore operates
+  on the current disk, never an old campaign image. Actual emulator White
+  desktop, original-game/sample-party/map loading, all three style operations,
+  exact restoration and original gray desktop reboot pass. Full-disk comparisons
+  find no nonappearance edits and preserve intervening guest-session changes.
+  251 Java tests, 54 Python helper tests and three native suites pass.
+  [Guide](DESKTOP_APPEARANCE.md) · [evidence](LOCAL_TESTING.md). Other systems,
+  arbitrary imported wallpapers and physical e-ink acceptance are not claimed.
 - [x] **A1 — Launch the game on startup.** Existing disk automount is already
   present. Add a guest startup alias or similarly small reliable launch path;
   avoid blind timed clicks. Keep a bypass/recovery path to the normal desktop.

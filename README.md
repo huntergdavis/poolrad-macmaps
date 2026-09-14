@@ -35,6 +35,7 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Save or share a PNG of the map, game, and optional keyboard together.
 - A separate app installation: keep your existing Mini vMac setup.
 - Optional private APK: import your bundled starting disks once, then keep saves across updates.
+- Preview a quiet Mac desktop or monochrome stonework; restore the original without rolling back saves.
 
 **Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
 Phlan and on the adjoining Slums gate round trip. Other transitions and
@@ -45,10 +46,10 @@ behavior still need validation.
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.7.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.7.0)
+[0.8.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.8.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.7.0/poolrad-macmaps-0.7.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.8.0/poolrad-macmaps-0.8.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
@@ -68,6 +69,10 @@ for automatic first-use setup. Later updates never replace your writable disks.
 Private builds stay local; the public download remains bring-your-own-files.
 An optional [pinned-source build](docs/PERSONAL_ASSET_FETCH.md) can fetch your
 explicitly configured inputs once and reuse the verified local cache.
+
+**Quieter desktop:** [preview and apply a background](docs/DESKTOP_APPEARANCE.md)
+to the supported System 7.5.5 disk after a normal Mac shutdown. Only desktop
+settings change; the original game remains original.
 
 ## Project
 

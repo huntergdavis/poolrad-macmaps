@@ -50,6 +50,7 @@ import java.nio.ByteBuffer;
 import java.util.List;
 import name.osher.gil.minivmac.mapper.AutomaticWheel;
 import name.osher.gil.minivmac.mapper.WheelPrompt;
+import name.osher.gil.minivmac.desktop.DiskAccessGate;
 
 public class EmulatorFragment extends Fragment
         implements IOnIOEventListener, CodeWheelDialog.Host {
@@ -312,6 +313,9 @@ public class EmulatorFragment extends Fragment
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
                     ((MiniVMac) requireActivity()).captureScreenshot();
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_desktop_appearance) {
+                    DesktopAppearanceDialog.show(requireActivity());
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_levels_reference) {
                     LevelsReferenceDialog.show(requireActivity());
                     return true;
@@ -426,8 +430,17 @@ public class EmulatorFragment extends Fragment
             return;
         }
 
+        final DiskAccessGate.Lease session = DiskAccessGate.GLOBAL.tryBeginEmulation();
+        if (session == null) {
+            Toast.makeText(requireContext(), "Emulator or disk operation already active. Finish it before restarting.", Toast.LENGTH_LONG).show();
+            mRestartLayout.setVisibility(View.VISIBLE);
+            return;
+        }
         Thread emulation = new Thread(() -> {
-            mCore = new Core();
+            Core sessionCore = null;
+            try {
+            sessionCore = new Core();
+            mCore = sessionCore;
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
             final Core mapCore = mCore;
             mUIHandler.post(() -> { if (mCore == mapCore) mAutomaticWheel.reset(); });
@@ -526,14 +539,28 @@ public class EmulatorFragment extends Fragment
             // Start the emulation
             mCore.initEmulation(rom);
 
-            // Emulation Ended
-            mCore = null;
-            mSnapshotBusy.set(false);
-            mUIHandler.post(() -> mRestartLayout.setVisibility(View.VISIBLE));
+            } finally {
+                // initEmulation is blocking. Only its return guarantees native teardown
+                // has finished; isReady()/pause are not safe disk-maintenance gates.
+                if (sessionCore != null) sessionCore.closeDisksAfterEmulation();
+                if (mCore == sessionCore) mCore = null;
+                mSnapshotBusy.set(false);
+                session.close();
+                mUIHandler.post(() -> {
+                    if (getView() != null && mRestartLayout != null)
+                        mRestartLayout.setVisibility(View.VISIBLE);
+                });
+            }
         });
         mEmulatorStarted = true;
         emulation.setName("EmulationThread");
-        emulation.start();
+        try {
+            emulation.start();
+        } catch (RuntimeException | Error failure) {
+            session.close();
+            mEmulatorStarted = false;
+            throw failure;
+        }
     }
 
     /** Views can deliver a final move/up after the emulation thread clears mCore. */

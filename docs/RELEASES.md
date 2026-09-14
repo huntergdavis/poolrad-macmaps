@@ -1,10 +1,19 @@
-# Build tools — pinned personal sources (2026-09-14)
+# Releases
+
+## 0.8.0 — A quieter Mac desktop
+
+[Release notes](releases/0.8.0.md): real guest White/Mist/Stonework previews,
+clean-shutdown Apply, and preference-only restoration that keeps later saves.
+Supported System 7.5.5 disks only. 251 Java tests, 54 Python helper tests and
+three native sanitizer suites pass. Public downloads remain bring-your-own-files.
+
+### Build tools — pinned personal sources (2026-09-14)
 
 Available on `main` after 0.7.0: an [explicit source-manifest build](PERSONAL_ASSET_FETCH.md)
 fetches checksum-pinned private inputs and reuses verified caches offline. No
 default assets, checkout hooks, runtime downloads or public personal-APK uploads.
 25 fetch tests and the local HTTPS → APK route pass. This changes build tooling
-only; the public Android download remains 0.7.0.
+only; it is also included in the 0.8.0 source release.
 
 ## 0.7.0 — Your personal starting point
 

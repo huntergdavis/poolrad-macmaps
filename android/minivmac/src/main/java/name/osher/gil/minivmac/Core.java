@@ -1,6 +1,7 @@
 package name.osher.gil.minivmac;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.util.Objects;
@@ -14,6 +15,7 @@ import android.media.AudioTrack;
 import android.util.Log;
 
 import androidx.annotation.StringRes;
+import name.osher.gil.minivmac.desktop.DiskAccessGate;
 
 public class Core {
 	private static final String TAG = "minivmac.Core";
@@ -24,6 +26,8 @@ public class Core {
 
 	private static ClipboardManager mClipboardManager;
 	@SuppressWarnings("FieldMayBeFinal") private volatile boolean initOk = false;
+	private volatile boolean emulationEnded = false;
+	private volatile boolean diskCloseFailed = false;
 
 	private OnInitScreenListener mOnInitScreenListener;
 	private OnUpdateScreenListener mOnUpdateScreenListener;
@@ -81,7 +85,7 @@ public class Core {
 		if (mRamSnapshotListener != null) mRamSnapshotListener.onSnapshot(ram);
 	}
 
-	private static Boolean mIsInitialized = false;
+	private static volatile boolean mIsInitialized = false;
 
 	private static String mModuleName;
 
@@ -143,9 +147,14 @@ public class Core {
 	}
 
 	public Boolean initEmulation(ByteBuffer rom) {
-		loadVariant(mModuleName);
 		mIsInitialized = true;
-		return init(this, rom);
+		try {
+			loadVariant(mModuleName);
+			return init(this, rom);
+		} finally {
+			emulationEnded = true;
+			mIsInitialized = false;
+		}
 	}
 
 	public void wantMacReset() {
@@ -165,7 +174,7 @@ public class Core {
 
 	public void forceMacOff() {
 		// eject all disks
-		for (int i = 0; i < diskFile.length; i++) {
+		for (int i = 0; diskFile != null && i < diskFile.length; i++) {
 			if (diskFile[i] != null) {
 				sonyEject(i, false);
 			}
@@ -369,6 +378,9 @@ public class Core {
 			diskFile[driveNum].close();
 			ret = 0;
 		} catch (Exception x) {
+			diskCloseFailed = true;
+			DiskAccessGate.GLOBAL.poison();
+			Log.e(TAG, "Disk handle could not be closed safely", x);
 			ret = -1;
 		}
 
@@ -379,12 +391,38 @@ public class Core {
 		}
 
 		mOnDiskEventListener.onDiskEjected(diskPath[driveNum]);
-		diskFile[driveNum] = null;
+		// Keep a failed handle for the final post-native cleanup attempt.
+		if (ret == 0) diskFile[driveNum] = null;
 		diskPath[driveNum] = null;
 		numInsertedDisks--;
 		
 		notifyDiskEjected(driveNum);
 		return ret;
+	}
+
+	/**
+	 * Call only after initEmulation has returned, before releasing its process-wide
+	 * lease. Native callbacks are finished; this final cleanup must not call JNI.
+	 */
+	public synchronized boolean closeDisksAfterEmulation() {
+		emulationEnded = true;
+		if (diskFile != null) {
+			for (int i = 0; i < diskFile.length; i++) {
+				RandomAccessFile file = diskFile[i];
+				if (file != null) {
+					try { file.close(); }
+					catch (Exception failure) {
+						diskCloseFailed = true;
+						Log.e(TAG, "Final disk handle cleanup failed", failure);
+					}
+					diskFile[i] = null;
+				}
+			}
+		}
+		if (diskPath != null) java.util.Arrays.fill(diskPath, null);
+		numInsertedDisks = 0;
+		if (diskCloseFailed) DiskAccessGate.GLOBAL.poison();
+		return !diskCloseFailed;
 	}
 
 	public String sonyGetName(int driveNum) {
@@ -426,7 +464,17 @@ public class Core {
 		return false;
 	}
 	
-	public boolean insertDisk(File f) {
+	public synchronized boolean insertDisk(File f) {
+		if (emulationEnded || diskFile == null || !DiskAccessGate.GLOBAL.isEmulationActive()) return false;
+		try (DiskAccessGate.Lease ignored = DiskAccessGate.GLOBAL.beginHostIo()) {
+			return insertDiskWithAccess(f);
+		} catch (IOException busy) {
+			Log.w(TAG, "Disk insertion is unavailable", busy);
+			return false;
+		}
+	}
+
+	private boolean insertDiskWithAccess(File f) {
 		int driveNum = getFirstFreeDisk();
 		// check for free drive
 		if (driveNum == -1) {

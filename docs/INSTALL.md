@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.7.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.7.0)
+[0.8.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.8.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.7.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.7.0/poolrad-macmaps-0.7.0.apk)
+   [`poolrad-macmaps-0.8.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.8.0/poolrad-macmaps-0.8.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -50,6 +50,12 @@ health bars appear beside the map. Unknown health is not guessed or retained.
 Choose **Save PNG…** to keep it in Downloads or another location, or **Share
 PNG…** to open Android's share chooser. Menus and system bars are not part of
 the picture. Unsaved captures are temporary; use Save for pictures you want to keep.
+
+**PoolRad → Desktop appearance** previews White, Mist or Stonework for the
+supported System 7.5.5 guest desktop. Save and quit the game, use the Mac's
+**Special → Shut Down**, wait for **Restart Emulator**, then Apply and restart.
+**Original** restores only the saved desktop setting, never an old campaign.
+Do not use Force Power Off. [Desktop guide and supported disks](DESKTOP_APPEARANCE.md).
 
 **Levels & skills**, **Spells**, **Weapons & armor**, and **Money conversion** are offline PoolRad
 menu tools. Their own touch controls stay above the game; they never edit your

@@ -62,6 +62,80 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## W1 desktop appearance acceptance (0.8.0, 2026-09-14)
+
+Both public and personal universal Mac II APKs build with JDK 17. The full
+unit task passes **251 tests, zero failures/errors/skips**: 13 new bounded-HFS
+desktop tests, 17 setting-store tests and eight disk-access tests, plus the
+213 existing tests. The 16 personal-package, 25 source-fetch and 13 personal
+boot-helper tests pass, as do all three native reader sanitizer suites.
+The public artifact checker verifies all 72 unchanged rune pictures and no
+ROM, disk, game archive or private personal-package assets.
+
+The new tests use synthetic disks, including a fragmented System resource
+fork and an ordinary saved-game region. They check allocated/overlapping
+extents, overflow chains, malformed resources, dirty/locked disks, unsupported
+profiles, exact appearance-only edits, and restoration while retaining a newer
+save byte. Store checks cover original-backup corruption, path confinement,
+failed publication, same-size/mtime source mutation, cleanup and an existing
+reader keeping its original inode. Maintenance refuses running emulation and
+disk import/mutation; only native exit plus handle cleanup releases that gate.
+Pausing or merely observing a non-ready screen is insufficient.
+
+Actual acceptance uses the separate AOSP API 30 `poolrad-package-test` AVD on
+`emulator-5584` at 1200×1600, density 200. The original campaign emulator on
+5580 is untouched. The test uses its existing writable 32 MiB combined disk,
+not an original input or replacement campaign image.
+
+- A normal game Quit → Finder Special → Shut Down reached Restart Emulator
+  before updating 0.7.0 to 0.8.0. The original game then booted again normally.
+- During emulation, White/Mist/Stonework previews are available but Check/Apply
+  are disabled, with explicit clean-shutdown instructions. The guest remains
+  visible and undimmed below the existing upper-half dialog.
+- Normal guest shutdown under the new gate enables the disk check. The actual
+  System 7.5.5 resources validate, and Apply White completes through the menu.
+  A 380-byte original-setting record is saved in private app storage.
+- Comparing **every byte of the 32 MiB disk** immediately before/after Apply
+  finds exactly 57 changed bytes, all inside the permitted `PAT ` 16 / `ppat`
+  16 appearance fields. Catalogs, executable resources, saves and every other
+  byte are unchanged. Both mono and color forms are updated; no RAM patch or
+  Android paint-over is involved.
+- Restart Emulator boots to a genuinely white guest desktop with the original
+  disk, utility and Trash icons intact. Early Welcome-to-Mac boot frames still
+  use the ROM's checker pattern; the selected System desktop appears afterward.
+- The startup alias still launches the original game and automatic wheel entry
+  still succeeds. Loading the existing SampleParty reaches Rolf's introduction;
+  guest and live map both show New Phlan 15,1 W. Original game windows remain
+  intact on the white background. Fresh-save companion HP is still unavailable,
+  as recorded for B1; this appearance change does not claim to fix that reader.
+- After another clean shutdown, the final APK is installed in place. Its
+  installed SHA-256 exactly matches the public release artifact. It boots with
+  the White setting intact; normal Quit/Shut Down makes the original setting
+  available again, so the backup survives the update and process restart.
+- That final artifact applies Mist and Stonework from their previews. Relative
+  to the stopped white disk they change 16 and 30 appearance bytes respectively,
+  with zero other changes. Their binary patterns, fallback bits and color
+  pixels agree. Controls, Close and Back are locked during saving. These two
+  styles are checked through real menu/disk operations, not separate guest boots.
+- Original restores all **190 original resource bytes exactly**, while every
+  other byte still matches the current disk. **1,008 bytes changed by the
+  intervening normal guest sessions are retained**, not rolled back to the first
+  before-image. These are filesystem/session changes, not a claimed newly saved
+  campaign; later campaign-byte preservation is also covered synthetically.
+- Restarting the final artifact after restoration shows the original gray
+  checker desktop and the original game launching again (`w1-restored-desktop.png`).
+
+Evidence remains private in `scratch/w1-running-preview.png`,
+`w1-white-saved.png`, `w1-white-desktop.png`, `w1-party-file-menu.png`,
+`w1-stone-preview.png`, `w1-original-restored-ui.png`, and stopped before/after
+disk copies.
+The supplied original ROM and source disks are not modified or published.
+An Android SystemUI ANR occurred during the old 0.7.0 cold-start setup, before
+installing this change; selecting Wait allowed that session to continue. This
+is not claimed fixed by W1. The checked 0.8.0 Android crash buffer is empty.
+Physical tablet, stylus, e-ink, broader System versions and arbitrary wallpaper
+utilities remain untested. No GitHub Actions or physical-device CI is claimed.
+
 ## B2 source-fetch build acceptance (2026-09-14)
 
 This is build tooling on `main` after 0.7.0, not a new Android runtime version.
