@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.3.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.3.0)
+[0.4.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.4.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.3.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.3.0/poolrad-macmaps-0.3.0.apk)
+   [`poolrad-macmaps-0.4.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.4.0/poolrad-macmaps-0.4.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -43,6 +43,16 @@ the picture. Unsaved captures are temporary; use Save for pictures you want to k
 **Levels & skills**, **Spells**, and **Money conversion** are offline PoolRad
 menu tools. Their own touch controls stay above the game; they never edit your
 characters. Sources and any unverified Macintosh-specific values are identified.
+
+**PoolRad → Annotate map** lets you tap a tile to add a flag and handwritten
+note. Existing flags also open in Browse mode. Pen, eraser, undo/redo and
+**Close & save** affect only your notes, never the Mac game. **Notebooks** selects
+a separate campaign; changing a Mac save does not select a notebook for you.
+[Handwriting guide and storage limits](NOTEBOOK.md).
+
+**Update in place to retain your notes.** Uninstalling or clearing app data
+removes them. Notebook export/import is not implemented yet; keep another copy
+of irreplaceable campaign information until that feature ships.
 
 ### If something doesn't work
 

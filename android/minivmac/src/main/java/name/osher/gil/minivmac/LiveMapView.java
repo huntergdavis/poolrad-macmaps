@@ -6,8 +6,16 @@ import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.util.AttributeSet;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
+
+import name.osher.gil.minivmac.mapper.AreaIdentity;
+import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 
 /** Static black-on-white cartography: no animation, blink, or network access. */
@@ -17,6 +25,35 @@ public final class LiveMapView extends View {
     private final float density;
     private PoolRadState state;
     private boolean positionAvailable;
+    private boolean annotate;
+    private String notebook = "Loading notebook…";
+    private Set<Integer> flags = Collections.emptySet();
+    private Listener listener;
+    private int touchPointer = -1, touchTile = -1;
+    private float touchX, touchY;
+    private String touchArea;
+
+    public interface Listener {
+        void onAreaChanged(AreaIdentity area);
+        void onTileTapped(AreaIdentity area, int x, int y);
+    }
+
+    public void setListener(Listener value) { listener = value; }
+    public boolean isAnnotating() { return annotate; }
+    public void setAnnotating(boolean value) { annotate = value; refreshDescription(); invalidate(); }
+    public AreaIdentity currentArea() { return positionAvailable && state != null ? state.area : null; }
+    public void showNotebook(String label, Set<Integer> tiles) {
+        Set<Integer> copy = new HashSet<>(tiles);
+        if (notebook.equals(label) && flags.equals(copy)) return;
+        notebook = label; flags = copy; refreshDescription(); invalidate();
+    }
+
+    private void refreshDescription() {
+        String status = state == null ? "Waiting for party" : !positionAvailable ? "Position unavailable"
+                : (state.area == null ? "Unidentified area" : state.area.label()) + ". Party at " + state.positionLabel();
+        setContentDescription(status + ". " + (annotate ? "Annotate mode. Tap a tile to add or open a note. "
+                : "Browse mode. Tap an existing flag to read its note. ") + notebook + ". " + flags.size() + " flags.");
+    }
 
     public LiveMapView(Context context, AttributeSet attrs) {
         super(context, attrs);
@@ -29,6 +66,7 @@ public final class LiveMapView extends View {
     }
 
     public void showSample(byte[] sample) {
+        AreaIdentity previous = currentArea();
         PoolRadState next = PoolRadState.parse(sample);
         if (next == null) {
             if (!positionAvailable) return;
@@ -40,8 +78,43 @@ public final class LiveMapView extends View {
             positionAvailable = true;
             setContentDescription("Area map. Party at " + next.positionLabel() + ". North is up.");
         }
+        AreaIdentity current = currentArea();
+        if (!(previous == null ? current == null : current != null && previous.id().equals(current.id()))) {
+            flags = Collections.emptySet();
+            if (listener != null) listener.onAreaChanged(current);
+        }
+        refreshDescription();
         invalidate();
     }
+
+    @Override public boolean onTouchEvent(MotionEvent event) {
+        int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN) {
+            touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
+            touchTile = new MapViewport(getWidth(), getHeight(), density).tileAt(touchX, touchY);
+            AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
+            getParent().requestDisallowInterceptTouchEvent(true);
+        } else if (action == MotionEvent.ACTION_MOVE) {
+            int pointer = event.findPointerIndex(touchPointer);
+            if (pointer < 0 || Math.hypot(event.getX(pointer) - touchX, event.getY(pointer) - touchY)
+                    > ViewConfiguration.get(getContext()).getScaledTouchSlop()) touchTile = -1;
+        } else if (action == MotionEvent.ACTION_UP) {
+            AreaIdentity area = currentArea();
+            int tile = new MapViewport(getWidth(), getHeight(), density).tileAt(event.getX(), event.getY());
+            if (tile >= 0 && tile == touchTile && event.getPointerId(0) == touchPointer
+                    && (annotate || flags.contains(tile)) && listener != null
+                    && (touchArea == null ? area == null : area != null && touchArea.equals(area.id()))) {
+                performClick(); listener.onTileTapped(area, tile % 16, tile / 16);
+            }
+            touchPointer = touchTile = -1;
+            getParent().requestDisallowInterceptTouchEvent(false);
+        } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN) {
+            touchPointer = touchTile = -1;
+        }
+        return true; // No map gesture, including a cancelled one, reaches the Mac.
+    }
+
+    @Override public boolean performClick() { super.performClick(); return true; }
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
@@ -49,7 +122,7 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(14 * density);
         ink.setTextAlign(Paint.Align.LEFT);
-        canvas.drawText("AREA MAP", 12 * density, 22 * density, ink);
+        canvas.drawText(state != null && state.area != null ? state.area.label() : "AREA MAP", 12 * density, 22 * density, ink);
         ink.setTextAlign(Paint.Align.RIGHT);
         String status = state == null ? "Waiting for party"
                 : positionAvailable ? state.positionLabel() : "Last area · position unavailable";
@@ -63,11 +136,10 @@ public final class LiveMapView extends View {
                     Math.max(48 * density, getHeight() / 2f), ink);
             return;
         }
-        float top = 42 * density, bottom = 20 * density;
-        float cell = Math.min((getWidth() - 48 * density) / 16f,
-                (getHeight() - top - bottom) / 16f);
+        MapViewport viewport = new MapViewport(getWidth(), getHeight(), density);
+        float top = viewport.top, cell = viewport.cell;
         if (cell < 3) return;
-        float left = (getWidth() - cell * 16) / 2;
+        float left = viewport.left;
         ink.setTextSize(Math.min(11 * density, cell * .7f));
         ink.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < 16; i += 4) {
@@ -100,6 +172,14 @@ public final class LiveMapView extends View {
             ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
             canvas.drawRect(cx + dx - hw, cy + dy - hh, cx + dx + hw, cy + dy + hh, ink);
         }
+        for (int tile : flags) {
+            float cx = left + (tile % 16 + .25f) * cell, cy = top + (tile / 16 + .25f) * cell;
+            arrow.reset(); arrow.moveTo(cx, cy + cell * .55f); arrow.lineTo(cx, cy);
+            arrow.lineTo(cx + cell * .5f, cy + cell * .12f); arrow.lineTo(cx, cy + cell * .28f);
+            ink.setColor(Color.WHITE); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(4 * density);
+            canvas.drawPath(arrow, ink);
+            ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density); canvas.drawPath(arrow, ink);
+        }
         if (positionAvailable) {
             canvas.save();
             canvas.translate(left + (state.x + .5f) * cell, top + (state.y + .5f) * cell);
@@ -113,6 +193,9 @@ public final class LiveMapView extends View {
         }
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(10 * density); ink.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("North up · outlined gaps are doors", getWidth() / 2f, getHeight() - 5 * density, ink);
+        canvas.drawText("North up · outlined gaps are doors", getWidth() / 2f, getHeight() - 23 * density, ink);
+        ink.setTextSize(11 * density);
+        canvas.drawText((annotate ? "ANNOTATE · tap a tile · " : "BROWSE · ") + notebook,
+                getWidth() / 2f, getHeight() - 7 * density, ink);
     }
 }

@@ -22,13 +22,16 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 50 Java tests plus native reader checks |
+| Done | 29 GEO records decoded; 90 Java tests plus native reader checks |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
+| Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
+| Done — 0.4.0 | Exact known-area identities; New Phlan/Slums round trip and restart/reopen note acceptance |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: comprehensive area/mode recognition, party RAM fields, note storage,
-or wallpaper controls. Do not confuse a working first-area map
+Not done: comprehensive area/mode recognition, party RAM fields, direct map
+drawing, notebook export/import, physical pen polish, or wallpaper controls.
+Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
 while scope is expanding.
 
@@ -37,7 +40,7 @@ while scope is expanding.
 Ship these in order, beginning immediately after the rune-wheel changes.
 No OCR, handwriting-to-text service, or cloud dependency.
 
-- [ ] **N1 — Flag → handwritten note → reopen.** Explicit annotate mode; tap a
+- [x] **N1 — Flag → handwritten note → reopen.** Explicit annotate mode; tap a
   tile to place a small monochrome flag; tap the flag to open an enlarged ink
   sheet. Pen, eraser, undo/redo, close with autosave, and deliberate flag deletion
   with undo/confirmation. A note is handwritten strokes, not a text field.
@@ -47,6 +50,11 @@ No OCR, handwriting-to-text service, or cloud dependency.
   identifier so another campaign need not inherit this one's spoilers.
   **Acceptance:** write, close, reopen, restart app, leave/return to the area;
   note stays on the same tile. Deleting a flag is explicit about its linked note.
+  **Delivered 0.4.0:** actual touch-written TYR note at New Phlan 11,2 survives
+  close/reopen, New Phlan → Slums → return, and app force-stop/cold guest boot/
+  party reload. Eraser/undo/redo, resize, notebook isolation, confirmed deletion,
+  Android Back-save and real write-failure/retry checks pass in the emulator.
+  [Guide and evidence](NOTEBOOK.md); physical e-ink/stylus remains untested.
 - [ ] **N2 — Draw directly on the map.** Separate freehand ink layer with
   pen/eraser/undo, zoomable editing, and tile-space coordinates so strokes survive
   rotation, resize, and the future left-aligned map. Erasing ink must never erase
@@ -104,6 +112,9 @@ for the affected feature, not a second giant framework project.
 - [ ] **M1 — Reliable area identity and names.** Resolve and validate a stable
   identifier across transitions and reloads; label areas meaningfully. This is
   the N1 persistence prerequisite as well as a map usability improvement.
+  N1 now supplies exact fingerprints for 29 known records and validates the
+  New Phlan/Slums gate round trip. Broader names, mutable geometry and coverage
+  remain open; [current limits](AREA_IDENTITY.md).
 - [ ] **M2 — Exploration/combat/wilderness/loading detection.** Retain geometry
   with an explicit non-live state when appropriate. Do not show the exploration
   party position as a tactical combatant or world-map coordinate.

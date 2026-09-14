@@ -96,6 +96,7 @@ public class EmulatorFragment extends Fragment
     private Core mCodeEntryCore;
     private int mCodeEntryKey = -1;
     private LiveMapView mLiveMap;
+    private NotebookController mNotebook;
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
@@ -145,6 +146,7 @@ public class EmulatorFragment extends Fragment
         mLiveMap = root.findViewById(R.id.live_map);
         mLiveMap.setVisibility(PreferenceManager.getDefaultSharedPreferences(requireContext())
                 .getBoolean("poolrad_show_map", true) ? View.VISIBLE : View.GONE);
+        mNotebook = new NotebookController(requireActivity(), mLiveMap);
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
         mClipboardManager = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -173,6 +175,8 @@ public class EmulatorFragment extends Fragment
             @Override
             public void onPrepareMenu(@NonNull Menu menu) {
                 menu.findItem(R.id.action_live_map).setChecked(mLiveMap.getVisibility() == View.VISIBLE);
+                menu.findItem(R.id.action_annotate_map).setChecked(mLiveMap.isAnnotating())
+                        .setEnabled(mLiveMap.getVisibility() == View.VISIBLE);
                 menu.findItem(R.id.action_capture_ram).setVisible(BuildConfig.DEBUG)
                         .setEnabled(mCore != null && !mSnapshotBusy.get());
                 // Populate disk group
@@ -245,6 +249,13 @@ public class EmulatorFragment extends Fragment
                     menuItem.setChecked(show);
                     startMapPolling();
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_annotate_map) {
+                    mLiveMap.setAnnotating(!mLiveMap.isAnnotating());
+                    menuItem.setChecked(mLiveMap.isAnnotating());
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_notebooks) {
+                    mNotebook.chooseNotebook();
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_code_wheel) {
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
@@ -294,6 +305,8 @@ public class EmulatorFragment extends Fragment
     public void onDestroyView() {
         stopMapPolling();
         if (mCore != null) mCore.setMapSampleListener(null);
+        if (mNotebook != null) mNotebook.dispose();
+        mNotebook = null;
         mLiveMap = null;
         mMapStack = null;
         cancelCodeEntry();

@@ -39,6 +39,10 @@
                 android:checkable="true" />
             <item android:id="@+id/action_code_wheel"
                 android:title="@string/code_wheel_title" />
+            <item android:id="@+id/action_annotate_map"
+                android:title="Annotate map" android:checkable="true" />
+            <item android:id="@+id/action_notebooks"
+                android:title="Notebooks" />
             <item android:id="@+id/action_screenshot"
                 android:title="@string/screenshot_title" />
             <item android:id="@+id/action_levels_reference"

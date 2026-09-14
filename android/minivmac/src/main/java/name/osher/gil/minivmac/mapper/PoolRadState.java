@@ -6,6 +6,7 @@ import java.util.Arrays;
 public final class PoolRadState {
     public final int x, y, facing;
     public final GeoMap map;
+    public final AreaIdentity area;
     private final byte[] geometry;
 
     private PoolRadState(byte[] sample) {
@@ -16,6 +17,7 @@ public final class PoolRadState {
         byte[] record = new byte[1026];
         System.arraycopy(geometry, 0, record, 2, geometry.length);
         map = new GeoMap(-1, record); // Area ID is not yet validated; never guess it.
+        area = AreaIdentity.resolve(map); // Exact known geometry only; unknown is not a notebook key.
     }
 
     public static PoolRadState parse(byte[] sample) {

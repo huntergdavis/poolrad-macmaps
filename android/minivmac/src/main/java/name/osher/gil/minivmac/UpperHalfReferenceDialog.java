@@ -19,6 +19,10 @@ public final class UpperHalfReferenceDialog {
 
     /** Content must provide its own bounded scrolling; no input method is requested. */
     public static AlertDialog show(Activity activity, String title, View content) {
+        return show(activity, title, content, () -> { });
+    }
+
+    public static AlertDialog show(Activity activity, String title, View content, Runnable onDismiss) {
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(title)
                 .setView(content).setNegativeButton("Close", null).create();
         View host = activity.getWindow().getDecorView();
@@ -44,6 +48,7 @@ public final class UpperHalfReferenceDialog {
             host.removeOnLayoutChangeListener(listener);
             if (activity instanceof LifecycleOwner)
                 ((LifecycleOwner) activity).getLifecycle().removeObserver(lifecycle);
+            onDismiss.run();
         });
         dialog.setCanceledOnTouchOutside(false);
         dialog.show();

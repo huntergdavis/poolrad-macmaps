@@ -62,6 +62,35 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.4.0 handwritten cartographer acceptance (2026-09-13)
+
+- Normal Mac II universal build and all four ABI variants pass. **90 Java tests**
+  pass: the previous 50 plus 9 area-identity, 3 map-hit-coordinate, 10 ink-history,
+  4 vector-model, 12 notebook-store, and 2 campaign-selection tests. Native
+  address/undefined sanitizer checks and all 72 bundled-rune comparisons pass.
+- VersionCode 66, versionName 0.4.0, same prototype signing key. Installed in
+  place on the API 30 emulator; existing private ROM/disks remained available.
+- Wrote a ten-stroke TYR note at New Phlan tile 11,2 with actual touch input.
+  Close/reopen, pen/eraser, undo/redo and proportional portrait/landscape resize
+  passed. Map/ink input did not move the guest party. The note file contains the
+  selected notebook UUID, area key, tile and vectors, not a screenshot or text.
+- Notebook 2 is empty in Browse mode; selecting Notebook 1 restores its flag.
+  Confirmed linked deletion removes only a disposable second flag and its ink;
+  cancellation retains both. A real permission-denied save leaves the sheet
+  open and previous file unchanged, then succeeds when permission is restored.
+- Completed the original Rolf tutorial, walked through New Phlan's west gate
+  into the Slums (record 20), turned around and returned. The other area's flag
+  set was empty; the original flag reappeared at 11,2 with byte-identical ink.
+  [Identity and route evidence](AREA_IDENTITY.md), [handwriting evidence](NOTEBOOK.md).
+- Android Back saves/closes the note. Force-stop/relaunch retains Notebook 1
+  and byte-identical stored ink; startup correctly shows no area flags.
+  After the complete Mac boot, the offline helper's 25/33/dots → VULCAN answer
+  was accepted. Reloading the original sample party restored the flag in Browse
+  mode; opening it showed the same TYR ink at 11,2. Crash buffer was empty.
+- Physical e-ink, stylus/palm rejection, full-game area/mode coverage and
+  notebook export/import are **not** established by these tests. No original
+  game data or private notebook vectors are committed or included in the APK.
+
 ## 0.3.0 companion tools acceptance (2026-09-13)
 
 - Built the normal Mac II universal APK and all four ABI variants. All **50 Java
