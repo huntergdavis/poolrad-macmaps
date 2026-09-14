@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.5.3 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.5.3)
+[0.6.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.6.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.5.3.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.5.3/poolrad-macmaps-0.5.3.apk)
+   [`poolrad-macmaps-0.6.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.6.0/poolrad-macmaps-0.6.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -65,8 +65,11 @@ pen-only mode) to move the page. **Fit page** restores the complete sheet.
 [Pen controls and device limitations](PEN_NOTES.md).
 
 **Update in place to retain your notes.** Uninstalling or clearing app data
-removes them. Notebook export/import is not implemented yet; keep another copy
-of irreplaceable campaign information until that feature ships.
+removes them. **PoolRad → Notebooks → Back up Notebook N…** saves that campaign
+as a `.prnb` file outside the app. **Restore backup…** restores without overwriting
+another notebook; select the restored campaign yourself. Each flag page also
+has **Save PNG** for a readable picture, not an editable backup.
+[Backup, restore and deliberate removal guide](NOTEBOOK_BACKUPS.md).
 
 ### If something doesn't work
 

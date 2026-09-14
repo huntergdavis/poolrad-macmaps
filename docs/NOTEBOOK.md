@@ -61,15 +61,16 @@ or unrecognized data is reported instead of silently overwritten. IO is ordered
 off the UI thread. Each note permits 2,048 strokes and 131,072 coordinate pairs;
 exceeding a limit rejects the unfinished stroke with visible feedback.
 
-**Updates retain notes; uninstalling or clearing app data removes them.** Notebook
-export/import is still the separate N4 backlog item. Do not treat this prototype
-as your only copy of irreplaceable campaign notes. No Android cloud backup is used.
+**Updates retain notes; uninstalling or clearing app data removes them.** Use
+**Notebooks → Back up Notebook N…** to save a complete `.prnb` file outside the
+app. **Restore backup…** never overwrites an existing campaign. A flag page's
+**Save PNG** exports a fitted readable image. [Backup/restore guide](NOTEBOOK_BACKUPS.md).
+Keep a separate copy of irreplaceable notes; no Android cloud backup is used.
 
 Version 2 adds symbols and a wide composite page; version-1 handwriting moves
 into its right half without distortion, with an original-byte backup before
 the first rewrite. N3's pen controls are implemented; physical stylus/palm/e-ink
-acceptance and notebook backup/import (N4) remain unfinished. Emulator checks
-are not tablet acceptance.
+acceptance remains unfinished. Emulator checks are not tablet acceptance.
 
 ## Local acceptance — 0.4.0
 

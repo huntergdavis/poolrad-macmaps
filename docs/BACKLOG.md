@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 170 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 198 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -31,11 +31,13 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.5.0 | Browse-only spells and 59-entry offline equipment browser/comparison |
 | Done — 0.5.1 | Automatic code wheel; distinct answers and same-process game quit/relaunch verified |
 | Done — 0.5.2 | Current/max party health through combat; real damage, healing, reorder and reload verified |
+| Done — 0.5.3 | Pen-only input, finger zoom/pan and larger flag targets; physical pen acceptance remains open |
+| Done — 0.6.0 | Complete notebook backups/restore, readable PNG pages and confirmed notebook removal |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, expanded party details,
-bundled personal APK, notebook export/import, physical pen polish, or wallpaper
+bundled personal APK, physical pen acceptance, or wallpaper
 controls. Separate area-wide drawing was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -152,11 +154,19 @@ No OCR, handwriting-to-text service, or cloud dependency.
   170 Java tests and 13 synthetic Android input checks pass; the six prior ink
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
-  While awaiting the actual tablet check, N4 is the next actionable software slice.
-- [ ] **N4 — Protect the notebook.** Export/import the complete local notebook
+  While awaiting the actual tablet check, continue with the next unchecked
+  actionable software item; B1 is next after the completed N4 slice.
+- [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
   notes; uninstall does not become the only way to discover a missing backup.
+  **Delivered 0.6.0:** a real Android file-picker backup, confirmed removal and
+  restore retain the notebook UUID, tile, Smithy symbol and exact vector bytes;
+  duplicate import refuses overwrite and leaves the active campaign unchanged.
+  Fitted 1600×768 PNG output matches its prepared image byte-for-byte. Cancelled
+  export/removal and in-place update preserve notes. Checks cover corrupt/
+  oversized records, atomic publication/removal and destination failures.
+  [Backup guide](NOTEBOOK_BACKUPS.md) · [local evidence](LOCAL_TESTING.md).
 
 ## P1 — requested comfort features and remaining correctness
 

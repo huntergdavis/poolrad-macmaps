@@ -26,6 +26,7 @@ public class MiniVMac extends AppCompatActivity
 
 	private Fragment _currentFragment;
 	private ScreenshotController screenshotController;
+	private NotebookTransferController notebookTransfers;
 
 	private boolean mUIVisible = true;
 	private GestureDetector mGestureDetector;
@@ -34,6 +35,7 @@ public class MiniVMac extends AppCompatActivity
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
 		screenshotController = new ScreenshotController(this, savedInstanceState);
+		notebookTransfers = new NotebookTransferController(this, savedInstanceState);
 
 		mGestureDetector = new GestureDetector(this, new MiniVMac.SingleTapGestureListener());
 
@@ -58,15 +60,19 @@ public class MiniVMac extends AppCompatActivity
 		screenshotController.captureAfterMenuDismissed();
 	}
 
+	public NotebookTransferController notebookTransfers() { return notebookTransfers; }
+
 	@Override
 	protected void onSaveInstanceState(@NonNull Bundle outState) {
 		screenshotController.onSaveInstanceState(outState);
+		notebookTransfers.onSaveInstanceState(outState);
 		super.onSaveInstanceState(outState);
 	}
 
 	@Override
 	protected void onDestroy() {
 		screenshotController.onDestroy();
+		notebookTransfers.onDestroy();
 		super.onDestroy();
 	}
 

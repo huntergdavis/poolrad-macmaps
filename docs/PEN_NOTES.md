@@ -73,4 +73,5 @@ On the actual tablet, open a disposable flag page and check:
    actual pen latency on e-ink. Record tablet model, Android version and findings.
 
 Until those checks are performed, N3's hardware acceptance stays unticked.
-Notebook export/import remains the separate next software item, N4.
+Notebook export/import and readable page PNGs are covered in the
+[backup guide](NOTEBOOK_BACKUPS.md).

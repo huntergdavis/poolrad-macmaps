@@ -8,6 +8,8 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -47,19 +49,11 @@ public final class NotebookStore {
     public synchronized Notebook createNotebook() throws IOException {
         List<Notebook> existing = listNotebooks();
         if (existing.size() >= MAX_NOTEBOOKS) throw new IOException("Notebook limit reached");
-        int next = 1;
-        for (Notebook book : existing) next = Math.max(next, labelNumber(book.label) + 1);
-        if (next > MAX_NOTEBOOKS) throw new IOException("Notebook label limit reached");
-        Notebook book = new Notebook(UUID.randomUUID().toString(), "Notebook " + next);
+        Notebook book = new Notebook(UUID.randomUUID().toString(), nextLabel(existing));
         File directory = new File(root, book.id);
         if (!directory.mkdir()) throw new IOException("Cannot create notebook folder");
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (DataOutputStream out = new DataOutputStream(bytes)) {
-            out.writeUTF(book.id);
-            out.writeUTF(book.label);
-        }
         try {
-            writeAtomic(new File(directory, "notebook.bin"), BOOK_MAGIC, BOOK_VERSION, bytes.toByteArray());
+            writeNotebook(directory, book);
         } catch (IOException failure) {
             // An empty failed create can be removed; never remove existing user files.
             directory.delete();
@@ -81,6 +75,185 @@ public final class NotebookStore {
         Collections.sort(books, (left, right) -> Integer.compare(
                 labelNumber(left.label), labelNumber(right.label)));
         return Collections.unmodifiableList(books);
+    }
+
+    /** Complete, versioned backup; caller owns and closes its document stream. */
+    public synchronized void exportNotebook(String id, OutputStream out) throws IOException {
+        List<NotebookArchive.Entry> entries = archiveEntries(id);
+        NotebookArchive.write(id, entries, out);
+    }
+
+    /**
+     * Restore without changing any existing notebook. The original UUID survives;
+     * a colliding display label gets the next local label. Never merges notebooks.
+     * Only a completely verified staged directory is published to the live root.
+     */
+    public synchronized Notebook importNotebook(InputStream in) throws IOException {
+        if (in == null) throw new IllegalArgumentException("Missing backup source");
+        List<Notebook> existing = listNotebooks();
+        if (existing.size() >= MAX_NOTEBOOKS) throw new IOException("Notebook limit reached");
+        File staging = newStagingFolder();
+        try {
+            String id = NotebookArchive.read(in, staging);
+            NotebookStore stagedStore = new NotebookStore(staging);
+            stagedStore.archiveEntries(id); // Validates identity, all notes, icons and v1 backups.
+            Notebook book = stagedStore.readNotebook(id);
+            File destination = new File(root, id);
+            if (destination.exists()) throw new IOException("This notebook already exists. Export it before removing it to restore a backup.");
+            // Recheck after the stream read: an external document provider may take time.
+            existing = listNotebooks();
+            if (existing.size() >= MAX_NOTEBOOKS) throw new IOException("Notebook limit reached");
+            boolean labelTaken = false;
+            for (Notebook other : existing) {
+                if (other.id.equals(id)) throw new IOException("This notebook already exists");
+                if (other.label.equals(book.label)) labelTaken = true;
+            }
+            File imported = new File(staging, id);
+            if (labelTaken) {
+                book = new Notebook(id, nextLabel(existing));
+                writeNotebook(imported, book);
+            }
+            if (destination.exists() || !imported.renameTo(destination)) {
+                throw new IOException("Cannot publish notebook atomically; existing notebooks were not replaced");
+            }
+            return book;
+        } finally {
+            cleanStaging(staging);
+        }
+    }
+
+    /**
+     * Call only after user confirmation. Validation and a whole-directory rename
+     * precede cleanup, so a failed removal never leaves half a visible notebook.
+     * After the rename removal is committed; failed cleanup may leave private
+     * retired files outside the notebook list, not a partially visible notebook.
+     */
+    public synchronized void deleteNotebook(String id) throws IOException {
+        archiveEntries(id);
+        File staging = newStagingFolder();
+        try {
+            if (!new File(root, id).renameTo(new File(staging, id))) {
+                throw new IOException("Cannot remove notebook atomically; no notes were removed");
+            }
+        } finally {
+            cleanStaging(staging);
+        }
+    }
+
+    private List<NotebookArchive.Entry> archiveEntries(String id) throws IOException {
+        readNotebook(id);
+        File book = new File(root, id);
+        requireDirectChild(root, book);
+        List<NotebookArchive.Entry> entries = new ArrayList<>();
+        int filesSeen = 0;
+        for (File child : children(book)) {
+            requireDirectChild(book, child);
+            String name = child.getName();
+            if (name.startsWith(".pending-")) {
+                requirePendingFile(child); continue;
+            }
+            if (name.equals("notebook.bin")) {
+                entries.add(new NotebookArchive.Entry(name, child)); continue;
+            }
+            if (!NotebookArchive.area(name) || !child.isDirectory()) {
+                throw new IOException("Unrecognized notebook content; backup or removal refused");
+            }
+            for (File file : children(child)) {
+                if (++filesSeen > NotebookArchive.MAX_ENTRIES) throw new IOException("Too many notebook files");
+                requireDirectChild(child, file);
+                String filename = file.getName();
+                if (filename.startsWith(".pending-")) {
+                    requirePendingFile(file); continue;
+                }
+                NotebookArchive.Entry entry = new NotebookArchive.Entry(name + "/" + filename, file);
+                if (!filename.equals("map.ink")) {
+                    int tile = Integer.parseInt(filename.substring(0, filename.indexOf('.')));
+                    StoredNote stored = readInk(file, id, name, tile % 16, tile / 16);
+                    if (filename.endsWith(".v1") && stored.version != 1) {
+                        throw new IOException("Invalid legacy notebook backup");
+                    }
+                }
+                entries.add(entry);
+            }
+        }
+        if (entries.size() > NotebookArchive.MAX_ENTRIES) throw new IOException("Too many notebook entries");
+        Collections.sort(entries, (left, right) -> left.path.compareTo(right.path));
+        return entries;
+    }
+
+    private static void requirePendingFile(File file) throws IOException {
+        if (!file.isFile() || file.length() > NotebookArchive.MAX_ENTRY_BYTES) {
+            throw new IOException("Unrecognized incomplete notebook write");
+        }
+    }
+
+    private static File[] children(File parent) throws IOException {
+        File[] files = parent.listFiles();
+        if (files == null) throw new IOException("Cannot read notebook content");
+        return files;
+    }
+
+    private static void requireDirectChild(File parent, File child) throws IOException {
+        if (!child.getCanonicalFile().equals(new File(parent.getCanonicalFile(), child.getName()))) {
+            throw new IOException("Notebook content must not contain linked paths");
+        }
+    }
+
+    private File newStagingFolder() throws IOException {
+        directory(root, true);
+        File parent = root.getCanonicalFile().getParentFile();
+        if (parent == null) throw new IOException("Notebook storage has no safe staging location");
+        File staging = File.createTempFile(".poolrad-notebook-", ".stage", parent);
+        if (!staging.delete() || !staging.mkdir()) throw new IOException("Cannot create notebook staging folder");
+        return staging;
+    }
+
+    /** Only our freshly allocated three-level stage, never a caller-supplied tree. */
+    private static void cleanStaging(File staging) {
+        try {
+            for (File book : children(staging)) {
+                requireDirectChild(staging, book);
+                if (!validId(book.getName()) || !book.isDirectory()) continue;
+                for (File child : children(book)) {
+                    requireDirectChild(book, child);
+                    if (child.isFile()) {
+                        if (child.getName().equals("notebook.bin") || child.getName().startsWith(".pending-")) child.delete();
+                    } else if (NotebookArchive.area(child.getName()) && child.isDirectory()) {
+                        for (File file : children(child)) {
+                            requireDirectChild(child, file);
+                            if (file.isFile()) file.delete();
+                        }
+                        child.delete();
+                    }
+                }
+                book.delete();
+            }
+            staging.delete();
+        } catch (IOException | SecurityException ignored) {
+            // Before publication this is private uncommitted input; after
+            // removal the whole notebook is already retired. Never undo either
+            // commit or touch a linked/unexpected path to force cleanup.
+        }
+    }
+
+    private static String nextLabel(List<Notebook> existing) throws IOException {
+        boolean[] used = new boolean[MAX_NOTEBOOKS + 1];
+        int next = 1;
+        for (Notebook book : existing) {
+            int number = labelNumber(book.label);
+            used[number] = true; next = Math.max(next, number + 1);
+        }
+        if (next <= MAX_NOTEBOOKS) return "Notebook " + next;
+        for (int i = 1; i <= MAX_NOTEBOOKS; i++) if (!used[i]) return "Notebook " + i;
+        throw new IOException("Notebook label limit reached");
+    }
+
+    private static void writeNotebook(File directory, Notebook book) throws IOException {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(book.id); out.writeUTF(book.label);
+        }
+        writeAtomic(new File(directory, "notebook.bin"), BOOK_MAGIC, BOOK_VERSION, bytes.toByteArray());
     }
 
     /** A missing flag is empty ink; listFlags distinguishes it from a saved blank note. */

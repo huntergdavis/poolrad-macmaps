@@ -1,4 +1,11 @@
-# 0.5.3 — Pen-friendly map notes
+# 0.6.0 — Keep your cartography
+
+[Release notes](releases/0.6.0.md): complete local notebook backups and restore,
+fitted map-and-handwriting PNGs, and deliberate notebook removal. Existing
+campaigns are never overwritten by import. 198 Java tests and real emulator
+backup → remove → restore acceptance pass; physical tablet acceptance stays open.
+
+## 0.5.3 — Pen-friendly map notes
 
 [Release notes](releases/0.5.3.md): remembered pen-only input, finger zoom/pan,
 Fit page, canceled/palm-pointer protection and larger nearby-flag choices.

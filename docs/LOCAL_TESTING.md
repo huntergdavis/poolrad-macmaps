@@ -62,6 +62,69 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.6.0 notebook protection acceptance (2026-09-14)
+
+The universal/all-four-ABI build succeeds, versionCode 71. **198 Java tests,
+zero failures/errors/skips**, three native sanitizer suites, six actual Android
+page-image checks (`tools/NotePageImageCheck.java`) and eight stopped-core input
+checks (`java tools/StoppedCoreInputCheck.java`) pass. The latter extracts the
+actual listener/key-release methods against a recording Core; it is not physical
+input acceptance. It covers a separately observed 0.5.3 null-Core mouse crash
+after normal guest shutdown. The fix uses captured, ready Core references.
+
+On the API 30 emulator, a disposable Notebook 3 receives a Smithy flag at New
+Phlan 2,2 and a stroke crossing the map/writing boundary. Its PNG saved through
+Android's document picker matches the immutable prepared PNG byte-for-byte
+(SHA-256 `1d94dd3ac4d75a6e39bb529b1d9a9a6a89c889c6709c82a8154b8d6f03302f0d`).
+Visual inspection confirms a legible 1600×768 heading, complete map, Smithy
+symbol and the full stroke. The game stays at the sample party's opening tour,
+15,1 W; no game statistics or save contents are edited.
+
+A complete `.prnb` backup saved to Downloads is also byte-identical to its
+prepared source. Cancelling an earlier export reports no saved backup; the
+next export succeeds. Cancelling Remove leaves the note hash unchanged. A
+confirmed removal retires only Notebook 3, then the file-picker restore brings
+back the same UUID, tile, Smithy symbol and exact vector bytes. The reopened
+page visually agrees. Reimporting the same file reports an existing-notebook
+error without overwrite; Notebook 1 remains active until explicitly switched.
+The original temple note and retained `.v1` bytes survive the in-place upgrade
+and all transfer operations unchanged.
+
+The final APK (including the input guard) was also installed in place after
+normal game Quit and Finder Shut Down. Both original records and the restored
+test note remained byte-identical. APK SHA-256:
+`0026d638fe96e26c6ca9830b96f23815a56b4991dd366bb2dcf7af5394d2df00`.
+The prototype signing certificate is unchanged; all 72 rune pictures match the
+source and no ROMs, disks or game archives are bundled.
+
+Storage tests additionally cover all-area/legacy/blank flags, label collisions,
+checksums, malformed/truncated/trailing/oversized input, unsafe paths, unknown
+records, failed staging publication, failed removal and post-commit cleanup.
+Transfer-file tests cover write/flush failures, immutable retry sources and
+safe pending-file restoration/expiry. These are software checks, not a claim
+that every Android document provider or process-death scenario was exercised.
+No CI is configured. Physical pen/e-ink acceptance and real rotation remain open.
+
+### Android document-picker test input
+
+On this emulator, ordinary `adb shell input tap` activated dialog buttons but
+did not select DocumentsUI file rows. The explicit-finger helper below selected
+the same rows successfully; no production code change was needed. It refuses
+non-emulator hardware. Inspect the current picker bounds before choosing x/y;
+coordinates below are an example, not a script for arbitrary screens.
+
+```sh
+picker_check=$(mktemp -d scratch/document-tap.XXXXXX)
+javac --release 8 -cp /usr/lib/android-sdk/platforms/android-34/android.jar \
+  -d "$picker_check/classes" tools/DocumentPickerTap.java
+jar cf "$picker_check/classes.jar" -C "$picker_check/classes" .
+/usr/lib/android-sdk/build-tools/34.0.0/d8 --min-api 21 \
+  --output "$picker_check/document-tap.zip" "$picker_check/classes.jar"
+adb -s emulator-5580 push "$picker_check/document-tap.zip" /data/local/tmp/
+adb -s emulator-5580 shell \
+  'CLASSPATH=/data/local/tmp/document-tap.zip app_process /system/bin DocumentPickerTap 310 425'
+```
+
 ## 0.5.3 pen-note software acceptance (2026-09-14)
 
 The Mac II universal/all-four-ABI build succeeds, versionCode 70. **170 Java

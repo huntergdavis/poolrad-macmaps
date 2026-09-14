@@ -129,8 +129,9 @@ public class EmulatorFragment extends Fragment
         releaseAutomaticKey();
     }
     private void releaseAutomaticKey() {
-        if (mAutomaticKey >= 0 && mAutomaticKeyCore != null && mAutomaticKeyCore == mCore && mCore.isReady())
-            mAutomaticKeyCore.keyUp(mAutomaticKey);
+        Core target = mAutomaticKeyCore;
+        if (mAutomaticKey >= 0 && target != null && target == mCore && target.isReady())
+            target.keyUp(mAutomaticKey);
         mAutomaticKey = -1; mAutomaticKeyCore = null;
     }
     private void receiveWheelSample(Core target, byte[] sample) {
@@ -457,40 +458,9 @@ public class EmulatorFragment extends Fragment
                 if (mMapStack != null) mMapStack.setGuestSize(screenWidth, screenHeight);
             }));
 
-            mScreenView.setOnMouseEventListener(new ScreenView.OnMouseEventListener() {
-                @Override
-                public void onMousePosition(int x, int y) {
-                    mCore.setMousePosition(x, y);
-                }
-
-                @Override
-                public void onMouseMove(int dx, int dy) {
-                    mCore.setMoveMouse(dx, dy);
-                }
-
-                @Override
-                public void onMouseClick(boolean down) {
-                    if (down) cancelAutomaticWheel();
-                    mCore.setMouseBtn(down);
-                }
-            });
-
-            mTrackPadView.setOnMouseEventListener(new ScreenView.OnMouseEventListener() {
-                @Override
-                public void onMousePosition(int x, int y) {
-                    mCore.setMousePosition(x, y);
-                }
-                @Override
-                public void onMouseMove(int dx, int dy) {
-                    mCore.setMoveMouse(dx, dy);
-                }
-
-                @Override
-                public void onMouseClick(boolean down) {
-                    if (down) cancelAutomaticWheel();
-                    mCore.setMouseBtn(down);
-                }
-            });
+            ScreenView.OnMouseEventListener mouseInput = createMouseInputListener();
+            mScreenView.setOnMouseEventListener(mouseInput);
+            mTrackPadView.setOnMouseEventListener(mouseInput);
 
             mCore.setOnUpdateScreenListener((update, top, left, bottom, right) -> mUIHandler.post(() -> mScreenView.updateScreen(update, top, left, bottom, right)));
 
@@ -564,6 +534,25 @@ public class EmulatorFragment extends Fragment
         mEmulatorStarted = true;
         emulation.setName("EmulationThread");
         emulation.start();
+    }
+
+    /** Views can deliver a final move/up after the emulation thread clears mCore. */
+    private ScreenView.OnMouseEventListener createMouseInputListener() {
+        return new ScreenView.OnMouseEventListener() {
+            @Override public void onMousePosition(int x, int y) {
+                Core target = mCore;
+                if (target != null && target.isReady()) target.setMousePosition(x, y);
+            }
+            @Override public void onMouseMove(int dx, int dy) {
+                Core target = mCore;
+                if (target != null && target.isReady()) target.setMoveMouse(dx, dy);
+            }
+            @Override public void onMouseClick(boolean down) {
+                if (down) cancelAutomaticWheel();
+                Core target = mCore;
+                if (target != null && target.isReady()) target.setMouseBtn(down);
+            }
+        };
     }
 
     private void captureRam() {
@@ -682,21 +671,25 @@ public class EmulatorFragment extends Fragment
 
         @Override public void onPress(int primaryCode) {
             cancelAutomaticWheel();
+            Core target = mCore;
+            if (target == null || !target.isReady()) return;
             if (primaryCode >= 0) {
                 Keyboard.Key key = getKey(primaryCode);
 
                 if (key != null && (!key.sticky || !key.on)) {
-                    mCore.keyDown(primaryCode);
+                    target.keyDown(primaryCode);
                 }
             }
         }
 
         @Override public void onRelease(int primaryCode) {
+            Core target = mCore;
+            if (target == null || !target.isReady()) return;
             if (primaryCode >= 0) {
                 Keyboard.Key key = getKey(primaryCode);
 
                 if (key != null && (!key.sticky || !key.on)) {
-                    mCore.keyUp(primaryCode);
+                    target.keyUp(primaryCode);
                 }
             }
         }
@@ -736,8 +729,9 @@ public class EmulatorFragment extends Fragment
         private void resetShift() {
             Keyboard.Key shiftKey = getKey(KEYCODE_MAC_SHIFT);
             if (shiftKey != null && shiftKey.on) {
-                if (mCore != null) {
-                    mCore.keyUp(KEYCODE_MAC_SHIFT);
+                Core target = mCore;
+                if (target != null && target.isReady()) {
+                    target.keyUp(KEYCODE_MAC_SHIFT);
                 }
                 shiftKey.on = false;
             }
@@ -855,15 +849,16 @@ public class EmulatorFragment extends Fragment
 
     private void cancelCodeEntry() {
         if (mCodeEntry != null && mUIHandler != null) mUIHandler.removeCallbacks(mCodeEntry);
-        if (mCodeEntryKey >= 0 && mCodeEntryCore != null && mCodeEntryCore == mCore && mCore.isReady())
-            mCodeEntryCore.keyUp(mCodeEntryKey);
+        Core target = mCodeEntryCore;
+        if (mCodeEntryKey >= 0 && target != null && target == mCore && target.isReady())
+            target.keyUp(mCodeEntryKey);
         mCodeEntryKey = -1; mCodeEntry = null; mCodeEntryCore = null;
     }
 
     @Override
     public boolean onKeyDown (int keyCode, @NonNull KeyEvent event) {
         cancelAutomaticWheel();
-        if (mScreenView.isScroll()) {
+        if (mScreenView != null && mScreenView.isScroll()) {
             switch(keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:
                 case KeyEvent.KEYCODE_DPAD_DOWN:
@@ -875,8 +870,9 @@ public class EmulatorFragment extends Fragment
         }
 
         int macKey = translateKeyCode(keyCode);
-        if (mCore != null && macKey >= 0) {
-            mCore.keyDown(macKey);
+        Core target = mCore;
+        if (macKey >= 0) {
+            if (target != null && target.isReady()) target.keyDown(macKey);
             return true;
         }
 
@@ -897,8 +893,9 @@ public class EmulatorFragment extends Fragment
     @Override
     public boolean onKeyUp (int keyCode, @NonNull KeyEvent event) {
         int macKey = translateKeyCode(keyCode);
-        if (mCore != null && macKey >= 0) {
-            mCore.keyUp(macKey);
+        Core target = mCore;
+        if (macKey >= 0) {
+            if (target != null && target.isReady()) target.keyUp(macKey);
             return true;
         }
         return false;

@@ -38,11 +38,12 @@ public final class NotebookController implements LiveMapView.Listener {
     private static final String ACTIVE = "poolrad_notebook_id";
     private static final String PEN_ONLY = "poolrad_notes_pen_only";
     // One ordered queue also lets an old Activity finish its saves before a new one reads them.
-    private static final ExecutorService IO = Executors.newSingleThreadExecutor();
+    static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private final Activity activity;
     private final LiveMapView map;
     private final NotebookStore store;
     private final SharedPreferences prefs;
+    private final NotebookTransferController transfers;
     private final Handler main = new Handler(Looper.getMainLooper());
     private NotebookStore.Notebook notebook;
     private AreaIdentity area;
@@ -54,6 +55,7 @@ public final class NotebookController implements LiveMapView.Listener {
 
     public NotebookController(Activity activity, LiveMapView map) {
         this.activity = activity; this.map = map;
+        transfers = ((MiniVMac) activity).notebookTransfers();
         store = new NotebookStore(new File(activity.getFilesDir(), "notebooks"));
         prefs = PreferenceManager.getDefaultSharedPreferences(activity);
         map.setListener(this);
@@ -194,6 +196,7 @@ public final class NotebookController implements LiveMapView.Listener {
                     opening = false; if (disposed) return;
                     LinearLayout list = column();
                     list.addView(text("Each notebook is a separate campaign. Switching Mac saves does not switch notebooks. Old notes are kept."));
+                    list.addView(text("Back up each notebook to a .prnb file outside the app. Uninstalling removes local notes. Restore never overwrites an existing campaign."));
                     for (NotebookStore.Notebook book : books) {
                         Button select = button(list, book.label() + (notebook != null && notebook.id().equals(book.id()) ? " · active" : ""));
                         select.setOnClickListener(v -> {
@@ -203,6 +206,18 @@ public final class NotebookController implements LiveMapView.Listener {
                         });
                     }
                     button(list, "New notebook…").setOnClickListener(v -> { picker.dismiss(); confirmNewNotebook(); });
+                    if (notebook != null) {
+                        final NotebookStore.Notebook target = notebook;
+                        button(list, "Back up " + target.label() + "…").setOnClickListener(v -> {
+                            picker.dismiss(); transfers.exportNotebook(target);
+                        });
+                        button(list, "Remove " + target.label() + "…").setOnClickListener(v -> {
+                            picker.dismiss(); confirmRemoveNotebook(target);
+                        });
+                    }
+                    button(list, "Restore backup…").setOnClickListener(v -> {
+                        picker.dismiss(); transfers.importNotebook();
+                    });
                     ScrollView scroll = new ScrollView(activity); scroll.addView(list);
                     picker = UpperHalfReferenceDialog.show(activity, "Notebooks", scroll);
                 });
@@ -219,6 +234,42 @@ public final class NotebookController implements LiveMapView.Listener {
             picker.dismiss(); opening = true;
             IO.execute(() -> { try { selectOnDisk(store.createNotebook()); }
                 catch (IOException | RuntimeException failure) { main.post(() -> opening = false); report("Cannot create notebook", failure); } });
+        });
+    }
+
+    private void confirmRemoveNotebook(NotebookStore.Notebook target) {
+        if (disposed || session != null || opening) return;
+        LinearLayout content = column();
+        content.addView(text("Remove " + target.label() + " and ALL its flags and handwritten pages in every area? "
+                + "Save a .prnb backup first. There is no undo. Other notebooks and the original game saves are untouched."));
+        Button remove = button(content, "Remove " + target.label() + " and all its notes");
+        picker = UpperHalfReferenceDialog.show(activity, "Remove notebook?", content);
+        remove.setOnClickListener(v -> {
+            if (opening || disposed || session != null) return;
+            opening = true; remove.setEnabled(false); picker.dismiss();
+            IO.execute(() -> {
+                boolean removed = false;
+                try {
+                    store.deleteNotebook(target.id()); removed = true;
+                    if (target.id().equals(prefs.getString(ACTIVE, "")))
+                        if (!prefs.edit().remove(ACTIVE).commit()) throw new IOException("Could not clear notebook selection");
+                    List<NotebookStore.Notebook> remaining = store.listNotebooks();
+                    NotebookStore.Notebook selected = NotebookSelection.choose(remaining, prefs.getString(ACTIVE, ""));
+                    if (selected == null) selected = store.createNotebook();
+                    selectOnDisk(selected);
+                    main.post(() -> toast(target.label() + " removed. Restore its .prnb backup to recover it."));
+                } catch (IOException | RuntimeException failure) {
+                    final boolean didRemove = removed;
+                    android.util.Log.w("PoolRad.Notebook", "Notebook removal/selection failed", failure);
+                    main.post(() -> {
+                        if (disposed) return;
+                        opening = false;
+                        if (didRemove) { notebook = null; refreshFlags(); }
+                        toast(didRemove ? "Notebook removed, but replacement selection failed. Open Notebooks to choose/create one."
+                                : "Notebook was not removed. Existing notes are unchanged.");
+                    });
+                }
+            });
         });
     }
 
@@ -239,7 +290,7 @@ public final class NotebookController implements LiveMapView.Listener {
         boolean closing, deleting;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, symbol, delete, fit;
+        Button pen, eraser, undo, redo, symbol, delete, fit, export;
         CheckBox penOnly;
         AlertDialog dialog;
     }
@@ -255,6 +306,7 @@ public final class NotebookController implements LiveMapView.Listener {
         current.undo = tool(tools, "Undo"); current.redo = tool(tools, "Redo");
         current.symbol = tool(tools, "Symbol");
         current.delete = tool(tools, "Delete…"); current.delete.setContentDescription("Delete flag and linked handwritten note");
+        current.export = tool(tools, "Save PNG");
         HorizontalScrollView toolScroll = new HorizontalScrollView(activity);
         toolScroll.setHorizontalScrollBarEnabled(true); toolScroll.addView(tools);
         content.addView(toolScroll);
@@ -311,6 +363,13 @@ public final class NotebookController implements LiveMapView.Listener {
             prefs.edit().putBoolean(PEN_ONLY, checked).apply();
         });
         current.fit.setOnClickListener(v -> current.sheet.fitPage());
+        current.export.setOnClickListener(v -> {
+            current.sheet.cancelActiveStroke();
+            InkNote ink = current.sheet.getNote();
+            Map<Integer, NoteIcon> symbolsAtExport = new HashMap<>(current.symbols);
+            transfers.exportPage(() -> NotePageImage.render(activity, ink, current.snapshot,
+                    symbolsAtExport, current.x, current.y, current.book.label()));
+        });
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
         updateTools(current);
     }
@@ -328,6 +387,7 @@ public final class NotebookController implements LiveMapView.Listener {
         current.pen.setEnabled(enabled); current.eraser.setEnabled(enabled); current.delete.setEnabled(enabled);
         current.symbol.setEnabled(enabled);
         current.fit.setEnabled(enabled); current.penOnly.setEnabled(enabled);
+        current.export.setEnabled(enabled);
         current.symbol.setText(current.icon.label());
         current.symbol.setContentDescription("Change map symbol. Current: " + current.icon.label());
         current.undo.setEnabled(enabled && current.sheet.canUndo()); current.redo.setEnabled(enabled && current.sheet.canRedo());
