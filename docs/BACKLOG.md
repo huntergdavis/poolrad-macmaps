@@ -22,14 +22,14 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 149 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 152 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
 | Done — 0.4.0 | Exact known-area identities; New Phlan/Slums round trip and restart/reopen note acceptance |
 | Done — 0.5.0 | Always-on flags, per-flag map/writing pages, nine symbols and lossless old-note migration |
 | Done — 0.5.0 | Browse-only spells and 59-entry offline equipment browser/comparison |
-| Working — 0.5.0 | Automatic code-wheel entry accepted by original game; additional prompt/reload coverage open |
+| Done — 0.5.1 | Automatic code wheel; distinct answers and same-process game quit/relaunch verified |
 | Working — 0.5.0 | Read-only current/max party health beside the map; broader live health acceptance open |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
@@ -65,16 +65,17 @@ the lower-priority queue.
   **Delivered 0.5.0:** actual TYR note reopens in the right half; cross-sheet
   ink/eraser and byte-identical undo/redo pass. Original `.v1` backup matches
   the old note exactly. Six Android View checks cover rendering and resize.
-- [ ] **F4 — Automatic code wheel from verified memory.** Detect the actual
+- [x] **F4 — Automatic code wheel from verified memory.** Detect the actual
   prompt and its runes/path using small read-only Mac memory samples, solve
   locally, then enter the correct answer and Return without user intervention.
   Validate distinct prompts and exits/reloads; do not submit a guessed or stale
   answer. Keep the manual offline helper available when recognition is unknown.
-  **Implemented; acceptance in progress:** original game accepted automatic
-  six-letter entry and Return on the rebuilt candidate. A live scheduling bug
-  was fixed and regression-tested. The independent F9 cold boot also completed
-  automatic entry. Distinct-answer and same-process quit/relaunch checks remain
-  open; [evidence](WHEEL_MEMORY.md).
+  **Delivered 0.5.1:** original game accepted TEMPLE (index 10), then BEWARE
+  (index 0) after normal Quit → Finder → Open in the same Android process/core.
+  Both first attempts used six read-back-confirmed letters and one automatic
+  Return, with no outside answer input. Tests cover all 13 answers, repeated
+  addresses after exit, and stale-sample suppression. Other game versions and
+  physical tablet timing remain untested; [evidence](WHEEL_MEMORY.md).
 - [x] **F5 — Remove Capture RAM from the everyday menu.** Diagnostics belong in
   developer tooling, not the normal PoolRad actions.
   **Delivered 0.5.0:** verified the actual eight-action PoolRad menu without it.

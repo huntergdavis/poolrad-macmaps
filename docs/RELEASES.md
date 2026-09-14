@@ -1,4 +1,9 @@
-# 0.5.0 — A more useful companion
+# 0.5.1 — Hands-free code-wheel acceptance
+
+[Release notes](releases/0.5.1.md): distinct automatic answers and normal
+game quit/relaunch verified end to end, with 152 Java tests passing.
+
+## 0.5.0 — A more useful companion
 
 Download `poolrad-macmaps-0.5.0.apk` from this release and install it on Android.
 [Setup guide](https://github.com/huntergdavis/poolrad-macmaps/blob/main/docs/INSTALL.md).

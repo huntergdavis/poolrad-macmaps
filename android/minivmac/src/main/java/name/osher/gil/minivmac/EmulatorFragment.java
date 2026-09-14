@@ -145,7 +145,8 @@ public class EmulatorFragment extends Fragment
         mAutomaticKey = translateKeyCode(key == '\n' ? KeyEvent.KEYCODE_ENTER : KeyEvent.KEYCODE_A + key - 'A');
         mAutomaticKeyCore = target; target.keyDown(mAutomaticKey);
         mUIHandler.postDelayed(mReleaseAutomaticKey, 100);
-        if (BuildConfig.DEBUG) Log.d(TAG, "Automatic wheel dispatched key at prefix length "
+        if (BuildConfig.DEBUG) Log.d(TAG, "Automatic wheel prompt " + prompt.index
+                + " attempt " + prompt.attempt + " dispatched key at prefix length "
                 + prompt.typed.length() + (key == '\n' ? " (Return)" : ""));
         if (key == '\n') Log.i(TAG, "Verified code-wheel answer entered; waiting for the original game.");
     }

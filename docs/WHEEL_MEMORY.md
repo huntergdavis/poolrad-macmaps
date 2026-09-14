@@ -82,8 +82,42 @@ An independent single-disk cold boot on emulator 5582 also completed six letters
 and Return automatically at 23:12, followed by a successful sample-party load;
 see [the boot evidence](PERSONAL_BOOT.md). These are two automatic startup
 instances, plus the separate manual `SAVIOR` validation. The answer indices were
-not recorded for both successful runs, so distinct-answer coverage and a
-same-process quit/relaunch remain unverified. Other game
-versions, physical e-ink hardware, and all possible device timing conditions are
-not validated by these checks. RAM captures, extracted executable bytes, ROMs,
+not recorded for both successful runs; the additional checks below close that
+distinct-answer and same-process quit/relaunch gap. Other game versions,
+physical e-ink hardware, and all possible device timing conditions are not
+validated by these checks. RAM captures, extracted executable bytes, ROMs,
 disks, and diagnostic screenshots remain private.
+
+## 0.5.1 — distinct answers and same-process relaunch
+
+On 2026-09-13, the all-ABI Mac II candidate (versionCode 68) passed **152 Java
+tests**, all three native sanitizer suites and the APK artwork/asset check.
+It was installed in place on emulator 5580, API 30, at normal 1× guest speed.
+The existing note and its legacy backup remained byte-identical after updating.
+
+| Original-game launch | Verified index / answer | First letter → confirmed Return (PDT) | Result |
+| --- | --- | --- | --- |
+| Finder → Open after guest boot | 10 / TEMPLE, attempt 1 | 23:41:03.793 → 23:41:06.685 | Load Saved Game enabled |
+| Normal game Quit → confirm → Finder → Open | 0 / BEWARE, attempt 1 | 23:43:54.533 → 23:43:56.897 | Load Saved Game enabled |
+
+Both runs used Android process **16292**, without resetting the emulator core
+between game launches. Each log contains prefix lengths 0–5 followed by exactly
+one length-6 Return. No external letter, Return, debugger write or validation
+patch supplied either answer. The original game's enabled menu, not merely the
+dispatch log, establishes acceptance. Private evidence:
+`scratch/f4-live-wheel.log`, `scratch/f4-temple-accepted-menu.png`,
+`scratch/f4-same-process-finder.png`, `scratch/f4-second-accepted-menu.png`.
+
+After the second acceptance, normal File → Load Saved Game → PoolRadSave →
+SampleParty reached Rolf's introduction at New Phlan 15,1 W, with all six
+current/max HP rows and the existing Temple flag visible. No additional wheel
+keys were dispatched during reload (`scratch/f4-sample-reloaded.png`).
+
+Debug builds now include the verified prompt index and attempt alongside prefix
+lengths. They do not log arbitrary typed text or dump memory. Three focused
+controller tests cover all thirteen distinct answers without controller reset,
+relaunch with the exact same answer/addresses after sustained absence, and
+transient missing samples after submission without another Return. These are
+bounded regressions, not a long-running device matrix. Physical tablet/e-ink
+timing and unsupported game profiles remain untested; the manual illustrated
+offline helper is still available.

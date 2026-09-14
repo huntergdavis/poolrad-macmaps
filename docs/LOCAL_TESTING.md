@@ -62,6 +62,22 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.5.1 automatic-wheel acceptance (2026-09-13)
+
+The normal Mac II universal/all-four-ABI build succeeds (versionCode 68), with
+**152 Java tests, zero failures/errors/skips**, three native sanitizer suites
+and the bundled-artwork/no-ROM-or-disks APK check passing. The same signing
+certificate permits an in-place update; the existing note and original-byte
+backup hashes were unchanged afterward.
+
+The original game accepted **TEMPLE**, then **BEWARE** after normal game
+Quit → Finder → Open, without restarting Android process 16292 or the emulator
+core. Each entry read back six letters before one Return, with no outside answer
+input. Both enabled Load Saved Game. The second run loaded SampleParty through
+the original picker and reached Rolf's introduction with the live map, six HP
+rows and the existing Temple flag. [Exact evidence](WHEEL_MEMORY.md).
+Physical e-ink/stylus/tablet testing is not claimed.
+
 ## 0.5.0 integrated acceptance (2026-09-13)
 
 - Normal Mac II universal build and all four ABI variants succeed, versionCode
@@ -81,8 +97,8 @@ party loads, but this is not proof that every encounter/item file is healthy.
 - The wheel reader follows the current input frame and live TextEdit buffer.
   The final candidate automatically typed six verified letters and Return;
   the original game accepted them and enabled Load Saved Game. No outside
-  letter/Return input was supplied. A second distinct automatic prompt and
-  exit/reload coverage remain separate checks. [Evidence](WHEEL_MEMORY.md).
+  letter/Return input was supplied. The then-open distinct-prompt and game
+  exit/relaunch checks are completed in 0.5.1 above. [Evidence](WHEEL_MEMORY.md).
 - The existing ten-stroke TYR note at New Phlan 11,2 opened with a map on the
   left and unchanged handwriting on the right. Opening left its old file
   byte-identical; first save created an exact `.ink.v1` backup (SHA-256

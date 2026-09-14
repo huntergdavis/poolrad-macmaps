@@ -4,11 +4,16 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class AutomaticWheelTest {
+    private static final String[] ANSWERS = {"BEWARE", "ZOMBIE", "NOTNOW", "COPPER",
+            "DRAGON", "EFREET", "FRIEND", "JUNGLE", "KNIGHT", "SAVIOR", "TEMPLE", "VULCAN", "WYVERN"};
     private WheelPrompt prompt(String text, int attempt) {
+        return prompt(text, attempt, 0);
+    }
+    private WheelPrompt prompt(String text, int attempt, int index) {
         byte[] p = new byte[80]; p[0]='P'; p[1]='R'; p[2]='W'; p[3]='1';
         put(p,4,0x700000); put(p,8,0x6ff000); put(p,12,0x600000);
-        p[16]=0; p[17]=(byte)attempt; p[18]=(byte)text.length(); p[19]=6;
-        for(int i=0;i<6;i++)p[20+i]=(byte)"BEWARE".charAt(i);
+        p[16]=(byte)index; p[17]=(byte)attempt; p[18]=(byte)text.length(); p[19]=6;
+        for(int i=0;i<6;i++)p[20+i]=(byte)ANSWERS[index].charAt(i);
         for(int i=0;i<text.length();i++)p[28+i]=(byte)text.charAt(i);
         return WheelPrompt.parse(p);
     }
@@ -58,5 +63,31 @@ public class AutomaticWheelTest {
         AutomaticWheel a=new AutomaticWheel();a.observe(prompt("",1),0);a.observe(prompt("",1),250);a.suspend();
         a.observe(null,500);a.observe(null,2600);assertEquals(0,a.observe(prompt("",1),3000));
         assertEquals('B',a.observe(prompt("",1),3250));
+    }
+    private void completes(AutomaticWheel a, int index, long now) {
+        String answer = ANSWERS[index];
+        assertEquals(0, a.observe(prompt("", 1, index), now));
+        for (int i = 0; i < answer.length(); i++)
+            assertEquals(answer.charAt(i), a.observe(prompt(answer.substring(0, i), 1, index), now + 250 + i * 250));
+        assertEquals('\n', a.observe(prompt(answer, 1, index), now + 1750));
+        assertEquals(0, a.observe(prompt(answer, 1, index), now + 2000));
+    }
+    @Test public void distinctPromptsCompleteWithoutResettingController() {
+        AutomaticWheel a = new AutomaticWheel();
+        for (int index = 0; index < ANSWERS.length; index++) completes(a, index, index * 3000L);
+    }
+    @Test public void relaunchCanReuseTheExactAnswerAndAddressesAfterLeavingTheGame() {
+        AutomaticWheel a = new AutomaticWheel();
+        completes(a, 4, 0);
+        assertEquals(0, a.observe(null, 2250));
+        assertEquals(0, a.observe(null, 4500));
+        completes(a, 4, 5000);
+    }
+    @Test public void transientMissingSamplesDoNotResubmitCompletedAnswer() {
+        AutomaticWheel a = new AutomaticWheel();
+        completes(a, 9, 0);
+        assertEquals(0, a.observe(null, 2250));
+        assertEquals(0, a.observe(prompt(ANSWERS[9], 1, 9), 2500));
+        assertEquals(0, a.observe(prompt("", 1, 9), 2750));
     }
 }
