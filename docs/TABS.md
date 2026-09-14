@@ -1,104 +1,78 @@
-# Upper companion tabs
+# Companion tabs
 
-Design proposal, 2026-09-13; no navigation implementation in this change.
-
-Start with **Map** and **Info** in the existing upper companion space. Map is
-the default. Info contains Levels & skills, Spells, Money conversion, and the
-existing code wheel. Add Journal when the numbered-entry reader actually works,
-and Notes when writing, autosave and reopening work with stable notebook/area
-identities. Until then, those tabs do not appear. The eventual order can be
-Map, Journal, Info, Notes, using stable tab IDs rather than positional indexes.
+Map and Info share the space above the original Mac display. The keyboard stays
+below the game. Switching tabs never replaces, pauses or restarts the emulator.
 
 ```text
-Upper companion:  [ Map ] [ Info ]
-                  selected content; scrolling stays inside this pane
-Original guest:   existing ScreenView + trackpad + overlays
-Keyboard:         existing optional guest keyboard
+ +---------------------+---------------------+
+ |         Map         |        Info         |
+ +---------------------+---------------------+
+ | Live map + flags     OR  offline tools     |
+ +-------------------------------------------+
+ |              Original Mac game            |
+ +-------------------------------------------+
+ |              Optional keyboard            |
+ +-------------------------------------------+
 ```
 
-## Smallest useful first slice
+**Map** retains the existing map, flag pages and recognized party-health strip.
+**Info** groups five working tools: Levels & skills, Spells, Weapons & armor,
+Money conversion, and the illustrated Code wheel. A tool opens within the
+companion's actual rectangle; Close returns to Info. Lists scroll inside that
+space, including when the guest keyboard makes it shorter. No search keyboard,
+swipe navigation, flashing marker or animated tab transition is added.
 
-Wrap the existing `LiveMapView` in a `companion_pane` containing a 48dp tab row
-and a content frame. Info is a simple scrolling list of the four working tools.
-Keep the same map instance mounted, and toggle Map/Info content visibility.
-Use high-contrast selected states and explicit labels, without swipe navigation
-or animated transitions. Tab/control touches remain inside the companion;
-hardware game keys retain their existing route to the guest.
+[Actual Info + game screenshot](images/companion-info.png), captured in the
+Android emulator during Rolf's introduction, not a mockup or physical tablet.
 
-Reuse the working reference dialogs initially: a tool opens over Info and Close
-returns to Info. This delivers useful tabs without rewriting each tool's forms
-or introducing a second fragment/back-stack system. The code wheel still needs
-the current `EmulatorFragment` as its `Host` for deliberate answer entry. Move
-these tool entry points out of the PoolRad menu. Keep screenshot, companion
-visibility, keyboard, disk/import, settings and debug-only capture as menu
-actions. Later tools, including Weapons & armor, join Info only when functional.
+The PoolRad menu now contains **Show companion**, **Notebooks**, **Screenshot**
+and **Desktop appearance**. Keyboard, disk/import and Settings keep their
+existing toolbar locations. Capture RAM remains absent. Opening Notebooks or
+Desktop appearance while the companion is hidden reveals it first.
 
-## Layout and lifecycle constraints from the current code
+## State and input
 
-- `MapStackLayout.onMeasure()` currently sizes `live_map` directly, using guest
-  aspect ratio and keyboard height, with the map capped at half the remaining
-  height. Change that measurement target to the **direct-child companion pane**.
-  Include the tab row inside the existing allocation, so switching tabs never
-  moves the guest or keyboard. Measuring the newly nested map with the current
-  `LinearLayout.LayoutParams` cast would be wrong for its frame parent.
-- Preserve the guest frame's weight, `ScreenView`, trackpad, restart overlay,
-  fullscreen button and keyboard siblings. Narrow/landscape layouts keep the
-  current space budget; Info scrolls. Do not enlarge the companion just to fit
-  all its controls.
-- Existing dialogs use half the visible activity window. That can exceed the
-  actual companion allocation, especially with the keyboard open. Give the
-  shared positioning helper the companion's visible bounds, accounting for
-  toolbar/system insets, and use that for every reference and picker. Reuse the
-  same positioning from `CodeWheelDialog`. Listen to companion layout changes
-  as well as host changes; remove listeners on dismiss. Retain no dimming and
-  touch-only search/keypads. Legacy half-window fallback is only for callers
-  without a companion container.
-- `EmulatorFragment` currently polls every 250ms while `live_map` is visible.
-  Gate polling on resumed + companion shown + Map selected. Stop polling and
-  invalidate the generation on Info selection, hiding, pause and destruction.
-  Retain the last geometry, clear its live-position claim, and request a fresh
-  sample immediately when returning to Map. Keep the existing core/generation
-  checks so queued callbacks cannot revive a stale arrow.
-- The activity handles orientation/screen-size changes without normal recreation.
-  Remeasure the container and any open tool in that path. Also save the selected
-  tab ID in fragment instance state for actual view/activity recreation, default
-  safely to Map, and clear view references in `onDestroyView`. Tab switching
-  must not pause/restart the emulated machine.
+- The old hidden-map preference migrates once to `poolrad_show_companion`.
+  Hide/show retains the selected tab; its checkmark describes the whole pane.
+- A fresh session starts on Map. Activity/fragment saved state carries stable
+  `map`/`info` IDs through restoration; unknown IDs fall back to Map.
+- One `LiveMapView` and notebook controller stay mounted across tab changes.
+  Map/party polling runs only while resumed, shown and on Map. Leaving Map
+  clears the live arrow/HP claim but retains geometry; returning requests a
+  fresh sample. Old-generation and old-core callbacks are rejected.
+- Automatic code-wheel recognition remains independent of tab selection.
+  Manual code entry retains its existing dialog host and ordinary keystrokes.
+- Companion touches stay in the pane. Controls do not take hardware-key focus
+  from the guest; Android accessibility still exposes labelled, selected tabs.
+- Screenshot captures the selected embedded tab, guest and optional keyboard.
+  Separate reference-dialog windows and system bars are not in that image.
 
-## Visibility preference
+## Implementation
 
-Rename the user-facing action to **Show companion** and apply visibility to the
-whole container. Initialize a new `poolrad_show_companion` preference from the
-existing `poolrad_show_map` value when absent, preserving the user's hidden-pane
-choice and full guest space. Subsequent writes use the new key. Showing/hiding
-retains the current tab within that session; a fresh session defaults to Map.
-The menu checkmark follows container visibility, not which tab is selected.
+`CompanionPane` owns the two retained pages. `MapStackLayout` allocates the old
+upper-space budget to that direct child, including its 48dp tab row. It never
+casts the nested map's frame-layout parameters or changes the guest siblings.
+`EmulatorFragment` owns selection, polling and preference migration; `MiniVMac`
+carries saved selection through its existing replacement-fragment startup flow.
 
-## Exact implementation files
+`CompanionDialogBounds` sizes reference dialogs and all code-wheel pickers from
+the actual visible pane, including toolbar/system offsets. It tracks host/pane
+layout changes and removes its listeners on dismissal. An existing hidden or
+removed pane fails closed; only callers without a companion use the old
+half-window fallback. No dimming or opening animation is added.
 
-Paths below are relative to `android/minivmac/src/main/`.
+## Scope and verification
 
-| File | First-slice change |
-| --- | --- |
-| `res/layout/screen.xml` | Companion container, tab row, retained map, scrolling Info tool buttons |
-| `java/name/osher/gil/minivmac/MapStackLayout.java` | Allocate existing upper-space budget to the container |
-| `java/name/osher/gil/minivmac/EmulatorFragment.java` | Selection/state, visibility migration, polling gate, tool launchers and cleanup |
-| `res/menu/minivmac_actions.xml` | Remove reference navigation; retain app actions and Show companion |
-| `res/values/companion_strings.xml` (new) | Tab labels, selected-state/accessibility wording and visibility label |
-| `java/name/osher/gil/minivmac/UpperHalfReferenceDialog.java` | Shared positioning within actual companion bounds |
-| `java/name/osher/gil/minivmac/CodeWheelDialog.java` | Reuse that positioning for lookup and every picker |
+This implements the first UI1 slice from the original 2026-09-13 proposal.
+Journal awaits the numbered-entry reader. Handwritten pages already work from
+Map; a dedicated Notes index remains future navigation, not an empty tab.
+Native session recovery after forced activity recreation is the separate Q1
+backlog item, not a benefit claimed for tab restoration.
 
-The map renderer, guest input/core, three reference catalogs/forms, and screenshot
-implementation need no first-slice rewrite. Screenshot capture already draws
-the activity's child views, so embedded Map or Info content is included; separate
-dialog windows are not. Do not claim screenshots include open reference dialogs.
-
-## Focused acceptance
-
-Check Map → Info → tool → Close → Map; the guest rectangle and keyboard rectangle
-must match before/after tab changes. Check keyboard open/closed, portrait/
-landscape, background/resume, old hidden-map preference migration, and hide/show
-while Info is selected. Confirm the returning map waits for a fresh sample,
-all picker bounds stay above the guest, touch keys never launch the system IME,
-and screenshots show the selected embedded tab. Check physical e-ink readability
-separately; these are proposed checks, not acceptance claims.
+Run the Java unit suite, `java tools/CompanionLifecycleCheck.java`, and the
+Android View probe documented in `tools/CompanionPaneCheck.java`. The latter
+checks retained views, contrast, scrolling, touch consumption and actual parent
+layout with keyboard/portrait/landscape/narrow sizes; it is not a device test.
+Live window/input checks and limitations are recorded in
+[local acceptance](LOCAL_TESTING.md). Physical e-ink/stylus acceptance remains
+untested by these software checks.

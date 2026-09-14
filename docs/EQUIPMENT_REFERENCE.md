@@ -1,9 +1,9 @@
 # Equipment reference
 
 An offline, touch-only browser for the **original Pool of Radiance**, not a
-modern D&D equipment list. Open **Weapons & armor** in PoolRad. Browse all names,
+modern D&D equipment list. Open **Info → Weapons & armor**. Browse all names,
 choose a category, or tap an entry for details and **Compare with another**.
-The list, details, comparison and sources use the upper-half reference panel;
+The list, details, comparison and sources fit the actual upper companion pane;
 there is no search field, keyboard, network request or guest command.
 
 ## Coverage

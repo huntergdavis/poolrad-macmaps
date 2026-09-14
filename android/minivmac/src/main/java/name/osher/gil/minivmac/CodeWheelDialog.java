@@ -5,14 +5,10 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.Rect;
-import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
-import android.view.Window;
-import android.view.WindowManager;
 import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.GridView;
@@ -35,7 +31,7 @@ public final class CodeWheelDialog extends DialogFragment {
     private Button outer, inner, pathButton;
     private TextView answer;
     private AlertDialog picker;
-    private final View.OnLayoutChangeListener resizeListener = (v, l, t, r, b, ol, ot, or, ob) -> resizePanels();
+    private CompanionDialogBounds.Binding bounds, pickerBounds;
 
     private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }
     private Button button(Context context, LinearLayout column, String text) {
@@ -68,15 +64,21 @@ public final class CodeWheelDialog extends DialogFragment {
         credit.setText("Enter code types the answer and presses Return.\nReference: Dave Kennedy / Andrew Schultz · dkennedy.io/por-code-wheel");
         column.addView(credit);
         ScrollView scroll = new ScrollView(context); scroll.addView(column);
-        return new AlertDialog.Builder(context).setTitle(R.string.code_wheel_title).setView(scroll)
+        AlertDialog dialog = new AlertDialog.Builder(context).setTitle(R.string.code_wheel_title).setView(scroll)
                 .setPositiveButton("Enter code", null).setNegativeButton("Close", null).create();
+        // Configure the first frame too; onStart safely dismisses unavailable panes.
+        if (!CompanionDialogBounds.prepare(requireActivity(), dialog) && dialog.getWindow() != null)
+            dialog.getWindow().getDecorView().setVisibility(View.INVISIBLE);
+        return dialog;
     }
 
     @Override public void onStart() {
         super.onStart();
         AlertDialog dialog = (AlertDialog) requireDialog();
-        requireActivity().getWindow().getDecorView().addOnLayoutChangeListener(resizeListener);
-        resizePanels();
+        if (!CompanionDialogBounds.prepare(requireActivity(), dialog)) { dismiss(); return; }
+        dialog.getWindow().getDecorView().setVisibility(View.VISIBLE);
+        if (bounds != null) bounds.close();
+        bounds = CompanionDialogBounds.track(requireActivity(), dialog);
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(v -> {
             if (espruar == 0 || dethek == 0 || path < 0) return;
             if (getParentFragment() instanceof Host && ((Host) getParentFragment()).typeWheelCode(CodeWheel.entry(espruar, dethek, path))) dismiss();
@@ -84,29 +86,25 @@ public final class CodeWheelDialog extends DialogFragment {
         refresh();
     }
 
-    /** Keep both the lookup and every picker above the screen midpoint, with no game dimming. */
-    private void placeInUpperHalf(AlertDialog dialog) {
-        if (dialog == null || !dialog.isShowing()) return;
-        Window window = dialog.getWindow();
-        if (window == null) return;
-        Rect visible = new Rect();
-        requireActivity().getWindow().getDecorView().getWindowVisibleDisplayFrame(visible);
-        window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-        window.setBackgroundDrawable(new ColorDrawable(Color.WHITE));
-        window.setGravity(Gravity.TOP | Gravity.CENTER_HORIZONTAL);
-        window.setLayout(visible.width(), Math.max(1, visible.height() / 2));
-        dialog.setCanceledOnTouchOutside(false);
-    }
-
     private void resizePanels() {
         if (!isAdded()) return;
-        placeInUpperHalf((AlertDialog) getDialog());
-        placeInUpperHalf(picker);
+        if (bounds != null) bounds.resize();
+        if (pickerBounds != null) pickerBounds.resize();
     }
 
     private void showPicker() {
-        picker.show();
-        placeInUpperHalf(picker);
+        AlertDialog current = picker;
+        if (pickerBounds != null) pickerBounds.close();
+        pickerBounds = null;
+        if (!CompanionDialogBounds.prepare(requireActivity(), current)) { picker = null; return; }
+        current.setOnDismissListener(ignored -> {
+            if (picker == current) {
+                if (pickerBounds != null) pickerBounds.close();
+                pickerBounds = null; picker = null;
+            }
+        });
+        current.show();
+        pickerBounds = CompanionDialogBounds.track(requireActivity(), current);
     }
 
     @Override public void onConfigurationChanged(@NonNull Configuration configuration) {
@@ -115,7 +113,9 @@ public final class CodeWheelDialog extends DialogFragment {
     }
 
     @Override public void onStop() {
-        requireActivity().getWindow().getDecorView().removeOnLayoutChangeListener(resizeListener);
+        if (bounds != null) { bounds.close(); bounds = null; }
+        if (picker != null) picker.dismiss();
+        if (pickerBounds != null) { pickerBounds.close(); pickerBounds = null; }
         super.onStop();
     }
 
@@ -158,7 +158,8 @@ public final class CodeWheelDialog extends DialogFragment {
         });
         picker = new AlertDialog.Builder(context).setTitle(isOuter ? "Espruar — outer ring" : "Dethek — inner ring")
                 .setView(grid).setNegativeButton("Cancel", null).create();
-        grid.setOnItemClickListener((parent, view, at, id) -> { if (isOuter) espruar = at + 1; else dethek = at + 1; refresh(); picker.dismiss(); });
+        AlertDialog current = picker;
+        grid.setOnItemClickListener((parent, view, at, id) -> { if (isOuter) espruar = at + 1; else dethek = at + 1; refresh(); current.dismiss(); });
         showPicker();
     }
 
@@ -166,7 +167,9 @@ public final class CodeWheelDialog extends DialogFragment {
         super.onSaveInstanceState(out); out.putInt("outer", espruar); out.putInt("inner", dethek); out.putInt("path", path);
     }
     @Override public void onDestroyView() {
+        if (bounds != null) { bounds.close(); bounds = null; }
         if (picker != null) picker.dismiss();
+        if (pickerBounds != null) { pickerBounds.close(); pickerBounds = null; }
         super.onDestroyView();
     }
 }

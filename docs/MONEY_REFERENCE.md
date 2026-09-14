@@ -1,6 +1,6 @@
 # Original-game money reference
 
-REF4 is an offline calculator. Open **PoolRad → Money conversion**, select a
+REF4 is an offline calculator. Open **Info → Money conversion**, select a
 coin, and enter its count using the panel's keypad. All five denomination
 counts contribute to the total. `C` clears the selected amount; backspace
 removes a digit; Reset all clears the calculator. No guest memory, purse,

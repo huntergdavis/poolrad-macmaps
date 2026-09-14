@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item type="id" name="live_map" />
+    <item type="id" name="companion_tab_row" />
+    <item type="id" name="companion_tab_map" />
+    <item type="id" name="companion_tab_info" />
+    <item type="id" name="companion_content" />
+    <item type="id" name="companion_info" />
+    <item type="id" name="companion_tool_levels" />
+    <item type="id" name="companion_tool_spells" />
+    <item type="id" name="companion_tool_equipment" />
+    <item type="id" name="companion_tool_money" />
+    <item type="id" name="companion_tool_wheel" />
+</resources>

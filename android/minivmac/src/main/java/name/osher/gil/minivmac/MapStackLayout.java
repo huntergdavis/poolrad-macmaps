@@ -5,7 +5,7 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.LinearLayout;
 
-/** Gives the map the unused portrait space; keyboard stays below the guest. */
+/** Gives the companion the unused portrait space; keyboard stays below the guest. */
 public final class MapStackLayout extends LinearLayout {
     private int guestWidth = 640, guestHeight = 480;
 
@@ -16,8 +16,10 @@ public final class MapStackLayout extends LinearLayout {
     }
 
     @Override protected void onMeasure(int widthSpec, int heightSpec) {
-        View map = findViewById(R.id.live_map), keyboard = findViewById(R.id.keyboard);
-        if (map != null && map.getVisibility() != GONE) {
+        View companion = findViewById(R.id.companion_pane), keyboard = findViewById(R.id.keyboard);
+        // Only the direct child belongs to this LinearLayout. The nested map's
+        // frame parameters and visibility change with tabs and are not our budget.
+        if (companion != null && companion.getParent() == this && companion.getVisibility() != GONE) {
             int keyboardHeight = 0;
             if (keyboard != null && keyboard.getVisibility() != GONE) {
                 measureChild(keyboard, widthSpec, heightSpec);
@@ -25,10 +27,8 @@ public final class MapStackLayout extends LinearLayout {
             }
             int width = MeasureSpec.getSize(widthSpec);
             int available = Math.max(0, MeasureSpec.getSize(heightSpec) - keyboardHeight);
-            int spare = available - (int) ((long) width * guestHeight / guestWidth);
-            // When space is tight, share it rather than overlap the guest or the keyboard.
-            int mapHeight = Math.min(width, Math.max(spare, available / 3));
-            ((LayoutParams) map.getLayoutParams()).height = Math.min(mapHeight, available / 2);
+            ((LayoutParams) companion.getLayoutParams()).height =
+                    CompanionGeometry.allocation(width, available, guestWidth, guestHeight);
         }
         super.onMeasure(widthSpec, heightSpec);
     }

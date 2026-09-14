@@ -1,5 +1,13 @@
 # Releases
 
+## 0.9.0 — A place for the companion
+
+[Release notes](releases/0.9.0.md): retained Map/Info tabs, five working offline
+tools, a smaller menu, and reference/picker windows bounded above the guest.
+Visibility migration and fresh-sample polling retain the original game session.
+262 Java tests plus focused lifecycle, Android View and existing helper/native
+checks pass. Public downloads remain bring-your-own-files.
+
 ## 0.8.0 — A quieter Mac desktop
 
 [Release notes](releases/0.8.0.md): real guest White/Mist/Stonework previews,

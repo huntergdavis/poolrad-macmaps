@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="screenshot_title">Screenshot</string>
-    <string name="screenshot_ready">The map, game, and visible keyboard are captured in one PNG.</string>
+    <string name="screenshot_ready">The selected companion view, game, and visible keyboard are captured in one PNG.</string>
     <string name="screenshot_save">Save PNG…</string>
     <string name="screenshot_share">Share PNG…</string>
     <string name="screenshot_saved">Screenshot saved.</string>

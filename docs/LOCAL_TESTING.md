@@ -62,6 +62,81 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## UI1 companion tabs acceptance (0.9.0, 2026-09-14)
+
+Public and local-only personal universal APKs build. **262 Java unit tests**
+pass with zero failures/errors, including eleven new geometry/allocation tests.
+The existing 54 Python helper tests, three native ASAN/UBSAN reader suites and
+eight stopped-core input checks also pass. The public APK checker confirms all
+72 unchanged rune pictures and no ROM, disk, game archive or private bundle,
+including after building the personal flavor in the same worktree.
+
+`java tools/CompanionLifecycleCheck.java` passes ten checks extracted from the
+actual fragment/activity method bodies, using recording views/preferences/Core
+and a queued Handler. It covers one-time legacy-hidden migration, new-key
+precedence, saved/unknown tab IDs, the activity's replacement-fragment path,
+shown/resumed/Map polling, stale samples/generations/cores, hide/show and focus,
+and wheel independence through pause/resume. These are software fixtures, not
+proof of native session recovery after activity destruction.
+
+The eight checks in `tools/CompanionPaneCheck.java` run on real detached Android
+Views with installed APK resources. They cover the single retained map,
+selection metadata, all five tools, large-text/narrow scrolling, black/white
+contrast, touch consumption, and actual `MapStackLayout` guest/keyboard geometry
+through Map/Info and hide/show in portrait/landscape/narrow sizes. An initial
+test incorrectly asked a detached View for a populated accessibility node;
+Android does not populate that node without attachment. The corrected probe
+checks actual View metadata, and the attached UI tree separately confirms
+Info `selected=true`, Map `selected=false`, labels and non-keyboard focusability.
+
+Live checks use only the separate `poolrad-package-test` AVD, `emulator-5584`,
+AOSP API 30, 1200×1600 at density 200. The existing campaign on 5580 is untouched.
+The 0.8.0 installation was already cleanly shut down before the in-place update;
+its existing private combined boot/game disk is reused, not replaced.
+
+- Map/Info occupy the previous companion budget, including the 48dp tabs.
+  Guest top stays at y=630 with the keyboard closed; the map itself starts at
+  y=170 below the tabs. All five Info tools open and Close returns to Info.
+- Reference windows are `[0,110][1200,630]`, not half the activity. With the
+  guest keyboard open they shrink to `[0,110][1200,500]`; the Mac begins at
+  y=500. Actual Spells, Equipment, Money and all three rune/path pickers remain
+  above it, with scrollable content, reachable Close and no game dimming.
+- PoolRad has exactly Show companion, Notebooks, Screenshot and Desktop
+  appearance. Hiding Info removes the whole pane; opening Notebooks from that
+  state reveals it and waits for valid bounds. Closing the notebook chooser
+  returns to the retained Info tab. No notebook was deleted or replaced.
+- Original automatic code-wheel entry succeeds while Info is selected. The
+  existing game then accepts File → Load. After selecting PoolRadSave and
+  touching Info, a held Android Return opens the guest folder; another loads
+  SampleParty. Zero-duration ADB Return was missed, as distinct key edges need
+  guest CPU time; the held-key check reuses the existing input timing described
+  in [WHEEL_MEMORY.md](WHEEL_MEMORY.md), not a new key-routing workaround.
+- Returning to Map requests fresh data and shows New Phlan 15,1 W, agreeing
+  with the original guest during Rolf's introduction. Fresh-save party HP is
+  still unavailable on this disk, the same known coverage gap as B1/W1.
+- Android Home → resume brings the same activity back with Info selected and
+  the guest intact. Screenshot produces a real 1200×1420 PNG with Info's five
+  tools above the original Rolf/party display; menu, toolbar and system bars
+  are excluded. Cancel returns normally, and switching back to Map restores
+  fresh position data. This does not test activity/process destruction.
+- Live picker inspection caught AppCompat reapplying its animation style when
+  a lazily created picker was shown. The shared helper now calls `create()`
+  before configuring its window, so the first frame is configured too. After
+  normal game Quit → Finder Shut Down → Restart Emulator, the final public APK
+  is installed in place. Its main lookup and all three rune/path pickers have
+  no window-animation style and occupy `[0,110][1200,500]` with the keyboard
+  open; settled rune grids/path choices and their Cancel actions are usable.
+  Initial Android
+  accessibility dumps after relaunch returned no root; retry after startup
+  succeeded. No APK crash or guest reset was used to work around that delay.
+
+No physical tablet, e-ink refresh, stylus/palm or hardware-keyboard acceptance is
+claimed. Forced native activity recreation, split-screen/vendor window insets,
+full-game area/mode coverage and fresh-save HP remain separate validation work.
+Landscape/large-text coverage above is the View/geometry probe, not a claim
+that Q1's native resize/recreation lifecycle issue is fixed. No CI is configured
+or claimed by this local release check.
+
 ## W1 desktop appearance acceptance (0.8.0, 2026-09-14)
 
 Both public and personal universal Mac II APKs build with JDK 17. The full

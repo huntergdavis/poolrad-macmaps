@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="companion_tab_map">Map</string>
+    <string name="companion_tab_info">Info</string>
+    <string name="companion_tab_accessibility">%1$s tab</string>
+    <string name="companion_tool_levels">Levels &amp; skills</string>
+    <string name="companion_tool_spells">Spells</string>
+    <string name="companion_tool_equipment">Weapons &amp; armor</string>
+    <string name="companion_tool_money">Money conversion</string>
+    <string name="companion_tool_wheel">Code wheel</string>
+    <string name="action_show_companion">Show companion</string>
+</resources>

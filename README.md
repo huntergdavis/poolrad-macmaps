@@ -12,7 +12,7 @@ sparked this project; this is an independent Macintosh/Android implementation,
 not a port of its code or an official game release.
 
 <p>
-  <img src="docs/images/phlan-party-health.png" width="360" alt="Rolf welcomes the party, with the live map and current/max party health above the Mac game">
+  <img src="docs/images/phlan-companion-tabs.png" width="360" alt="Map and Info tabs above the live New Phlan map while Rolf welcomes the party in the original Mac game">
   <img src="docs/images/temple-note-map.png" width="360" alt="A temple flag opens its map-left, handwriting-right page with the original TYR note preserved">
 </p>
 
@@ -30,7 +30,7 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Back up/restore complete notebooks; export fitted flag pages as readable PNGs.
 - Map above the Mac display; optional keyboard below; no blinking marker.
 - Automatic code-wheel entry for verified prompts; illustrated offline fallback.
-- Upper-half lookup panels that leave the game visible and undimmed.
+- Map/Info tabs; lookup panels fit above the game, even with the keyboard open.
 - Offline spells, weapons/armor, class progression, and mixed-coin conversion.
 - Save or share a PNG of the map, game, and optional keyboard together.
 - A separate app installation: keep your existing Mini vMac setup.
@@ -46,10 +46,10 @@ behavior still need validation.
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.8.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.8.0)
+[0.9.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.9.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.8.0/poolrad-macmaps-0.8.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.9.0/poolrad-macmaps-0.9.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
@@ -77,7 +77,7 @@ settings change; the original game remains original.
 ## Project
 
 [Backlog](docs/BACKLOG.md) · [Build/test details](docs/LOCAL_TESTING.md) ·
-[Research](docs/RESEARCH.md) · [Design ethos](docs/DESIGN.md) · [Companion-tab plan](docs/TABS.md)
+[Research](docs/RESEARCH.md) · [Design ethos](docs/DESIGN.md) · [Companion tabs](docs/TABS.md)
 
 Built on [Mini vMac for Android](android/UPSTREAM.md) (GPLv2), with DAX/GEO
 format work credited to [Gold Box Explorer](licenses/GoldBoxExplorer-MIT.txt)

@@ -35,24 +35,14 @@
         minivmac:showAsAction="always">
         <menu>
             <item android:id="@+id/action_live_map"
-                android:title="Show live map"
+                android:title="@string/action_show_companion"
                 android:checkable="true" />
-            <item android:id="@+id/action_code_wheel"
-                android:title="@string/code_wheel_title" />
             <item android:id="@+id/action_notebooks"
                 android:title="Notebooks" />
             <item android:id="@+id/action_screenshot"
                 android:title="@string/screenshot_title" />
             <item android:id="@+id/action_desktop_appearance"
                 android:title="Desktop appearance" />
-            <item android:id="@+id/action_levels_reference"
-                android:title="Levels &amp; skills" />
-            <item android:id="@+id/action_spells_reference"
-                android:title="Spells" />
-            <item android:id="@+id/action_equipment_reference"
-                android:title="Weapons &amp; armor" />
-            <item android:id="@+id/action_money_reference"
-                android:title="Money conversion" />
         </menu>
     </item>
     <item android:id="@+id/action_settings"

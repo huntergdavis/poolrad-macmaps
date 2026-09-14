@@ -1,6 +1,6 @@
 # Levels & skills reference
 
-The offline **PoolRad → Levels & skills** viewer provides the original four
+The offline **Info → Levels & skills** viewer provides the original four
 classes and their 29 trainable levels. Touch a class, use Previous/Next or tap
 a progression row, and switch to Race limits or Sources. Everything scrolls
 inside the shared upper-half dialog. The lower guest view remains undimmed;

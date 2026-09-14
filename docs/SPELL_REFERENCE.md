@@ -1,6 +1,6 @@
 # Offline spell reference
 
-`SpellReferenceDialog.show(Activity)` opens the Spells reference. Class and
+Open **Info → Spells** for the offline reference. Class and
 spell-level buttons cycle their choices; browse the alphabetical list directly.
 There is no name search, text entry, or search keypad. Spell rows open full
 effect, range, duration, targeting, use-menu and source details. No spell is cast,

@@ -25,6 +25,7 @@ import android.view.MotionEvent;
 import android.view.SubMenu;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.Toast;
@@ -55,6 +56,8 @@ import name.osher.gil.minivmac.desktop.DiskAccessGate;
 public class EmulatorFragment extends Fragment
         implements IOnIOEventListener, CodeWheelDialog.Host {
     private static final String TAG = "minivmac.EmulatorFrag";
+    static final String STATE_COMPANION_TAB = "poolrad_companion_tab";
+    private static final String PREF_SHOW_COMPANION = "poolrad_show_companion";
 
     private final static int[] keycodeTranslationTable = {
             -1, -1, -1, -1, -1, -1, -1, 0x1D, 0x12, 0x13,
@@ -153,13 +156,16 @@ public class EmulatorFragment extends Fragment
         if (key == '\n') Log.i(TAG, "Verified code-wheel answer entered; waiting for the original game.");
     }
     private LiveMapView mLiveMap;
+    private CompanionPane mCompanionPane;
+    private String mSelectedCompanionTab = CompanionPane.MAP;
+    private ViewTreeObserver.OnPreDrawListener mPendingCompanionTool;
     private NotebookController mNotebook;
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
     private final Runnable mMapPoll = new Runnable() {
         @Override public void run() {
-            if (!mMapPolling || mLiveMap == null || mLiveMap.getVisibility() != View.VISIBLE) return;
+            if (!mMapPolling || !companionMapActive()) return;
             Core target = mCore;
             if (target != null && target.isReady()) { target.requestMapSample(); target.requestPartySample(); }
             else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
@@ -169,7 +175,7 @@ public class EmulatorFragment extends Fragment
 
     private void startMapPolling() {
         stopMapPolling();
-        if (isResumed() && mLiveMap != null && mLiveMap.getVisibility() == View.VISIBLE) {
+        if (companionMapActive()) {
             mMapPolling = true;
             mUIHandler.post(mMapPoll);
         }
@@ -179,12 +185,98 @@ public class EmulatorFragment extends Fragment
         mMapPolling = false;
         mMapGeneration++;
         if (mUIHandler != null) mUIHandler.removeCallbacks(mMapPoll);
-        if (mLiveMap != null) mLiveMap.showPartySample(null);
+        if (mLiveMap != null) {
+            mLiveMap.showSample(null);
+            mLiveMap.showPartySample(null);
+        }
+    }
+
+    private boolean companionMapActive() {
+        return isResumed() && mLiveMap != null && mCompanionPane != null
+                && mCompanionPane.getVisibility() == View.VISIBLE && mCompanionPane.isMapSelected();
+    }
+
+    String selectedCompanionTab() { return mSelectedCompanionTab; }
+
+    private void onCompanionTabSelected(String tab) {
+        mSelectedCompanionTab = tab;
+        startMapPolling();
+        mScreenView.requestFocus();
+    }
+
+    void restoreCompanionTab(String tab) {
+        mSelectedCompanionTab = CompanionPane.INFO.equals(tab) ? CompanionPane.INFO : CompanionPane.MAP;
+        if (mCompanionPane != null) mCompanionPane.setTab(mSelectedCompanionTab);
+    }
+
+    private boolean companionInitiallyVisible() {
+        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+        if (!prefs.contains(PREF_SHOW_COMPANION)) {
+            // Upgrade once, keeping an existing user's hidden-map choice.
+            prefs.edit().putBoolean(PREF_SHOW_COMPANION, prefs.getBoolean("poolrad_show_map", true)).apply();
+        }
+        return prefs.getBoolean(PREF_SHOW_COMPANION, true);
+    }
+
+    private void setCompanionVisible(boolean show) {
+        mCompanionPane.setVisibility(show ? View.VISIBLE : View.GONE);
+        PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                .putBoolean(PREF_SHOW_COMPANION, show).apply();
+        requireActivity().invalidateOptionsMenu();
+        startMapPolling();
+    }
+
+    private void cancelPendingCompanionTool() {
+        if (mPendingCompanionTool != null && mCompanionPane != null
+                && mCompanionPane.getViewTreeObserver().isAlive())
+            mCompanionPane.getViewTreeObserver().removeOnPreDrawListener(mPendingCompanionTool);
+        mPendingCompanionTool = null;
+    }
+
+    private void openCompanionTool(Runnable open) {
+        cancelPendingCompanionTool();
+        if (mCompanionPane.getVisibility() == View.VISIBLE && mCompanionPane.isLaidOut()
+                && !mCompanionPane.isLayoutRequested()) {
+            open.run();
+            return;
+        }
+        // Menu tools may be invoked with the companion hidden. Reveal it, then wait
+        // for its real bounds so no dialog is ever sized over the guest display.
+        setCompanionVisible(true);
+        mPendingCompanionTool = () -> {
+            cancelPendingCompanionTool();
+            if (isAdded() && isResumed() && mCompanionPane != null
+                    && mCompanionPane.getVisibility() == View.VISIBLE
+                    && mCompanionPane.getWidth() > 0 && mCompanionPane.getHeight() > 0) open.run();
+            return true;
+        };
+        mCompanionPane.getViewTreeObserver().addOnPreDrawListener(mPendingCompanionTool);
+    }
+
+    private void showCompanionTool(CompanionPane.Tool tool) {
+        openCompanionTool(() -> {
+            switch (tool) {
+                case LEVELS: LevelsReferenceDialog.show(requireActivity()); break;
+                case SPELLS: SpellReferenceDialog.show(requireActivity()); break;
+                case EQUIPMENT: EquipmentReferenceDialog.show(requireActivity()); break;
+                case MONEY: MoneyReferenceDialog.show(requireActivity()); break;
+                case WHEEL:
+                    if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
+                        new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
+                    break;
+            }
+        });
     }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        if (savedInstanceState != null) restoreCompanionTab(savedInstanceState.getString(STATE_COMPANION_TAB));
+    }
+
+    @Override public void onSaveInstanceState(@NonNull Bundle outState) {
+        outState.putString(STATE_COMPANION_TAB, selectedCompanionTab());
+        super.onSaveInstanceState(outState);
     }
 
     @Override
@@ -201,9 +293,12 @@ public class EmulatorFragment extends Fragment
         mKeyboardView = root.findViewById(R.id.keyboard);
         mUIHandler = new Handler(getMainLooper());
         mMapStack = (MapStackLayout) root;
+        mCompanionPane = root.findViewById(R.id.companion_pane);
         mLiveMap = root.findViewById(R.id.live_map);
-        mLiveMap.setVisibility(PreferenceManager.getDefaultSharedPreferences(requireContext())
-                .getBoolean("poolrad_show_map", true) ? View.VISIBLE : View.GONE);
+        mCompanionPane.setVisibility(companionInitiallyVisible() ? View.VISIBLE : View.GONE);
+        mCompanionPane.setTab(mSelectedCompanionTab);
+        mCompanionPane.setOnTabSelectedListener(this::onCompanionTabSelected);
+        mCompanionPane.setOnToolSelectedListener(this::showCompanionTool);
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
@@ -232,7 +327,7 @@ public class EmulatorFragment extends Fragment
 
             @Override
             public void onPrepareMenu(@NonNull Menu menu) {
-                menu.findItem(R.id.action_live_map).setChecked(mLiveMap.getVisibility() == View.VISIBLE);
+                menu.findItem(R.id.action_live_map).setChecked(mCompanionPane.getVisibility() == View.VISIBLE);
                 // Populate disk group
                 SubMenu dm = menu.findItem(R.id.action_insert_disk).getSubMenu();
                 if (dm != null) {
@@ -295,38 +390,18 @@ public class EmulatorFragment extends Fragment
 
                 // Other actions
                 if (menuItem.getItemId() == R.id.action_live_map) {
-                    boolean show = mLiveMap.getVisibility() != View.VISIBLE;
-                    mLiveMap.setVisibility(show ? View.VISIBLE : View.GONE);
-                    mLiveMap.showSample(null);
-                    PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
-                            .putBoolean("poolrad_show_map", show).apply();
+                    boolean show = mCompanionPane.getVisibility() != View.VISIBLE;
+                    setCompanionVisible(show);
                     menuItem.setChecked(show);
-                    startMapPolling();
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_notebooks) {
-                    mNotebook.chooseNotebook();
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_code_wheel) {
-                    if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
-                        new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
+                    openCompanionTool(() -> mNotebook.chooseNotebook());
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
                     ((MiniVMac) requireActivity()).captureScreenshot();
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_desktop_appearance) {
-                    DesktopAppearanceDialog.show(requireActivity());
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_levels_reference) {
-                    LevelsReferenceDialog.show(requireActivity());
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_spells_reference) {
-                    SpellReferenceDialog.show(requireActivity());
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_equipment_reference) {
-                    EquipmentReferenceDialog.show(requireActivity());
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_money_reference) {
-                    MoneyReferenceDialog.show(requireActivity());
+                    openCompanionTool(() -> DesktopAppearanceDialog.show(requireActivity()));
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_keyboard) {
                     toggleKeyboard();
@@ -356,6 +431,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public void onDestroyView() {
+        cancelPendingCompanionTool();
         stopMapPolling();
         stopWheelPolling();
         if (mCore != null) mCore.setMapSampleListener(null);
@@ -363,6 +439,11 @@ public class EmulatorFragment extends Fragment
         if (mCore != null) mCore.setWheelSampleListener(null);
         if (mNotebook != null) mNotebook.dispose();
         mNotebook = null;
+        if (mCompanionPane != null) {
+            mCompanionPane.setOnTabSelectedListener(null);
+            mCompanionPane.setOnToolSelectedListener(null);
+        }
+        mCompanionPane = null;
         mLiveMap = null;
         mMapStack = null;
         cancelCodeEntry();
@@ -454,14 +535,14 @@ public class EmulatorFragment extends Fragment
             mCore.setMapSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && mLiveMap != null)
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
                         mLiveMap.showSample(sample);
                 });
             });
             mCore.setPartySampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && mLiveMap != null)
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
                         mLiveMap.showPartySample(sample);
                 });
             });

@@ -1,7 +1,7 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.8.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.8.0)
+[0.9.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.9.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
@@ -23,8 +23,8 @@ The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
    up by the existing startup automount behavior.
 5. **Launch Pool of Radiance inside the Mac.** Verified code-wheel prompts are
    answered automatically using ordinary keystrokes and Return. If recognition
-   is unavailable or you have already started typing, use **PoolRad → Code wheel
-   lookup**, select the runes/path, then **Enter code** as the manual fallback.
+   is unavailable or you have already started typing, use **Info → Code wheel**,
+   select the runes/path, then **Enter code** as the manual fallback.
    Load/create your party normally; the map appears when supported area state
    is available. For automatic launch from one combined disk, use the optional
    [personal boot-disk builder](PERSONAL_BOOT.md).
@@ -41,12 +41,14 @@ on that exact application identity; renaming it can stop tracking.
 The Mac Plus flavor needs its own matching ROM and has not been runtime-tested.
 
 The **keyboard icon** opens the keyboard beneath the game.
-**PoolRad → Show live map** toggles the map. Rune lookup and its pickers stay
-in the upper half without dimming the game.
+**Map / Info** switches only the upper pane; the game and keyboard stay put.
+**PoolRad → Show companion** hides or shows that whole pane and remembers your
+visibility choice. References and all rune pickers fit its actual bounds without
+dimming or covering the game. Close returns to the selected tab.
 When recognized party records are available, names, current/max HP and black
 health bars appear beside the map. Unknown health is not guessed or retained.
 
-**PoolRad → Screenshot** captures the current map, game, and visible keyboard.
+**PoolRad → Screenshot** captures the selected Map/Info tab, game, and visible keyboard.
 Choose **Save PNG…** to keep it in Downloads or another location, or **Share
 PNG…** to open Android's share chooser. Menus and system bars are not part of
 the picture. Unsaved captures are temporary; use Save for pictures you want to keep.
@@ -57,8 +59,8 @@ supported System 7.5.5 guest desktop. Save and quit the game, use the Mac's
 **Original** restores only the saved desktop setting, never an old campaign.
 Do not use Force Power Off. [Desktop guide and supported disks](DESKTOP_APPEARANCE.md).
 
-**Levels & skills**, **Spells**, **Weapons & armor**, and **Money conversion** are offline PoolRad
-menu tools. Their own touch controls stay above the game; they never edit your
+**Levels & skills**, **Spells**, **Weapons & armor**, and **Money conversion** are offline
+tools on the **Info** tab. Their touch controls stay above the game; they never edit your
 characters. Sources and any unverified Macintosh-specific values are identified.
 Spells and equipment use finite browsable lists, not text search or a keyboard.
 Equipment details distinguish the printed rules from the Macintosh item values.

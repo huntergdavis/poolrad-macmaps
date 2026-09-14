@@ -25,6 +25,7 @@ public class MiniVMac extends AppCompatActivity
 	private static final String TAG = "minivmac.MiniVMac";
 
 	private Fragment _currentFragment;
+	private String mRestoredCompanionTab = CompanionPane.MAP;
 	private ScreenshotController screenshotController;
 	private NotebookTransferController notebookTransfers;
 	private PersonalSetupController personalSetup;
@@ -35,6 +36,8 @@ public class MiniVMac extends AppCompatActivity
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		if (savedInstanceState != null)
+			mRestoredCompanionTab = savedInstanceState.getString(EmulatorFragment.STATE_COMPANION_TAB, CompanionPane.MAP);
 		screenshotController = new ScreenshotController(this, savedInstanceState);
 		notebookTransfers = new NotebookTransferController(this, savedInstanceState);
 
@@ -70,6 +73,9 @@ public class MiniVMac extends AppCompatActivity
 
 	@Override
 	protected void onSaveInstanceState(@NonNull Bundle outState) {
+		outState.putString(EmulatorFragment.STATE_COMPANION_TAB,
+				_currentFragment instanceof EmulatorFragment
+						? ((EmulatorFragment) _currentFragment).selectedCompanionTab() : mRestoredCompanionTab);
 		screenshotController.onSaveInstanceState(outState);
 		notebookTransfers.onSaveInstanceState(outState);
 		super.onSaveInstanceState(outState);
@@ -92,7 +98,11 @@ public class MiniVMac extends AppCompatActivity
 	}
 
 	public void showEmulator() {
-		_currentFragment = new EmulatorFragment();
+		EmulatorFragment emulator = new EmulatorFragment();
+		// The startup flow replaces FragmentManager's restored fragment. Carry only
+		// the companion tab through that flow; native session recovery is separate.
+		emulator.restoreCompanionTab(mRestoredCompanionTab);
+		_currentFragment = emulator;
 		getSupportFragmentManager()
 				.beginTransaction()
 				.replace(android.R.id.content, _currentFragment)

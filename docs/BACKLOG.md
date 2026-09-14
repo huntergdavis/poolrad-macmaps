@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 251 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 262 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -36,11 +36,12 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.7.0 | Opt-in personal APK, verified first-use import, save-preserving updates; public APK stays BYO-files |
 | Done | Explicit pinned-source private builds, verified offline cache, no checkout downloads or public private-asset uploads |
 | Done — 0.8.0 | Real Mac desktop White/Mist/Stonework previews, safe offline Apply and original-setting restoration |
+| Done — 0.9.0 | Map/Info tabs, five offline tools, smaller menu and reference/picker windows fitted above the guest |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, expanded party details,
-companion tabs, Journal, or physical pen acceptance. Separate area-wide drawing
+Journal, a dedicated Notes index, or physical pen acceptance. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -158,7 +159,8 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item; UI1 is next after the completed B1/B2/W1 slices.
+  actionable software item; the remaining P1 party work follows the completed
+  B1/B2/W1/UI1 slices. Keep the fresh-save HP follow-up below visible.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -209,15 +211,26 @@ are gates for the affected feature, not a second giant framework project.
   [Usage](PERSONAL_ASSET_FETCH.md) · [acceptance](LOCAL_TESTING.md).
 - **A1 and W1 below are delivered:** reliable guest auto-launch and a
   recoverable custom Mac desktop complete the B1/B2 onboarding group.
-  Continue with UI1 companion tabs, Journal and the remaining comfort work;
+  UI1 companion tabs are now delivered too. Continue with remaining party work,
+  Journal and the other comfort features;
   none changes the original game rules.
 
-- [ ] **UI1 — Companion tabs.** Keep the Mac display and keyboard in place;
+- [x] **UI1 — Companion tabs.** Keep the Mac display and keyboard in place;
   switch only the upper companion pane. Start with working Map and Info tabs
   (Info groups the reference tools); add Journal and Notes when those workflows
   exist. Keep Screenshot/settings in the menu. Preserve map visibility and
   selected-tab state; use actual companion bounds for in-pane tools. No empty
-  placeholder tabs. See [the implementation design](TABS.md).
+  placeholder tabs. See [the implemented navigation guide](TABS.md).
+  **Delivered 0.9.0:** one retained Map and scrolling Info with all five working
+  reference tools, four PoolRad menu actions, hidden-preference migration and
+  saved-tab state. Actual references and all rune/path pickers fit the companion
+  with keyboard open/closed, without game dimming; the final APK also fixes
+  picker creation reapplying theme animations. Info background/resume, held
+  guest Return, automatic code-wheel entry, sample-party map and selected-tab
+  PNG capture pass. 262 Java tests, ten lifecycle checks and eight Android View
+  checks pass. Notes remain accessible from flags/Notebooks; a separate index
+  and Journal tab await their workflows. Physical e-ink and Q1's native
+  forced-recreation behavior remain unverified. [Evidence](LOCAL_TESTING.md).
 
 - [x] **S1 — PoolRad → Screenshot.** Save one PNG of the full app composition:
   map, party sidebar when present, and the real guest display (plus keyboard if
