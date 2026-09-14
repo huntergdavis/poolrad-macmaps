@@ -114,7 +114,7 @@ but not recordable and does not invent an extra step.
 
 Reopening the old flag in the final installed APK still measures y175..625
 for the sketch, with title-row Fit page, no Pen only or Save PNG controls,
-and byte-identical saved ink (`4f54c36f…191d10`). The README's compact-editor
+and byte-identical saved ink (SHA-256 beginning `4f54c36f`). The README's compact-editor
 image is this actual final app window, not a mockup.
 
 Loading/setup and combat classifications also replay actual captures; wilderness
