@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 277 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 287 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -38,10 +38,12 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.8.0 | Real Mac desktop White/Mist/Stonework previews, safe offline Apply and original-setting restoration |
 | Done — 0.9.0 | Map/Info tabs, five offline tools, smaller menu and reference/picker windows fitted above the guest |
 | Done — 0.10.0 | Fresh-save party fix, map-left HP/AC/class sidebar, tap-for-details and small-window collapse |
+| Done — 0.11.0 | 29 named areas, live GEO ID plus immutable-prefix validation, door-stable note keys and bounded map headers |
+| Done — 0.11.0 | Gate round trip, ordinary save/cold reload, preserved handwriting and matching party sidebar across an in-place update |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: comprehensive area/mode recognition, party conditions/equipment,
+Not done: complete combat/loading/wilderness presentation, party conditions/equipment,
 Journal, a dedicated Notes index, or physical pen acceptance. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
@@ -160,7 +162,7 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item: M1 and the remaining P1 work follow the completed
+  actionable software item: M2 and the remaining P1 work follow the completed
   B1/B2/W1/UI1/party slices. Fresh-save HP is corrected in 0.10.0 below.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
@@ -287,18 +289,31 @@ are gates for the affected feature, not a second giant framework project.
   avoid blind timed clicks. Keep a bypass/recovery path to the normal desktop.
   **Delivered through F9:** standard System 7 Startup Items alias plus a tested
   desktop-only recovery build. Public APKs still require the user's own files.
-- [ ] **M1 — Reliable area identity and names.** Resolve and validate a stable
+- [x] **M1 — Reliable area identity and names.** Resolve and validate a stable
   identifier across transitions and reloads; label areas meaningfully. This is
   the N1 persistence prerequisite as well as a map usability improvement.
-  N1 now supplies exact fingerprints for 29 known records and validates the
-  New Phlan/Slums gate round trip. Broader names, mutable geometry and coverage
-  remain open; [current limits](AREA_IDENTITY.md).
+  **Delivered 0.11.0:** verified native GEO metadata cross-checked against all
+  29 unique wall/event prefixes; the proven mutable door plane no longer changes
+  notebook identity. Existing keys and strict PRM1 compatibility remain intact.
+  All 29 maps have source-checked names or explicitly descriptive labels; long
+  headers fit beside coordinates. Gate transitions, cold saved-game reload and
+  pre-upgrade handwriting pass in the emulator. Source-derived door mutations
+  and malformed/stale samples pass targeted regressions; a played-through door
+  mutation, all-area playthrough and physical acceptance are not claimed.
+  [Identity and limits](AREA_IDENTITY.md) · [name provenance](AREA_NAMES.md).
 - [ ] **M2 — Exploration/combat/wilderness/loading detection.** Retain geometry
   with an explicit non-live state when appropriate. Do not show the exploration
   party position as a tactical combatant or world-map coordinate.
-- [ ] **M3 — Cross-area / save-load acceptance route.** Walk between distinct
+- [x] **M3 — Cross-area / save-load acceptance route.** Walk between distinct
   areas, return, save/reload, and cold boot; pair observed positions with the
   game's own display. Verify notes and the eventual party sidebar on that route.
+  **Delivered with M1, 0.11.0:** ordinary New Phlan → Slums → New Phlan route,
+  separate camp save, clean Mac shutdown, in-place APK update, cold boot and
+  saved-route reload; repeated the gate round trip in the updated APK. Settled
+  coordinates/facing and all six party HP/AC rows match the guest. The original
+  tile 11,2 handwriting reopens byte-identically, never appearing in the Slums.
+  This is the bounded two-area acceptance route, not all-area/combat/wilderness
+  coverage or physical e-ink testing. [Evidence](LOCAL_TESTING.md).
 - [ ] **M4 — Wall and door semantics.** Spot-check distinct wall/door types in
   the Mac game. Until validated, keep neutral door outlines rather than claiming
   a symbol is a secret, locked, or passable door.

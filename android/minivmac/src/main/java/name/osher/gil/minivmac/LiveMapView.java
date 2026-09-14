@@ -221,12 +221,16 @@ public final class LiveMapView extends View {
         ink.setColor(Color.BLACK);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(14 * density);
-        ink.setTextAlign(Paint.Align.LEFT);
-        canvas.drawText(state != null && state.area != null ? state.area.label() : "AREA MAP", 12 * density, 22 * density, ink);
-        ink.setTextAlign(Paint.Align.RIGHT);
+        String title = state != null && state.area != null ? state.area.label() : "AREA MAP";
         String status = state == null ? "Waiting for party"
-                : positionAvailable ? state.positionLabel() : "Last area · position unavailable";
-        canvas.drawText(status, pane.mapWidth - 12 * density, 22 * density, ink);
+                : positionAvailable ? state.positionLabel() : "Position unavailable";
+        float available = Math.max(0, pane.mapWidth - 24 * density);
+        float statusWidth = Math.min(ink.measureText(status), available * .48f);
+        ink.setTextAlign(Paint.Align.LEFT);
+        canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
+                12 * density, 22 * density, ink);
+        ink.setTextAlign(Paint.Align.RIGHT);
+        canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
         if (state == null) {
@@ -254,6 +258,16 @@ public final class LiveMapView extends View {
         ink.setTextSize(11 * density);
         canvas.drawText("Tap a tile or symbol · " + notebook,
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
+    }
+
+    /** Keep title and live/unavailable status in separate bounded header regions. */
+    private String fitHeaderText(String value, float width) {
+        if (width <= 0) return "";
+        if (ink.measureText(value) <= width) return value;
+        float ellipsis = ink.measureText("…");
+        if (width < ellipsis) return "";
+        int count = ink.breakText(value, true, width - ellipsis, null);
+        return value.substring(0, count) + "…";
     }
 
     private void drawParty(Canvas canvas, PartyPaneLayout p) {

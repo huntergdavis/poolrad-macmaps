@@ -15,6 +15,7 @@ public class AreaIdentityTest {
 
     @Test public void productionCatalogContainsOnlyThe29VerifiedRecords() {
         assertEquals(29, AreaIdentity.catalogSize());
+        assertEquals(29, AreaIdentity.prefixCatalogSize());
         AreaIdentity phlan = AreaIdentity.resolveFingerprint(
                 "4d2541a2db2e3c3af90a9f1de437e2483146be72a91a766f7b970aec9d2db326");
         assertEquals("por-mac-v11-geo-0", phlan.id());
@@ -24,7 +25,7 @@ public class AreaIdentityTest {
         AreaIdentity finalRecord = AreaIdentity.resolveFingerprint(
                 "d50ae52621114d264567cd8ee26b119d23cd95ad852d2fee54dcd5fb81654d8f");
         assertEquals("por-mac-v11-geo-32", finalRecord.id());
-        assertEquals("Area 32", finalRecord.label());
+        assertEquals("Kuto's Well Catacombs", finalRecord.label());
     }
 
     @Test public void unknownAndEmptyGeometryNeverAcquireAnIdentity() {
@@ -36,6 +37,24 @@ public class AreaIdentityTest {
         byte[] justEvents = new byte[1026];
         justEvents[514] = 1;
         assertNull(AreaIdentity.fingerprint(new GeoMap(0, justEvents)));
+    }
+
+    @Test public void verifiedMacNamesDoNotChangeDurableKeys() {
+        int[] ids={0,1,2,3,4,5,6,7,9,10,13,14,15,16,17,18,20,21,22,23,24,25,26,27,28,29,30,31,32};
+        String[] names={"New Phlan","Buccaneer Base","Cadorna Textile House","Valjevo Castle — Northwest",
+                "Valjevo Castle — Northeast","Valjevo Castle — Southeast","Valjevo Castle — Southwest",
+                "Valjevo Castle — Inner Tower","Stojanow Gate","Valhingen Graveyard","Kobold Caves","Kovel Mansion",
+                "Mendor's Library","Lizardmen Keep","Nomad Camp","Podal Plaza","Slums of Phlan","Sokal Keep",
+                "Sorcerer's Pyramid — Entrance","Sorcerer's Pyramid — Inner Chambers","Temple of Bane","Dark Cave (25)",
+                "Grove and Ruined Huts","Dark Cave (27)","Zhentil Outpost","Kuto's Well","Lizardmen Catacombs",
+                "Mansion District","Kuto's Well Catacombs"};
+        for(int i=0;i<ids.length;i++) {
+            GeoMap map=synthetic(i);
+            AreaIdentity area=new AreaIdentity.Catalog(new String[]{row(ids[i],map)}).resolve(map);
+            assertEquals(names[i],area.label());assertEquals("por-mac-v11-geo-"+ids[i],area.id());
+        }
+        GeoMap unknownName=synthetic(20);
+        assertEquals("Area 255",new AreaIdentity.Catalog(new String[]{row(255,unknownName)}).resolve(unknownName).label());
     }
 
     @Test public void ignoresRecordPrefixAndReportedIdButNotGeometry() {
@@ -122,5 +141,56 @@ public class AreaIdentityTest {
         rows[0] = "invalid";
         assertEquals("por-mac-v11-geo-8", catalog.resolve(map).id());
         assertNull(catalog.resolve(new GeoMap(0, data)));
+    }
+
+    @Test public void explicitRecordIdCannotAuthenticateOldOrDifferentGeometry() {
+        GeoMap phlan=synthetic(12), slums=synthetic(13);
+        AreaIdentity.Catalog catalog=new AreaIdentity.Catalog(new String[]{row(0,phlan),row(20,slums)});
+        AreaIdentity original=catalog.resolve(phlan);
+        assertEquals(original,catalog.resolve(0,phlan));
+        assertNull(catalog.resolve(20,phlan)); // New destination ID, previous area's geometry.
+        assertNull(catalog.resolve(0,slums)); // Old ID, newly loaded geometry.
+        assertNull(catalog.resolve(1,phlan));
+        assertNull(catalog.resolve(-1,phlan));
+        assertNull(catalog.resolve(256,phlan));
+        byte[] changed=phlan.copyData();changed[514]^=1;
+        assertNull(catalog.resolve(0,new GeoMap(0,changed))); // No guessed mutable-plane mask.
+        assertEquals("por-mac-v11-geo-0",catalog.resolve(0,phlan).id());
+        assertEquals("por-mac-v11-geo-20",catalog.resolve(20,slums).id());
+        assertEquals(original,catalog.resolve(0,new GeoMap(255,phlan.copyData())));
+    }
+
+    @Test public void mutableIdentityRequiresBothExactPrefixAndMatchingRecordId() {
+        GeoMap original=synthetic(9), other=synthetic(10);
+        AreaIdentity.Catalog catalog=new AreaIdentity.Catalog(new String[]{row(0,original),row(20,other)},
+                new String[]{"0 "+AreaIdentity.prefixFingerprint(original),"20 "+AreaIdentity.prefixFingerprint(other)});
+        AreaIdentity identity=catalog.resolve(original);
+        for(int offset=770;offset<1026;offset++) {
+            byte[] data=original.copyData();data[offset]^=0x55;GeoMap changed=new GeoMap(20,data);
+            assertEquals("Door byte "+offset,identity,catalog.resolveMutable(0,changed));
+            assertNull(catalog.resolve(changed)); // Legacy packets still require all bytes.
+            assertNull(catalog.resolveMutable(20,changed));
+        }
+        for(int offset=2;offset<770;offset++) {
+            byte[] data=original.copyData();data[offset]^=1;
+            assertNull("Changed immutable byte "+offset,catalog.resolveMutable(0,new GeoMap(0,data)));
+        }
+        assertNull(catalog.resolveMutable(-1,original));assertNull(catalog.resolveMutable(8,original));
+        assertNull(catalog.resolveMutable(0,other));assertNull(catalog.resolveMutable(0,null));
+        assertEquals(identity,catalog.resolveMutable(0,original));
+    }
+
+    @Test public void mismatchedOrAmbiguousPrefixCatalogDisablesBothResolutionPaths() {
+        GeoMap first=synthetic(1),second=synthetic(2);
+        String[] exact={row(0,first),row(20,second)};
+        String zero="0 "+AreaIdentity.prefixFingerprint(first),twenty="20 "+AreaIdentity.prefixFingerprint(second);
+        for(String[] prefixes:new String[][]{{zero},{zero,zero},{zero,"20 "+AreaIdentity.prefixFingerprint(first)},
+                {zero,"21 "+AreaIdentity.prefixFingerprint(second)},{zero,"invalid"},{zero,null},new String[0]}) {
+            AreaIdentity.Catalog bad=new AreaIdentity.Catalog(exact,prefixes);
+            assertNull(bad.resolve(first));assertNull(bad.resolve(second));assertNull(bad.resolveMutable(0,first));
+        }
+        AreaIdentity.Catalog good=new AreaIdentity.Catalog(exact,new String[]{twenty,zero});
+        assertEquals(good.resolve(first),good.resolveMutable(0,first));
+        assertNull(new AreaIdentity.Catalog(exact).resolveMutable(0,first));
     }
 }

@@ -1,5 +1,11 @@
 # Releases
 
+## 0.11.0 — A place for every note
+
+[Release notes](releases/0.11.0.md): 29 named Macintosh areas, verified live
+record identities that survive door-state changes, unchanged notebook keys,
+and bounded map headers. Public APK remains bring-your-own-files.
+
 ## 0.10.0 — Know your party
 
 [Release notes](releases/0.10.0.md): map-left party HP/AC/class rows,

@@ -62,6 +62,78 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## M1 named area identity (0.11.0, 2026-09-14)
+
+Public and local-only personal universal/all-four-ABI APKs build, versionCode 76.
+**287 Java tests**, 54 Python helper tests, three native ASAN/UBSAN reader suites,
+eight stopped-core input checks and ten companion lifecycle checks pass.
+The focused identity/parser run contains 25 tests. Twelve actual detached
+Android View/software-Canvas checks pass, including the new bounded long-title
+and unavailable-status check. No physical stylus/e-ink or CI acceptance is inferred.
+
+The private-source check verifies all 29 full-map and 768-byte prefix fingerprints
+against the production catalog, including source-derived fourth-plane changes
+retaining each ID. Independent review reproduced the source inventory and tests.
+The standalone `AreaFingerprints` helper needs JDK 17; an initial root invocation
+with `--release 8` correctly failed to compile the diagnostic, then passed with
+JDK 17. App sources and their focused tests retain Java 8 compatibility.
+The personal build's first invocation was interrupted with status 143 without a
+compiler diagnostic; its incremental two-worker retry completed successfully.
+
+Isolated AOSP API 30 `emulator-5584` (1200×1600, density 200) cold-booted the
+existing private combined disk at normal speed. The other emulator, `5580`,
+and the original input files were not touched. Android System UI briefly offered
+Wait during emulator startup; choosing Wait recovered without stopping the Mac.
+
+Before upgrading, ordinary SampleParty load, Rolf's tour and movement reproduced
+New Phlan `0,4 W` → Slums `15,4 W` → turn to `15,4 E` → New Phlan `0,4 E`.
+A newly written New Phlan tile `11,2` note disappeared from the Slums and returned
+in New Phlan. Its saved bytes stayed unchanged. The guest's settled position and
+all six party HP/AC rows agreed with the companion. Its arrival text can lag the
+current coordinates; full loading/combat presentation remains M2, not this proof.
+
+Four new read-only RAM captures replay through the exact updated native PRM2
+reader and Java catalog as `0 → 20 → 20 → 0`:
+`scratch/m1-new-phlan-before.ram`, `scratch/m1-slums-arrival.ram`,
+`scratch/m1-slums-settled.ram`, and `scratch/m1-new-phlan-return.ram`.
+Screenshots and probe files remain private in `scratch/`.
+
+The original camp Save command created a separate **m1gate** save; SampleParty
+was not overwritten. After normal game Quit and Finder Shut Down, the actual
+Restart Emulator screen appeared. Installing the public 0.11.0 APK in place
+preserved the entire writable disk and the existing note byte-for-byte:
+
+- Disk SHA-256: `c2a70770bd4db565564f4a6384282fc6324b0d4832939127be106a297709aee5`.
+- Tile `11,2` note SHA-256: `4f54c36f19a4de315c33bebd1b6c0a72850ee5501cb5b24a094fec26a0919d10`.
+
+The public APK audit confirms all 72 offline rune images and no ROM/disks/game
+archives. It retains the previous signing certificate. Public artifact:
+`scratch/poolrad-macmaps-0.11.0.apk`, SHA-256
+`d7727af3c51055d740875dd6d2f7dd64688caf68443b9c16aa23d08ba78f7c8d`.
+The personal APK stays local and is not a public release attachment.
+
+After the update, normal Mac startup/code-wheel handling and File → Load opened
+**m1gate** at New Phlan `0,4 E`, with the original flag and all six party rows.
+The new read-only `scratch/m1-upgrade-reload.ram` also passes the production
+reader as mode 1, valid GEO 0. The first automated flag tap did not open a page;
+the retry opened the correct tile `11,2` sheet and its original two-stroke L.
+Closing it without editing retained the exact note checksum above.
+
+The updated app then walked the route again: New Phlan `0,4 W` → named
+**Slums of Phlan** `15,4 W`, zero inherited flags → turn to `15,4 E` → New
+Phlan `0,4 E`, restored flag → turn to `0,4 S`. Both settled screenshots agree
+with the guest's own coordinates/facing; all six HP/AC rows still agree.
+Evidence: `scratch/m1-upgrade-loaded.png`, `scratch/m1-upgrade-note.png`,
+`scratch/m1-upgrade-slums-settled.png`, and `scratch/m1-upgrade-return.png`.
+This also completes M3's specified two-area/save-load/cold-boot route; it does
+not convert that bounded route into complete game or physical-device coverage.
+
+The [native proof](MAP_MEMORY.md) establishes the fourth-plane write boundary;
+the [name provenance](AREA_NAMES.md) distinguishes original names from honest
+descriptive labels. All-area playthrough and an actual door-mutating action are
+not claimed from source-derived/synthetic checks. Full mode detection,
+wall/door semantics and physical-device work remain separate.
+
 ## P1 compact party acceptance (0.10.0, 2026-09-14)
 
 Public and local-only personal universal APKs build; **277 Java tests** pass

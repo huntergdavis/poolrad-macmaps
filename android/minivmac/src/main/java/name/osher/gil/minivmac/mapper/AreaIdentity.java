@@ -10,7 +10,8 @@ import java.util.Set;
 
 /**
  * Conservative identity for the observed Macintosh v1.1 GEO records.
- * Only exact, known full-geometry matches are suitable for a notebook key.
+ * Legacy packets require exact full geometry. Verified PRM2 IDs additionally
+ * support an exact immutable-prefix match, with only the door plane excluded.
  * These are one-way checksums, not bundled game maps. See docs/AREA_IDENTITY.md.
  */
 public final class AreaIdentity {
@@ -45,6 +46,36 @@ public final class AreaIdentity {
             "30 959a6873313cb7b4120d3d4179c3d6f639463d01e9835d9b4a437f7ad8edc8c5",
             "31 c50949d6a7f80578940222825d852cd5050d65060d49fd0babbdc0c522aba15a",
             "32 d50ae52621114d264567cd8ee26b119d23cd95ad852d2fee54dcd5fb81654d8f"
+    }, new String[]{
+            "0 56cb941735e8960c4359cd8b3d3479e5bfddcad98e0bac534ec42ba2b8b018da",
+            "1 a9fc013905fa93b8ab5f1fcf3e9be8c656976c88e463ac53c946a2c7a482e517",
+            "2 ae1f719816db51a6be45e69accb07820a432fed2c578ea2131774c45131be61b",
+            "3 148af6a6500c8753846798c79b355058d5863555619286ad649373844dffcdae",
+            "4 715692c0104186a5240401e870fc1cf097022cf6eff027f3f55f63bdd85e7c91",
+            "5 87ddebcd5250c24d2a1d560de5bf4f8b51d3d3a600c37d02eb853434234dd2e9",
+            "6 149618524390eb7631e6755d554115fc2ba852036dc0036633efc6f9864f57e9",
+            "7 050efc154ed2471a76239446e14e4f85c2c1d223fad854c78da89e98537ae5f9",
+            "9 c57b4720d3c965838b7441a2fb0befab07ed8fdfc9fb4e9ec03866578f92e653",
+            "10 8dbb0e7f943e2ade4a007836b12fffb4380d9988385152ec3f94f098b8476526",
+            "13 ba2f46c45739c9681d112902fb99b25c68c14a9e1610d4eca112b0ef8ae28101",
+            "14 d5297f77ab2d9156aaeb0385ebac2f22098751d1c19b2d295d48153c4a2407c5",
+            "15 e433cf4b1cf6f48a2dc73212b006fa49d8fd0c57fc4f8d129a872b0a43b6c126",
+            "16 2153b3c4d8ec2f856a0d76841ff2480c52fe77066706bd4ca0ece79c80e59e0b",
+            "17 1b08a4770209ebdd8f2a3318c046a486b00a3d44c5c2aac82bc005bdaa9981bf",
+            "18 0eebcc27225c5190ee896a220cc07dc961e9715a0253d4794c90ac5a0bd7ef32",
+            "20 501a9003e58ce9759d82311d8188b67ffb0ab885e272c5f41aa1e43967cc8749",
+            "21 5e44eed73f0ef523782a0ee580ea83f37955c63cc4597c800501e3f3e4efb0db",
+            "22 70b32530ccdcb3865fca91e66416da97c79569a671c4087b37ecddd75a2ccfda",
+            "23 ac9374e02c7ca13a729d05c84277c8221d8b51422d0c7e6ad7b87e8786004e0d",
+            "24 a96f1e2c379a4cf4a9eb0a9986047b4dac38eaeef7ef9d612bfae03fda1bc833",
+            "25 8566d1c98bcd6c93e58a79939012ff117660794be32b1938f959afb6b6827345",
+            "26 f8f15867072c3ffab3191ffa980dfa358ac2b15df38343158e410e5dfc709956",
+            "27 2d1fe450ae9582be37451d42bc8d318b463e28d62f5f1204d790e3238d7563b3",
+            "28 9e48caf04cdefb2f9ad5959b781216ece622274c2ec45d120f6fcad42c14fe2f",
+            "29 bbdbc10513bfb668a022ff7cb2d51eecd7a2e2ce7e275584d1c5d557aa56f0d4",
+            "30 f12c2192b28bb04a3fd5eb298e8301c5bde207501296049db0f06033aab3fdbe",
+            "31 f8d085adcf53b5f1f6b9796d9d6cb1e345df400dba3304c96ca6eb3a3d43c173",
+            "32 05ee1697d4b99791b0bbdc068c05d92ca22c092e5dcaa240ebd368f56c8a6ece"
     });
 
     private final int recordId;
@@ -53,11 +84,50 @@ public final class AreaIdentity {
 
     public String id() { return PREFIX + recordId; }
 
-    /** Only New Phlan's name has been independently paired with the live guest. */
-    public String label() { return recordId == 0 ? "New Phlan" : "Area " + recordId; }
+    /** Names are tied to original Macintosh GEO loads, not a similarly numbered DOS map. */
+    public String label() {
+        switch (recordId) {
+            case 0: return "New Phlan";
+            case 1: return "Buccaneer Base";
+            case 2: return "Cadorna Textile House";
+            case 3: return "Valjevo Castle — Northwest";
+            case 4: return "Valjevo Castle — Northeast";
+            case 5: return "Valjevo Castle — Southeast";
+            case 6: return "Valjevo Castle — Southwest";
+            case 7: return "Valjevo Castle — Inner Tower";
+            case 9: return "Stojanow Gate";
+            case 10: return "Valhingen Graveyard";
+            case 13: return "Kobold Caves";
+            case 14: return "Kovel Mansion";
+            case 15: return "Mendor's Library";
+            case 16: return "Lizardmen Keep";
+            case 17: return "Nomad Camp";
+            case 18: return "Podal Plaza";
+            case 20: return "Slums of Phlan";
+            case 21: return "Sokal Keep";
+            case 22: return "Sorcerer's Pyramid — Entrance";
+            case 23: return "Sorcerer's Pyramid — Inner Chambers";
+            case 24: return "Temple of Bane";
+            case 25: return "Dark Cave (25)";
+            case 26: return "Grove and Ruined Huts";
+            case 27: return "Dark Cave (27)";
+            case 28: return "Zhentil Outpost";
+            case 29: return "Kuto's Well";
+            case 30: return "Lizardmen Catacombs";
+            case 31: return "Mansion District";
+            case 32: return "Kuto's Well Catacombs";
+            default: return "Area " + recordId;
+        }
+    }
 
     /** Null means notes must be unavailable, not attached to a shared unknown area. */
     public static AreaIdentity resolve(GeoMap map) { return KNOWN.resolve(map); }
+
+    /** A reported record number alone cannot authenticate the currently loaded geometry. */
+    static AreaIdentity resolve(int recordId, GeoMap map) { return KNOWN.resolve(recordId, map); }
+
+    /** Only the validated native PRM2 path may use the independently verified prefix. */
+    static AreaIdentity resolveMutable(int recordId, GeoMap map) { return KNOWN.resolveMutable(recordId, map); }
 
     @Override public boolean equals(Object other) {
         return other instanceof AreaIdentity && recordId == ((AreaIdentity) other).recordId;
@@ -72,7 +142,15 @@ public final class AreaIdentity {
 
     static int catalogSize() { return KNOWN.byDigest.size(); }
 
+    static int prefixCatalogSize() { return KNOWN.byPrefix.size(); }
+
     static String fingerprint(GeoMap map) {
+        return fingerprint(map, 1024);
+    }
+
+    static String prefixFingerprint(GeoMap map) { return fingerprint(map, 768); }
+
+    private static String fingerprint(GeoMap map, int length) {
         if (map == null) return null;
         byte[] record = map.copyData();
         boolean hasWalls = false;
@@ -80,8 +158,8 @@ public final class AreaIdentity {
         if (!hasWalls) return null; // Empty startup payloads do not describe an area.
         try {
             MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
-            // The two-byte DAX prefix is absent from live RAM. Include all four planes.
-            sha256.update(record, 2, 1024);
+            // The two-byte DAX prefix is absent from live RAM.
+            sha256.update(record, 2, length);
             char[] chars = new char[64];
             final char[] hex = "0123456789abcdef".toCharArray();
             byte[] digest = sha256.digest();
@@ -98,8 +176,23 @@ public final class AreaIdentity {
     /** Any malformed or duplicate row invalidates the whole catalog, never first-match wins. */
     static final class Catalog {
         private final Map<String, AreaIdentity> byDigest;
+        private final Map<String, AreaIdentity> byPrefix;
 
-        Catalog(String[] rows) {
+        Catalog(String[] rows) { this(rows, null); }
+
+        Catalog(String[] rows, String[] prefixRows) {
+            Map<String,AreaIdentity> exact = readRows(rows);
+            Map<String,AreaIdentity> prefix = prefixRows == null ? Collections.emptyMap() : readRows(prefixRows);
+            boolean valid = exact != null && prefix != null;
+            if(valid && prefixRows != null) {
+                Set<AreaIdentity> ids = new HashSet<>(exact.values());
+                valid = ids.equals(new HashSet<>(prefix.values()));
+            }
+            byDigest = valid ? Collections.unmodifiableMap(exact) : Collections.emptyMap();
+            byPrefix = valid ? Collections.unmodifiableMap(prefix) : Collections.emptyMap();
+        }
+
+        private static Map<String,AreaIdentity> readRows(String[] rows) {
             Map<String, AreaIdentity> entries = new HashMap<>();
             Set<Integer> ids = new HashSet<>();
             boolean valid = rows != null && rows.length > 0;
@@ -119,10 +212,21 @@ public final class AreaIdentity {
                     entries.put(digest, new AreaIdentity(id));
                 }
             }
-            byDigest = valid ? Collections.unmodifiableMap(entries) : Collections.emptyMap();
+            return valid ? entries : null;
         }
 
         AreaIdentity resolve(GeoMap map) { return resolveFingerprint(fingerprint(map)); }
+
+        AreaIdentity resolve(int recordId, GeoMap map) {
+            AreaIdentity exact = resolve(map);
+            return exact != null && exact.recordId == recordId ? exact : null;
+        }
+
+        AreaIdentity resolveMutable(int recordId, GeoMap map) {
+            String digest = prefixFingerprint(map);
+            AreaIdentity matched = digest == null ? null : byPrefix.get(digest);
+            return matched != null && matched.recordId == recordId ? matched : null;
+        }
 
         AreaIdentity resolveFingerprint(String digest) {
             return digest == null ? null : byDigest.get(digest);

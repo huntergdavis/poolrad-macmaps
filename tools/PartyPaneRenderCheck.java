@@ -181,6 +181,32 @@ public final class PartyPaneRenderCheck {
             checkBars(render(view), pane(view, MEMBERS), packet(true));
         });
 
+        run("long area names and unavailable status fit their separate header regions", () -> {
+            LiveMapView view = view(packet(true), 960, 480);
+            render(view); // Initialize the actual View's paint, then use its header size.
+            try {
+                java.lang.reflect.Field field = LiveMapView.class.getDeclaredField("ink");
+                field.setAccessible(true);
+                Paint ink = (Paint) field.get(view); ink.setTextSize(14 * density);
+                java.lang.reflect.Method fit = LiveMapView.class.getDeclaredMethod("fitHeaderText", String.class, float.class);
+                fit.setAccessible(true);
+                String[] labels = {"New Phlan", "A deliberately very long dungeon and district name",
+                        "15, 15 W", "Position unavailable"};
+                for (String label : labels) {
+                    for (int widthDp : new int[]{0, 1, 5, 20, 60, 120, 700}) {
+                        float width = widthDp * density;
+                        String fitted = (String) fit.invoke(view, label, width);
+                        check(ink.measureText(fitted) <= width + .01f, "Header escaped its allocation: " + fitted);
+                        if (ink.measureText(label) <= width)
+                            check(fitted.equals(label), "A fitting header was unnecessarily shortened");
+                        else check(fitted.isEmpty() || fitted.endsWith("…"), "Truncated header needs an ellipsis");
+                    }
+                }
+            } catch (ReflectiveOperationException failure) { throw new AssertionError(failure); }
+            resize(view, 96, 72); render(view);
+            view.showSample(null); render(view); // Last area + unavailable status also stays bounded.
+        });
+
         run("party row taps select exact members and cancel on stale, drag, palm, focus or resize", () -> {
             LiveMapView view=view(packet(true),960,480);
             final List<PartyState.Member> selected=new ArrayList<>(); final int[] mapTaps={0};

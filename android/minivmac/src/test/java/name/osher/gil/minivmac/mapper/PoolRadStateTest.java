@@ -65,4 +65,99 @@ public class PoolRadStateTest {
         assertEquals(1, before.map.wall(0, 0, 0));
         assertTrue(before.sameDisplay(PoolRadState.parse(sample())));
     }
+
+    @Test public void identityOnlyChangesInvalidateTheDisplayedNotebookContext() {
+        byte[] data=sample(); GeoMap map=PoolRadState.parse(data).map;
+        String digest=AreaIdentity.fingerprint(map);
+        PoolRadState first=PoolRadState.parse(data,new AreaIdentity.Catalog(new String[]{"0 "+digest}));
+        PoolRadState changed=PoolRadState.parse(data,new AreaIdentity.Catalog(new String[]{"20 "+digest}));
+        PoolRadState unknown=PoolRadState.parse(data);
+        assertNotNull(first.area); assertNotNull(changed.area); assertNull(unknown.area);
+        assertFalse(first.sameDisplay(changed)); assertFalse(changed.sameDisplay(first));
+        assertFalse(first.sameDisplay(unknown)); assertFalse(unknown.sameDisplay(first));
+        assertEquals("por-mac-v11-geo-0",first.area.id());
+        assertEquals("por-mac-v11-geo-20",changed.area.id());
+    }
+
+    @Test public void legacyRevisitAndReloadKeepExistingNotebookKeys() {
+        byte[] original=sample();
+        String digest=AreaIdentity.fingerprint(PoolRadState.parse(original).map);
+        AreaIdentity.Catalog catalog=new AreaIdentity.Catalog(new String[]{"20 "+digest});
+        PoolRadState first=PoolRadState.parse(original,catalog);
+        byte[] moved=original.clone(); moved[40]=99;moved[130]=4;moved[131]=5;moved[132]=2;
+        assertEquals(first.area,PoolRadState.parse(moved,catalog).area);
+        moved[176]^=1; assertNull(PoolRadState.parse(moved,catalog).area);
+        assertEquals("por-mac-v11-geo-20",PoolRadState.parse(original.clone(),catalog).area.id());
+        assertTrue(first.sameDisplay(PoolRadState.parse(original.clone(),catalog)));
+    }
+
+    private byte[] verified(int id) {
+        byte[] data=sample();data[3]='2';data[32]=1;data[33]=1;data[34]=0;data[35]=(byte)id;return data;
+    }
+    private GeoMap legacyMap(byte[] data) {
+        byte[] legacy=data.clone();legacy[3]='1';return PoolRadState.parse(legacy).map;
+    }
+    private String fullRow(int id,byte[] data) { return id+" "+AreaIdentity.fingerprint(legacyMap(data)); }
+    private String prefixRow(int id,byte[] data) { return id+" "+AreaIdentity.prefixFingerprint(legacyMap(data)); }
+    private AreaIdentity.Catalog verifiedCatalog(int id,byte[] data) {
+        return new AreaIdentity.Catalog(new String[]{fullRow(id,data)},new String[]{prefixRow(id,data)});
+    }
+
+    @Test public void verifiedPacketUsesActualGeoIdAndKeepsLegacyNotebookKey() {
+        byte[] data=verified(20);AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        PoolRadState live=PoolRadState.parse(data,catalog);
+        assertNotNull(live);assertEquals(20,live.map.id);assertEquals("Slums of Phlan",live.area.label());
+        assertEquals("por-mac-v11-geo-20",live.area.id());assertEquals("15, 1 W",live.positionLabel());
+        byte[] legacy=data.clone();legacy[3]='1';
+        assertEquals(live.area,PoolRadState.parse(legacy,catalog).area);
+        assertTrue(live.sameDisplay(PoolRadState.parse(legacy,catalog)));
+    }
+
+    @Test public void verifiedDoorChangesRetainIdentityButLegacyChangesRemainUnknown() {
+        byte[] data=verified(20);AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        PoolRadState original=PoolRadState.parse(data,catalog);
+        for(int at=944;at<1200;at++) {
+            byte[] changed=data.clone();changed[at]^=(byte)0xff;
+            PoolRadState live=PoolRadState.parse(changed,catalog);
+            assertNotNull("Door byte "+at,live);assertEquals(original.area,live.area);
+            assertFalse(original.sameDisplay(live));
+            changed[3]='1';assertNull(PoolRadState.parse(changed,catalog).area);
+        }
+        for(int at=176;at<944;at++) {
+            byte[] changed=data.clone();changed[at]^=1;
+            assertNull("Changed immutable byte "+at,PoolRadState.parse(changed,catalog));
+        }
+    }
+
+    @Test public void explicitUntrustedMetadataNeverFallsBackToTheFullGeometryMatch() {
+        byte[] data=verified(20);AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        for(int at:new int[]{32,33}) for(int value:new int[]{0,2,127,255}) {
+            byte[] changed=data.clone();changed[at]=(byte)value;
+            assertNull("Rejected metadata at "+at+" = "+value,PoolRadState.parse(changed,catalog));
+        }
+        for(int id:new int[]{0,8,11,12,19,21,33,255}) {
+            byte[] changed=data.clone();changed[35]=(byte)id;assertNull(PoolRadState.parse(changed,catalog));
+        }
+        byte[] changed=data.clone();changed[34]=1;assertNull(PoolRadState.parse(changed,catalog));
+        changed[34]=(byte)255;changed[35]=(byte)255;assertNull(PoolRadState.parse(changed,catalog));
+        assertNull(PoolRadState.parse(data,new AreaIdentity.Catalog(new String[]{fullRow(20,data)})));
+        assertNull(PoolRadState.parse(data)); // Synthetic geometry cannot spoof the real catalog.
+    }
+
+    @Test public void earlyDestinationIdCannotBindOldGeometryAndRevisitSurvivesReload() {
+        byte[] phlan=verified(0),slums=verified(20);slums[176]^=7;
+        AreaIdentity.Catalog catalog=new AreaIdentity.Catalog(new String[]{fullRow(0,phlan),fullRow(20,slums)},
+                new String[]{prefixRow(0,phlan),prefixRow(20,slums)});
+        PoolRadState before=PoolRadState.parse(phlan,catalog);
+        byte[] transition=phlan.clone();transition[35]=20;
+        assertNull(PoolRadState.parse(transition,catalog)); // Outer script writes destination before loader.
+        transition=slums.clone();transition[35]=0;
+        assertNull(PoolRadState.parse(transition,catalog));
+        PoolRadState arrived=PoolRadState.parse(slums,catalog);
+        assertNotEquals(before.area,arrived.area);assertFalse(before.sameDisplay(arrived));
+        byte[] changed=slums.clone();changed[944]^=1;changed[36]=44;changed[40]=99;
+        assertEquals(arrived.area,PoolRadState.parse(changed,catalog).area);
+        assertEquals(before.area,PoolRadState.parse(phlan.clone(),catalog).area);
+        assertEquals("por-mac-v11-geo-0",PoolRadState.parse(phlan,catalog).area.id());
+    }
 }
