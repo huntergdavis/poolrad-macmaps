@@ -46,6 +46,7 @@ import name.osher.gil.minivmac.R;
  *     "$source_dir/mapper/PartyState.java" \
  *     "$source_dir/mapper/PartyPaneLayout.java" "$source_dir/mapper/MapViewport.java" \
  *     "$source_dir/mapper/PoolRadState.java" "$source_dir/mapper/GeoMap.java" \
+ *     "$source_dir/mapper/MapObservation.java" "$source_dir/mapper/MapMode.java" \
  *     "$source_dir/mapper/AreaIdentity.java"
  *   jar cf "$check_dir/classes.jar" -C "$check_dir/classes" .
  *   /usr/lib/android-sdk/build-tools/34.0.0/d8 --min-api 21 \

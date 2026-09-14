@@ -1249,7 +1249,7 @@ LOCALPROC DeliverMapSample(void)
     ui3p ram = GetRamForSnapshot(&size);
     unsigned char data[POOLRAD_PROBE_SIZE];
     jbyteArray sample = NULL;
-    if (poolrad_walk_probe(ram, size, &MapWalkTracker, data)) {
+    if (poolrad_display_probe(ram, size, &MapWalkTracker, data)) {
         sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_PROBE_SIZE);
         if (sample != NULL)
             (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_PROBE_SIZE, (const jbyte *)data);

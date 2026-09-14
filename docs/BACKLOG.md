@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 325 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 340 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -41,10 +41,12 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.11.0 | 29 named areas, live GEO ID plus immutable-prefix validation, door-stable note keys and bounded map headers |
 | Done — 0.11.0 | Gate round trip, ordinary save/cold reload, preserved handwriting and matching party sidebar across an in-place update |
 | Done — 0.12.0 | Walked tiles, optional visited-only fog, directional feet and recent return directions per notebook/area; backed up with notes |
+| Done — 0.13.0 | Guided tutorial positions/footprints restored; explicit camp/combat/loading/wilderness reference states |
+| Done — 0.13.0 | Compact flag-editor title/tool row and 2.1× sketch height; Pen only and per-note Save PNG removed |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: complete combat/loading/wilderness presentation, party conditions/equipment,
+Not done: dedicated tactical/wilderness maps, party conditions/equipment,
 Journal, a dedicated Notes index, or physical pen acceptance. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
@@ -84,12 +86,20 @@ the lower-priority queue.
   e-ink/stylus and full tactical/wilderness presentation remain open.
   [Guide](EXPLORATION.md) · [evidence](LOCAL_TESTING.md).
 
-- [ ] **F11 — Restore the guided tutorial map and footprints (P0 regression).**
+- [x] **F11 — Restore the guided tutorial map and footprints (P0 regression).**
   Rolf's scripted tour must show the party's real local position, including
   stops and movement before normal player control begins. Record observed
   visited squares and genuine adjacent guided steps; do not turn a script jump,
   load or combat position into an invented connecting route. The 0.12.0
   settled-input guard hides the tour and needs a verified guided-movement path.
+  **Delivered 0.13.0:** actual unsuspended SampleParty tour from 15,1 W to
+  11,2 S reveals the intermediate x14,13,12,11 tiles and directional feet
+  before normal control begins. The map matches the guest at the moving
+  11,1 S frame and Temple stop; six previous visits become ten without
+  erasing the old flag. Verified story-text positions remain visible even
+  when footprint recording pauses. Only the original bounded tour profile
+  gets the committed-coordinate exception; loads, combat and general script
+  jumps still break the route. [Evidence](LOCAL_TESTING.md).
 - [x] **F12 — Give flag notes their drawing space back (P0).** Remove the
   Pen only checkbox and per-note Save PNG action. Put smaller drawing controls
   and Fit page alongside the title where space allows, with a compact narrow
@@ -207,7 +217,7 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item: M2 and the remaining P1 work follow the completed
+  actionable software item: M4 and the remaining P1 work follow the completed
   B1/B2/W1/UI1/party slices. Fresh-save HP is corrected in 0.10.0 below.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
@@ -346,13 +356,18 @@ are gates for the affected feature, not a second giant framework project.
   and malformed/stale samples pass targeted regressions; a played-through door
   mutation, all-area playthrough and physical acceptance are not claimed.
   [Identity and limits](AREA_IDENTITY.md) · [name provenance](AREA_NAMES.md).
-- [ ] **M2 — Exploration/combat/wilderness/loading detection.** Retain geometry
+- [x] **M2 — Exploration/combat/wilderness/loading detection.** Retain geometry
   with an explicit non-live state when appropriate. Do not show the exploration
   party position as a tactical combatant or world-map coordinate.
-  **F10 prerequisite delivered 0.12.0:** verified settled-local-movement gate
-  protects recording and removes the live arrow when unsafe. Richer named
-  mode presentation and broader played-through mode acceptance remain here;
-  do not repeat the gate implementation or treat this whole item as complete.
+  **Delivered 0.13.0:** named Camp, Combat, Wilderness, Loading / setup and
+  Updating states use the existing header/footer. Non-live maps are labeled
+  reference, hide the arrow and reject stale tile actions; independent HP
+  still works. Original-code bounds and PRM4 parsing strip non-local positions.
+  Real loading/setup, camp entry/exit and guided movement are checked; combat
+  also replays a real captured state. Wilderness detection is source/synthetic
+  checked, not a played-through outdoor journey. Dedicated maps, broader
+  gameplay coverage and physical e-ink acceptance remain separate items.
+  [Guide](MAP_MODES.md) · [evidence](LOCAL_TESTING.md).
 - [x] **M3 — Cross-area / save-load acceptance route.** Walk between distinct
   areas, return, save/reload, and cold boot; pair observed positions with the
   game's own display. Verify notes and the eventual party sidebar on that route.

@@ -176,6 +176,24 @@ public class PoolRadStateTest {
         }
     }
 
+    @Test public void prm4LocalStateCannotAuthorizeCoordinatesForAnotherMode() {
+        byte[] data=verified(20);data[3]='4';data[24]=1;data[25]=1;data[26]=1;data[27]=4;data[31]=1;
+        AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        assertTrue(PoolRadState.parse(data,catalog).explorationSafe);
+        byte[] busy=data.clone();busy[26]=0;
+        assertTrue(PoolRadState.parse(busy,catalog).explorationProcessing);
+        byte[] noEpoch=data.clone();noEpoch[31]=0;
+        assertNull(PoolRadState.parse(noEpoch,catalog));
+        for(int mode=0;mode<256;mode++) if(mode!=1) {
+            byte[] changed=data.clone();changed[24]=(byte)mode;
+            assertNull("Non-local mode "+mode,PoolRadState.parse(changed,catalog));
+        }
+        for(int index:new int[]{25,26,27,33}) {
+            byte[] changed=data.clone();changed[index]=(byte)255;
+            assertNull("Untrusted metadata "+index,PoolRadState.parse(changed,catalog));
+        }
+    }
+
     @Test public void legacyDiagnosticBytesCannotMasqueradeAsWalkingMetadata() {
         byte[] data=verified(20); data[25]=1;data[26]=1;data[27]=4;
         AreaIdentity.Catalog catalog=verifiedCatalog(20,data);

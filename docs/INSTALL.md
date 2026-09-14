@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.12.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.12.0)
+[0.13.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.13.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.12.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.12.0/poolrad-macmaps-0.12.0.apk)
+   [`poolrad-macmaps-0.13.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.13.0/poolrad-macmaps-0.13.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -81,17 +81,17 @@ separate drawing menu is needed. **Notebooks** selects a separate campaign;
 changing a Mac save does not select a notebook for you.
 [Handwriting guide](NOTEBOOK.md) · [Map-plus-writing pages](MAP_INK.md).
 
-**Pen only** optionally reserves handwriting for a reported stylus and remembers
-your choice. Pinch with two fingers to zoom; drag with two fingers (or one in
-pen-only mode) to move the page. **Fit page** restores the complete sheet.
+The compact header leaves the rest of the upper pane for drawing. A pen or
+one finger writes; two fingers zoom and move the page. **Fit page** sits with
+the drawing buttons and restores the complete sheet. There is no Pen only toggle.
 [Pen controls and device limitations](PEN_NOTES.md).
 
 **Update in place to retain your notes.** Uninstalling or clearing app data
 removes them. **PoolRad → Notebooks → Back up Notebook N…** saves that campaign
 as a `.prnb` file outside the app, including its exploration history. Backups
 containing exploration need 0.12.0 or newer. **Restore backup…** restores without overwriting
-another notebook; select the restored campaign yourself. Each flag page also
-has **Save PNG** for a readable picture, not an editable backup.
+another notebook; select the restored campaign yourself. The flag editor's
+Save PNG action has been removed; full-screen screenshots remain in PoolRad.
 [Backup, restore and deliberate removal guide](NOTEBOOK_BACKUPS.md).
 
 ### If something doesn't work

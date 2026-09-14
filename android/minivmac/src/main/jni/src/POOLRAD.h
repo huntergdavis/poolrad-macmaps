@@ -30,6 +30,20 @@
 #define POOLRAD_STARTUP_BACK 0x30e1
 #define POOLRAD_LOADED_BACK 0x5e8b
 #define POOLRAD_RELOCATION_BACK 0x1921
+#define POOLRAD_SCRIPT_OPCODE_BACK 0x2f60
+#define POOLRAD_CALL_HIGH_BACK 0x2f16
+#define POOLRAD_CALL_LOW_BACK 0x2ed5
+#define POOLRAD_SCRIPT_HANDLE_BACK 0x5ea6
+#define POOLRAD_SCRIPT_ID_BACK 0x192b
+#define POOLRAD_SCRIPT_IP_BACK 0x5e96
+#define POOLRAD_DISPLAY_MODE_OUT 24
+#define POOLRAD_DISPLAY_UNAVAILABLE 0
+#define POOLRAD_DISPLAY_EXPLORATION 1
+#define POOLRAD_DISPLAY_COMBAT 2
+#define POOLRAD_DISPLAY_CAMP 3
+#define POOLRAD_DISPLAY_WILDERNESS 4
+#define POOLRAD_DISPLAY_LOADING 5
+#define POOLRAD_DISPLAY_UPDATING 6
 
 static uint32_t poolrad_u32(const unsigned char *p) {
     return ((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) | ((uint32_t)p[2] << 8) | p[3];
@@ -134,6 +148,58 @@ static inline void poolrad_walk_reset(poolrad_walk_tracker *tracker) {
     tracker->discontinuity = 1;
 }
 
+/* New Phlan's original 34-entry Rolf route uses table-driven SAVE x/y,
+ * not CALL c01e. Authenticate only its immutable 128-byte instruction loop
+ * and 136-byte route tables, never the mutable character variables. FNV-1a is
+ * a narrow version-profile checksum, not a security/authentication primitive.
+ * No original script payload is distributed. All offsets are VM addresses.
+ * The caller has already bounded A5 and the 2,048-byte state allocation. */
+static inline int poolrad_tour_profile(const unsigned char *ram, size_t size,
+                                      uint32_t a5, uint32_t state, uint32_t id) {
+    if (id != 0 || ram[a5 - POOLRAD_SCRIPT_ID_BACK] != 0 || ram[state + 0x1e5] != 0) return 0;
+    uint32_t handle = poolrad_u32(ram + a5 - POOLRAD_SCRIPT_HANDLE_BACK) & 0x00ffffff;
+    if (handle < 0x1000 || (handle & 1) || !poolrad_range(handle, 4, size)) return 0;
+    uint32_t program = poolrad_u32(ram + handle) & 0x00ffffff;
+    if (!poolrad_map_block(ram, size, program, 7680)) return 0;
+    const unsigned starts[] = {0xb145 - 0x9900, 0xb592 - 0x9900};
+    const unsigned lengths[] = {128, 136};
+    uint64_t hash = UINT64_C(0xcbf29ce484222325);
+    for (unsigned section = 0; section < 2; section++) {
+        for (unsigned i = 0; i < lengths[section]; i++) {
+            hash ^= ram[program + starts[section] + i];
+            hash *= UINT64_C(0x100000001b3);
+        }
+    }
+    return hash == UINT64_C(0x5b12181c49eae5fa);
+}
+
+/* 1 preserves continuity while the verified tour commits direction/x/y but
+ * cannot expose a partly written position. 2 means both coordinates have
+ * committed and the redraw / following sound-delay is displaying that tile.
+ * The operand loader advances IP before the native setter/redraw executes. */
+static inline int poolrad_tour_phase(unsigned ip, unsigned opcode, unsigned call) {
+    if ((ip == 0xb1b9 && opcode == 0x2d && call == 0x2c90)
+            || (ip == 0xb1bf && opcode == 9)
+            || (ip == 0xb1c3 && opcode == 0x2d && call == 0xba03)
+            || (ip == 0xb1c4 && opcode == 0x3a)) return 2;
+    if ((ip >= 0xb166 && ip <= 0xb170 && opcode == 0x2a)
+            || (ip >= 0xb170 && ip <= 0xb174 && opcode == 2)
+            || (ip == 0xb1a7 && opcode == 2)
+            || (ip >= 0xb1a7 && ip <= 0xb1b5 && opcode == 9)
+            || (ip >= 0xb1b5 && ip <= 0xb1b9 && opcode == 0x2d)) return 1;
+    return 0;
+}
+
+static inline int poolrad_tour_sample(const unsigned char *ram, size_t size,
+                                     uint32_t a5, uint32_t state, uint32_t id) {
+    unsigned ip = ((unsigned)ram[a5 - POOLRAD_SCRIPT_IP_BACK] << 8)
+        | ram[a5 - POOLRAD_SCRIPT_IP_BACK + 1];
+    unsigned call = ((unsigned)ram[a5 - POOLRAD_CALL_HIGH_BACK] << 8)
+        | ram[a5 - POOLRAD_CALL_LOW_BACK];
+    int phase = poolrad_tour_phase(ip, ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK], call);
+    return phase && poolrad_tour_profile(ram, size, a5, state, id) ? phase : 0;
+}
+
 static inline int poolrad_walk_update(const unsigned char *ram, size_t size,
         const unsigned char *packet, poolrad_walk_tracker *tracker,
         unsigned char *engine_out) {
@@ -153,11 +219,23 @@ static inline int poolrad_walk_update(const unsigned char *ram, size_t size,
             *engine_out = ram[a5 - POOLRAD_ENGINE_BACK];
             unsigned menu = ((unsigned)ram[a5 - POOLRAD_MENU_STATE_BACK] << 8)
                 | ram[a5 - POOLRAD_MENU_STATE_BACK + 1];
+            int tour = poolrad_tour_sample(ram, size, a5, state, id);
+            unsigned relocation = ram[a5 - POOLRAD_RELOCATION_BACK];
             hard_break = *engine_out != 4 || menu != 2
                 || ram[a5 - POOLRAD_STARTUP_BACK] != 0
                 || ram[a5 - POOLRAD_LOADED_BACK] != 0
-                || ram[a5 - POOLRAD_RELOCATION_BACK] != 0;
-            safe = !hard_break && ram[a5 - POOLRAD_INPUT_TAG_BACK] == 0x56
+                || (relocation != 0 && !(relocation == 1 && tour));
+            unsigned tag = ram[a5 - POOLRAD_INPUT_TAG_BACK];
+            unsigned opcode = ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK];
+            /* Rolf's Continue menu deliberately uses input tag zero. Original
+             * CODE5 3cdc->19de->1a44 proves opcode2b is that input path. The
+             * exact CALL c01e (CODE5 2e8e->1d8e) advances one tile; other CALLs
+             * or arbitrary busy script opcodes are not movement samples. */
+            int story_position = tag == 0 && (opcode == 0x2b
+                || (opcode == 0x2d && ram[a5 - POOLRAD_CALL_HIGH_BACK] == 0xc0
+                    && ram[a5 - POOLRAD_CALL_LOW_BACK] == 0x1e));
+            safe = !hard_break && (relocation == 0 || tour == 2)
+                && (tag == 0x56 || story_position || (tag == 0 && tour == 2))
                 && ram[a5 - POOLRAD_PENDING_INPUT_BACK] == 0;
         }
     }
@@ -206,6 +284,88 @@ static inline int poolrad_walk_probe(const unsigned char *ram, size_t size,
     out[POOLRAD_WALK_EPOCH_OUT + 1] = epoch >> 16;
     out[POOLRAD_WALK_EPOCH_OUT + 2] = epoch >> 8;
     out[POOLRAD_WALK_EPOCH_OUT + 3] = epoch;
+    return 1;
+}
+
+/* M2 can identify a guest mode without a valid local map. Authenticate the
+ * separate 2,048-byte state allocation, not a stale or zero-filled GEO block.
+ * CODE 0 declares 25,572 bytes below A5 and 4,688 above it. Checking that whole
+ * interval bounds every mode field even during map replacement/startup. */
+static inline int poolrad_mode_profile(const unsigned char *ram, size_t size,
+                                      uint32_t *a5_out) {
+    uint32_t a5, handle, state;
+    if (!poolrad_game_name(ram, size)) return 0;
+    a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
+    if (a5 < 25572 || (a5 & 1) || !poolrad_range(a5 - 25572, 25572 + 4688, size)) return 0;
+    handle = poolrad_u32(ram + a5 - POOLRAD_STATE_BACK) & 0x00ffffff;
+    if (handle < 0x1000 || (handle & 1) || !poolrad_range(handle, 4, size)) return 0;
+    state = poolrad_u32(ram + handle) & 0x00ffffff;
+    if (!poolrad_map_block(ram, size, state, 2048)) return 0;
+    *a5_out = a5;
+    return 1;
+}
+
+static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
+        poolrad_walk_tracker *tracker, unsigned char *out) {
+    uint32_t a5;
+    if (out == NULL) return 0;
+    int has_map = poolrad_walk_probe(ram, size, tracker, out);
+    if (!poolrad_mode_profile(ram, size, &a5)) return 0;
+    unsigned engine = ram[a5 - POOLRAD_ENGINE_BACK];
+    unsigned presentation = ram[a5 - POOLRAD_MODE_BACK];
+    unsigned startup = ram[a5 - POOLRAD_STARTUP_BACK];
+    unsigned loaded = ram[a5 - POOLRAD_LOADED_BACK];
+    unsigned mode = POOLRAD_DISPLAY_UNAVAILABLE;
+    /* Only proven engine values are named. The setup flag spans initial party
+     * selection as well as loading; the UI must say Loading / setup. */
+    if (engine <= 7 && startup <= 1 && loaded <= 1 && presentation >= 1 && presentation <= 4) {
+        if (startup || loaded) mode = POOLRAD_DISPLAY_LOADING;
+        else if (engine == 4) {
+            unsigned menu = ((unsigned)ram[a5 - POOLRAD_MENU_STATE_BACK] << 8)
+                | ram[a5 - POOLRAD_MENU_STATE_BACK + 1];
+            unsigned relocation = ram[a5 - POOLRAD_RELOCATION_BACK];
+            int committed_tour = 0;
+            if (has_map && out[POOLRAD_ID_VALID_OUT] == 1 && relocation == 1) {
+                uint32_t handle = poolrad_u32(ram + a5 - POOLRAD_STATE_BACK) & 0x00ffffff;
+                uint32_t state = poolrad_u32(ram + handle) & 0x00ffffff;
+                unsigned id = ((unsigned)out[POOLRAD_ID_OUT] << 8) | out[POOLRAD_ID_OUT + 1];
+                committed_tour = poolrad_tour_sample(ram, size, a5, state, id) == 2;
+            }
+            mode = presentation == 1 && menu == 2 && (relocation == 0 || committed_tour)
+                ? POOLRAD_DISPLAY_EXPLORATION : POOLRAD_DISPLAY_UPDATING;
+        }
+        else if (engine == 5) mode = POOLRAD_DISPLAY_COMBAT;
+        else if (engine == 2) mode = POOLRAD_DISPLAY_CAMP;
+        else if (engine == 3) mode = POOLRAD_DISPLAY_WILDERNESS;
+    }
+    if (!has_map) {
+        memset(out, 0, POOLRAD_PROBE_SIZE);
+        memcpy(out + 4, ram + 0x910, 20);
+        memcpy(out + 36, ram + 0x904, 4);
+    }
+    memcpy(out, "PRM4", 4);
+    out[POOLRAD_DISPLAY_MODE_OUT] = (unsigned char)mode;
+    out[POOLRAD_WALK_VERSION_OUT] = 1;
+    out[POOLRAD_WALK_ENGINE_OUT] = (unsigned char)engine;
+    out[POOLRAD_MODE_OUT] = (unsigned char)presentation;
+    uint32_t epoch = tracker != NULL && !tracker->exhausted ? tracker->epoch : 0;
+    out[POOLRAD_WALK_EPOCH_OUT] = epoch >> 24;
+    out[POOLRAD_WALK_EPOCH_OUT + 1] = epoch >> 16;
+    out[POOLRAD_WALK_EPOCH_OUT + 2] = epoch >> 8;
+    out[POOLRAD_WALK_EPOCH_OUT + 3] = epoch;
+    if (mode != POOLRAD_DISPLAY_EXPLORATION || !has_map || out[POOLRAD_ID_VALID_OUT] != 1) {
+        /* Non-exploration modes are always status-only, even when an old local
+         * map happens to remain in RAM. No consumer can mistake its position
+         * for a tactical or wilderness location. */
+        memset(out + 40, 0, 8);
+        memset(out + POOLRAD_GLOBALS_OUT, 0, POOLRAD_PROBE_SIZE - POOLRAD_GLOBALS_OUT);
+        out[POOLRAD_ID_VALID_OUT] = 0;
+        out[POOLRAD_ID_OUT] = out[POOLRAD_ID_OUT + 1] = 255;
+        out[POOLRAD_GLOBALS_OUT + 82] = out[POOLRAD_GLOBALS_OUT + 83]
+            = out[POOLRAD_GLOBALS_OUT + 84] = 255;
+        out[POOLRAD_WALK_SAFE_OUT] = 0;
+    }
+    if (epoch == 0) out[POOLRAD_WALK_SAFE_OUT] = 0;
     return 1;
 }
 #endif

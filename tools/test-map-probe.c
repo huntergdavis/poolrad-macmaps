@@ -26,6 +26,169 @@ static void fixture(uint32_t globals, uint32_t handle, uint32_t map) {
     if (a5 >= POOLRAD_INPUT_TAG_BACK) ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0x56;
     ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = 2;
 }
+static void status_only(unsigned mode, unsigned engine) {
+    assert(memcmp(output, "PRM4", 4) == 0);
+    assert(output[24] == mode && output[25] == 1 && output[26] == 0 && output[27] == engine);
+    assert(output[33] == 0 && output[34] == 255 && output[35] == 255);
+    for (int i = 40; i < 48; i++) assert(output[i] == 0);
+    for (int i = 48; i < POOLRAD_PROBE_SIZE; i++) {
+        assert(output[i] == ((i >= 130 && i <= 132) ? 255 : 0));
+    }
+}
+static void display_tests(void) {
+    const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
+    poolrad_walk_tracker tracker = {0};
+    fixture(0x8000, 0x2000, 0x4000);
+    unsigned char original[sizeof(ram)];
+    memcpy(original, ram, sizeof(ram));
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(memcmp(output, "PRM4", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
+    assert(output[26] == 1 && output[33] == 1 && poolrad_u32(output + 28) != 0);
+    assert(output[130] == 15 && output[131] == 1 && output[132] == 6);
+    assert(memcmp(output + 176, ram + 0x4000, 1024) == 0);
+    assert(memcmp(original, ram, sizeof(ram)) == 0);
+    for (unsigned engine = 0; engine < 256; engine++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        ram[a5 - POOLRAD_ENGINE_BACK] = engine;
+        unsigned mode = engine == 4 ? 1 : engine == 5 ? 2 : engine == 2 ? 3 : engine == 3 ? 4 : 0;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[24] == mode && output[27] == engine);
+        if (mode != 1) status_only(mode, engine);
+        // Modes work without any valid local map, including out-of-grid positions.
+        put32(0x8000, 0);
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        status_only(mode, engine);
+        ram[a5 - POOLRAD_STARTUP_BACK] = 1;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        status_only(engine <= 7 ? 5 : 0, engine);
+    }
+    for (unsigned presentation = 0; presentation < 256; presentation++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        ram[a5 - POOLRAD_ENGINE_BACK] = 3;
+        ram[a5 - POOLRAD_MODE_BACK] = presentation;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        status_only(presentation >= 1 && presentation <= 4 ? 4 : 0, 3);
+    }
+    const uint32_t flags[] = {POOLRAD_STARTUP_BACK, POOLRAD_LOADED_BACK};
+    for (unsigned i = 0; i < sizeof(flags) / sizeof(flags[0]); i++) {
+        for (unsigned value = 0; value < 256; value++) {
+            fixture(0x8000, 0x2000, 0x4000);
+            ram[a5 - flags[i]] = value;
+            assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+            if (value == 0) assert(output[24] == 1 && output[26] == 1);
+            else status_only(value == 1 ? 5 : 0, 4);
+        }
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    memset(ram + 0x4000, 0, 1024);
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(1, 4); // Position unavailable, not invented exploration coordinates.
+    ram[a5 - POOLRAD_ENGINE_BACK] = 0;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(0, 0); // Initial title/code wheel is not guessed to be loading.
+    ram[a5 - POOLRAD_STARTUP_BACK] = 1;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(5, 0); // Explicit party setup is named even before GEO loading.
+    fixture(0x8000, 0x2000, 0x4000);
+    ram[0x8052] = 200;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(1, 4);
+    fixture(0x8000, 0x2000, 0x4000);
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(output[24] == 1 && output[26] == 0 && output[33] == 1); // Valid display, not a footstep sample.
+    // Busy text remains visible; uncommitted relocation/menu/other presentation does not.
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x12;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(output[24] == 1 && output[26] == 0 && output[130] == 15);
+    for (unsigned value = 1; value < 256; value++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        ram[a5 - POOLRAD_RELOCATION_BACK] = value;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        status_only(POOLRAD_DISPLAY_UPDATING, 4);
+    }
+    for (unsigned value = 0; value < 256; value++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = value;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        if (value == 2) assert(output[24] == 1 && output[26] == 1);
+        else status_only(POOLRAD_DISPLAY_UPDATING, 4);
+        fixture(0x8000, 0x2000, 0x4000);
+        ram[a5 - POOLRAD_MODE_BACK] = value;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        if (value == 1) assert(output[24] == 1 && output[26] == 1);
+        else status_only(value >= 2 && value <= 4 ? POOLRAD_DISPLAY_UPDATING : 0, 4);
+    }
+    assert(!poolrad_display_probe(NULL, 0, &tracker, output));
+    assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, NULL));
+    fixture(0x8000, 0x2000, 0x4000);
+    assert(poolrad_display_probe(ram, sizeof(ram), NULL, output));
+    assert(output[24] == 1 && output[26] == 0 && poolrad_u32(output + 28) == 0);
+    for (unsigned tag = 0; tag < 256; tag++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        put32(0x5ff8, (tag << 24) | 2056);
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output) == (tag == 0x80));
+    }
+    const uint32_t bad[] = {0, 1, 0xfffe, 0xffffff, 0x100000};
+    for (unsigned i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        fixture(0x8000, 0x2000, 0x4000); put32(0x904, bad[i]);
+        assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        fixture(0x8000, 0x2000, 0x4000); put32(a5 - POOLRAD_STATE_BACK, bad[i]);
+        assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        fixture(0x8000, 0x2000, 0x4000); put32(0x2200, bad[i]);
+        assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    assert(!poolrad_display_probe(ram, a5 + 4687, &tracker, output));
+    assert(poolrad_display_probe(ram, a5 + 4688, &tracker, output));
+    fixture(0x9000, 0x3000, 0x5000);
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(output[24] == 1 && output[26] == 1);
+    ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
+    assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    puts("Display probe: PRM4 explicit modes, status-only geometry clearing and independent profile passed.");
+}
+static void tour_tests(void) {
+    assert(poolrad_tour_phase(0xb166, 0x2a, 0) == 1); // Direction setter has committed; x/y not yet.
+    assert(poolrad_tour_phase(0xb174, 2, 0) == 1);
+    assert(poolrad_tour_phase(0xb1ae, 9, 0) == 1); // Only x committed.
+    assert(poolrad_tour_phase(0xb1b5, 9, 0) == 1); // y setter may still be executing.
+    assert(poolrad_tour_phase(0xb1b9, 0x2d, 0x2c90) == 2);
+    assert(poolrad_tour_phase(0xb1bf, 9, 0) == 2);
+    assert(poolrad_tour_phase(0xb1c3, 0x2d, 0xba03) == 2);
+    assert(poolrad_tour_phase(0xb1c4, 0x3a, 0) == 2);
+    for (unsigned ip = 0; ip <= 65535; ip++) {
+        assert((poolrad_tour_phase(ip, 0x2d, 0x2c90) == 2) == (ip == 0xb1b9));
+        assert((poolrad_tour_phase(ip, 0x2d, 0xba03) == 2) == (ip == 0xb1c3));
+    }
+    for (unsigned opcode = 0; opcode <= 255; opcode++) {
+        assert((poolrad_tour_phase(0xb1b9, opcode, 0x2c90) == 2) == (opcode == 0x2d));
+        assert((poolrad_tour_phase(0xb1ae, opcode, 0) == 1) == (opcode == 9));
+    }
+    // A matching IP/opcode alone cannot bless arbitrary or malformed script data.
+    const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
+    fixture(0x8000, 0x2000, 0x4000);
+    ram[0x618b] = 0;
+    ram[a5 - POOLRAD_SCRIPT_IP_BACK] = 0xb1;
+    ram[a5 - POOLRAD_SCRIPT_IP_BACK + 1] = 0xb9;
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2d;
+    ram[a5 - POOLRAD_CALL_HIGH_BACK] = 0x2c;
+    ram[a5 - POOLRAD_CALL_LOW_BACK] = 0x90;
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0;
+    ram[a5 - POOLRAD_RELOCATION_BACK] = 1;
+    const uint32_t bad[] = {0, 1, 0xffff, 0xffffff};
+    for (unsigned i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        put32(a5 - POOLRAD_SCRIPT_HANDLE_BACK, bad[i]);
+        assert(!poolrad_tour_sample(ram, sizeof(ram), a5, 0x6000, 0));
+    }
+    put32(a5 - POOLRAD_SCRIPT_HANDLE_BACK, 0x2300);
+    put32(0x2300, 0x9000); put32(0x8ff8, 0x80001e08);
+    assert(!poolrad_tour_profile(ram, sizeof(ram), a5, 0x6000, 0)); // Synthetic script != verified route.
+    poolrad_walk_tracker tracker = {0};
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(POOLRAD_DISPLAY_UPDATING, 4);
+    puts("Tour probe: exact committed phases, half-coordinate rejection and missing-profile rejection passed.");
+}
 static void walk_tests(void) {
     const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
     poolrad_walk_tracker tracker = {0};
@@ -70,6 +233,58 @@ static void walk_tests(void) {
         assert(output[26] == (value == 0) && tracker.epoch == 1);
     }
     ram[a5 - POOLRAD_PENDING_INPUT_BACK] = 0;
+    // Exact story-menu / one-tile-forward paths, not arbitrary engine4/tag0.
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0;
+    ram[a5 - POOLRAD_CALL_HIGH_BACK] = 0xc0;
+    ram[a5 - POOLRAD_CALL_LOW_BACK] = 0x1e;
+    for (unsigned opcode = 0; opcode < 256; opcode++) {
+        ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = opcode;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (opcode == 0x2b || opcode == 0x2d));
+        assert(tracker.epoch == 1);
+    }
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2d;
+    for (unsigned high = 0; high < 256; high++) {
+        ram[a5 - POOLRAD_CALL_HIGH_BACK] = high;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (high == 0xc0));
+    }
+    ram[a5 - POOLRAD_CALL_HIGH_BACK] = 0xc0;
+    for (unsigned low = 0; low < 256; low++) {
+        ram[a5 - POOLRAD_CALL_LOW_BACK] = low;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (low == 0x1e));
+    }
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2b;
+    ram[a5 - POOLRAD_PENDING_INPUT_BACK] = 1;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && !output[26]);
+    ram[a5 - POOLRAD_PENDING_INPUT_BACK] = 0;
+    // The proven forward call changes one coordinate without a relocation flag.
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2d;
+    ram[a5 - POOLRAD_CALL_LOW_BACK] = 0x1e;
+    ram[0x8052] = 13;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(output[130] == 13 && tracker.epoch == 1);
+    ram[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2b;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch == 1);
+    // General script setters still break, even if their eventual delta is one.
+    ram[a5 - POOLRAD_RELOCATION_BACK] = 1;
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 2);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && !output[26]);
+    ram[0x8052] = 12;
+    ram[a5 - POOLRAD_RELOCATION_BACK] = 0;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(output[130] == 12 && tracker.epoch == 2);
+    for (unsigned engine = 0; engine < 8; engine++) {
+        ram[a5 - POOLRAD_ENGINE_BACK] = engine;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (engine == 4));
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    memset(&tracker, 0, sizeof(tracker));
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
     /* A real hard break must survive intervening background-process ticks. */
     ram[a5 - POOLRAD_ENGINE_BACK] = 2;
     poolrad_walk_observe(ram, sizeof(ram), &tracker);
@@ -194,6 +409,70 @@ static void unknown_identity(void) {
     /* Valid geometry is still available to the map and independent party reader. */
     assert(output[130] == 15);
 }
+/* Optional local evidence: mutate only this test's malloc-owned copy of a RAM
+ * capture. Never touch the source file, emulator RAM, disks, or saved games. */
+static void captured_tour_tests(unsigned char *capture, size_t length) {
+    uint32_t a5;
+    if (!poolrad_mode_profile(capture, length, &a5)) return;
+    if (capture[a5 - POOLRAD_ENGINE_BACK] != 4
+            || capture[a5 - POOLRAD_STARTUP_BACK] || capture[a5 - POOLRAD_LOADED_BACK]
+            || capture[a5 - POOLRAD_MENU_STATE_BACK] != 0
+            || capture[a5 - POOLRAD_MENU_STATE_BACK + 1] != 2) return;
+    uint32_t handle = poolrad_u32(capture + a5 - POOLRAD_STATE_BACK) & 0x00ffffff;
+    uint32_t state = poolrad_u32(capture + handle) & 0x00ffffff;
+    unsigned id = ((unsigned)capture[state + 0x18a] << 8) | capture[state + 0x18b];
+    if (!poolrad_tour_profile(capture, length, a5, state, id)) return;
+    unsigned char *copy = malloc(length);
+    assert(copy); memcpy(copy, capture, length);
+    poolrad_walk_tracker tracker = {0};
+    copy[a5 - POOLRAD_RELOCATION_BACK] = 0;
+    copy[a5 - POOLRAD_INPUT_TAG_BACK] = 0x56;
+    assert(poolrad_display_probe(copy, length, &tracker, output) && output[26]);
+    uint32_t epoch = tracker.epoch;
+    copy[a5 - POOLRAD_INPUT_TAG_BACK] = 0;
+    copy[a5 - POOLRAD_RELOCATION_BACK] = 1;
+    for (unsigned ip = 0xb166; ip <= 0xb1b9; ip++) {
+        for (unsigned opcode = 0; opcode < 256; opcode++) {
+            if (poolrad_tour_phase(ip, opcode, 0) != 1) continue;
+            copy[a5 - POOLRAD_SCRIPT_IP_BACK] = ip >> 8;
+            copy[a5 - POOLRAD_SCRIPT_IP_BACK + 1] = ip;
+            copy[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = opcode;
+            copy[a5 - POOLRAD_CALL_HIGH_BACK] = 0;
+            copy[a5 - POOLRAD_CALL_LOW_BACK] = 0;
+            poolrad_walk_observe(copy, length, &tracker);
+            assert(tracker.epoch == epoch && !tracker.discontinuity);
+            assert(poolrad_display_probe(copy, length, &tracker, output));
+            status_only(POOLRAD_DISPLAY_UPDATING, 4);
+        }
+    }
+    copy[a5 - POOLRAD_SCRIPT_IP_BACK] = 0xb1;
+    copy[a5 - POOLRAD_SCRIPT_IP_BACK + 1] = 0xb9;
+    copy[a5 - POOLRAD_SCRIPT_OPCODE_BACK] = 0x2d;
+    copy[a5 - POOLRAD_CALL_HIGH_BACK] = 0x2c;
+    copy[a5 - POOLRAD_CALL_LOW_BACK] = 0x90;
+    assert(poolrad_display_probe(copy, length, &tracker, output));
+    assert(output[24] == 1 && output[26] == 1 && tracker.epoch == epoch);
+    // One changed instruction or route-table byte removes the exception.
+    handle = poolrad_u32(copy + a5 - POOLRAD_SCRIPT_HANDLE_BACK) & 0x00ffffff;
+    uint32_t program = poolrad_u32(copy + handle) & 0x00ffffff;
+    const unsigned offsets[] = {0xb145 - 0x9900, 0xb1b5 - 0x9900, 0xb5b4 - 0x9900};
+    for (unsigned i = 0; i < sizeof(offsets) / sizeof(offsets[0]); i++) {
+        epoch = tracker.epoch;
+        copy[program + offsets[i]] ^= 1;
+        assert(poolrad_display_probe(copy, length, &tracker, output));
+        status_only(POOLRAD_DISPLAY_UPDATING, 4);
+        assert(tracker.epoch > epoch);
+        copy[program + offsets[i]] ^= 1;
+        assert(poolrad_display_probe(copy, length, &tracker, output) && output[26]);
+    }
+    epoch = tracker.epoch;
+    copy[a5 - POOLRAD_SCRIPT_ID_BACK] = 1;
+    assert(poolrad_display_probe(copy, length, &tracker, output));
+    status_only(POOLRAD_DISPLAY_UPDATING, 4);
+    assert(tracker.epoch > epoch);
+    free(copy);
+    puts("Private tour replay: proven profile, half-coordinate withholding, preserved epoch and mutation rejection passed.");
+}
 static void replay(const char *path) {
     FILE *file = fopen(path, "rb");
     assert(file && fseek(file, 0, SEEK_END) == 0);
@@ -203,14 +482,15 @@ static void replay(const char *path) {
     assert(capture && fread(capture, 1, (size_t)length, file) == (size_t)length);
     assert(fclose(file) == 0);
     poolrad_walk_tracker tracker = {0};
-    int valid = poolrad_walk_probe(capture, (size_t)length, &tracker, output);
-    printf("Capture %s: %s", path, valid ? "map" : "unavailable");
+    int valid = poolrad_display_probe(capture, (size_t)length, &tracker, output);
+    printf("Capture %s: %s", path, valid ? (output[33] ? "map" : "status-only") : "unavailable");
     if (valid) printf(" mode=%u identity-valid=%u GEO=%u x=%u y=%u facing=%u",
         output[32], output[33], ((unsigned)output[34] << 8) | output[35],
-        output[130], output[131], output[132] / 2);
-    if (valid) printf(" exploration-safe=%u engine=%u epoch=%u", output[26], output[27],
+        output[130], output[131], output[132] == 255 ? 255 : output[132] / 2);
+    if (valid) printf(" display-mode=%u exploration-safe=%u engine=%u epoch=%u", output[24], output[26], output[27],
         poolrad_u32(output + 28));
     puts("");
+    captured_tour_tests(capture, (size_t)length);
     free(capture);
 }
 int main(int argc, char **argv) {
@@ -305,6 +585,8 @@ int main(int argc, char **argv) {
     assert(output[176 + 768] == ram[0x4300]);
     puts("Map probe: PRM2 identity, modes, logical heap sizes, relocation and bounds passed.");
     walk_tests();
+    display_tests();
+    tour_tests();
     for (int i = 1; i < argc; i++) replay(argv[i]);
     return 0;
 }

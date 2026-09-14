@@ -66,10 +66,11 @@ public class Core {
 		// Metadata, never RAM/geometry or disk bytes; INFO disables it again.
 		if (BuildConfig.DEBUG && android.util.Log.isLoggable("PoolRad.Walk", android.util.Log.DEBUG)) {
 			String state = "unavailable";
-			if (sample != null && sample.length == 1200 && sample[3] == '3') {
+			if (sample != null && sample.length == 1200 && (sample[3] == '3' || sample[3] == '4')) {
 				long epoch = ((sample[28]&255L)<<24) | ((sample[29]&255L)<<16)
 						| ((sample[30]&255L)<<8) | (sample[31]&255L);
-				state = "safe="+(sample[26]&255)+" engine="+(sample[27]&255)+" epoch="+epoch
+				state = "mode="+(sample[3]=='4' ? sample[24]&255 : -1)
+						+" safe="+(sample[26]&255)+" engine="+(sample[27]&255)+" epoch="+epoch
 						+" area="+(sample[35]&255)+" x="+(sample[130]&255)+" y="+(sample[131]&255);
 			}
 			android.util.Log.d("PoolRad.Walk", state);

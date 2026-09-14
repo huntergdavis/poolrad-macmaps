@@ -62,6 +62,65 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## F11/M2 tutorial tracking and honest map modes (0.13.0, 2026-09-14)
+
+Reused the original-code evidence and bounded reader in [MAP_MEMORY.md](MAP_MEMORY.md),
+the existing local exploration recorder, and the earlier emulator acceptance
+below. Bounded `deja` recalls timed out; no unseen history is claimed as evidence.
+No Mac RAM, game rules, or save records are edited by this feature.
+
+The first candidate restored Rolf's Continue stops but still missed his walking
+tiles. A real unsuspended run exposed that failure: x15,14,13,12,11 at y1 were
+discarded because the tour performs coordinate assignments followed by redraw,
+not just the ordinary one-square forward command. Three later read-only RAM
+captures identified the committed redraw, PRINTCLEAR and Continue phases. These
+brief debugger captures are diagnosis, not live footprint acceptance.
+
+The final native profile validates the original New Phlan tour loop and tables,
+preserves continuity through its partial coordinate writes, and publishes only
+committed positions. General relocations still break continuity. Display mode
+is independent of recording safety: verified local positions remain visible
+during story text, but only safe observations authorize visited squares or feet.
+Partial-update frames neither record nor refresh the previous-safe deadline.
+Camp/combat/outdoors/loading packets contain status, never stale local positions.
+
+Final universal public and personal builds pass with **340 Java tests**. All
+**33 detached Android View/software-Canvas checks** pass on API30: PartyPane20,
+CompanionPane8 and compact-editor5. Three native map/party/wheel suites pass
+with ASan/UBSan and strict compiler warnings, including real captured-memory
+replays and malformed tour-loop/table/phase negatives. The existing 54 Python
+helper and 18 lifecycle/input checks also passed during this change.
+
+On isolated `emulator-5584`, normal Mac Quit and Finder Shut Down preceded an
+in-place final APK install. The disk, existing two-stroke tile11,2 flag, and
+six-tile exploration record have identical before/after hashes. This is an
+actual update preservation check, not a fresh-install substitute. The earlier
+combined candidate's real camp entry showed the Camp badge, reference map and
+six HP rows without adding visits; ordinary Exit restored the live arrow.
+
+The final installed APK then cold-booted and loaded the unchanged SampleParty
+through the original File menu. During an **unsuspended, normal-speed** Continue
+walk, the map moved from 15,1 W through x14,13,12,11 at y1 to 11,2 S. The
+mid-walk 11,1 S frame matches the guest and already shows the new footprints;
+the Temple stop retains them while its story text displays. Previously saved
+six-tile coverage becomes ten as the four unseen corridor tiles are observed.
+The original 11,2 flag remains present. Private evidence:
+`scratch/m2-final-tour-midwalk.png`, `m2-final-tour-temple.png` and
+`m2-final-tour.log`. No debugger pauses supplied this acceptance route.
+The actual Info → Exploration trail panel lists 11,2 → return north to 11,1,
+then eastward returns through 12,1, 13,1, 14,1 to 15,1. The movement samples
+share native epoch14; the five-second Temple story-print interval is displayable
+but not recordable and does not invent an extra step.
+
+Reopening the old flag in the final installed APK still measures y175..625
+for the sketch, with title-row Fit page, no Pen only or Save PNG controls,
+and byte-identical saved ink (`4f54c36f…191d10`). The README's compact-editor
+image is this actual final app window, not a mockup.
+
+Loading/setup and combat classifications also replay actual captures; wilderness
+has original-code/synthetic coverage only. Dedicated tactical/wilderness maps,
+all-area playthrough and physical e-ink/stylus acceptance remain open.
+
 ## F12 compact flag editor (0.13.0, 2026-09-14)
 
 Reused the existing composite InkSheetView, normalized strokes, ordered

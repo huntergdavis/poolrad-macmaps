@@ -33,8 +33,10 @@ jump begins an independent segment. Adjacent observations may connect only
 within the same native continuity epoch and no more than 1.25 seconds apart.
 There is no interpolation, row wrapping or pathfinding between missing points.
 
-Normal movement briefly leaves the game's input-wait loop. Those processing
-frames record no position; the next settled observation may connect only if
+Normal movement briefly leaves the game's input-wait loop. Verified positions
+can still display while story text is printing, without authorizing footprints.
+Partly committed coordinates stay hidden. Those processing frames do not record
+or refresh the recording deadline; the next safe observation may connect only if
 the native epoch is unchanged and the time/tile limits above still pass.
 An unavailable packet, unknown protocol or non-local engine breaks continuity.
 
@@ -43,8 +45,16 @@ does not erase an earlier real footprint; the route list explicitly identifies
 the gap. Feet describe recorded walking, not a guessed arrival after a reload.
 
 The read-only native gate recognizes the supported Mac v1.1 local movement
-input loop. Combat, camp, introduction/modal input, loading and outdoor state
-cannot authorize new footprints. A core-tick observer breaks continuity on
+input loop, Rolf's Continue-style story menus, the original one-square forward
+command, and the verified New Phlan tour loop after both coordinates commit.
+This restores the tutorial map hidden by 0.12.0:
+verified tour positions reveal walked squares, and observed adjacent guided
+steps can leave feet. Other script calls are not assumed to be walking.
+Combat, camp, loading and outdoor state cannot authorize new footprints.
+The narrow tour exception checks the original loop and route-table fingerprint,
+engine, area, script and instruction phase. General scripted relocation still
+breaks the trail, even for an adjacent jump; other scripts get no exemption.
+A core-tick observer breaks continuity on
 verified context changes even between the normal 250 ms Android samples.
 This does not promise instruction-by-instruction replay: rapid movement or a
 very short event between observations can be missed. Unobserved intermediate

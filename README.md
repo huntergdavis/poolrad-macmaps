@@ -13,7 +13,7 @@ not a port of its code or an official game release.
 
 <p>
   <img src="docs/images/phlan-party-sidebar.png" width="360" alt="Live New Phlan map with party health bars, armor class and class symbols while Rolf welcomes the party in the original Mac game">
-  <img src="docs/images/temple-note-map.png" width="360" alt="A temple flag opens its map-left, handwriting-right page with the original TYR note preserved">
+  <img src="docs/images/compact-flag-note.png" width="360" alt="A handwritten flag page with compact title-row tools and twice the sketch height; the original game remains visible below">
 </p>
 
 *Captured from the running Android emulator during the opening tour, not mockups or
@@ -25,12 +25,13 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Stable note identities across map reloads and door-state changes; no guessed area names.
 - Remember walked squares, follow directional footprints, or reveal only visited tiles.
 - Read recent return directions; exploration stays with your campaign notebook and backups.
+- Follow the opening guided tour; clear camp/combat/loading labels keep reference maps honest.
 - Party names, HP bars, armor class and class symbols; tap for readable details.
 - Tap a tile or symbol for a map-left, writing-right handwritten page.
 - Pen, ink-only eraser, undo/redo, autosave, and nine selectable map symbols.
-- Optional pen-only writing, finger zoom/pan, and a one-tap Fit page.
+- A larger sketch page with compact title-row tools, finger zoom/pan, and Fit page.
 - Separate local notebooks keep different campaigns' notes apart.
-- Back up/restore complete notebooks; export fitted flag pages as readable PNGs.
+- Back up and restore complete notebooks, including handwriting and walked tiles.
 - Map above the Mac display; optional keyboard below; no blinking marker.
 - Automatic code-wheel entry for verified prompts; illustrated offline fallback.
 - Map/Info tabs; lookup panels fit above the game, even with the keyboard open.
@@ -42,17 +43,17 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 
 **Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
 Phlan and on the adjoining Slums gate round trip. Other transitions and
-combat/wilderness map modes, broader NPC coverage, and physical stylus/e-ink
-behavior still need validation.
+dedicated combat/wilderness maps, broader NPC coverage, and physical stylus/e-ink
+behavior remain unfinished.
 [Exploration trail](docs/EXPLORATION.md) · [Handwritten notes](docs/NOTEBOOK.md) · [Flag pages & symbols](docs/MAP_INK.md)
 
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.12.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.12.0)
+[0.13.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.13.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.12.0/poolrad-macmaps-0.12.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.13.0/poolrad-macmaps-0.13.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

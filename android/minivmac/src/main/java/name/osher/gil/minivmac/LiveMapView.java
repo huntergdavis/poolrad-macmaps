@@ -19,6 +19,8 @@ import java.util.Map;
 
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
+import name.osher.gil.minivmac.mapper.MapObservation;
+import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
@@ -39,6 +41,7 @@ public final class LiveMapView extends View {
     private PoolRadState state;
     private PartyState party;
     private boolean positionAvailable;
+    private MapMode mode = MapMode.UNAVAILABLE;
     private String notebook = "Loading notebook…";
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private ExplorationTrail exploration = ExplorationTrail.empty();
@@ -96,14 +99,19 @@ public final class LiveMapView extends View {
     }
 
     private void refreshDescription() {
-        String status = state == null ? "Waiting for party" : !positionAvailable ? "Position unavailable"
-                : (state.area == null ? "Unidentified area" : state.area.label()) + ". Party at " + state.positionLabel();
+        String areaLabel = state == null ? "No local map yet"
+                : state.area == null ? "Unidentified area" : state.area.label();
+        String status = positionAvailable ? areaLabel + ". Party at " + state.positionLabel()
+                : mode.label() + ". " + (state == null ? areaLabel : "Last local map: " + areaLabel)
+                    + ". Position unavailable; party arrow hidden. " + mode.explanation();
         StringBuilder health = new StringBuilder();
         if (party != null) for (PartyState.Member member : party.members)
             health.append(' ').append(member.name).append(": ").append(member.currentHp).append(" of ").append(member.maxHp)
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
                     .append("; ").append(member.classLabel()).append('.');
-        setContentDescription(status + ". Tap a tile to add a note; tap a symbol to reopen it. "
+        setContentDescription(status + (positionAvailable
+                ? ". Tap a tile to add a note; tap a symbol to reopen it. "
+                : ". Reference only; map notes resume with local exploration. ")
                 + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
                 + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + explorationStatus + health);
@@ -121,29 +129,36 @@ public final class LiveMapView extends View {
     }
 
     public void showSample(byte[] sample) {
-        showState(PoolRadState.parse(sample));
+        MapObservation observation = MapObservation.parse(sample);
+        showState(observation.state, observation.mode);
     }
 
+    // Retained for source-derived synthetic View fixtures without shipping game geometry.
     private void showState(PoolRadState next) {
+        showState(next, next == null ? MapMode.UNAVAILABLE
+                : !next.hasExplorationMetadata || next.explorationSafe
+                    ? MapMode.EXPLORATION : MapMode.UPDATING);
+    }
+
+    private void showState(PoolRadState next, MapMode nextMode) {
         AreaIdentity previous = currentArea();
         AreaIdentity previousDisplay = displayedArea();
-        if (next == null) {
-            if (!positionAvailable) {
-                if (listener != null) listener.onExplorationSample(null);
-                return;
-            }
-            positionAvailable = false;
-            setContentDescription("Last area map. Position unavailable; party arrow hidden.");
-        } else {
-            boolean available = !next.hasExplorationMetadata || next.explorationSafe;
-            if (positionAvailable == available && state != null && state.sameDisplay(next)) {
-                if (listener != null) listener.onExplorationSample(next);
-                return;
-            }
-            state = next;
-            positionAvailable = available;
-            setContentDescription("Area map. Party at " + next.positionLabel() + ". North is up.");
+        boolean available = nextMode == MapMode.EXPLORATION && next != null;
+        boolean changed = mode != nextMode || positionAvailable != available
+                || (next != null && (state == null || !state.sameDisplay(next)));
+        // Processing frames record nothing and do not refresh the previous-safe
+        // deadline. The next sample still needs the same native epoch and a
+        // short gap; a real relocation changes that epoch even while Updating.
+        // Other unavailable modes actively interrupt recording, including repeats.
+        boolean deliver = nextMode != MapMode.UPDATING || next != null;
+        if (!changed) {
+            if (listener != null && deliver) listener.onExplorationSample(next);
+            return;
         }
+        mode = nextMode;
+        positionAvailable = available;
+        if (next != null) state = next; // Status-only packets retain a reference, not a live map.
+        cancelTap(); // A press begun in one mode cannot finish in another.
         AreaIdentity current = currentArea();
         AreaIdentity displayed = displayedArea();
         if (!(previousDisplay == null ? displayed == null : previousDisplay.equals(displayed))) {
@@ -155,7 +170,7 @@ public final class LiveMapView extends View {
             flags = Collections.emptyMap();
             if (listener != null) listener.onAreaChanged(current);
         }
-        if (listener != null) listener.onExplorationSample(next);
+        if (listener != null && deliver) listener.onExplorationSample(next);
         refreshDescription();
         invalidate();
     }
@@ -188,7 +203,7 @@ public final class LiveMapView extends View {
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
-            } else if (valid && tile >= 0 && tile == touchTile
+            } else if (valid && positionAvailable && tile >= 0 && tile == touchTile
                     && (touchArea == null ? area == null : area != null && touchArea.equals(area.id()))) {
                 performClick();
                 int[] nearby = preciseTouch || flags.containsKey(tile) ? new int[0]
@@ -259,21 +274,27 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(14 * density);
         String title = state != null && state.area != null ? state.area.label() : "AREA MAP";
-        String status = state == null ? "Waiting for party"
-                : positionAvailable ? state.positionLabel() : "Position unavailable";
+        if (state != null && !positionAvailable) title += " · reference";
+        String status = positionAvailable ? state.positionLabel() : mode.label();
         float available = Math.max(0, pane.mapWidth - 24 * density);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
                 12 * density, 22 * density, ink);
+        if (!positionAvailable && mode != MapMode.UNAVAILABLE) {
+            canvas.drawRect(pane.mapWidth - 16 * density - statusWidth, 6 * density,
+                    pane.mapWidth - 8 * density, 27 * density, ink);
+            ink.setColor(Color.WHITE);
+        }
         ink.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
+        ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
         if (state == null) {
             ink.setTextAlign(Paint.Align.CENTER);
             ink.setTextSize(13 * density);
-            canvas.drawText("Load a party in Pool of Radiance v1.1", pane.mapWidth / 2f,
+            canvas.drawText(fitHeaderText(mode.explanation(), available), pane.mapWidth / 2f,
                     Math.max(48 * density, pane.mapHeight / 2f), ink);
             return;
         }
@@ -291,12 +312,13 @@ public final class LiveMapView extends View {
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(10 * density); ink.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText(explorationStatus.isEmpty()
+        String legend = !positionAvailable ? mode.explanation() : explorationStatus.isEmpty()
                         ? "North up · " + exploration.visitedCount() + " walked · Info: trail options"
-                        : explorationStatus,
+                        : explorationStatus;
+        canvas.drawText(fitHeaderText(legend, available),
                 pane.mapWidth / 2f, pane.mapHeight - 23 * density, ink);
         ink.setTextSize(11 * density);
-        canvas.drawText("Tap a tile or symbol · " + notebook,
+        canvas.drawText(fitHeaderText((positionAvailable ? "Tap a tile or symbol · " : "Reference only · ") + notebook, available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 

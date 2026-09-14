@@ -16,19 +16,23 @@ import java.util.Collections;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.Map;
 import java.security.MessageDigest;
 import name.osher.gil.minivmac.LiveMapView;
 import name.osher.gil.minivmac.MapArtwork;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
+import name.osher.gil.minivmac.mapper.MapMode;
+import name.osher.gil.minivmac.mapper.MapObservation;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
+import name.osher.gil.minivmac.notebook.NoteIcon;
 
 /**
  * Focused checks of the actual LiveMapView on Android software Canvas.
- * Synthetic PRP1/PRP2/PRM1/PRM3 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
+ * Synthetic PRP1/PRP2/PRM1/PRM3/PRM4 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
  * Reuses CompositeSheetRenderCheck's system-context harness and PartyStateTest's packet layout.
  *
  * Compile from the repository root (no Gradle or running app required):
@@ -40,6 +44,7 @@ import name.osher.gil.minivmac.notebook.ExplorationTrail;
  *     "$source_dir/notebook/NoteIcon.java" "$source_dir/notebook/ExplorationTrail.java" \
  *     "$source_dir/mapper/PartyState.java" "$source_dir/mapper/PartyPaneLayout.java" \
  *     "$source_dir/mapper/MapViewport.java" "$source_dir/mapper/PoolRadState.java" \
+ *     "$source_dir/mapper/MapObservation.java" "$source_dir/mapper/MapMode.java" \
  *     "$source_dir/mapper/GeoMap.java" "$source_dir/mapper/AreaIdentity.java"
  *   jar cf "$check_dir/classes.jar" -C "$check_dir/classes" .
  *   /usr/lib/android-sdk/build-tools/34.0.0/d8 --min-api 21 \
@@ -191,12 +196,15 @@ public final class PartyPaneRenderCheck {
             try {
                 java.lang.reflect.Field field = LiveMapView.class.getDeclaredField("ink");
                 field.setAccessible(true);
-                Paint ink = (Paint) field.get(view); ink.setTextSize(14 * density);
+                Paint ink = (Paint) field.get(view);
                 java.lang.reflect.Method fit = LiveMapView.class.getDeclaredMethod("fitHeaderText", String.class, float.class);
                 fit.setAccessible(true);
-                String[] labels = {"New Phlan", "A deliberately very long dungeon and district name",
-                        "15, 15 W", "Position unavailable"};
-                for (String label : labels) {
+                List<String> labels = new ArrayList<>(Arrays.asList("New Phlan",
+                        "A deliberately very long dungeon and district name · reference", "15, 15 W",
+                        "Reference only · A deliberately very long notebook name"));
+                for (MapMode mode : MapMode.values()) { labels.add(mode.label()); labels.add(mode.explanation()); }
+                for (int textDp : new int[]{10, 11, 14}) for (String label : labels) {
+                    ink.setTextSize(textDp * density); // Footer, notebook legend and header use the same fitter.
                     for (int widthDp : new int[]{0, 1, 5, 20, 60, 120, 700}) {
                         float width = widthDp * density;
                         String fitted = (String) fit.invoke(view, label, width);
@@ -385,8 +393,158 @@ public final class PartyPaneRenderCheck {
             checkWalked(view, 4); equal(before, render(view), "Unchanged samples altered visible coverage");
         });
 
+        run("PRM4 status-only modes retain the reference map without inventing position updates", PartyPaneRenderCheck::statusTransitions);
+        run("empty and narrow mode screens are distinct, bounded and add no panels", PartyPaneRenderCheck::emptyStatuses);
+        run("mode changes cancel pending map/party taps without altering independent health", PartyPaneRenderCheck::modeTouchAndParty);
+        run("PRM4 non-recordable local positions move the arrow and retain flags without authorizing footsteps", PartyPaneRenderCheck::displayWithoutRecording);
+
         System.out.println("PASS " + passed + " party-pane actual Android View/software-Canvas checks; "
                 + "synthetic samples only, no live-RAM/combat/GPU/e-ink/stylus acceptance.");
+    }
+
+    private static void statusTransitions() {
+        SyntheticAreas areas = new SyntheticAreas(); LiveMapView view = view(null, 960, 480);
+        ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
+        MapObservation local = areas.observation(0, true, 1);
+        showObservation(view, local); view.setExplorationStyle(true, true);
+        view.showExploration(walkedTrail(), "Synthetic remembered route");
+        assertMap(view, local.state, walkedTrail(), true, "Initial PRM4 local map is missing");
+        int originalSamples = listener.samples.size();
+        view.showSample(statusPacket(MapMode.UPDATING)); view.showSample(statusPacket(MapMode.UPDATING));
+        checkStatus(view, MapMode.UPDATING, true);
+        check(listener.samples.size() == originalSamples && listener.samples.get(originalSamples - 1) == local.state,
+                "Updating emitted an outbound observation that could reset or refresh the previous-safe deadline");
+        assertMap(view, local.state, walkedTrail(), false, "Updating exposed an authoritative position");
+        showObservation(view, local);
+        for (MapMode mode : statusModes()) {
+            byte[] packet = statusPacket(mode); int observed = listener.samples.size();
+            view.showSample(packet); checkStatus(view, mode, true);
+            check(view.displayedArea().equals(local.state.area), mode + " replaced the authenticated reference map");
+            checkWalked(view, 4);
+            assertMap(view, local.state, walkedTrail(), false, mode + " changed local coverage or showed tactical coordinates");
+            Bitmap first = render(view); view.showSample(packet);
+            if (mode == MapMode.UPDATING)
+                check(listener.samples.size() == observed, "Updating/repeated Updating refreshed the outbound observation stream");
+            else check(listener.samples.size() == observed + 2 && listener.samples.get(observed) == null
+                    && listener.samples.get(observed + 1) == null, mode + " repeats failed to interrupt recording");
+            equal(first, render(view), mode + " repeats changed the static display");
+            check(listener.areas.equals(Collections.singletonList(local.state.area)), mode + " erased stored area identity");
+        }
+        // A tactical coordinate accidentally inserted into a status-only packet
+        // must never become a local party arrow, even when its range looks valid.
+        byte[] malformed = statusPacket(MapMode.COMBAT); malformed[130] = 5; malformed[131] = 6;
+        view.showSample(malformed); checkStatus(view, MapMode.UNAVAILABLE, true);
+        check(!view.getContentDescription().toString().contains(MapMode.UPDATING.label()),
+                "Unknown packet retained the previous named mode");
+        assertMap(view, local.state, walkedTrail(), false, "Rejected tactical coordinates moved the local reference");
+        int beforeUpdating = listener.samples.size();
+        view.showSample(statusPacket(MapMode.UPDATING)); checkStatus(view, MapMode.UPDATING, true);
+        assertMap(view, local.state, walkedTrail(), false, "Mode-6 updating exposed an unsettled position");
+        check(listener.samples.size() == beforeUpdating, "Mode-6 updating emitted a misleading observation refresh");
+        MapObservation resumed = areas.observation(0, true, 3); showObservation(view, resumed);
+        check(view.snapshot() == resumed.state && view.currentArea().equals(resumed.state.area),
+                "Returning to settled exploration did not restore the live map");
+        check(view.getContentDescription().toString().contains("Party at " + resumed.state.positionLabel()),
+                "Returned local position is not accessible");
+        assertMap(view, resumed.state, walkedTrail(), true, "Returned exploration lost coverage or the party arrow");
+        checkWalked(view, 4);
+    }
+
+    private static void emptyStatuses() {
+        LiveMapView empty = emptyView(600, 320); Set<Integer> appearances = new HashSet<>();
+        FrameLayout parent = (FrameLayout) empty.getParent();
+        for (MapMode mode : statusModes()) {
+            empty.showSample(statusPacket(mode)); checkStatus(empty, mode, false);
+            check(empty.displayedArea() == null, mode + " fabricated a map before any local observation");
+            Bitmap image = render(empty); checkMonochrome(image);
+            check(appearances.add(Arrays.hashCode(pixels(image))), mode + " reused an indistinguishable empty-screen status");
+            check(parent.getChildCount() == 1 && parent.getChildAt(0) == empty,
+                    mode + " added a new panel instead of using the existing map allocation");
+        }
+        empty.showSample(null); checkStatus(empty, MapMode.UNAVAILABLE, false);
+        check(appearances.add(Arrays.hashCode(pixels(render(empty)))), "Unavailable screen retained a named mode");
+        SyntheticAreas areas = new SyntheticAreas(); MapObservation local = areas.observation(0, true, 1);
+        LiveMapView narrow = view(null, 240, 280); showObservation(narrow, local);
+        narrow.setExplorationStyle(true, true); narrow.showExploration(walkedTrail(), "Remembered narrow route");
+        for (MapMode mode : statusModes()) {
+            narrow.showSample(statusPacket(mode)); checkStatus(narrow, mode, true);
+            assertMap(narrow, local.state, walkedTrail(), false, mode + " text overlapped the narrow map");
+            check(narrow.getWidth() == px(240) && narrow.getHeight() == px(280), mode + " changed allocated dimensions");
+        }
+        resizePixels(narrow, 1, 1); narrow.showSample(statusPacket(MapMode.LOADING));
+        checkMonochrome(render(narrow)); // Even an impossible layout remains bounded and opaque.
+    }
+
+    private static void modeTouchAndParty() {
+        byte[] health = packet(true); LiveMapView view = view(health, 960, 480);
+        SyntheticAreas areas = new SyntheticAreas(); MapObservation local = areas.observation(0, true, 1);
+        showObservation(view, local); final int[] taps = {0, 0};
+        view.setListener(new LiveMapView.Listener() {
+            @Override public void onAreaChanged(AreaIdentity area) { }
+            @Override public void onTileTapped(AreaIdentity area, int x, int y) { taps[0]++; }
+            @Override public void onPartyMemberTapped(PartyState.Member member) { taps[1]++; }
+        });
+        PartyPaneLayout pane = pane(view, MEMBERS); MapViewport map = new MapViewport(pane.mapWidth, pane.mapHeight, density);
+        float mapX = map.left + 4.5f * map.cell, mapY = map.top + 3.5f * map.cell;
+        float rowX = pane.partyLeft + pane.partyWidth / 2, rowY = pane.rowTop(2) + pane.rowHeight / 2;
+        Bitmap original = render(view);
+        event(view, MotionEvent.ACTION_DOWN, mapX, mapY); view.showSample(statusPacket(MapMode.COMBAT));
+        event(view, MotionEvent.ACTION_UP, mapX, mapY); check(taps[0] == 0, "Map press crossed into combat");
+        showObservation(view, local); event(view, MotionEvent.ACTION_DOWN, rowX, rowY);
+        view.showSample(statusPacket(MapMode.CAMP)); event(view, MotionEvent.ACTION_UP, rowX, rowY);
+        check(taps[1] == 0, "Party press begun in exploration completed after changing mode");
+        tap(view, mapX, mapY); check(taps[0] == 0, "Reference-only map tap emitted a note-creation callback");
+        tap(view, rowX, rowY); check(taps[1] == 1, "A fresh valid health-row tap was disabled merely by camp mode");
+        for (MapMode mode : statusModes()) {
+            view.showSample(statusPacket(mode)); Bitmap image = render(view);
+            equalParty(original, image, pane, mode + " changed the separately verified party/sidebar pixels");
+            checkBars(image, pane(view, MEMBERS), health); checkDescription(view, health);
+            PartyPaneLayout current = pane(view, MEMBERS);
+            check(current.mapWidth == pane.mapWidth && current.mapHeight == pane.mapHeight,
+                    mode + " stole map or guest allocation for an extra status panel");
+        }
+    }
+
+    private static void displayWithoutRecording() {
+        SyntheticAreas areas = new SyntheticAreas(); LiveMapView view = view(null, 960, 480);
+        final List<PoolRadState> samples = new ArrayList<>(); final List<AreaIdentity> areaChanges = new ArrayList<>();
+        final int[] tapped = {-1};
+        view.setListener(new LiveMapView.Listener() {
+            @Override public void onAreaChanged(AreaIdentity area) { areaChanges.add(area); }
+            @Override public void onTileTapped(AreaIdentity area, int x, int y) {
+                check(area != null && area.id().equals("por-mac-v11-geo-0"), "Display-only flag tap lost its authenticated area");
+                tapped[0] = y * 16 + x;
+            }
+            @Override public void onExplorationSample(PoolRadState sample) { samples.add(sample); }
+        });
+        MapObservation initial = areas.observation(0, true, 1); showObservation(view, initial);
+        Map<Integer, NoteIcon> symbols = Collections.singletonMap(68, NoteIcon.TEMPLE);
+        view.showNotebook("Synthetic flagged notebook", symbols);
+        view.setExplorationStyle(true, true); view.showExploration(walkedTrail(), "Remembered route");
+        Bitmap before = render(view);
+        // Display validity is independent even when the recording epoch is absent.
+        MapObservation first = areas.observation(0, false, 0, 13, 9);
+        showObservation(view, first); showObservation(view, first);
+        MapObservation second = areas.observation(0, false, 0, 14, 9); showObservation(view, second);
+        check(view.snapshot() == second.state && view.currentArea().equals(second.state.area),
+                "A valid safe-zero local position was hidden");
+        String description = view.getContentDescription().toString();
+        check(description.contains("Party at 14, 9 E") && description.contains("1 flags."),
+                "Moving safe-zero position or its existing flags disappeared");
+        check(areaChanges.equals(Collections.singletonList(initial.state.area)),
+                "Changing recording eligibility unnecessarily reset the current area's flags");
+        check(samples.size() == 4 && samples.get(1) == first.state && samples.get(2) == first.state
+                && samples.get(3) == second.state, "Display-only updates/repeats did not reach the recorder boundary");
+        for (int i = 1; i < samples.size(); i++)
+            check(!samples.get(i).explorationSafe && samples.get(i).explorationProcessing
+                    && samples.get(i).continuityToken == 0, "Display availability invented recording authorization");
+        checkWalked(view, 4);
+        Bitmap after = render(view);
+        check(mapChangedPixels(before, after, view) > 10, "Safe-zero movement did not move the visible party arrow");
+        check(mapChangedPixels(after, expectedMap(view, second.state, walkedTrail(), true, symbols), view) == 0,
+                "Safe-zero display lost a flag, moved the arrow incorrectly or invented footprint pixels");
+        MapViewport map = mapBounds(view); tap(view, map.left + 4.5f * map.cell, map.top + 4.5f * map.cell);
+        check(tapped[0] == 68, "The retained flag could not be opened during valid safe-zero display");
     }
 
     private static void initializeSystemFonts() throws Exception {
@@ -434,6 +592,7 @@ public final class PartyPaneRenderCheck {
         private final byte[][] packets = {mapPacket(), mapPacket()};
         private final Object catalog;
         private final java.lang.reflect.Method parse;
+        private final java.lang.reflect.Method parseObservation;
 
         SyntheticAreas() {
             packets[1][176] ^= 0x40; // A second exact, distinct immutable prefix, not a private game map.
@@ -450,6 +609,8 @@ public final class PartyPaneRenderCheck {
                 catalog = constructor.newInstance(new Object[]{exact, prefix});
                 parse = PoolRadState.class.getDeclaredMethod("parse", byte[].class, type);
                 parse.setAccessible(true);
+                parseObservation = MapObservation.class.getDeclaredMethod("parse", byte[].class, type);
+                parseObservation.setAccessible(true);
             } catch (ReflectiveOperationException failure) {
                 throw new AssertionError("Cannot construct the synthetic production-parser catalog", failure);
             }
@@ -473,6 +634,64 @@ public final class PartyPaneRenderCheck {
                 throw new AssertionError("Cannot parse the synthetic PRM3 fixture", failure);
             }
         }
+
+        MapObservation observation(int id, boolean safe, long epoch) {
+            return observation(id, safe, epoch, 12, 9);
+        }
+
+        MapObservation observation(int id, boolean safe, long epoch, int x, int y) {
+            check(id == 0 || id == 20, "Synthetic PRM4 area must be A or B");
+            byte[] sample = packets[id == 0 ? 0 : 1].clone();
+            sample[3] = '4'; sample[24] = 1; sample[25] = 1;
+            sample[26] = (byte) (safe ? 1 : 0); sample[27] = 4;
+            for (int i = 0; i < 4; i++) sample[28 + i] = (byte) (epoch >>> (24 - i * 8));
+            sample[32] = 1; sample[33] = 1; sample[34] = 0; sample[35] = (byte) id;
+            sample[130] = (byte) x; sample[131] = (byte) y;
+            try {
+                MapObservation value = (MapObservation) parseObservation.invoke(null, sample, catalog);
+                check(value.state != null && value.state.area.id().equals("por-mac-v11-geo-" + id)
+                        && value.mode == MapMode.EXPLORATION,
+                        "Synthetic PRM4 failed actual observation/identity parsing");
+                check(value.state.explorationSafe == safe && value.state.continuityToken == epoch,
+                        "Synthetic PRM4 safety/continuity mismatch");
+                return value;
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError("Cannot parse the synthetic PRM4 observation", failure);
+            }
+        }
+    }
+
+    private static MapMode[] statusModes() {
+        return new MapMode[]{MapMode.COMBAT, MapMode.CAMP, MapMode.WILDERNESS, MapMode.LOADING, MapMode.UPDATING};
+    }
+
+    private static byte[] statusPacket(MapMode mode) {
+        byte[] sample = new byte[1200];
+        sample[0] = 'P'; sample[1] = 'R'; sample[2] = 'M'; sample[3] = '4';
+        sample[25] = 1; sample[31] = 1; sample[32] = 1;
+        sample[34] = (byte) 255; sample[35] = (byte) 255;
+        sample[130] = (byte) 255; sample[131] = (byte) 255; sample[132] = (byte) 255;
+        switch (mode) {
+            case COMBAT: sample[24] = 2; sample[27] = 5; break;
+            case CAMP: sample[24] = 3; sample[27] = 2; break;
+            case WILDERNESS: sample[24] = 4; sample[27] = 3; sample[32] = 2; break;
+            case LOADING: sample[24] = 5; sample[27] = 0; sample[32] = 4; break;
+            case UPDATING: sample[24] = 6; sample[27] = 4; break;
+            default: throw new AssertionError("Not a status-only mode: " + mode);
+        }
+        MapObservation parsed = MapObservation.parse(sample);
+        check(parsed.mode == mode && parsed.state == null, "Malformed synthetic status fixture: " + mode);
+        return sample;
+    }
+
+    private static void checkStatus(LiveMapView view, MapMode mode, boolean reference) {
+        String description = view.getContentDescription().toString();
+        check(description.startsWith(mode.label() + ". ") && description.contains(mode.explanation()),
+                "Missing or stale mode explanation: " + description);
+        check(description.contains(reference ? "Last local map:" : "No local map yet"),
+                "Mode presentation did not distinguish a reference map from an empty screen");
+        check(view.snapshot() == null && view.currentArea() == null && !description.contains("Party at "),
+                mode + " exposed a live local coordinate or arrow claim");
     }
 
     private static String digest(byte[] input, int from, int to) {
@@ -507,6 +726,15 @@ public final class PartyPaneRenderCheck {
         }
     }
 
+    private static void showObservation(LiveMapView view, MapObservation observation) {
+        try {
+            java.lang.reflect.Method method = LiveMapView.class.getDeclaredMethod("showState", PoolRadState.class, MapMode.class);
+            method.setAccessible(true); method.invoke(view, observation.state, observation.mode);
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("Cannot exercise the actual View's mode-aware state path", failure);
+        }
+    }
+
     private static ExplorationTrail walkedTrail() {
         return ExplorationTrail.empty().record(34, -1).record(35, 34).record(51, 35).record(52, 51);
     }
@@ -522,19 +750,26 @@ public final class PartyPaneRenderCheck {
     }
 
     private static Bitmap expectedMap(LiveMapView view, PoolRadState state, ExplorationTrail trail, boolean showArrow) {
+        return expectedMap(view, state, trail, showArrow, Collections.emptyMap());
+    }
+
+    private static Bitmap expectedMap(LiveMapView view, PoolRadState state, ExplorationTrail trail,
+                                      boolean showArrow, Map<Integer, NoteIcon> symbols) {
         Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
         BITMAPS.add(bitmap);
         Canvas canvas = new Canvas(bitmap); canvas.drawColor(Color.WHITE);
         MapViewport map = mapBounds(view); MapArtwork artwork = new MapArtwork();
         artwork.drawExploration(canvas, state.map, trail, true, true, map.left, map.top, map.cell, density);
-        artwork.drawMarkers(canvas, Collections.<Integer>emptySet(), state, showArrow,
+        artwork.drawMarkers(canvas, symbols, state, showArrow,
                 map.left, map.top, map.cell, density);
         return bitmap;
     }
 
     private static void assertMap(LiveMapView view, PoolRadState state, ExplorationTrail trail,
                                   boolean showArrow, String message) {
-        check(mapChangedPixels(render(view), expectedMap(view, state, trail, showArrow), view) == 0, message);
+        Bitmap actual = render(view), expected = expectedMap(view, state, trail, showArrow);
+        try { check(mapChangedPixels(actual, expected, view) == 0, message); }
+        finally { actual.recycle(); expected.recycle(); BITMAPS.remove(actual); BITMAPS.remove(expected); }
     }
 
     private static int mapChangedPixels(Bitmap first, Bitmap second, LiveMapView view) {
@@ -554,6 +789,13 @@ public final class PartyPaneRenderCheck {
         view.showSample(mapPacket()); view.showNotebook("Synthetic notebook", Collections.emptyMap());
         view.showPartySample(party); resize(view, widthDp, heightDp);
         return view;
+    }
+
+    private static LiveMapView emptyView(int widthDp, int heightDp) {
+        LiveMapView view = new LiveMapView(context, null);
+        FrameLayout parent = new FrameLayout(context); parent.addView(view);
+        view.showNotebook("Synthetic notebook", Collections.emptyMap());
+        resize(view, widthDp, heightDp); return view;
     }
 
     private static int px(int dp) { return Math.max(1, Math.round(dp * density)); }
@@ -702,6 +944,13 @@ public final class PartyPaneRenderCheck {
             int index = y * before.getWidth() + x;
             if (first[index] != second[index]) throw new AssertionError("HP change altered map/outside pixel at " + x + "," + y);
         }
+    }
+
+    private static void equalParty(Bitmap before, Bitmap after, PartyPaneLayout pane, String message) {
+        for (int y = 0; y < before.getHeight(); y++)
+            for (int x = (int) Math.ceil(pane.partyLeft); x < before.getWidth(); x++)
+                if (before.getPixel(x, y) != after.getPixel(x, y))
+                    throw new AssertionError(message + " at " + x + "," + y);
     }
 
     private static void checkMonochrome(Bitmap bitmap) {

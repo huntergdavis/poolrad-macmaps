@@ -1,5 +1,12 @@
 # Releases
 
+## 0.13.0 — Follow the tour, spread out your notes
+
+[Release notes](releases/0.13.0.md): restored tutorial tracking, guided-step
+sampling, a compact flag editor with more than twice the tested sketch height,
+and explicit reference-map modes. Notes, exploration and writable disks survive
+the in-place update; public downloads remain bring-your-own-files.
+
 ## 0.12.0 — Follow your own footsteps
 
 [Release notes](releases/0.12.0.md): remembered walked squares, optional

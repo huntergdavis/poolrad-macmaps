@@ -18,8 +18,8 @@ public final class PoolRadState {
         geometry = Arrays.copyOfRange(sample, 176, 1200);
         byte[] record = new byte[1026];
         System.arraycopy(geometry, 0, record, 2, geometry.length);
-        boolean verifiedPacket = sample[3] == '2' || sample[3] == '3';
-        hasExplorationMetadata = sample[3] == '3';
+        boolean verifiedPacket = sample[3] != '1';
+        hasExplorationMetadata = sample[3] == '3' || sample[3] == '4';
         explorationSafe = hasExplorationMetadata && sample[25] == 1 && sample[26] == 1 && sample[27] == 4;
         // Not a position observation. A later settled sample must still share
         // the native epoch; native load/menu/script guards advance it even if
@@ -41,8 +41,15 @@ public final class PoolRadState {
     // Package-private catalog injection keeps regression fixtures synthetic.
     static PoolRadState parse(byte[] sample, AreaIdentity.Catalog identities) {
         if (sample == null || sample.length != 1200 || sample[0] != 'P' || sample[1] != 'R'
-                || sample[2] != 'M' || (sample[3] != '1' && sample[3] != '2' && sample[3] != '3')) return null;
-        if(sample[3]=='2' || sample[3]=='3') {
+                || sample[2] != 'M' || (sample[3] != '1' && sample[3] != '2' && sample[3] != '3'
+                    && sample[3] != '4')) return null;
+        // PRM4's other modes are status-only, never local coordinates or geometry.
+        // MapObservation handles those without making an area snapshot.
+        if (sample[3] == '4' && (sample[24] != 1 || sample[25] != 1
+                || (sample[26] != 0 && sample[26] != 1) || sample[27] != 4)) return null;
+        if (sample[3] == '4' && sample[26] == 1
+                && (sample[28] | sample[29] | sample[30] | sample[31]) == 0) return null;
+        if(sample[3]!='1') {
             // Native verifies the original map mode and movable state allocation.
             // An explicit untrusted/unknown PRM2 sample may not fall back to PRM1
             // hashing, even if old geometry still happens to match the catalog.
