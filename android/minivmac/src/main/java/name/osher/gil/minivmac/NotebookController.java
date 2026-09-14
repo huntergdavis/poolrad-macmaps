@@ -18,6 +18,8 @@ import android.widget.Toast;
 import androidx.appcompat.app.AlertDialog;
 import androidx.activity.OnBackPressedCallback;
 import androidx.preference.PreferenceManager;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
@@ -31,13 +33,15 @@ import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.NoteIcon;
+import name.osher.gil.minivmac.journal.JournalBook;
+import name.osher.gil.minivmac.journal.JournalHistory;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
 import name.osher.gil.minivmac.notebook.ExplorationRecorder;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /** User-owned notes only. This class has no reference to the emulator Core. */
-public final class NotebookController implements LiveMapView.Listener {
+public final class NotebookController implements LiveMapView.Listener, JournalController.Notebooks {
     private static final String ACTIVE = "poolrad_notebook_id";
     private static final String VISITED_ONLY = "poolrad_visited_only";
     private static final String FOOTPRINTS = "poolrad_footprints";
@@ -58,6 +62,7 @@ public final class NotebookController implements LiveMapView.Listener {
     private Session session;
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
+    private JournalHistory journal;
 
     public NotebookController(Activity activity, LiveMapView map) {
         this.activity = activity; this.map = map;
@@ -67,6 +72,7 @@ public final class NotebookController implements LiveMapView.Listener {
         prefs = PreferenceManager.getDefaultSharedPreferences(activity);
         map.setExplorationStyle(prefs.getBoolean(VISITED_ONLY, false), prefs.getBoolean(FOOTPRINTS, true));
         map.setListener(this);
+        ((MiniVMac) activity).journal().setNotebooks(this);
         IO.execute(() -> {
             try {
                 List<NotebookStore.Notebook> books = store.listNotebooks();
@@ -103,13 +109,68 @@ public final class NotebookController implements LiveMapView.Listener {
     private void selectOnDisk(NotebookStore.Notebook selected) throws IOException {
         if (!prefs.edit().putString(ACTIVE, selected.id()).commit()) throw new IOException("Notebook selection could not be saved");
         exploration.forget();
+        final JournalHistory loadedJournal = loadOrMigrateJournal(selected.id());
         main.post(() -> {
             if (disposed) return;
-            notebook = selected; opening = false; refreshFlags();
+            notebook = selected; journal = loadedJournal; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
             map.showExploration(ExplorationTrail.empty(), "Loading trail");
             onExplorationAreaChanged(map.displayedArea());
             onExplorationSample(map.snapshot());
+        });
+    }
+
+    /**
+     * 0.14.0 kept journal lookups and bookmarks in app preferences, so a notebook
+     * backup silently lost them. Carry an existing preference history into the
+     * notebook exactly once, and only forget the old keys after it is safely stored.
+     */
+    private JournalHistory loadOrMigrateJournal(String id) {
+        try {
+            JournalHistory stored = store.loadJournal(id);
+            if (!stored.isEmpty()) return stored;
+            String key = prefs.contains("journal." + id + ".recent") ? "journal." + id
+                    : prefs.contains("journal.unassigned.recent") ? "journal.unassigned" : null;
+            if (key == null) return stored;
+            JournalHistory legacy = new JournalHistory(
+                    prefs.getString(key + ".recent", ""), prefs.getString(key + ".stars", ""));
+            store.saveJournal(id, legacy);
+            prefs.edit().remove(key + ".recent").remove(key + ".stars").apply();
+            return legacy;
+        } catch (IOException | RuntimeException failure) {
+            report("Journal history unavailable; nothing was replaced", failure);
+            return null;
+        }
+    }
+
+    @Override public JournalHistory journalHistory() { return journal; }
+    @Override public String areaId() { return area == null ? null : area.id(); }
+    @Override public String areaLabel() { return area == null ? null : area.label(); }
+    @Override public Map<Integer, NoteIcon> flags() { return flagsReady ? flags : Collections.emptyMap(); }
+
+    /** Opens the flag's own handwritten page, reusing the ordinary tap path and its guards. */
+    @Override public void openFlagPage(String targetArea, int x, int y) {
+        if (disposed || area == null || !area.id().equals(targetArea)) {
+            toast("That flag is on another area map. Return there to open its page."); return;
+        }
+        onTileTapped(area, x, y);
+    }
+
+    /** Encodes on this thread: a live history must never be walked while the UI edits it. */
+    @Override public void persistJournal() {
+        if (disposed || notebook == null || journal == null) return;
+        final String id = notebook.id();
+        final byte[] payload;
+        try {
+            ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+            try (DataOutputStream out = new DataOutputStream(bytes)) { journal.write(out); }
+            payload = bytes.toByteArray();
+        } catch (IOException | RuntimeException failure) {
+            report("Journal history could not be prepared", failure); return;
+        }
+        IO.execute(() -> {
+            try { store.saveJournal(id, payload); }
+            catch (IOException | RuntimeException failure) { report("Journal history could not be saved", failure); }
         });
     }
 
@@ -431,6 +492,9 @@ public final class NotebookController implements LiveMapView.Listener {
 
     public void dispose() {
         disposed = true; generation++; map.setListener(null);
+        // A replacement controller may already have registered; never unhook theirs.
+        JournalController owner = ((MiniVMac) activity).journal();
+        if (owner.notebooks() == this) owner.setNotebooks(null);
         IO.execute(exploration::interrupt);
         if (session != null) { session.sheet.cancelActiveStroke(); session.dialog.dismiss(); }
         if (picker != null) picker.dismiss();
@@ -447,7 +511,7 @@ public final class NotebookController implements LiveMapView.Listener {
         boolean closing, deleting;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, symbol, delete, fit, close;
+        Button pen, eraser, undo, redo, symbol, journal, delete, fit, close;
         AlertDialog dialog;
     }
 
@@ -459,7 +523,8 @@ public final class NotebookController implements LiveMapView.Listener {
         NoteEditorLayout content = new NoteEditorLayout(activity, x + ", " + y + " · " + target.label());
         current.pen = content.pen; current.eraser = content.eraser;
         current.undo = content.undo; current.redo = content.redo;
-        current.symbol = content.symbol; current.delete = content.delete;
+        current.symbol = content.symbol; current.journal = content.journal;
+        current.delete = content.delete;
         current.fit = content.fit; current.close = content.close;
         current.delete.setContentDescription("Delete flag and linked handwritten note");
         current.status = content.status; current.status.setText("Saved locally · " + book.label());
@@ -493,6 +558,12 @@ public final class NotebookController implements LiveMapView.Listener {
         current.undo.setOnClickListener(v -> current.sheet.undo());
         current.redo.setOnClickListener(v -> current.sheet.redo());
         current.symbol.setOnClickListener(v -> chooseSymbol(current));
+        current.journal.setOnClickListener(v -> {
+            if (disposed || current != session || current.closing || current.deleting) return;
+            current.sheet.cancelActiveStroke();
+            ((MiniVMac) activity).journal().showFlagLinks(
+                    current.area.id(), current.area.label(), current.x, current.y);
+        });
         current.delete.setOnClickListener(v -> confirmDelete(current));
         current.fit.setOnClickListener(v -> current.sheet.fitPage());
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
@@ -507,6 +578,13 @@ public final class NotebookController implements LiveMapView.Listener {
         current.fit.setEnabled(enabled);
         current.symbol.setText(current.icon.label());
         current.symbol.setContentDescription("Change map symbol. Current: " + current.icon.label());
+        int linked = journal == null ? 0
+                : journal.entriesFor(new JournalHistory.Flag(current.area.id(), current.x, current.y)).size();
+        current.journal.setEnabled(enabled);
+        current.journal.setText(linked == 0 ? "Journal" : "Journal " + linked);
+        current.journal.setContentDescription(linked == 0
+                ? "Journal references linked to this flag: none. Open to link one."
+                : "Journal references linked to this flag: " + linked);
         current.undo.setEnabled(enabled && current.sheet.canUndo()); current.redo.setEnabled(enabled && current.sheet.canRedo());
         current.close.setEnabled(enabled);
     }
@@ -578,6 +656,11 @@ public final class NotebookController implements LiveMapView.Listener {
                     store.delete(current.book.id(), current.area.id(), current.x, current.y);
                     main.post(() -> {
                         if (disposed || session != current) return;
+                        // A deleted flag must not leave a journal entry pointing at nothing.
+                        if (journal != null && notebook == current.book
+                                && journal.forgetFlag(new JournalHistory.Flag(current.area.id(), current.x, current.y))) {
+                            persistJournal();
+                        }
                         current.dialog.dismiss(); refreshFlags(); toast("Flag and linked note deleted; this cannot be undone.");
                     });
                 } catch (IOException | RuntimeException failure) {

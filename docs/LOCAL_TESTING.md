@@ -1,5 +1,68 @@
 # Local Android prototype
 
+## R5 — journal history in the notebook, tasks and flag links (2026-09-14, v0.16.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.16.0.apk`, SHA-256
+`79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`, versionCode 82.
+Linking rules and limits are in [JOURNAL.md](JOURNAL.md); what a backup now
+carries is in [NOTEBOOK_BACKUPS.md](NOTEBOOK_BACKUPS.md).
+
+Automated suites:
+
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **377 tests,
+  zero failures/errors/skips** (363 before). `JournalHistoryTest` adds seven
+  covering the binary round trip, the 0.14.0 preference format, task rules,
+  independent link toggling, deleted-flag forgetting, every bound, and rejection
+  of each truncation, trailing byte, duplicate, bad kind/number and non-boolean
+  checked flag. `JournalArchiveTest` adds six exercising the real
+  `exportNotebook`/`importNotebook` code paths on temporary directories.
+- **6 detached Android View checks** pass on emulator-5584 for the compact note
+  editor, including the new one: the Journal action joins the existing
+  scrolling tool row, is at least a 48dp target, never lands on the paper, and a
+  linked count neither moves Close & save nor changes the sketch allocation.
+  The measured sheet stays 450px at 1200×1600, exactly the 0.13.0 figure.
+- `check-wheel-apk.mjs` passes and `apksigner verify` succeeds on the same key.
+  Python helper suites were not re-run: no helper or build tooling changed.
+
+Live on isolated `poolrad-package-test`, emulator-5584, API 30, 1200×1600, using
+the existing Notebook 1 that already had 0.14.0 preference history:
+
+- Before the update, preferences held `journal.<uuid>.recent = 0:37,2:1,1:59`
+  and `journal.<uuid>.stars = 0:37`, and the notebook folder had no journal file.
+- After installing 0.16.0 and launching, those two preference keys are **gone**
+  and the notebook contains a 71-byte `journal.bin`. Decoding it independently
+  gives the matching notebook UUID, recent `Journal 37, Tavern tale 1,
+  Proclamation 59`, bookmark `Journal 37` unchecked, no links, a valid CRC and
+  no trailing bytes. Info → Journal lists exactly that history.
+- **Check off** on Journal 37 rewrote the record with `done=1`, and the state
+  survived a guest reload and app restart.
+- With `SampleParty` loaded in New Phlan, **Link a map flag…** offered only the
+  real existing flag at 11, 2 and recorded
+  `Journal 37 -> por-mac-v11-geo-0 @ 11,2`. The entry then shows
+  "Your linked map flags · Open 11, 2 · area 0".
+- Opening that flag's handwritten page shows its existing ink unchanged and a
+  **Journal 1** action; that action lists "Read Journal 37 · done" and
+  "Unlink Journal 37" for that exact tile.
+- A first attempt stacked a refreshed entry dialog over the previous one, so
+  closing it revealed a stale copy without the new link. Fixed by replacing the
+  entry window instead of stacking, and re-verified on the rebuilt APK.
+
+**Operator error during this pass, and its outcome:** the rebuilt APK was
+installed with `adb install -r` while the guest still had `disk1.dsk` mounted,
+instead of shutting the guest down first. On the next boot System 7.5 reported
+"This computer may not have been shut down properly". The volume mounted without
+any repair, all 15 items including `PoolRadSave` were intact, the game
+auto-launched, `SampleParty` reloaded with the six correct characters, and the
+notebook, handwriting and journal record were unchanged. No data was lost, but
+the clean-shutdown step in [handoff.md](../handoff.md) exists for this reason
+and was skipped.
+
+Not claimed: notebook export/restore of `journal.bin` was exercised through the
+real store code in unit tests on temporary directories, **not** through the
+Android document picker on device this pass. No physical e-ink or stylus
+acceptance of the Journal action. The user's `m1gate` campaign save was never
+opened and nothing was saved to the guest. Only emulator-5584 was used.
+
 ## R1 — party condition badges (2026-09-14, v0.15.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.15.0.apk`, SHA-256

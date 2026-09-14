@@ -48,14 +48,15 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.13.1 | Source-checked wall-first symbols remove phantom doors; two doorway appearances and blocked walls spot-checked in the original game |
 | Done — 0.14.0 | Offline illustrated journal/proclamation/tavern lookup, private book import, recent numbers and per-notebook bookmarks |
 | Done — 0.15.0 | Verified party condition badges, poison/helpless effects and condition text on tap |
+| Done — 0.16.0 | Journal history inside the notebook and its backup; player-made flag links and checked tasks |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: dedicated tactical/wilderness maps, party equipment, training and
-spell readiness, automatic journal detection, journal/map-note linking, a
-dedicated Notes index, or the remaining rotation/keyboard hardware checks.
-Party conditions ship in 0.15.0; equipment and the other character panels
+spell readiness, automatic journal detection, a dedicated Notes index, or the
+remaining rotation/keyboard hardware checks. Party conditions ship in 0.15.0 and
+journal/map-note linking in 0.16.0; equipment and the other character panels
 do not. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
@@ -510,11 +511,23 @@ research for sources and portability limits.
   instant spell restoration.
 - [ ] **R4 — Equipment at a glance.** Readied weapon/armor, ammunition if
   verified, and a carrying-load/movement warning; no equipment editing.
-- [ ] **R5 — Journal ↔ handwritten notebook.** Extend REF5 by linking viewed
+- [x] **R5 — Journal ↔ handwritten notebook.** Extend REF5 by linking viewed
   entries/bookmarks to map flags, handwritten comments, and manually checked
   tasks. No automatic quest truth or read-ahead spoiler dump.
   Include the new per-notebook journal lookup history/bookmarks in notebook
   backup/restore; REF5 currently stores these locally in app preferences only.
+  **Delivered 0.16.0:** lookups, bookmarks, checked tasks and flag links now
+  live in the notebook's own atomic `journal.bin` record and travel with backup
+  and restore; a damaged record refuses export rather than backing up nothing.
+  History 0.14.0 left in app preferences moves into the notebook once, and the
+  old keys are removed only after that record is stored. A bookmark can be
+  checked off as the player's own task, never as a quest the game reports
+  finished, and a link points only at a flag the player placed on a verified
+  area map, so that flag's handwriting becomes the reference's comment. Deleting
+  a flag drops its links and leaves other references alone. The flag page gains
+  a Journal action inside its existing scrolling tool row, measured to cost the
+  0.13.0 sketch height nothing. No entry is ever detected from the running game.
+  [Linking and limits](JOURNAL.md) · [backup contents](NOTEBOOK_BACKUPS.md).
 - [ ] **R6 — Exploration aids.** Search-mode indicator, coordinates on demand,
   with visited-only reveal and directional breadcrumbs promoted to P0 F10 above.
 - [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,

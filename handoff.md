@@ -1,9 +1,9 @@
 # PoolRad Mac Maps — continuation handoff
 
-Updated 2026-09-14. **R1 is complete for v0.15.0.** Party condition badges
-follow REF5's journal reader. See [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md)
-for the badge table, Macintosh offsets and PRP3 packet, and
-[docs/JOURNAL.md](docs/JOURNAL.md) for the previous release.
+Updated 2026-09-14. **R5 is complete for v0.16.0**, following R1 in v0.15.0.
+See [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking and limits,
+[docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for what a backup carries,
+and [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
 
 ## Resume here
 
@@ -11,12 +11,12 @@ for the badge table, Macintosh offsets and PRP3 packet, and
   `git@github.com:huntergdavis/poolrad-macmaps.git`, branch `main`.
 - Read **[docs/BACKLOG.md](docs/BACKLOG.md)** and current Git status/history.
   Do not resume the old Grind/Melt Squad projects from chat history.
-- **Next actionable software item: R5 — journal ↔ handwritten notebook.**
-  REF5 stores lookup history and bookmarks in app preferences only, so a
-  notebook backup silently loses them; fix that first, then link entries to map
-  flags. Automatic encountered references remain P2 R9. Agreed order after R5:
-  R8 save checkpoints, R3 spell readiness, R4 equipment, R2 training, R7 useful
-  places, R9 automatic entries, then P3.
+- **Next actionable software item: R8 — save checkpoints.** Self-contained, no
+  disassembly; the hard part is quiescing disk writes before copying. Reuse the
+  clean-eject and `/proc/<pid>/fd` discipline below, and never call an in-flight
+  disk copy a safe emulator save state. User-agreed order after R8: R3 spell
+  readiness, R4 equipment, R2 training, R7 useful places, R9 automatic
+  encountered entries, then P3. R3/R4 reuse R1's packet-versioning pattern.
 - All P0 items are checked. Q1/Q3 still need actual tablet model/Android details
   and specific keyboard/rotation/vendor observations, already requested.
   The user HAS accepted stylus drawing, two-finger zoom/scroll and ordinary
@@ -38,6 +38,30 @@ for the badge table, Macintosh offsets and PRP3 packet, and
   debug build succeeds. No new guest gameplay/device acceptance was performed.
 - Q2 itself was tools-only; REF5 now advances the public app to v0.14.0.
   Existing installed disks, saves and private APK bundle remain unchanged.
+
+## R5 delivered
+
+- Journal lookups, bookmarks, player-checked tasks and player-created flag links
+  moved out of app preferences into the notebook's own atomic `journal.bin`
+  (PRNJ v1, CRC-checked), and are included in notebook backup/restore.
+  A damaged record refuses export rather than backing up an empty history.
+- One-time migration: existing `journal.<id>.recent`/`.stars` preferences move
+  into the notebook, and the old keys are removed **only** after a successful
+  store. Verified live on a notebook that really had 0.14.0 history.
+- Only a bookmark can be checked off, and unbookmarking clears the check.
+  Links point at a flag the player placed on a verified area map; up to eight
+  per reference and 256 per notebook. Deleting a flag drops its links.
+- Flag pages gain a **Journal N** action inside the existing scrolling tool row.
+  Measured sheet height stays 450px at 1200×1600 — F12's allocation is intact.
+- **377 Java tests and 6 note-editor Android View checks pass**; APK asset gate
+  and signature verification pass. Python helpers were not re-run: unchanged.
+- Live: migration decoded byte-for-byte, check-off and linking persisted across
+  a guest reload, and the flag page listed the reference back.
+- **Mistake to avoid repeating:** the rebuilt APK was installed while the guest
+  still had `disk1.dsk` mounted. The next boot showed System 7.5's improper
+  shutdown notice; the volume needed no repair and nothing was lost, but always
+  quit the game, choose Special → Shut Down, and confirm `/proc/<pid>/fd` has no
+  `.dsk` handle **before** `adb install -r`.
 
 ## R1 delivered
 
@@ -101,10 +125,11 @@ Everything below remains ignored; do not publish it.
   SHA-256 `a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
   Copy this separately to the tablet and import under Info → Journal. The older
   `scratch/poolrad-journal.prjr` was a test draft; use the versioned file instead.
-- Public universal APK: `scratch/poolrad-macmaps-0.15.0.apk`;
-  SHA-256 `b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`.
-  The previous `scratch/poolrad-macmaps-0.14.0.apk` remains for comparison;
-  SHA-256 `84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
+- Public universal APK: `scratch/poolrad-macmaps-0.16.0.apk`;
+  SHA-256 `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`.
+  Earlier builds remain for comparison: 0.15.0
+  `b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`, 0.14.0
+  `84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
 - **Never overwrite a current campaign with a fresh sample disk.** A later
   repair needs clean guest shutdown, an exported current disk, untouched backup,
   and only the verified ITEM2 replacement on another copy; verify all saves
@@ -139,8 +164,9 @@ REF5 uses the isolated `poolrad-package-test` AVD on emulator-5584. Shut down
 the guest normally before stopping it. **emulator-5580 is not owned by this
 task: do not kill/reset/install over it.** Check current ADB/process state before
 reusing 5584. No app data was cleared or campaign disk replaced for REF5.
-At handoff, 5584 is left running the final 0.15.0 APK with `SampleParty` loaded
-at the Rolf tour; the party sidebar and details have been checked, not a new
+At handoff, 5584 is left running the final 0.16.0 APK with `SampleParty` loaded
+at the Rolf tour and Notebook 1's migrated journal record in place; the party
+sidebar, journal history, tasks and flag links have been checked, not a new
 campaign playthrough. **Driving guest menus works with `adb shell input
 motionevent DOWN/MOVE/UP`**, which holds the classic Mac menu open across
 separate commands so it can be screenshotted; a plain `input tap` or `input

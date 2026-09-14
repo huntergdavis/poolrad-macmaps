@@ -1,5 +1,12 @@
 # Releases
 
+## 0.16.0 — Your journal, kept with your notes
+
+[Release notes](releases/0.16.0.md): journal lookups, bookmarks, your own
+checked tasks and your flag links move into the notebook and travel with its
+backup, and a reference can point at a flag you placed so its handwriting
+becomes your comment. Existing preference history is carried over once.
+
 ## 0.15.0 — Know how your party is holding up
 
 [Release notes](releases/0.15.0.md): one verified condition badge per character

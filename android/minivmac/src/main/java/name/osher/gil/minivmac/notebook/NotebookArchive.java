@@ -21,7 +21,7 @@ import java.util.Set;
 /** PRNA v1: UUID, counted raw files, SHA-256 trailer. No compressed or executable content. */
 final class NotebookArchive {
     static final long MAX_BYTES = 64L * 1024 * 1024;
-    static final int MAX_ENTRIES = 1 + 33 * (256 * 2 + 2);
+    static final int MAX_ENTRIES = 2 + 33 * (256 * 2 + 2);
     static final int MAX_ENTRY_BYTES = InkNote.MAX_TOTAL_POINTS * 8
             + InkNote.MAX_STROKES * 9 + 1024 + 20;
     private static final int MAGIC = 0x50524e41; // PRNA
@@ -44,7 +44,7 @@ final class NotebookArchive {
     }
 
     static void validatePath(String path) throws IOException {
-        if (path.equals("notebook.bin")) return;
+        if (path.equals("notebook.bin") || path.equals("journal.bin")) return;
         String[] pieces = path.split("/", -1);
         if (pieces.length != 2 || !area(pieces[0])) throw new IOException("Invalid notebook archive path");
         String name = pieces[1];
@@ -58,6 +58,7 @@ final class NotebookArchive {
 
     private static int maximumLength(String path) {
         if (path.equals("notebook.bin")) return 1044;
+        if (path.equals("journal.bin")) return NotebookStore.MAX_JOURNAL_BYTES + 20;
         if (path.endsWith("/exploration.bin")) return NotebookStore.MAX_EXPLORATION_BYTES + 20;
         return MAX_ENTRY_BYTES;
     }

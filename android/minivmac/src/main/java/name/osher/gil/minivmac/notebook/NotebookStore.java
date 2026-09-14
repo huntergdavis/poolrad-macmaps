@@ -20,6 +20,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.zip.CRC32;
+import name.osher.gil.minivmac.journal.JournalHistory;
 
 /** App-private user ink only: this class never opens an emulator disk or save. */
 public final class NotebookStore {
@@ -28,7 +29,9 @@ public final class NotebookStore {
     private static final int BOOK_MAGIC = 0x50524e42; // PRNB
     private static final int INK_MAGIC = 0x50524e49; // PRNI
     private static final int EXPLORATION_MAGIC = 0x50524558; // PREX
+    private static final int JOURNAL_MAGIC = 0x50524e4a; // PRNJ
     static final int MAX_EXPLORATION_BYTES = 1024;
+    static final int MAX_JOURNAL_BYTES = JournalHistory.MAX_BYTES;
     private static final int MAX_NOTE_BYTES = InkNote.MAX_TOTAL_POINTS * 8
             + InkNote.MAX_STROKES * 9 + 1024;
     private static final int MAX_NOTEBOOKS = 256;
@@ -157,6 +160,10 @@ public final class NotebookStore {
             if (name.equals("notebook.bin")) {
                 entries.add(new NotebookArchive.Entry(name, child)); continue;
             }
+            if (name.equals("journal.bin")) {
+                readJournal(child, id); // Refuse to back up a record we cannot read back.
+                entries.add(new NotebookArchive.Entry(name, child)); continue;
+            }
             if (!NotebookArchive.area(name) || !child.isDirectory()) {
                 throw new IOException("Unrecognized notebook content; backup or removal refused");
             }
@@ -221,7 +228,9 @@ public final class NotebookStore {
                 for (File child : children(book)) {
                     requireDirectChild(book, child);
                     if (child.isFile()) {
-                        if (child.getName().equals("notebook.bin") || child.getName().startsWith(".pending-")) child.delete();
+                        String name = child.getName();
+                        if (name.equals("notebook.bin") || name.equals("journal.bin")
+                                || name.startsWith(".pending-")) child.delete();
                     } else if (NotebookArchive.area(child.getName()) && child.isDirectory()) {
                         for (File file : children(child)) {
                             requireDirectChild(child, file);
@@ -280,6 +289,58 @@ public final class NotebookStore {
             }
         }
         writeAtomic(file, EXPLORATION_MAGIC, 1, bytes.toByteArray());
+    }
+
+    /**
+     * Journal lookups, bookmarks, checked tasks and flag links for one notebook.
+     * A missing record means nothing has been looked up yet; a damaged record is
+     * an error rather than a silent empty history.
+     */
+    public synchronized JournalHistory loadJournal(String notebookId) throws IOException {
+        readNotebook(notebookId);
+        File file = journalFile(notebookId);
+        return file.exists() ? readJournal(file, notebookId) : new JournalHistory();
+    }
+
+    /** Atomic app-private companion history; touches no guest disk or game save. */
+    public synchronized void saveJournal(String notebookId, JournalHistory history) throws IOException {
+        if (history == null) throw new IllegalArgumentException("Missing journal history");
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) { history.write(out); }
+        saveJournal(notebookId, bytes.toByteArray());
+    }
+
+    /**
+     * Takes an already-encoded history so the caller can serialize on its own
+     * thread; a live history must never be walked while the UI is mutating it.
+     */
+    public synchronized void saveJournal(String notebookId, byte[] history) throws IOException {
+        if (history == null) throw new IllegalArgumentException("Missing journal history");
+        readNotebook(notebookId);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(notebookId); out.write(history);
+        }
+        if (bytes.size() > MAX_JOURNAL_BYTES) throw new IOException("Journal history is too large to save");
+        writeAtomic(journalFile(notebookId), JOURNAL_MAGIC, 1, bytes.toByteArray());
+    }
+
+    private File journalFile(String notebookId) throws IOException {
+        requireId(notebookId);
+        File parent = new File(root, notebookId);
+        requireDirectChild(root, parent);
+        File file = new File(parent, "journal.bin");
+        requireDirectChild(parent, file);
+        return file;
+    }
+
+    private static JournalHistory readJournal(File file, String notebookId) throws IOException {
+        Envelope record = readEnvelope(file, JOURNAL_MAGIC, 1, MAX_JOURNAL_BYTES);
+        try (DataInputStream in = record.input()) {
+            if (!notebookId.equals(in.readUTF()))
+                throw new IOException("Journal history does not match its notebook");
+            return JournalHistory.read(in);
+        }
     }
 
     private File explorationFile(String notebookId, String areaId, boolean create) throws IOException {

@@ -87,6 +87,30 @@ public final class NoteEditorLayoutCheck {
             check(editor.sheet.getHeight() >= dp(240), "A second control row shrank the narrow sheet");
         });
 
+        run("the journal link action joins the scrolling tools without taking sketch height", () -> {
+            NoteEditorLayout wide = create(context, dp(960), dp(416));
+            int reference = wide.sheet.getHeight();
+            check(wide.journal.getText().toString().equals("Journal"), "Journal action is missing its label");
+            check(bounds(wide, wide.journal).height() >= dp(48), "Journal target is smaller than the other tools");
+            HorizontalScrollView tools = scroll(wide);
+            check(tools != null && contains(tools, wide.journal), "Journal escaped the bounded scrolling tool strip");
+            check(!contains(wide.sheet, wide.journal), "Journal was placed over the paper");
+            check(reference >= 213 * density / 1.25f * 2, "Journal cost the sketch its 0.13.0 allocation");
+
+            // A linked count must not push Close away or add a second row.
+            Rect close = bounds(wide, wide.close);
+            wide.journal.setText("Journal 8");
+            resize(wide, dp(960), dp(416));
+            check(wide.sheet.getHeight() == reference, "A linked count changed the drawing allocation");
+            check(close.equals(bounds(wide, wide.close)), "A linked count moved Close & save");
+            visibleClose(wide); checkSimpleControls(wide);
+
+            NoteEditorLayout narrow = create(context, dp(320), dp(300));
+            narrow.journal.setText("Journal 8"); resize(narrow, dp(320), dp(300));
+            check(narrow.sheet.getHeight() >= dp(240), "Journal shrank the narrow sheet");
+            visibleClose(narrow); checkSimpleControls(narrow);
+        });
+
         run("large text retains a complete Close target without growing another toolbar", () -> {
             Configuration config = new Configuration(context.getResources().getConfiguration()); config.fontScale = 1.6f;
             Context enlarged = new ContextThemeWrapper(context.createConfigurationContext(config),
@@ -122,7 +146,7 @@ public final class NoteEditorLayoutCheck {
             resize(editor, dp(320), dp(300)); touch(editor, MotionEvent.ACTION_UP, .8f, .7f);
             same(saved, editor.sheet.getNote()); check(changes[0] == 1, "Resize committed an unfinished stroke");
         });
-        System.out.println("PASS " + passed + " compact editor actual Android View checks; no dialog/autosave-disk or physical acceptance.");
+        System.out.println("PASS " + passed + " compact editor actual Android View checks; no dialog/autosave-disk, journal-store or physical acceptance.");
     }
 
     private static NoteEditorLayout create(Context owner, int width, int height) {
@@ -156,6 +180,12 @@ public final class NoteEditorLayoutCheck {
         if (view instanceof Button) check(view.getHeight() >= dp(48) && !view.isFocusable(), "Tool target/key focus regressed");
         if (view instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) view).getChildCount(); i++)
             checkSimpleControls(((ViewGroup) view).getChildAt(i));
+    }
+    private static boolean contains(View parent, View wanted) {
+        if (parent == wanted) return true;
+        if (parent instanceof ViewGroup) for (int i = 0; i < ((ViewGroup) parent).getChildCount(); i++)
+            if (contains(((ViewGroup) parent).getChildAt(i), wanted)) return true;
+        return false;
     }
     private static HorizontalScrollView scroll(View view) {
         if (view instanceof HorizontalScrollView) return (HorizontalScrollView) view;

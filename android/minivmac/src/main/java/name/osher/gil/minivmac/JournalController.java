@@ -11,7 +11,6 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.preference.PreferenceManager;
 import java.io.*;
 import java.util.List;
 import name.osher.gil.minivmac.journal.JournalBook;
@@ -19,16 +18,28 @@ import name.osher.gil.minivmac.journal.JournalHistory;
 
 /** Local reference documents only. Never samples or writes the guest. */
 public final class JournalController {
+    /**
+     * The active notebook owns the lookup history, bookmarks, checked tasks and
+     * flag links so they travel with its backup. Everything here is player-made:
+     * none of it is detected from the running game.
+     */
+    public interface Notebooks {
+        JournalHistory journalHistory();
+        void persistJournal();
+        String areaId();
+        String areaLabel();
+        java.util.Map<Integer, name.osher.gil.minivmac.notebook.NoteIcon> flags();
+        void openFlagPage(String areaId, int x, int y);
+    }
+    private Notebooks notebooks;
     private final AppCompatActivity activity;
     private final Context context;
     private final AtomicFile file;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<String[]> importer;
     private JournalBook book;
-    private JournalHistory history;
-    private String historyKey;
     private boolean destroyed, busy;
-    private AlertDialog home;
+    private AlertDialog home, picker, entry;
     private int kind;
 
     // Register unconditionally alongside the existing Activity-owned pickers.
@@ -41,7 +52,12 @@ public final class JournalController {
             }
         }, this::importResult);
     }
-    public void onDestroy() { destroyed = true; }
+    /** Set by the fragment-owned notebook controller; cleared when it goes away. */
+    public void setNotebooks(Notebooks value) { notebooks = value; }
+    public Notebooks notebooks() { return notebooks; }
+    private JournalHistory history() { return notebooks == null ? null : notebooks.journalHistory(); }
+    private void persist() { if (notebooks != null) notebooks.persistJournal(); }
+    public void onDestroy() { destroyed = true; notebooks = null; entry = null; }
     private void toast(String message) { Toast.makeText(context, message, Toast.LENGTH_LONG).show(); }
 
     public void show() {
@@ -56,12 +72,6 @@ public final class JournalController {
             main.post(() -> {
                 busy = false; if (destroyed || activity.isFinishing()) return;
                 book = ready;
-                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(context);
-                historyKey = "journal." + prefs.getString("poolrad_notebook_id", "unassigned");
-                try { history = new JournalHistory(prefs.getString(historyKey + ".recent", ""), prefs.getString(historyKey + ".stars", "")); }
-                catch (IllegalArgumentException failure) {
-                    history = null; toast("Journal history is damaged; existing history has not been replaced.");
-                }
                 openHome(error);
             });
         });
@@ -142,20 +152,26 @@ public final class JournalController {
         } else {
             text(content,"Read only the number the game gives you. Lookups are manual, not automatic encounter detection.",14);
             button(content,"Look up a number",this::lookup);
-            if (history != null) {
-                recentButtons(content,"Bookmarked",history.bookmarks());
-                recentButtons(content,"Recent lookups",history.recent());
+            JournalHistory history = history();
+            if (history == null) text(content,"Journal history is unavailable for this notebook, so lookups are not being remembered. Existing history has not been replaced.",14);
+            else {
+                entryButtons(content,"Bookmarked tasks",history.bookmarks(),history);
+                entryButtons(content,"Recent lookups",history.recent(),history);
             }
             text(content,book.source + " · 58 journal entries · 18 proclamations · 23 tavern tales",12);
         }
         button(content,book == null ? "Import journal book" : "Replace reference book…",this::importBook);
-        text(content,"Recent numbers and bookmarks belong to the selected notebook. They are local to this app and are not yet included in notebook backups. Importing a reference book never changes a game save.",12);
+        text(content,"Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. Importing a reference book never changes a game save.",12);
         home = UpperHalfReferenceDialog.show(activity,"Adventure journal",scroll(content));
     }
-    private void recentButtons(LinearLayout parent, String title, List<JournalBook.Key> keys) {
+    private void entryButtons(LinearLayout parent, String title, List<JournalBook.Key> keys, JournalHistory history) {
         if (keys.isEmpty()) return;
         text(parent,title,16);
-        for (JournalBook.Key key : keys) button(parent,key.label(),() -> openEntry(key));
+        for (JournalBook.Key key : keys) {
+            int links = history.links(key).size();
+            button(parent,key.label() + (history.done(key) ? " · done" : "")
+                    + (links == 0 ? "" : " · " + links + (links == 1 ? " flag" : " flags")),() -> openEntry(key));
+        }
     }
     private String category() { return kind == 0 ? "Journal (1–58)" : kind == 1 ? "Proclamation" : "Tavern tale (1–23)"; }
     private void lookup() {
@@ -183,22 +199,33 @@ public final class JournalController {
             } catch (IllegalArgumentException failure) { display.setText("No such reference. Check type and number."); }
         });
     }
-    private void persistHistory() {
-        if (history == null) return;
-        final String key=historyKey, recent=history.recentValue(), stars=history.bookmarkValue();
-        NotebookController.IO.execute(() -> {
-            boolean saved = PreferenceManager.getDefaultSharedPreferences(context).edit()
-                    .putString(key+".recent",recent).putString(key+".stars",stars).commit();
-            if (!saved) main.post(() -> toast("Journal history could not be saved; keep the reference number."));
-        });
-    }
     private void openEntry(JournalBook.Key key) {
         if (book == null) return;
         LinearLayout content = column();
+        final JournalHistory history = history();
         if (history != null) {
-            history.opened(key); persistHistory();
-            Button star = button(content,history.bookmarked(key) ? "Remove bookmark" : "Bookmark",() -> { });
-            star.setOnClickListener(v -> { history.toggle(key); persistHistory(); star.setText(history.bookmarked(key) ? "Remove bookmark" : "Bookmark"); });
+            history.opened(key); persist();
+            LinearLayout row = row(content);
+            Button star = button(row,"",() -> { });
+            Button task = button(row,"",() -> { });
+            Runnable refresh = () -> {
+                boolean saved = history.bookmarked(key);
+                star.setText(saved ? "Remove bookmark" : "Bookmark");
+                task.setEnabled(saved);
+                task.setText(!saved ? "Check off" : history.done(key) ? "Done ✓ · undo" : "Check off");
+            };
+            star.setOnClickListener(v -> {
+                try { history.toggle(key); persist(); }
+                catch (IllegalStateException full) { toast(full.getMessage()); }
+                refresh.run();
+            });
+            task.setOnClickListener(v -> {
+                try { history.toggleDone(key); persist(); }
+                catch (IllegalStateException notBookmarked) { toast("Bookmark this reference first, then check it off."); }
+                refresh.run();
+            });
+            refresh.run();
+            linkSection(content,key,history);
         }
         for (JournalBook.Block block : book.entry(key)) {
             if (!block.isImage()) text(content,block.text,17);
@@ -216,8 +243,91 @@ public final class JournalController {
                 view.setOnClickListener(v -> enlarge(key,image));
             }
         }
-        UpperHalfReferenceDialog.show(activity,key.label(),scroll(content),() -> { if (!destroyed) openHome(null); });
+        // Refreshing after a bookmark/link change replaces this window instead of
+        // stacking another copy, so closing never reveals a stale earlier state.
+        final AlertDialog previous = entry;
+        final AlertDialog[] self = new AlertDialog[1];
+        self[0] = UpperHalfReferenceDialog.show(activity,key.label(),scroll(content),() -> {
+            if (entry != self[0]) return;
+            entry = null; if (!destroyed) openHome(null);
+        });
+        entry = self[0];
+        if (previous != null) previous.dismiss();
     }
+    /** Your own cross-references between a reference and flags you placed yourself. */
+    private void linkSection(LinearLayout content, JournalBook.Key key, JournalHistory history) {
+        List<JournalHistory.Flag> linked = history.links(key);
+        if (!linked.isEmpty()) {
+            text(content,"Your linked map flags",15);
+            for (JournalHistory.Flag flag : linked) {
+                button(content,"Open " + flag.x + ", " + flag.y + " · " + flag.areaId.replace("por-mac-v11-geo-","area "),
+                        () -> { if (notebooks != null) notebooks.openFlagPage(flag.areaId,flag.x,flag.y); });
+            }
+        }
+        button(content,"Link a map flag…",() -> chooseFlag(key,history));
+    }
+
+    private void chooseFlag(JournalBook.Key key, JournalHistory history) {
+        LinearLayout content = column();
+        String areaId = notebooks == null ? null : notebooks.areaId();
+        if (areaId == null) {
+            text(content,"Links attach to a flag on a verified area map. Return to a known area, place a flag there, then link it.",15);
+            UpperHalfReferenceDialog.show(activity,"Link a map flag",scroll(content)); return;
+        }
+        text(content,"Flags you placed in " + notebooks.areaLabel() + ". Linking is your own cross-reference; it never marks a place as discovered.",13);
+        java.util.Map<Integer,name.osher.gil.minivmac.notebook.NoteIcon> flags = notebooks.flags();
+        if (flags.isEmpty()) text(content,"No flags here yet. Tap a map tile to add one, then link it.",15);
+        List<Integer> tiles = new java.util.ArrayList<>(flags.keySet());
+        java.util.Collections.sort(tiles);
+        for (final int tile : tiles) {
+            final JournalHistory.Flag flag = new JournalHistory.Flag(areaId,tile % 16,tile / 16);
+            boolean on = history.linked(key,flag);
+            Button choice = button(content,(on ? "Unlink " : "Link ") + flags.get(tile).label()
+                    + " · " + flag.x + ", " + flag.y,() -> { });
+            choice.setOnClickListener(v -> {
+                try { history.toggleLink(key,flag); persist(); }
+                catch (IllegalStateException full) { toast(full.getMessage()); return; }
+                if (picker != null) picker.dismiss();
+                openEntry(key);
+            });
+        }
+        picker = UpperHalfReferenceDialog.show(activity,"Link " + key.label(),scroll(content));
+    }
+
+    /**
+     * Opened from a handwritten flag page. Shows only the references the player
+     * linked to that exact flag, and lets them link the one they are reading.
+     */
+    public void showFlagLinks(String areaId, String areaLabel, int x, int y) {
+        if (destroyed || busy) return;
+        final JournalHistory history = history();
+        LinearLayout content = column();
+        if (history == null) {
+            text(content,"Journal history is unavailable for this notebook, so links cannot be shown or changed.",15);
+            UpperHalfReferenceDialog.show(activity,"Linked references",scroll(content)); return;
+        }
+        final JournalHistory.Flag flag;
+        try { flag = new JournalHistory.Flag(areaId,x,y); }
+        catch (IllegalArgumentException invalid) { toast("This flag cannot be linked."); return; }
+        List<JournalBook.Key> keys = history.entriesFor(flag);
+        text(content,"References you linked to " + x + ", " + y + " in " + areaLabel
+                + ". Your handwriting on this page stays where it is.",13);
+        if (keys.isEmpty()) text(content,"Nothing linked yet. Open Info → Journal, read a reference, then choose Link a map flag.",15);
+        for (JournalBook.Key key : keys) {
+            button(content,"Read " + key.label() + (history.done(key) ? " · done" : ""),() -> {
+                if (picker != null) picker.dismiss();
+                if (book == null) { toast("Import your journal book first under Info → Journal."); return; }
+                openEntry(key);
+            });
+            button(content,"Unlink " + key.label(),() -> {
+                history.toggleLink(key,flag); persist();
+                if (picker != null) picker.dismiss();
+                showFlagLinks(areaId,areaLabel,x,y);
+            });
+        }
+        picker = UpperHalfReferenceDialog.show(activity,"Linked references",scroll(content));
+    }
+
     private void enlarge(JournalBook.Key key, Bitmap image) {
         LinearLayout content = column();
         ImageView view = new ImageView(activity); view.setImageBitmap(image);

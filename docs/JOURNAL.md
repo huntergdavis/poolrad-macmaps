@@ -45,10 +45,32 @@ For this workstation, `scratch/poolrad-journal-0.14.0.prjr` has been prepared:
 ignored by Git. No source download, text generation, OCR service, or emulator
 memory access is involved.
 
-**Backup limits:** retain the `.prjr` file for reimport. Recent/bookmarked lists
-are stored locally in app preferences per notebook ID; they are **not yet
-included in handwritten notebook exports**. Uninstalling/clearing app data
-removes them. Cross-linking entries to map notes is the later R5 feature.
+**Backups:** retain the `.prjr` file for reimport — the reference book itself is
+never copied into a notebook backup. From 0.16.0 the lookup history, bookmarks,
+your own checked tasks and your flag links live inside the selected notebook and
+**are** included in its [backup and restore](NOTEBOOK_BACKUPS.md). Any history
+0.14.0 left in app preferences is moved into the notebook once, the first time
+that notebook is opened. Uninstalling or clearing app data still removes
+everything that was never exported.
+
+## Linking references to your own notes
+
+Reading a reference offers **Bookmark**, **Check off** and **Link a map flag…**.
+All three are your own marks:
+
+- A bookmark is a task you chose to keep. Checking one off records *your*
+  judgement, not a quest the original game reports as finished, and only a
+  bookmark can be checked off.
+- A link points at a flag **you** placed on a verified area map, so the
+  handwriting on that flag's page becomes the reference's comment. Links never
+  reveal an unvisited place and never mark anything as discovered.
+- Each reference takes up to eight flags and a notebook up to 256 links.
+  Deleting a flag drops its links and leaves every other reference alone.
+
+The handwritten flag page gains a **Journal** button in its existing scrolling
+tool row, showing how many references you linked to that flag; the drawing area
+keeps the full height 0.13.0 gave it. Opening a link from a reference needs that
+area to be the current one, because the page belongs to a real map position.
 
 ## Fidelity and provenance
 

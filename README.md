@@ -31,12 +31,13 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Pen, ink-only eraser, undo/redo, autosave, and nine selectable map symbols.
 - A larger sketch page with compact title-row tools, finger zoom/pan, and Fit page.
 - Separate local notebooks keep different campaigns' notes apart.
-- Back up and restore handwriting, map flags, and walked tiles.
+- Back up and restore handwriting, map flags, walked tiles, and journal history.
 - Map above the Mac display; optional keyboard below; no blinking marker.
 - Automatic code-wheel entry for verified prompts; illustrated offline fallback.
 - Map/Info tabs; lookup panels fit above the game, even with the keyboard open.
 - Offline spells, weapons/armor, class progression, and mixed-coin conversion.
 - Offline journal lookup with original illustrations, recent numbers and per-notebook bookmarks; import your own reference book once.
+- Link a journal reference to a flag you placed, and check off your own tasks; both ride along in the notebook backup.
 - Party conditions at a glance: one quiet badge for injury, unconsciousness, dying, death, petrification, poison or helplessness, with the exact wording on tap.
 - Save or share a PNG of the map, game, and optional keyboard together.
 - A separate app installation: keep your existing Mini vMac setup.
@@ -53,10 +54,10 @@ e-ink tablet; rotation, keyboard layout and vendor-specific pen checks remain op
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.15.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.15.0)
+[0.16.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.16.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.15.0/poolrad-macmaps-0.15.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.16.0/poolrad-macmaps-0.16.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

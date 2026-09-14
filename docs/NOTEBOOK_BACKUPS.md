@@ -12,9 +12,15 @@ game and its saves. No account, cloud backup or handwriting service is involved.
 
 Repeat for each campaign. A backup contains that notebook's original run UUID,
 all areas' flags, chosen symbols and vector handwriting, including blank flags
-and retained version-1 originals, plus walked-tile coverage and recent
-directional trails (0.12.0 onward). It does not contain ROMs, disks, character
-stats, game saves or another notebook. Completed autosaves queued before the
+and retained version-1 originals, walked-tile coverage and recent directional
+trails (0.12.0 onward), and its journal lookups, bookmarks, checked tasks and
+flag links (0.16.0 onward). It does not contain ROMs, disks, character stats,
+game saves, the journal reference book itself or another notebook.
+
+**0.14.0 backups did not include journal history**, which lived in app
+preferences. Opening a notebook in 0.16.0 or later moves any existing history
+into that notebook once, so the next backup carries it. A backup written by
+0.14.0 restores with no journal history, which is what it actually recorded. Completed autosaves queued before the
 backup are included; an unfinished pen gesture is not a saved stroke.
 
 The internal prepared file is temporary, **not** the backup. Cancelling the
@@ -66,7 +72,9 @@ The compact PRNA version-1 archive contains a run UUID, counted raw records and
 a SHA-256 trailer. Strict paths, per-record/total limits and existing note
 checksums/identities are validated; it is not an executable or compressed bundle.
 Version-1 note backups and the earlier unused `map.ink` prototype file are
-preserved, not interpreted as new flags. Interrupted `.pending-` writes are
+preserved, not interpreted as new flags. A notebook's `journal.bin` record is
+read back before it is written into an archive, so a damaged record refuses
+export instead of silently backing up nothing; the stored record is left alone. Interrupted `.pending-` writes are
 excluded. A future/unknown record refuses export rather than being silently lost.
 
 Import stages in a fresh private sibling directory, validates the complete
