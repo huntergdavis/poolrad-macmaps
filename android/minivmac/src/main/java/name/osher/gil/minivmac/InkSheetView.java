@@ -5,24 +5,36 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.Path;
+import android.graphics.PorterDuff;
+import android.graphics.PorterDuffXfermode;
 import android.graphics.RectF;
 import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Toast;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
+import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.InkHistory;
 import name.osher.gil.minivmac.notebook.InkNote;
+import name.osher.gil.minivmac.notebook.InkSheetLayout;
+import name.osher.gil.minivmac.notebook.NoteIcon;
 
-/** Fixed 4:3 paper for private handwritten notes; input is never forwarded to the guest. */
+/** One flag's fixed 8:3 paper: map left, writing right, and ink across both halves. */
 public final class InkSheetView extends View {
-    private static final float SHEET_ASPECT = 4f / 3f;
     private static final float PEN_WIDTH = .006f;
     private static final float ERASER_WIDTH = .055f;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final PorterDuffXfermode clear = new PorterDuffXfermode(PorterDuff.Mode.CLEAR);
     private final RectF sheet = new RectF();
+    private final MapArtwork artwork = new MapArtwork();
+    private InkSheetLayout layout = new InkSheetLayout(0, 0, 0);
+    private PoolRadState mapSnapshot;
+    private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private final InkHistory history = new InkHistory(InkNote.empty());
     private final List<RenderedStroke> rendered = new ArrayList<>();
     private final Path activePath = new Path();
@@ -42,9 +54,22 @@ public final class InkSheetView extends View {
         setClickable(true);
         setFocusable(false); // No keyboard or hardware key focus is stolen from the guest.
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
-        setContentDescription("Handwritten note. Draw with a pen or finger. Black ink on white paper.");
+        setContentDescription("Flag note. Map on the left, writing space on the right. Draw across both halves.");
         paint.setStrokeCap(Paint.Cap.ROUND);
         paint.setStrokeJoin(Paint.Join.ROUND);
+    }
+
+    /** A read-only pinned map snapshot; each flag still owns its own independent sheet of ink. */
+    public void setMap(PoolRadState snapshot, Map<Integer, NoteIcon> areaFlags, int selectedX, int selectedY) {
+        if (selectedX < 0 || selectedX >= 16 || selectedY < 0 || selectedY >= 16)
+            throw new IllegalArgumentException("Selected note tile must be within the map");
+        cancelActiveStroke();
+        mapSnapshot = snapshot;
+        Map<Integer, NoteIcon> copy = new HashMap<>(areaFlags == null ? Collections.emptyMap() : areaFlags);
+        int selected = selectedY * 16 + selectedX;
+        if (!copy.containsKey(selected)) copy.put(selected, NoteIcon.FLAG);
+        flags = copy;
+        invalidate();
     }
 
     public void setNote(InkNote note) {
@@ -63,8 +88,8 @@ public final class InkSheetView extends View {
         cancelActiveStroke();
         eraser = enabled;
         setContentDescription(enabled
-                ? "Handwritten note. Eraser selected. Only note ink is erased."
-                : "Handwritten note. Pen selected. Draw with a pen or finger.");
+                ? "Flag note. Eraser selected. Only ink is erased; map and flags are protected."
+                : "Flag note. Pen selected. Draw over the left map and right writing space.");
     }
 
     public void undo() {
@@ -89,12 +114,8 @@ public final class InkSheetView extends View {
     @Override protected void onSizeChanged(int width, int height, int oldWidth, int oldHeight) {
         super.onSizeChanged(width, height, oldWidth, oldHeight);
         cancelActiveStroke(); // A rotated coordinate system must not splice into a live stroke.
-        float availableWidth = Math.max(0, width - 12 * density);
-        float availableHeight = Math.max(0, height - 12 * density);
-        float sheetWidth = Math.min(availableWidth, availableHeight * SHEET_ASPECT);
-        float sheetHeight = sheetWidth / SHEET_ASPECT;
-        sheet.set((width - sheetWidth) / 2, (height - sheetHeight) / 2,
-                (width + sheetWidth) / 2, (height + sheetHeight) / 2);
+        layout = new InkSheetLayout(width, height, 6 * density);
+        sheet.set(layout.left, layout.top, layout.left + layout.width, layout.top + layout.height);
         rebuildStrokes();
     }
 
@@ -110,19 +131,39 @@ public final class InkSheetView extends View {
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        paint.setXfermode(null);
         paint.setColor(Color.WHITE);
         paint.setStyle(Paint.Style.FILL);
         canvas.drawRect(sheet, paint);
         if (sheet.isEmpty()) return;
-        canvas.save();
-        canvas.clipRect(sheet);
-        for (RenderedStroke stroke : rendered)
-            drawStroke(canvas, stroke.path, stroke.x, stroke.y, stroke.hasSegment,
-                    stroke.eraser, stroke.width);
-        if (history.isDrawing())
-            drawStroke(canvas, activePath, activeStartX, activeStartY, activeHasSegment,
-                    activeEraser, activeEraser ? ERASER_WIDTH : PEN_WIDTH);
-        canvas.restore();
+        int saved = canvas.save();
+        try {
+            canvas.clipRect(sheet);
+            if (mapSnapshot != null)
+                artwork.drawGeometry(canvas, mapSnapshot.map, layout.mapLeft, layout.mapTop,
+                        layout.mapSize / 16, density);
+            // The paper/map is outside this temporary layer. CLEAR can erase only note ink.
+            if (!rendered.isEmpty() || history.isDrawing()) {
+                int layer = canvas.saveLayer(sheet.left, sheet.top, sheet.right, sheet.bottom, null);
+                try {
+                    for (RenderedStroke stroke : rendered)
+                        drawStroke(canvas, stroke.path, stroke.x, stroke.y, stroke.hasSegment,
+                                stroke.eraser, stroke.width);
+                    if (history.isDrawing())
+                        drawStroke(canvas, activePath, activeStartX, activeStartY, activeHasSegment,
+                                activeEraser, activeEraser ? ERASER_WIDTH : PEN_WIDTH);
+                } finally {
+                    paint.setXfermode(null);
+                    canvas.restoreToCount(layer);
+                }
+            }
+            if (mapSnapshot != null)
+                artwork.drawMarkers(canvas, flags, mapSnapshot, true, layout.mapLeft, layout.mapTop,
+                        layout.mapSize / 16, density);
+        } finally {
+            paint.setXfermode(null);
+            canvas.restoreToCount(saved);
+        }
         paint.setColor(Color.BLACK);
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(density);
@@ -131,7 +172,8 @@ public final class InkSheetView extends View {
 
     private void drawStroke(Canvas canvas, Path path, float x, float y, boolean hasSegment,
             boolean erase, float width) {
-        paint.setColor(erase ? Color.WHITE : Color.BLACK);
+        paint.setColor(Color.BLACK);
+        paint.setXfermode(erase ? clear : null);
         float strokeWidth = width * Math.min(sheet.width(), sheet.height());
         paint.setStrokeWidth(strokeWidth);
         if (hasSegment) {
@@ -172,9 +214,9 @@ public final class InkSheetView extends View {
                     append(event.getX(index), event.getY(index));
                     invalidate();
                     return true;
+                case MotionEvent.ACTION_POINTER_DOWN:
                 case MotionEvent.ACTION_POINTER_UP:
-                    if (event.getPointerId(event.getActionIndex()) != activePointer) return true;
-                    finish(event, event.getActionIndex());
+                    cancelActiveStroke();
                     return true;
                 case MotionEvent.ACTION_UP:
                     if (history.isDrawing()) {
@@ -227,16 +269,20 @@ public final class InkSheetView extends View {
             float[] points = stroke.points();
             Path path = new Path();
             path.moveTo(toX(points[0]), toY(points[1]));
-            for (int p = 2; p < points.length; p += 2) path.lineTo(toX(points[p]), toY(points[p + 1]));
-            rendered.add(new RenderedStroke(path, toX(points[0]), toY(points[1]), points.length > 2,
+            boolean hasSegment = false;
+            for (int p = 2; p < points.length; p += 2) {
+                path.lineTo(toX(points[p]), toY(points[p + 1]));
+                hasSegment |= points[p] != points[0] || points[p + 1] != points[1];
+            }
+            rendered.add(new RenderedStroke(path, toX(points[0]), toY(points[1]), hasSegment,
                     stroke.eraser(), stroke.width()));
         }
     }
 
-    private float normalX(float x) { return Math.max(0, Math.min(1, (x - sheet.left) / sheet.width())); }
-    private float normalY(float y) { return Math.max(0, Math.min(1, (y - sheet.top) / sheet.height())); }
-    private float toX(float x) { return sheet.left + x * sheet.width(); }
-    private float toY(float y) { return sheet.top + y * sheet.height(); }
+    private float normalX(float x) { return layout.normalX(x); }
+    private float normalY(float y) { return layout.normalY(y); }
+    private float toX(float x) { return layout.toX(x); }
+    private float toY(float y) { return layout.toY(y); }
 
     private static final class RenderedStroke {
         final Path path;

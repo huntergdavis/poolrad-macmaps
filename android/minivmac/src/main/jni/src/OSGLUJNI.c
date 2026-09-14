@@ -25,8 +25,11 @@
 
 #include <stdatomic.h>
 #include "POOLRAD.h"
+#include "POOLRAD_WHEEL.h"
+#include "POOLRAD_PARTY.h"
 
 IMPORTFUNC ui3p GetRamForSnapshot(ui5b *size);
+IMPORTFUNC ui5r PoolRadGetAddressRegister(ui3r index);
 
 #define BLACK 0xFF000000
 #define WHITE 0xFFFFFFFF
@@ -54,6 +57,10 @@ jmethodID jRamSnapshot;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 jmethodID jMapSample;
 LOCALVAR atomic_int WantMapSample = 0;
+jmethodID jWheelSample;
+LOCALVAR atomic_int WantWheelSample = 0;
+jmethodID jPartySample;
+LOCALVAR atomic_int WantPartySample = 0;
 jfieldID sInitOk;
 jobject mCore;
 
@@ -1252,6 +1259,52 @@ LOCALPROC DeliverMapSample(void)
     if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
 }
 
+GLOBALFUNC jboolean requestWheelSample(void)
+{
+    return atomic_exchange(&WantWheelSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+LOCALPROC DeliverWheelSample(void)
+{
+    if (atomic_exchange(&WantWheelSample, 0) == 0) return;
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    unsigned char data[POOLRAD_WHEEL_SIZE];
+    jbyteArray sample = NULL;
+    if (poolrad_wheel_probe(ram, size, PoolRadGetAddressRegister(6), PoolRadGetAddressRegister(7), data)) {
+        sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_WHEEL_SIZE);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_WHEEL_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    }
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jWheelSample, sample);
+    if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
+}
+
+GLOBALFUNC jboolean requestPartySample(void)
+{
+    return atomic_exchange(&WantPartySample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+LOCALPROC DeliverPartySample(void)
+{
+    if (atomic_exchange(&WantPartySample, 0) == 0) return;
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    unsigned char data[POOLRAD_PARTY_SIZE];
+    jbyteArray sample = NULL;
+    if (poolrad_party_probe(ram, size, data)) {
+        sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_PARTY_SIZE);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_PARTY_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    }
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jPartySample, sample);
+    if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
+}
+
 GLOBALOSGLUPROC DoneWithDrawingForTick(void)
 {
 #if EnableFSMouseMotion
@@ -1280,6 +1333,8 @@ GLOBALOSGLUPROC WaitForNextTick(void)
 
     DeliverRamSnapshot();
     DeliverMapSample();
+    DeliverWheelSample();
+    DeliverPartySample();
 
     if (CurSpeedStopped) {
         DoneWithDrawingForTick();
@@ -1334,6 +1389,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     ForceMacOff = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
     atomic_store(&WantMapSample, 0);
+    atomic_store(&WantWheelSample, 0);
+    atomic_store(&WantPartySample, 0);
 
     mCore = (*env)->NewGlobalRef(env, core);
     // get java method IDs
@@ -1355,6 +1412,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jSetClipboardText = (*env)->GetMethodID(env, this, "setClipboardText", "(Ljava/lang/String;)V");
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
+    jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
+    jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");
 
     // initialize fields
     jfieldID sDiskPath, sDiskFile, sNumInsertedDisks;

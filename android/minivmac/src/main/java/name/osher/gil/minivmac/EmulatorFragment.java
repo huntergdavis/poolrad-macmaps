@@ -14,6 +14,7 @@ import android.inputmethodservice.KeyboardView;
 import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.LayoutInflater;
@@ -47,6 +48,8 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.ByteBuffer;
 import java.util.List;
+import name.osher.gil.minivmac.mapper.AutomaticWheel;
+import name.osher.gil.minivmac.mapper.WheelPrompt;
 
 public class EmulatorFragment extends Fragment
         implements IOnIOEventListener, CodeWheelDialog.Host {
@@ -95,6 +98,57 @@ public class EmulatorFragment extends Fragment
     private Runnable mCodeEntry;
     private Core mCodeEntryCore;
     private int mCodeEntryKey = -1;
+    private final AutomaticWheel mAutomaticWheel = new AutomaticWheel();
+    private boolean mWheelPolling;
+    private volatile int mWheelGeneration;
+    private int mAutomaticKey = -1;
+    private Core mAutomaticKeyCore;
+    private final Runnable mReleaseAutomaticKey = () -> releaseAutomaticKey();
+    private final Runnable mWheelPoll = new Runnable() {
+        @Override public void run() {
+            if (!mWheelPolling) return;
+            Core target = mCore;
+            if (target != null && target.isReady()) target.requestWheelSample();
+            else mAutomaticWheel.reset();
+            mUIHandler.postDelayed(this, 250);
+        }
+    };
+
+    private void startWheelPolling() {
+        stopWheelPolling();
+        if (isResumed() && mScreenView != null) { mWheelPolling = true; mUIHandler.post(mWheelPoll); }
+    }
+    private void stopWheelPolling() {
+        mWheelPolling = false; mWheelGeneration++;
+        if (mUIHandler != null) mUIHandler.removeCallbacks(mWheelPoll);
+        cancelAutomaticWheel();
+    }
+    private void cancelAutomaticWheel() {
+        mAutomaticWheel.suspend();
+        if (mUIHandler != null) mUIHandler.removeCallbacks(mReleaseAutomaticKey);
+        releaseAutomaticKey();
+    }
+    private void releaseAutomaticKey() {
+        if (mAutomaticKey >= 0 && mAutomaticKeyCore != null && mAutomaticKeyCore == mCore && mCore.isReady())
+            mAutomaticKeyCore.keyUp(mAutomaticKey);
+        mAutomaticKey = -1; mAutomaticKeyCore = null;
+    }
+    private void receiveWheelSample(Core target, byte[] sample) {
+        if (target != mCore || !target.isReady()) return;
+        if (!isResumed() || mCodeEntry != null || mScreenView == null || !mScreenView.hasWindowFocus()
+                || getChildFragmentManager().findFragmentByTag("code-wheel") != null) {
+            cancelAutomaticWheel(); return;
+        }
+        WheelPrompt prompt = WheelPrompt.parse(sample);
+        int key = mAutomaticWheel.observeIfReleased(prompt, SystemClock.uptimeMillis(), mAutomaticKey >= 0);
+        if (key == 0) return;
+        mAutomaticKey = translateKeyCode(key == '\n' ? KeyEvent.KEYCODE_ENTER : KeyEvent.KEYCODE_A + key - 'A');
+        mAutomaticKeyCore = target; target.keyDown(mAutomaticKey);
+        mUIHandler.postDelayed(mReleaseAutomaticKey, 100);
+        if (BuildConfig.DEBUG) Log.d(TAG, "Automatic wheel dispatched key at prefix length "
+                + prompt.typed.length() + (key == '\n' ? " (Return)" : ""));
+        if (key == '\n') Log.i(TAG, "Verified code-wheel answer entered; waiting for the original game.");
+    }
     private LiveMapView mLiveMap;
     private NotebookController mNotebook;
     private MapStackLayout mMapStack;
@@ -104,8 +158,8 @@ public class EmulatorFragment extends Fragment
         @Override public void run() {
             if (!mMapPolling || mLiveMap == null || mLiveMap.getVisibility() != View.VISIBLE) return;
             Core target = mCore;
-            if (target != null && target.isReady()) target.requestMapSample();
-            else mLiveMap.showSample(null);
+            if (target != null && target.isReady()) { target.requestMapSample(); target.requestPartySample(); }
+            else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
             mUIHandler.postDelayed(this, 250);
         }
     };
@@ -122,6 +176,7 @@ public class EmulatorFragment extends Fragment
         mMapPolling = false;
         mMapGeneration++;
         if (mUIHandler != null) mUIHandler.removeCallbacks(mMapPoll);
+        if (mLiveMap != null) mLiveMap.showPartySample(null);
     }
 
     @Override
@@ -175,10 +230,6 @@ public class EmulatorFragment extends Fragment
             @Override
             public void onPrepareMenu(@NonNull Menu menu) {
                 menu.findItem(R.id.action_live_map).setChecked(mLiveMap.getVisibility() == View.VISIBLE);
-                menu.findItem(R.id.action_annotate_map).setChecked(mLiveMap.isAnnotating())
-                        .setEnabled(mLiveMap.getVisibility() == View.VISIBLE);
-                menu.findItem(R.id.action_capture_ram).setVisible(BuildConfig.DEBUG)
-                        .setEnabled(mCore != null && !mSnapshotBusy.get());
                 // Populate disk group
                 SubMenu dm = menu.findItem(R.id.action_insert_disk).getSubMenu();
                 if (dm != null) {
@@ -249,10 +300,6 @@ public class EmulatorFragment extends Fragment
                     menuItem.setChecked(show);
                     startMapPolling();
                     return true;
-                } else if (menuItem.getItemId() == R.id.action_annotate_map) {
-                    mLiveMap.setAnnotating(!mLiveMap.isAnnotating());
-                    menuItem.setChecked(mLiveMap.isAnnotating());
-                    return true;
                 } else if (menuItem.getItemId() == R.id.action_notebooks) {
                     mNotebook.chooseNotebook();
                     return true;
@@ -269,11 +316,11 @@ public class EmulatorFragment extends Fragment
                 } else if (menuItem.getItemId() == R.id.action_spells_reference) {
                     SpellReferenceDialog.show(requireActivity());
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_equipment_reference) {
+                    EquipmentReferenceDialog.show(requireActivity());
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_money_reference) {
                     MoneyReferenceDialog.show(requireActivity());
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_capture_ram) {
-                    captureRam();
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_keyboard) {
                     toggleKeyboard();
@@ -304,7 +351,10 @@ public class EmulatorFragment extends Fragment
     @Override
     public void onDestroyView() {
         stopMapPolling();
+        stopWheelPolling();
         if (mCore != null) mCore.setMapSampleListener(null);
+        if (mCore != null) mCore.setPartySampleListener(null);
+        if (mCore != null) mCore.setWheelSampleListener(null);
         if (mNotebook != null) mNotebook.dispose();
         mNotebook = null;
         mLiveMap = null;
@@ -378,11 +428,26 @@ public class EmulatorFragment extends Fragment
             mCore = new Core();
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
             final Core mapCore = mCore;
+            mUIHandler.post(() -> { if (mCore == mapCore) mAutomaticWheel.reset(); });
+            mCore.setWheelSampleListener(sample -> {
+                final int generation = mWheelGeneration;
+                mUIHandler.post(() -> {
+                    if (mWheelPolling && generation == mWheelGeneration && mCore == mapCore)
+                        receiveWheelSample(mapCore, sample);
+                });
+            });
             mCore.setMapSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore && mLiveMap != null)
                         mLiveMap.showSample(sample);
+                });
+            });
+            mCore.setPartySampleListener(sample -> {
+                final int generation = mMapGeneration;
+                mUIHandler.post(() -> {
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && mLiveMap != null)
+                        mLiveMap.showPartySample(sample);
                 });
             });
 
@@ -404,6 +469,7 @@ public class EmulatorFragment extends Fragment
 
                 @Override
                 public void onMouseClick(boolean down) {
+                    if (down) cancelAutomaticWheel();
                     mCore.setMouseBtn(down);
                 }
             });
@@ -420,6 +486,7 @@ public class EmulatorFragment extends Fragment
 
                 @Override
                 public void onMouseClick(boolean down) {
+                    if (down) cancelAutomaticWheel();
                     mCore.setMouseBtn(down);
                 }
             });
@@ -613,6 +680,7 @@ public class EmulatorFragment extends Fragment
         }
 
         @Override public void onPress(int primaryCode) {
+            cancelAutomaticWheel();
             if (primaryCode >= 0) {
                 Keyboard.Key key = getKey(primaryCode);
 
@@ -728,6 +796,7 @@ public class EmulatorFragment extends Fragment
     @Override
     public void onPause () {
         stopMapPolling();
+        stopWheelPolling();
         cancelCodeEntry();
         if (mCore != null) {
             mCore.pauseEmulation();
@@ -744,6 +813,7 @@ public class EmulatorFragment extends Fragment
     public void onResume() {
         super.onResume();
         startMapPolling();
+        startWheelPolling();
 
         if (mCore != null) {
             mCore.resumeEmulation();
@@ -751,6 +821,7 @@ public class EmulatorFragment extends Fragment
     }
 
     @Override public boolean typeWheelCode(String code) {
+        cancelAutomaticWheel();
         if (mCore == null || !mCore.isReady() || !isResumed() || mCodeEntry != null || !code.matches("[A-Z0-9]{5,6}")) {
             Toast.makeText(requireContext(), "Emulator is not ready for code entry.", Toast.LENGTH_SHORT).show();
             return false;
@@ -790,6 +861,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public boolean onKeyDown (int keyCode, @NonNull KeyEvent event) {
+        cancelAutomaticWheel();
         if (mScreenView.isScroll()) {
             switch(keyCode) {
                 case KeyEvent.KEYCODE_DPAD_UP:

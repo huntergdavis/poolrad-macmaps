@@ -4,30 +4,32 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
-import android.graphics.Path;
 import android.util.AttributeSet;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewConfiguration;
 
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.PoolRadState;
+import name.osher.gil.minivmac.mapper.PartyState;
+import name.osher.gil.minivmac.mapper.PartyPaneLayout;
+import name.osher.gil.minivmac.notebook.NoteIcon;
 
 /** Static black-on-white cartography: no animation, blink, or network access. */
 public final class LiveMapView extends View {
     private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
-    private final Path arrow = new Path();
+    private final MapArtwork artwork = new MapArtwork();
     private final float density;
     private PoolRadState state;
+    private PartyState party;
     private boolean positionAvailable;
-    private boolean annotate;
     private String notebook = "Loading notebook…";
-    private Set<Integer> flags = Collections.emptySet();
+    private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
     private float touchX, touchY;
@@ -39,11 +41,17 @@ public final class LiveMapView extends View {
     }
 
     public void setListener(Listener value) { listener = value; }
-    public boolean isAnnotating() { return annotate; }
-    public void setAnnotating(boolean value) { annotate = value; refreshDescription(); invalidate(); }
     public AreaIdentity currentArea() { return positionAvailable && state != null ? state.area : null; }
-    public void showNotebook(String label, Set<Integer> tiles) {
-        Set<Integer> copy = new HashSet<>(tiles);
+    public PoolRadState snapshot() { return positionAvailable ? state : null; }
+    public void showPartySample(byte[] sample) {
+        PartyState next = PartyState.parse(sample);
+        if (party == null ? next == null : party.sameDisplay(next)) return;
+        party = next; touchTile = touchPointer = -1; refreshDescription(); invalidate();
+    }
+    private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size()); }
+    private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth,p.mapHeight,density); }
+    public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
+        Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
         if (notebook.equals(label) && flags.equals(copy)) return;
         notebook = label; flags = copy; refreshDescription(); invalidate();
     }
@@ -51,8 +59,11 @@ public final class LiveMapView extends View {
     private void refreshDescription() {
         String status = state == null ? "Waiting for party" : !positionAvailable ? "Position unavailable"
                 : (state.area == null ? "Unidentified area" : state.area.label()) + ". Party at " + state.positionLabel();
-        setContentDescription(status + ". " + (annotate ? "Annotate mode. Tap a tile to add or open a note. "
-                : "Browse mode. Tap an existing flag to read its note. ") + notebook + ". " + flags.size() + " flags.");
+        StringBuilder health = new StringBuilder();
+        if (party != null) for (PartyState.Member member : party.members)
+            health.append(' ').append(member.name).append(": ").append(member.currentHp).append(" of ").append(member.maxHp).append(" HP.");
+        setContentDescription(status + ". Tap a tile to add a note; tap a symbol to reopen it. "
+                + notebook + ". " + flags.size() + " flags." + health);
     }
 
     public LiveMapView(Context context, AttributeSet attrs) {
@@ -80,7 +91,7 @@ public final class LiveMapView extends View {
         }
         AreaIdentity current = currentArea();
         if (!(previous == null ? current == null : current != null && previous.id().equals(current.id()))) {
-            flags = Collections.emptySet();
+            flags = Collections.emptyMap();
             if (listener != null) listener.onAreaChanged(current);
         }
         refreshDescription();
@@ -91,7 +102,7 @@ public final class LiveMapView extends View {
         int action = event.getActionMasked();
         if (action == MotionEvent.ACTION_DOWN) {
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
-            touchTile = new MapViewport(getWidth(), getHeight(), density).tileAt(touchX, touchY);
+            touchTile = viewport().tileAt(touchX, touchY);
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
             getParent().requestDisallowInterceptTouchEvent(true);
         } else if (action == MotionEvent.ACTION_MOVE) {
@@ -100,9 +111,9 @@ public final class LiveMapView extends View {
                     > ViewConfiguration.get(getContext()).getScaledTouchSlop()) touchTile = -1;
         } else if (action == MotionEvent.ACTION_UP) {
             AreaIdentity area = currentArea();
-            int tile = new MapViewport(getWidth(), getHeight(), density).tileAt(event.getX(), event.getY());
+            int tile = viewport().tileAt(event.getX(), event.getY());
             if (tile >= 0 && tile == touchTile && event.getPointerId(0) == touchPointer
-                    && (annotate || flags.contains(tile)) && listener != null
+                    && listener != null
                     && (touchArea == null ? area == null : area != null && touchArea.equals(area.id()))) {
                 performClick(); listener.onTileTapped(area, tile % 16, tile / 16);
             }
@@ -118,6 +129,8 @@ public final class LiveMapView extends View {
 
     @Override protected void onDraw(Canvas canvas) {
         super.onDraw(canvas);
+        PartyPaneLayout pane = pane();
+        drawParty(canvas, pane);
         ink.setColor(Color.BLACK);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(14 * density);
@@ -126,17 +139,17 @@ public final class LiveMapView extends View {
         ink.setTextAlign(Paint.Align.RIGHT);
         String status = state == null ? "Waiting for party"
                 : positionAvailable ? state.positionLabel() : "Last area · position unavailable";
-        canvas.drawText(status, getWidth() - 12 * density, 22 * density, ink);
+        canvas.drawText(status, pane.mapWidth - 12 * density, 22 * density, ink);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
         if (state == null) {
             ink.setTextAlign(Paint.Align.CENTER);
             ink.setTextSize(13 * density);
-            canvas.drawText("Load a party in Pool of Radiance v1.1", getWidth() / 2f,
-                    Math.max(48 * density, getHeight() / 2f), ink);
+            canvas.drawText("Load a party in Pool of Radiance v1.1", pane.mapWidth / 2f,
+                    Math.max(48 * density, pane.mapHeight / 2f), ink);
             return;
         }
-        MapViewport viewport = new MapViewport(getWidth(), getHeight(), density);
+        MapViewport viewport = viewport();
         float top = viewport.top, cell = viewport.cell;
         if (cell < 3) return;
         float left = viewport.left;
@@ -146,56 +159,46 @@ public final class LiveMapView extends View {
             canvas.drawText(Integer.toString(i), left + (i + .5f) * cell, top - 5 * density, ink);
             canvas.drawText(Integer.toString(i), left - 11 * density, top + (i + .7f) * cell, ink);
         }
-        for (int y = 0; y <= 16; y++) for (int x = 0; x <= 16; x++)
-            canvas.drawCircle(left + x * cell, top + y * cell, .65f * density, ink);
-        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
-            for (int direction = 0; direction < 4; direction++) {
-                if (state.map.wall(x, y, direction) == 0 && state.map.door(x, y, direction) == 0) continue;
-                float x1 = left + x * cell, y1 = top + y * cell;
-                float x2 = x1, y2 = y1;
-                if (direction == 0 || direction == 2) { if (direction == 2) y1 += cell; x2 += cell; y2 = y1; }
-                else { if (direction == 1) x1 += cell; y2 += cell; x2 = x1; }
-                ink.setColor(Color.BLACK);
-                ink.setStrokeWidth(Math.max(1.5f * density, cell * .07f));
-                canvas.drawLine(x1, y1, x2, y2, ink);
-            }
-        }
-        // Draw door openings after all walls so the adjacent cell cannot paint over them.
-        for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) for (int d = 0; d < 4; d++) {
-            if (state.map.door(x, y, d) == 0) continue;
-            float cx = left + (x + .5f) * cell, cy = top + (y + .5f) * cell;
-            float dx = (d == 1 ? .5f : d == 3 ? -.5f : 0) * cell;
-            float dy = (d == 2 ? .5f : d == 0 ? -.5f : 0) * cell;
-            float hw = (d % 2 == 0 ? .24f : .09f) * cell, hh = (d % 2 == 0 ? .09f : .24f) * cell;
-            ink.setColor(Color.WHITE); ink.setStyle(Paint.Style.FILL);
-            canvas.drawRect(cx + dx - hw, cy + dy - hh, cx + dx + hw, cy + dy + hh, ink);
-            ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
-            canvas.drawRect(cx + dx - hw, cy + dy - hh, cx + dx + hw, cy + dy + hh, ink);
-        }
-        for (int tile : flags) {
-            float cx = left + (tile % 16 + .25f) * cell, cy = top + (tile / 16 + .25f) * cell;
-            arrow.reset(); arrow.moveTo(cx, cy + cell * .55f); arrow.lineTo(cx, cy);
-            arrow.lineTo(cx + cell * .5f, cy + cell * .12f); arrow.lineTo(cx, cy + cell * .28f);
-            ink.setColor(Color.WHITE); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(4 * density);
-            canvas.drawPath(arrow, ink);
-            ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density); canvas.drawPath(arrow, ink);
-        }
-        if (positionAvailable) {
-            canvas.save();
-            canvas.translate(left + (state.x + .5f) * cell, top + (state.y + .5f) * cell);
-            canvas.rotate(state.facing * 90);
-            arrow.reset(); arrow.moveTo(0, -cell * .42f); arrow.lineTo(cell * .32f, cell * .32f);
-            arrow.lineTo(0, cell * .15f); arrow.lineTo(-cell * .32f, cell * .32f); arrow.close();
-            ink.setColor(Color.WHITE); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(3 * density);
-            canvas.drawPath(arrow, ink);
-            ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.FILL); canvas.drawPath(arrow, ink);
-            canvas.restore();
-        }
+        artwork.drawGeometry(canvas, state.map, left, top, cell, density);
+        artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(10 * density); ink.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("North up · outlined gaps are doors", getWidth() / 2f, getHeight() - 23 * density, ink);
+        canvas.drawText("North up · outlined gaps are doors", pane.mapWidth / 2f, pane.mapHeight - 23 * density, ink);
         ink.setTextSize(11 * density);
-        canvas.drawText((annotate ? "ANNOTATE · tap a tile · " : "BROWSE · ") + notebook,
-                getWidth() / 2f, getHeight() - 7 * density, ink);
+        canvas.drawText("Tap a tile or symbol · " + notebook,
+                pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
+    }
+
+    private void drawParty(Canvas canvas, PartyPaneLayout p) {
+        if (party == null || p.partyWidth <= 0 || p.partyHeight <= 0) return;
+        canvas.save(); canvas.clipRect(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop+p.partyHeight);
+        ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
+        if (p.columns == 1) canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft,p.partyTop+p.partyHeight,ink);
+        else canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop,ink);
+        ink.setStyle(Paint.Style.FILL); ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(11*density);
+        canvas.drawText("PARTY · CURRENT / MAX HP",p.partyLeft+10*density,p.partyTop+15*density,ink);
+        float rowHeight=(p.partyHeight-22*density)/p.rows, columnWidth=p.partyWidth/(float)p.columns;
+        if (rowHeight < 16*density) { canvas.restore(); return; }
+        for (int i=0;i<party.members.size();i++) {
+            PartyState.Member member=party.members.get(i);
+            float left=p.partyLeft+(i%p.columns)*columnWidth+10*density;
+            float right=p.partyLeft+(i%p.columns+1)*columnWidth-10*density;
+            float top=p.partyTop+22*density+(i/p.columns)*rowHeight;
+            ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK); ink.setTextSize(12*density);
+            String hp=member.currentHp+"/"+member.maxHp;
+            float available=Math.max(0,right-left-ink.measureText(hp)-8*density);
+            int chars=ink.breakText(member.name,true,available,null);
+            String name=chars==member.name.length()?member.name:chars>1?member.name.substring(0,chars-1)+"…":"";
+            ink.setTextAlign(Paint.Align.LEFT);canvas.drawText(name,left,top+12*density,ink);
+            ink.setTextAlign(Paint.Align.RIGHT);canvas.drawText(hp,right,top+12*density,ink);
+            float barTop=top+17*density,barBottom=Math.min(top+23*density,top+rowHeight-2*density);
+            if (right>left && barBottom>barTop) {
+                ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(density);canvas.drawRect(left,barTop,right,barBottom,ink);
+                ink.setStyle(Paint.Style.FILL);
+                float fraction=Math.max(0,Math.min(1,member.healthFraction()));
+                if(fraction>0)canvas.drawRect(left,barTop,left+(right-left)*fraction,barBottom,ink);
+            }
+        }
+        canvas.restore();
     }
 }

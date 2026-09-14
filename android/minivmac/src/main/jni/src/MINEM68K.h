@@ -35,6 +35,9 @@ EXPORTPROC SetCyclesRemaining(si5r n);
 
 EXPORTPROC m68k_go_nCycles(ui5b n);
 
+/* Read only, between CPU ticks: active frame/stack provenance for PoolRad helpers. */
+EXPORTFUNC ui5r PoolRadGetAddressRegister(ui3r index);
+
 /*
 	general purpose access of address space
 	of emulated computer. (memory and

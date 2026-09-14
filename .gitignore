@@ -28,4 +28,6 @@ release.properties
 *.keystore
 *.apk
 *.class
+__pycache__/
+*.pyc
 android/minivmac/private-assets/

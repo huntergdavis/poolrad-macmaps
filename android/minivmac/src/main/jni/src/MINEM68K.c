@@ -291,6 +291,11 @@ register ui3p g_pc_pHi asm (r_pc_pHi);
 #define m68k_dreg(num) (V_regs.regs[(num)])
 #define m68k_areg(num) (V_regs.regs[(num) + 8])
 
+GLOBALFUNC ui5r PoolRadGetAddressRegister(ui3r index)
+{
+	return index < 8 ? m68k_areg(index) : 0;
+}
+
 
 #ifndef WantDumpTable
 #define WantDumpTable 0

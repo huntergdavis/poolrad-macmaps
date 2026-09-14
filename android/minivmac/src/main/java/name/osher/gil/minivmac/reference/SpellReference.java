@@ -3,7 +3,6 @@ package name.osher.gil.minivmac.reference;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Locale;
 
 /** Original Pool of Radiance reference facts, independent of Android and guest RAM. */
 public final class SpellReference {
@@ -53,14 +52,12 @@ public final class SpellReference {
 
     public static List<Spell> all() { return SPELLS; }
 
-    /** Null class, level zero, and a blank name mean no restriction. */
-    public static List<Spell> filter(Caster caster, int level, String name) {
+    /** Browse by class and level only; null class and level zero mean all. */
+    public static List<Spell> filter(Caster caster, int level) {
         if (level < 0 || level > 3) throw new IllegalArgumentException("Spell level must be 0–3");
-        String query = name == null ? "" : name.trim().toLowerCase(Locale.ROOT);
         List<Spell> result = new ArrayList<>();
         for (Spell spell : SPELLS) {
-            if ((caster == null || spell.caster == caster) && (level == 0 || spell.level == level)
-                    && spell.name.toLowerCase(Locale.ROOT).contains(query)) result.add(spell);
+            if ((caster == null || spell.caster == caster) && (level == 0 || spell.level == level)) result.add(spell);
         }
         return Collections.unmodifiableList(result);
     }

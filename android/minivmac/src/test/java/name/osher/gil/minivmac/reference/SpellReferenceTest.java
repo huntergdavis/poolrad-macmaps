@@ -2,7 +2,6 @@ package name.osher.gil.minivmac.reference;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import org.junit.Test;
 import static org.junit.Assert.*;
@@ -10,19 +9,19 @@ import static name.osher.gil.minivmac.reference.SpellReference.Caster.*;
 
 public class SpellReferenceTest {
     private SpellReference.Spell spell(SpellReference.Caster caster, int level, String name) {
-        for (SpellReference.Spell spell : SpellReference.filter(caster, level, name))
+        for (SpellReference.Spell spell : SpellReference.filter(caster, level))
             if (spell.name.equals(name)) return spell;
         throw new AssertionError("Missing " + caster + " " + level + " " + name);
     }
 
     @Test public void coversTheOriginal54ChartRowsPlusFlaggedResistCold() {
         assertEquals(55, SpellReference.all().size());
-        assertEquals(8, SpellReference.filter(CLERIC,1,"").size());
-        assertEquals(7, SpellReference.filter(CLERIC,2,"").size());
-        assertEquals(9, SpellReference.filter(CLERIC,3,"").size());
-        assertEquals(13, SpellReference.filter(MAGIC_USER,1,"").size());
-        assertEquals(7, SpellReference.filter(MAGIC_USER,2,"").size());
-        assertEquals(11, SpellReference.filter(MAGIC_USER,3,"").size());
+        assertEquals(8, SpellReference.filter(CLERIC,1).size());
+        assertEquals(7, SpellReference.filter(CLERIC,2).size());
+        assertEquals(9, SpellReference.filter(CLERIC,3).size());
+        assertEquals(13, SpellReference.filter(MAGIC_USER,1).size());
+        assertEquals(7, SpellReference.filter(MAGIC_USER,2).size());
+        assertEquals(11, SpellReference.filter(MAGIC_USER,3).size());
         Set<String> identities = new HashSet<>();
         int chartRows = 0;
         for (SpellReference.Spell spell : SpellReference.all()) {
@@ -40,23 +39,42 @@ public class SpellReferenceTest {
         assertTrue(spell(CLERIC,1,"Resist Cold").notes.contains("omitted"));
     }
 
-    @Test public void filtersClassLevelAndNameTogetherWithoutLosingSharedNames() {
-        assertEquals(7, SpellReference.filter(null,0,"protection from").size());
-        // Four first-level protections, two radius spells, and Normal Missiles.
-        assertEquals(1, SpellReference.filter(CLERIC,2,"hold").size());
-        assertEquals(0, SpellReference.filter(CLERIC,1,"hold").size());
-        assertEquals(2, SpellReference.filter(null,0," hold person ").size());
-        assertEquals(3, SpellReference.filter(MAGIC_USER,3,"10'").size());
-        assertTrue(SpellReference.filter(null,0,"zzzz").isEmpty());
-        assertEquals(55, SpellReference.filter(null,0,null).size());
+    @Test public void classAndLevelBrowsingKeepsEverySpellReachable() {
+        assertEquals(55, SpellReference.filter(null,0).size());
+        assertEquals(24, SpellReference.filter(CLERIC,0).size());
+        assertEquals(31, SpellReference.filter(MAGIC_USER,0).size());
+        assertEquals(21, SpellReference.filter(null,1).size());
+        assertEquals(14, SpellReference.filter(null,2).size());
+        assertEquals(20, SpellReference.filter(null,3).size());
+        Set<SpellReference.Spell> browsable = new HashSet<>();
+        for (SpellReference.Caster caster : SpellReference.Caster.values()) {
+            for (int level = 1; level <= 3; level++) {
+                List<SpellReference.Spell> rows = SpellReference.filter(caster, level);
+                assertFalse(rows.isEmpty());
+                for (SpellReference.Spell spell : rows) {
+                    assertEquals(caster, spell.caster);
+                    assertEquals(level, spell.level);
+                    browsable.add(spell);
+                }
+            }
+        }
+        assertEquals(new HashSet<>(SpellReference.all()), browsable);
     }
 
-    @Test public void nameMatchingDoesNotDependOnDeviceLocale() {
-        Locale previous = Locale.getDefault();
-        try {
-            Locale.setDefault(new Locale("tr", "TR"));
-            assertEquals("Magic Missile", SpellReference.filter(MAGIC_USER,1,"MISSILE").get(0).name);
-        } finally { Locale.setDefault(previous); }
+    @Test public void browsingRemainsAlphabeticalAndKeepsSharedNamesDistinct() {
+        for (SpellReference.Caster caster : new SpellReference.Caster[]{null, CLERIC, MAGIC_USER}) {
+            for (int level = 0; level <= 3; level++) {
+                String previous = "";
+                for (SpellReference.Spell spell : SpellReference.filter(caster, level)) {
+                    assertTrue(previous.compareTo(spell.name) <= 0);
+                    previous = spell.name;
+                }
+            }
+        }
+        int holdPersonRows = 0;
+        for (SpellReference.Spell spell : SpellReference.filter(null,0))
+            if (spell.name.equals("Hold Person")) holdPersonRows++;
+        assertEquals(2, holdPersonRows);
     }
 
     @Test public void preservesClassSpecificHoldDispelAndProtectionParameters() {
@@ -96,9 +114,9 @@ public class SpellReferenceTest {
 
     @Test public void callersCannotMutateTheSharedCatalogOrFilterResults() {
         assertThrows(UnsupportedOperationException.class, () -> SpellReference.all().clear());
-        List<SpellReference.Spell> filtered = SpellReference.filter(CLERIC,1,"");
+        List<SpellReference.Spell> filtered = SpellReference.filter(CLERIC,1);
         assertThrows(UnsupportedOperationException.class, () -> filtered.clear());
-        assertThrows(IllegalArgumentException.class, () -> SpellReference.filter(null,4,""));
-        assertThrows(IllegalArgumentException.class, () -> SpellReference.filter(null,-1,""));
+        assertThrows(IllegalArgumentException.class, () -> SpellReference.filter(null,4));
+        assertThrows(IllegalArgumentException.class, () -> SpellReference.filter(null,-1));
     }
 }

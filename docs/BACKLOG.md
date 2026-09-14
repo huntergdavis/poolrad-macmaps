@@ -22,20 +22,91 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 90 Java tests plus native reader checks |
+| Done | 29 GEO records decoded; 149 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
 | Done — 0.4.0 | Exact known-area identities; New Phlan/Slums round trip and restart/reopen note acceptance |
+| Done — 0.5.0 | Always-on flags, per-flag map/writing pages, nine symbols and lossless old-note migration |
+| Done — 0.5.0 | Browse-only spells and 59-entry offline equipment browser/comparison |
+| Working — 0.5.0 | Automatic code-wheel entry accepted by original game; additional prompt/reload coverage open |
+| Working — 0.5.0 | Read-only current/max party health beside the map; broader live health acceptance open |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: comprehensive area/mode recognition, party RAM fields, direct map
-drawing, notebook export/import, physical pen polish, or wallpaper controls.
+Not done: comprehensive area/mode recognition, broader party-health acceptance,
+single-disk startup, notebook export/import, physical pen polish, or wallpaper
+controls. Separate area-wide drawing was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
 while scope is expanding.
 
-## NEXT — handwritten cartographer (P0)
+## NOW — user must-fix simplification (P0, 2026-09-13)
+
+These requests supersede the separate area-wide drawing editor and the old
+optional-only code-wheel recognition policy below. Finish them before expanding
+the lower-priority queue.
+
+- [x] **F1 — Browse spells, no search.** Remove spell text search and its keypad.
+  Keep the small class/level lists. Future equipment references should browse
+  their finite lists too, without a search UI.
+  **Delivered 0.5.0:** emulator list shows all 55 entries; class/level controls
+  narrow to eight Cleric 1 entries, with no name field or search keyboard.
+- [x] **F2 — Flags are always available.** Remove the Annotate map checkbox.
+  Tap an empty map tile to add a flag; tap an existing flag to reopen it.
+  Keep deliberate linked-note deletion and never forward map touches to the Mac.
+  **Delivered 0.5.0:** created, saved, reopened and deliberately deleted a new
+  test flag without a mode toggle; the existing note and guest position stayed intact.
+- [x] **F3 — Each flag gets a map + writing sheet.** Map on the left, fitted at
+  roughly 90%; white handwriting space on the right. Draw across either part
+  with one pen/eraser/undo history, separate for each flag. Protect the map and
+  markers from erasing. Preserve existing notes, with stable coordinates through
+  resize. This replaces N2's separate editor/menu workflow.
+  **Delivered 0.5.0:** actual TYR note reopens in the right half; cross-sheet
+  ink/eraser and byte-identical undo/redo pass. Original `.v1` backup matches
+  the old note exactly. Six Android View checks cover rendering and resize.
+- [ ] **F4 — Automatic code wheel from verified memory.** Detect the actual
+  prompt and its runes/path using small read-only Mac memory samples, solve
+  locally, then enter the correct answer and Return without user intervention.
+  Validate distinct prompts and exits/reloads; do not submit a guessed or stale
+  answer. Keep the manual offline helper available when recognition is unknown.
+  **Implemented; acceptance in progress:** original game accepted automatic
+  six-letter entry and Return on the rebuilt candidate. A live scheduling bug
+  was fixed and regression-tested. Second distinct automatic prompt and
+  exit/reload acceptance remain open; [evidence](WHEEL_MEMORY.md).
+- [x] **F5 — Remove Capture RAM from the everyday menu.** Diagnostics belong in
+  developer tooling, not the normal PoolRad actions.
+  **Delivered 0.5.0:** verified the actual eight-action PoolRad menu without it.
+- [x] **F6 — Choose a symbol for each flag.** Manually select flag, smithy,
+  temple, inn, shop, monster, hidden wall, district/slums or treasure. Distinct
+  monochrome icons appear on the live map and on that flag's note map. Persist
+  the selection with the note; never infer undiscovered places from game scripts.
+  **Delivered 0.5.0:** Temple and Smithy choices persist on separate live-map
+  flags and reopened note pages; all nine glyphs pass distinct-render checks.
+- [ ] **F7 — Current/max party health at a glance.** A compact upper-pane party
+  strip with character names (icons where useful), current/max HP and dark health
+  bars. Verify the actual Mac party records and maximum HP first; no guessed
+  totals or simulated mana. Validate reorder and damaged/healed values; collapse
+  sensibly on narrow windows and leave the Mac display playable below.
+  **Implemented; acceptance in progress:** six actual sample-party names and
+  current/max values display beside the map. Executable evidence and synthetic
+  damage/healing/order tests pass; remaining live checks are in [PARTY.md](PARTY.md).
+- [x] **F8 — Weapons & armor reference browser (REF3 promoted).** Original-game
+  equipment lists with damage, protection, cost, weight and restrictions; compact
+  categories, offline, upper-half only, and no search field. Verify the supplied
+  Mac tables and original manuals, with disagreements visible rather than using
+  modern D&D values. Track completion here and cross-reference REF3 below.
+  **Delivered 0.5.0:** 59 offline entries; actual weapon/armor browsing and
+  banded-mail/chain-mail detail comparison verified in the emulator. Nine tests
+  pass; 58 Mac table rows independently checked. [Provenance](EQUIPMENT_REFERENCE.md).
+- [ ] **F9 — One boot disk, automatic game launch (P0).** Build one bootable HFS
+  image containing the user's Mac system and Pool of Radiance, preserving all
+  data/resource forks and the blessed System Folder. Configure a real guest
+  startup item/alias, not timed clicks. Work only on new copies; retain originals,
+  imported saves and a bypass/recovery path. Verify cold boot reaches the game
+  from this single mounted disk. This promotes the combined-disk/auto-launch
+  subset of B1/A1; public asset redistribution remains separately gated.
+
+## Handwritten cartographer (P0, after the must-fixes)
 
 Ship these in order, beginning immediately after the rune-wheel changes.
 No OCR, handwriting-to-text service, or cloud dependency.
@@ -55,11 +126,10 @@ No OCR, handwriting-to-text service, or cloud dependency.
   party reload. Eraser/undo/redo, resize, notebook isolation, confirmed deletion,
   Android Back-save and real write-failure/retry checks pass in the emulator.
   [Guide and evidence](NOTEBOOK.md); physical e-ink/stylus remains untested.
-- [ ] **N2 — Draw directly on the map.** Separate freehand ink layer with
-  pen/eraser/undo, zoomable editing, and tile-space coordinates so strokes survive
-  rotation, resize, and the future left-aligned map. Erasing ink must never erase
-  walls, the party marker, or a flag accidentally. Keep browse and edit modes
-  unmistakable; no stylus/finger event is forwarded to the Mac from this layer.
+- **N2 — Draw directly on the map: replaced by F3 above.** The user chose a
+  map-plus-whitespace drawing attached to each flag, not another standalone
+  area-wide editor/menu item. The ink-only erasing and stable-coordinate
+  requirements carry forward into F3; no separate completion checkbox.
 - [ ] **N3 — Pen-tablet polish.** Large flag hit targets, dark strokes, palm
   rejection where Android reports usable stylus data, optional pen-only mode,
   finger navigation, cancellation-safe strokes, and no animated note opening.
@@ -72,8 +142,25 @@ No OCR, handwriting-to-text service, or cloud dependency.
 
 ## P1 — requested comfort features and remaining correctness
 
-Suggested order after N1–N4: S1, P1, the REF panels, W1, A1. Correctness checks below are gates
-for the affected feature, not a second giant framework project.
+After the immediate P0 fixes, prioritize the ready-to-play package, startup and
+wallpaper below, then Journal and the remaining comfort work. Correctness checks
+are gates for the affected feature, not a second giant framework project.
+
+- [ ] **B1 — Ready-to-play personal package.** An opt-in bundled build imports
+  the supplied boot/game images (and a compatible ROM if permitted), verifies
+  their hashes, and copies them into private writable storage only on first use.
+  Updating the app must never replace existing disks/saves. Keep a recovery/import
+  path and a public bring-your-own-files flavor. No private images in Git.
+- [ ] **B2 — Optional asset-fetching build pipeline.** Fetch explicitly configured
+  images from a pinned repository/source into ignored private build inputs;
+  verify checksums and fail clearly when absent or changed. No implicit checkout
+  side effects. Treat the resulting bundled APK as containing those same images:
+  public distribution requires a redistribution-rights review, not merely an
+  archive.org/GitHub URL or an abandonware label. Personal artifacts must not be
+  uploaded to public releases by default. [Distribution reference](https://www.copyright.gov/help/faq/faq-digital.html).
+- **A1 and W1 below are next in this P1 group:** reliable guest auto-launch and
+  a restrained, recoverable custom Mac desktop. Together with B1/B2 these form
+  the modern ready-to-play onboarding slice; they do not change the game rules.
 
 - [ ] **UI1 — Companion tabs.** Keep the Mac display and keyboard in place;
   switch only the upper companion pane. Start with working Map and Info tabs
@@ -99,6 +186,8 @@ for the affected feature, not a second giant framework project.
   members. Show unavailable values honestly. Start with original class symbols
   or user-selected pictures; actual guest combat-icon extraction is optional.
   Auto-collapse the sidebar on narrow windows rather than shrink the game.
+  **Immediate health subset promoted to F7:** current/max HP and compact names
+  are now requested first. AC, portraits and expanded details remain here.
 - [ ] **W1 — PoolRad → Desktop appearance.** First offer a quiet flat guest
   desktop and Restore original. Then an optional restrained monochrome fantasy
   motif or user-imported image, previewed before applying. This is the actual
@@ -157,9 +246,11 @@ rules. Make provenance visible and include concise explanations in our own words
   original-source disagreements remain visible. Class/level/name filtering,
   details, internal keypad and portrait/landscape bounds checked in the emulator;
   [provenance](SPELL_REFERENCE.md).
-- [ ] **REF3 — Weapons & armor.** Browse/compare damage, protection, cost,
+- [x] **REF3 — Weapons & armor.** Browse/compare damage, protection, cost,
   weight, and equipment restrictions supported by this game. Clearly separate
   base equipment values from a character's current bonuses or effects.
+  Browse the finite equipment lists; no search field/keypad is needed.
+  **Delivered 0.5.0:** see F8 above for the browser, comparison and verification.
 - [x] **REF4 — Money conversion.** Enter an amount/denomination and see its
   equivalent in copper, silver, electrum, gold, and platinum, using the verified
   original-game exchange table. Handle mixed coin totals and exact remainders;
@@ -201,6 +292,13 @@ research for sources and portability limits.
 - [ ] **R8 — Save checkpoints.** Explicit backups of writable disk/save copies
   with a thumbnail and known area label. Quiesce disk writes before copying;
   never claim an in-flight disk copy is a safe emulator save state.
+- [ ] **R9 — Encountered journal entries, automatically (formerly L6).** Detect
+  journal entries, proclamations and tavern tales actually shown by the running
+  game; add them to the active notebook's persistent, deduplicated Journal list.
+  Tap to read the matching locally supplied entry through REF5, including its
+  illustrations. Keep categories distinct, do not guess uncertain numbers, and
+  never import future script references as if the player had encountered them.
+  User priority: P1 manual reader first, P2 automatic collection next. Local only.
 
 ## P3 — later / optional
 
@@ -208,15 +306,11 @@ research for sources and portability limits.
   is validated; do not stretch the existing 16×16 area renderer to impersonate it.
 - [ ] **L2 — Tactical combat map.** A distinct read-only view, only if the game
   pane plus party conditions are insufficient; no automatic combat or spoilers.
-- [ ] **L3 — Automatic rune/prompt recognition.** Optional convenience after
-  the manual illustrated helper; never submit a guessed code automatically.
-- [ ] **L6 — Automatic journal-entry recognition.** Detect journal numbers
-  actually presented by the running game and maintain a persistent, deduplicated
-  encountered-entry list, linked to REF5 for immediate reading without retyping
-  numbers. Keep entry categories distinct and associate the history with the
-  notebook/run. Read only observed prompts/state, not future script entries;
-  uncertain recognition must not silently add a guessed number. Entirely local,
-  no LLM or cloud; same optional priority as automatic rune recognition.
+- **L3 — Automatic rune/prompt recognition: promoted to P0 F4.** The user now
+  requests hands-off solving from verified memory. Unknown reads still must
+  never submit guesses. Track completion above, not twice.
+- **L6 — Automatic journal-entry recognition: promoted to P2 R9.** Journal,
+  proclamation and tavern-tale references belong in one encountered-entry list.
 - [ ] **L4 — More visual personalization.** Portrait picker, user artwork, and
   optional guest-icon reuse; monochrome defaults, no third-party sprite rip pack.
 - [ ] **L5 — Fine layout preferences.** Upper-pane sizing and map zoom, with

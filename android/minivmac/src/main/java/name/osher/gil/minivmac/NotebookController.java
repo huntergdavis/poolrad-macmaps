@@ -18,12 +18,15 @@ import androidx.preference.PreferenceManager;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Set;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
+import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.InkNote;
+import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
 
@@ -39,7 +42,7 @@ public final class NotebookController implements LiveMapView.Listener {
     private final Handler main = new Handler(Looper.getMainLooper());
     private NotebookStore.Notebook notebook;
     private AreaIdentity area;
-    private Set<Integer> flags = Collections.emptySet();
+    private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private boolean disposed, opening, flagsReady;
     private int generation;
     private Session session;
@@ -58,7 +61,7 @@ public final class NotebookController implements LiveMapView.Listener {
                 if (selected == null) selected = store.createNotebook();
                 selectOnDisk(selected);
             } catch (IOException | RuntimeException failure) {
-                main.post(() -> { if (!disposed) map.showNotebook("Notebook unavailable · choose Notebooks", Collections.emptySet()); });
+                main.post(() -> { if (!disposed) map.showNotebook("Notebook unavailable · choose Notebooks", Collections.emptyMap()); });
                 report("Cannot open selected notebook; choose Notebooks", failure);
             }
         });
@@ -86,30 +89,31 @@ public final class NotebookController implements LiveMapView.Listener {
         if (!prefs.edit().putString(ACTIVE, selected.id()).commit()) throw new IOException("Notebook selection could not be saved");
         main.post(() -> {
             if (disposed) return;
-            notebook = selected; opening = false; map.setAnnotating(false); refreshFlags();
+            notebook = selected; opening = false; refreshFlags();
         });
     }
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
 
     private void refreshFlags() {
-        int request = ++generation; flagsReady = false; flags = Collections.emptySet();
+        int request = ++generation; flagsReady = false; flags = Collections.emptyMap();
         String label = notebook == null ? "Notebook unavailable" : notebook.label();
         map.showNotebook(label + (area == null ? " · notes unavailable for this area" : " · loading notes…"), flags);
         if (notebook == null || area == null) return;
         final String run = notebook.id(), key = area.id();
         IO.execute(() -> {
             try {
-                Set<Integer> loaded = store.listFlags(run, key);
+                Map<Integer, NoteIcon> loaded = store.listFlagIcons(run, key);
                 main.post(() -> {
                     if (disposed || request != generation) return;
                     flags = loaded; flagsReady = true; map.showNotebook(notebook.label(), loaded);
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> {
-                    if (!disposed && request == generation) map.showNotebook(notebook.label() + " · notes could not be read", Collections.emptySet());
+                    if (!disposed && request == generation)
+                        map.showNotebook(notebook.label() + " · notes unavailable", Collections.emptyMap());
                 });
-                report("Cannot read area notes", failure);
+                report("Cannot read flag notes", failure);
             }
         });
     }
@@ -117,19 +121,22 @@ public final class NotebookController implements LiveMapView.Listener {
     @Override public void onTileTapped(AreaIdentity target, int x, int y) {
         if (target == null) { toast("Notes need an identified area. Unknown or changed geometry is never assigned to a notebook."); return; }
         if (notebook == null || !flagsReady || opening || session != null) { toast("Notebook is not ready. Please try again."); return; }
-        if (!map.isAnnotating() && !flags.contains(y * 16 + x)) return;
+        final PoolRadState pinned = map.snapshot();
+        if (pinned == null || pinned.area == null || !target.id().equals(pinned.area.id())) return;
         final NotebookStore.Notebook book = notebook;
-        final boolean existing = flags.contains(y * 16 + x);
+        final boolean existing = flags.containsKey(y * 16 + x);
+        final Map<Integer, NoteIcon> symbols = new HashMap<>(flags);
         opening = true;
         IO.execute(() -> {
             try {
                 InkNote note = store.read(book.id(), target.id(), x, y);
                 if (!existing) store.save(book.id(), target.id(), x, y, note);
+                symbols.put(y * 16 + x, store.readIcon(book.id(), target.id(), x, y));
                 main.post(() -> {
                     opening = false;
                     if (disposed) return;
                     // The editor pins the original notebook, area and tile, even if the game moves.
-                    showSheet(book, target, x, y, note); refreshFlags();
+                    showSheet(book, target, x, y, note, pinned, symbols); refreshFlags();
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> opening = false); report("Cannot open this note", failure);
@@ -185,27 +192,36 @@ public final class NotebookController implements LiveMapView.Listener {
     private static final class Session {
         NotebookStore.Notebook book;
         AreaIdentity area;
+        PoolRadState snapshot;
+        Map<Integer, NoteIcon> symbols;
+        NoteIcon icon;
         int x, y, revision;
         boolean closing, deleting;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, delete;
+        Button pen, eraser, undo, redo, symbol, delete;
         AlertDialog dialog;
     }
 
-    private void showSheet(NotebookStore.Notebook book, AreaIdentity target, int x, int y, InkNote note) {
+    private void showSheet(NotebookStore.Notebook book, AreaIdentity target, int x, int y, InkNote note,
+            PoolRadState pinned, Map<Integer, NoteIcon> symbols) {
         Session current = new Session(); session = current;
         current.book = book; current.area = target; current.x = x; current.y = y;
+        current.snapshot = pinned; current.symbols = new HashMap<>(symbols); current.icon = symbols.get(y * 16 + x);
         LinearLayout content = column();
         LinearLayout tools = new LinearLayout(activity);
         current.pen = tool(tools, "Pen"); current.eraser = tool(tools, "Eraser");
         current.undo = tool(tools, "Undo"); current.redo = tool(tools, "Redo");
+        current.symbol = tool(tools, "Symbol");
         current.delete = tool(tools, "Delete…"); current.delete.setContentDescription("Delete flag and linked handwritten note");
         content.addView(tools);
+        TextView hint = text("Draw on the map at left; write at right. Pinned map snapshot.");
+        hint.setTextSize(12); content.addView(hint);
         current.status = text("Saved locally · " + book.label()); current.status.setTextSize(12);
         current.status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         content.addView(current.status);
-        current.sheet = new InkSheetView(activity); current.sheet.setNote(note);
+        current.sheet = new InkSheetView(activity);
+        current.sheet.setMap(pinned, symbols, x, y); current.sheet.setNote(note);
         content.addView(current.sheet, new LinearLayout.LayoutParams(-1, 0, 1));
         current.dialog = UpperHalfReferenceDialog.show(activity,
                 target.label() + " · tile " + x + ", " + y, content, () -> {
@@ -236,6 +252,7 @@ public final class NotebookController implements LiveMapView.Listener {
         current.pen.setText("Pen ✓");
         current.undo.setOnClickListener(v -> current.sheet.undo());
         current.redo.setOnClickListener(v -> current.sheet.redo());
+        current.symbol.setOnClickListener(v -> chooseSymbol(current));
         current.delete.setOnClickListener(v -> confirmDelete(current));
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
         updateTools(current);
@@ -252,6 +269,9 @@ public final class NotebookController implements LiveMapView.Listener {
         boolean enabled = !current.closing && !current.deleting;
         current.sheet.setEnabled(enabled);
         current.pen.setEnabled(enabled); current.eraser.setEnabled(enabled); current.delete.setEnabled(enabled);
+        current.symbol.setEnabled(enabled);
+        current.symbol.setText(current.icon.label());
+        current.symbol.setContentDescription("Change map symbol. Current: " + current.icon.label());
         current.undo.setEnabled(enabled && current.sheet.canUndo()); current.redo.setEnabled(enabled && current.sheet.canRedo());
         current.dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(enabled);
     }
@@ -260,11 +280,12 @@ public final class NotebookController implements LiveMapView.Listener {
         if (disposed || current != session || current.closing || current.deleting) return;
         if (close) { current.sheet.cancelActiveStroke(); current.closing = true; updateTools(current); }
         InkNote snapshot = current.sheet.getNote();
+        final NoteIcon symbol = current.icon;
         final int revision = current.revision;
         current.status.setText("Saving locally…");
         IO.execute(() -> {
             try {
-                store.save(current.book.id(), current.area.id(), current.x, current.y, snapshot);
+                store.save(current.book.id(), current.area.id(), current.x, current.y, snapshot, symbol);
                 main.post(() -> {
                     if (disposed || current != session) return;
                     if (!close && (current.closing || current.deleting)) return;
@@ -283,6 +304,25 @@ public final class NotebookController implements LiveMapView.Listener {
                 });
             }
         });
+    }
+
+    private void chooseSymbol(Session current) {
+        if (disposed || current != session || current.closing || current.deleting) return;
+        current.sheet.cancelActiveStroke();
+        LinearLayout options = column();
+        options.addView(text("Your own map labels—not automatically discovered places. Handwriting stays with this note."));
+        for (NoteIcon icon : NoteIcon.values()) {
+            Button select = button(options, icon.label() + (icon == current.icon ? " · selected" : ""));
+            select.setOnClickListener(v -> {
+                picker.dismiss();
+                if (disposed || current != session || current.closing || current.deleting) return;
+                current.icon = icon; current.symbols.put(current.y * 16 + current.x, icon);
+                current.sheet.setMap(current.snapshot, current.symbols, current.x, current.y);
+                current.revision++; updateTools(current); save(current, false);
+            });
+        }
+        ScrollView scroll = new ScrollView(activity); scroll.addView(options);
+        picker = UpperHalfReferenceDialog.show(activity, "Choose map symbol", scroll);
     }
 
     private void confirmDelete(Session current) {

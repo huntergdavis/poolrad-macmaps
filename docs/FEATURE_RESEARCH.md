@@ -34,7 +34,8 @@ The five menu actions are Levels & skills, Spells, Weapons & armor, Money
 conversion, and Adventure journal lookup. They share the top-half/no-dim
 presentation already used by the rune helper. Use an in-panel numeric keypad
 for journal numbers and money amounts; a system keyboard must not obscure the
-guest prompt. Searchable lists can offer touch-first filters as well.
+guest prompt. Finite spell/equipment lists use browsing and category filters,
+not search/keypad UI (user simplification, 2026-09-13).
 
 Table extraction/verification is future work: skill progression, equipment
 values, spell parameters, and exchange ratios must come from the supplied game
@@ -47,11 +48,12 @@ Do not assume sample numbers in a feature request are actual valid entries.
 
 This becomes a digital graph-paper notebook, not another input method for the
 emulated game. A small flag is an address into a large handwritten sheet.
-Direct map sketches and flag-linked sheets are distinct stroke layers; erasing
-one must not silently remove the other. Store normalized/map-space vector
-strokes and an explicit area/run key locally, preserving quality when enlarged.
+Each flag now owns one map-left, writing-right sheet. The map is part of the
+note's background; its ink does not become a shared live-map overlay. Store
+normalized fixed-page vectors and an explicit area/run/tile key, preserving
+proportions and map alignment through resizing.
 
-Use explicit annotate mode, generous hit targets, a black pen and eraser,
+Keep flags always tappable, with generous hit targets, a black pen and eraser,
 undo/redo, autosave, and an exportable notebook. Prefer simple stroke erasure
 first, then refine partial-stroke erasure if the tablet workflow benefits.
 Any palm rejection, stylus eraser button, or pressure support is a device test,

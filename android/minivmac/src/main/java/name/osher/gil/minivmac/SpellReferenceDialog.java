@@ -8,7 +8,6 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
-import androidx.appcompat.app.AlertDialog;
 import java.util.List;
 import name.osher.gil.minivmac.reference.SpellReference;
 import name.osher.gil.minivmac.reference.SpellReference.Caster;
@@ -19,8 +18,7 @@ public final class SpellReferenceDialog {
     private final Activity activity;
     private Caster caster;
     private int level;
-    private String query = "";
-    private Button classButton, levelButton, nameButton;
+    private Button classButton, levelButton;
     private LinearLayout results;
     private TextView count;
 
@@ -86,8 +84,7 @@ public final class SpellReferenceDialog {
         classButton.setContentDescription("Class filter. Tap to cycle All, Cleric, Magic-user.");
         levelButton = button(filters, "", v -> { level = (level + 1) % 4; refresh(); });
         levelButton.setContentDescription("Spell level filter. Tap to cycle All, 1, 2, 3.");
-        nameButton = button(filters, "", v -> chooseName());
-        text(content, "Tap class or level to cycle; Name opens an in-panel keypad.", 12);
+        text(content, "Tap class or level to cycle, then browse the spell names below.", 12);
         count = text(content, "", 13);
         count.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
         results = new LinearLayout(activity);
@@ -104,15 +101,13 @@ public final class SpellReferenceDialog {
         classButton.setContentDescription(classButton.getText() + ". Tap to cycle All, Cleric, Magic-user.");
         levelButton.setText("Level: " + (level == 0 ? "All" : level));
         levelButton.setContentDescription(levelButton.getText() + ". Tap to cycle All, 1, 2, 3.");
-        nameButton.setText("Name: " + (query.isEmpty() ? "Any" : query));
-        nameButton.setContentDescription("Name contains " + (query.isEmpty() ? "any text" : query) + ". Open touch keypad.");
-        List<Spell> matches = SpellReference.filter(caster, level, query);
+        List<Spell> matches = SpellReference.filter(caster, level);
         count.setText(matches.size() + (matches.size() == 1 ? " spell" : " spells")
                 + " · tap a name for details");
         results.removeAllViews();
         if (matches.isEmpty()) {
             text(results, "No spells match these filters.", 16);
-            button(results, "Reset filters", v -> { caster = null; level = 0; query = ""; refresh(); });
+            button(results, "Reset filters", v -> { caster = null; level = 0; refresh(); });
         }
         for (Spell spell : matches) button(results,
                 spell.heading() + (spell.inChart ? "" : " · availability uncertain"), v -> showSpell(spell));
@@ -130,37 +125,6 @@ public final class SpellReferenceDialog {
         text(detail, spell.provenance() + " Original printed rules; Macintosh behavior unverified.", 12);
         button(detail, "Sources, units & casting rules", v -> showSources());
         UpperHalfReferenceDialog.show(activity, spell.name, scroll(detail));
-    }
-
-    private void chooseName() {
-        LinearLayout content = column();
-        StringBuilder draft = new StringBuilder(query);
-        TextView value = text(content, "", 18);
-        value.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        Runnable update = () -> value.setText("Name contains: " + (draft.length() == 0 ? "(any)" : draft)
-                + "\n" + SpellReference.filter(caster, level, draft.toString()).size() + " matching spells");
-        update.run();
-        LinearLayout editing = row(content);
-        button(editing, "Clear", v -> { draft.setLength(0); update.run(); });
-        button(editing, "Delete", v -> {
-            if (draft.length() > 0) draft.deleteCharAt(draft.length() - 1);
-            update.run();
-        });
-        button(editing, "Space", v -> { if (draft.length() < 40) draft.append(' '); update.run(); });
-        // Explicit touch keys keep Android's system keyboard out of the guest's lower pane.
-        for (String letters : new String[]{"ABCDEF", "GHIJKL", "MNOPQR", "STUVWX", "YZ"}) {
-            LinearLayout keys = row(content);
-            for (int i = 0; i < letters.length(); i++) {
-                final char letter = letters.charAt(i);
-                button(keys, Character.toString(letter), v -> {
-                    if (draft.length() < 40) draft.append(Character.toLowerCase(letter));
-                    update.run();
-                });
-            }
-        }
-        Button apply = button(content, "Apply name filter", null);
-        AlertDialog picker = UpperHalfReferenceDialog.show(activity, "Filter spells by name", scroll(content));
-        apply.setOnClickListener(v -> { query = draft.toString().trim(); refresh(); picker.dismiss(); });
     }
 
     private void showSources() {

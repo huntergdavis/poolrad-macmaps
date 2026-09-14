@@ -39,8 +39,6 @@
                 android:checkable="true" />
             <item android:id="@+id/action_code_wheel"
                 android:title="@string/code_wheel_title" />
-            <item android:id="@+id/action_annotate_map"
-                android:title="Annotate map" android:checkable="true" />
             <item android:id="@+id/action_notebooks"
                 android:title="Notebooks" />
             <item android:id="@+id/action_screenshot"
@@ -49,10 +47,10 @@
                 android:title="Levels &amp; skills" />
             <item android:id="@+id/action_spells_reference"
                 android:title="Spells" />
+            <item android:id="@+id/action_equipment_reference"
+                android:title="Weapons &amp; armor" />
             <item android:id="@+id/action_money_reference"
                 android:title="Money conversion" />
-            <item android:id="@+id/action_capture_ram"
-                android:title="@string/capture_ram" />
         </menu>
     </item>
     <item android:id="@+id/action_settings"

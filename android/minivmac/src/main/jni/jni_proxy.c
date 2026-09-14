@@ -75,11 +75,15 @@ static SetSpeedType setSpeedPtr = NULL;
 static GetSpeedType getSpeedPtr = NULL;
 static RequestRamSnapshotType requestRamSnapshotPtr = NULL;
 static RequestRamSnapshotType requestMapSamplePtr = NULL;
+static RequestRamSnapshotType requestWheelSamplePtr = NULL;
+static RequestRamSnapshotType requestPartySamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
 void unloadCurrentVariant() {
     requestRamSnapshotPtr = NULL;
     requestMapSamplePtr = NULL;
+    requestWheelSamplePtr = NULL;
+    requestPartySamplePtr = NULL;
     if (variantHandle) {
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -168,11 +172,15 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     getSpeedPtr = (GetSpeedType)dlsym(variantHandle, "getSpeed");
     requestRamSnapshotPtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestRamSnapshot");
     requestMapSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMapSample");
+    requestWheelSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestWheelSample");
+    requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
 
     const char* error = dlerror();
     if (error != NULL) {
         requestRamSnapshotPtr = NULL;
         requestMapSamplePtr = NULL;
+        requestWheelSamplePtr = NULL;
+        requestPartySamplePtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -236,6 +244,16 @@ Java_name_osher_gil_minivmac_Core_requestRamSnapshotNative(JNIEnv *env, jclass c
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestMapSampleNative(JNIEnv *env, jclass cls) {
     return requestMapSamplePtr ? requestMapSamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestWheelSampleNative(JNIEnv *env, jclass cls) {
+    return requestWheelSamplePtr ? requestWheelSamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestPartySampleNative(JNIEnv *env, jclass cls) {
+    return requestPartySamplePtr ? requestPartySamplePtr() : JNI_FALSE;
 }
 
 /*

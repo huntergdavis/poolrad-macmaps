@@ -1,8 +1,8 @@
 # Offline spell reference
 
 `SpellReferenceDialog.show(Activity)` opens the Spells reference. Class and
-spell-level buttons cycle their choices. The Name button opens a compact local
-alphabet keypad for a case-insensitive substring filter. Spell rows open full
+spell-level buttons cycle their choices; browse the alphabetical list directly.
+There is no name search, text entry, or search keypad. Spell rows open full
 effect, range, duration, targeting, use-menu and source details. No spell is cast,
 no guest memory is written, and no party spell slots are inferred.
 
@@ -52,15 +52,15 @@ spell guides are not substituted for missing details.
 ## Presentation and validation
 
 `UpperHalfReferenceDialog` is shared with the other reference views. The main
-catalog, spell details, name keypad and source panel all use the upper half of
+catalog, spell details and source panel all use the upper half of
 the available activity window, clear dimming, suppress the Android input method,
 and scroll inside their own bounds. Every reference button has a 48dp minimum
 height. Resize listeners are removed when dismissed; activity destruction also
 dismisses the dialogs. The lower guest remains visible and undimmed. Physical
 tablet/e-ink acceptance is not claimed by these implementation checks.
 
-Focused plain-Java tests cover catalog completeness, class/level/name filtering,
-locale-independent search, distinct class parameters, original combat/menu
+Focused plain-Java tests cover catalog completeness, class/level browsing,
+alphabetical order and reachability of every spell, distinct class parameters, original combat/menu
 facts, explicit source conflicts and immutable results. Integration and Android
 layout testing are performed by the parent feature integration workflow.
 

@@ -2,20 +2,23 @@
 
 The cartographer adds your own ink without changing the original game or its saves.
 
-<img src="images/handwritten-note.png" width="360" alt="An actual handwritten TYR note in the upper-half ink sheet, with Rolf's original game introduction visible below">
+<img src="images/temple-note-map.png" width="360" alt="The preserved TYR note beside its map, with a temple symbol and Rolf's introduction below">
 
-*Actual Android-emulator capture, not a mockup or physical e-ink test.
+*0.5.0 Android-emulator capture, not a mockup or physical e-ink test.
 Original game artwork belongs to its respective owners.*
 
 1. Load a supported party and show the live map.
-2. Choose **PoolRad → Annotate map**. The map footer clearly says **ANNOTATE**.
-3. Tap a tile. A small monochrome flag links it to an enlarged handwritten sheet.
+2. Tap an empty tile to place a symbol; tap an existing symbol to reopen it.
+3. Its page contains a map at left and blank writing space at right.
 4. Draw with a pen or finger. **Pen**, **Eraser**, **Undo**, and **Redo** affect only
    this sheet. There is no handwriting recognition, text field, or network request.
 5. **Close & save** returns to the map. Completed strokes also autosave in the
    background. A failed save leaves the sheet open with a retry message.
-6. Turn Annotate off for **BROWSE**. Existing flags still open; empty tiles do not
-   create notes. **Delete…** explicitly confirms deletion of both flag and ink.
+6. Use the symbol button for a flag, smithy, temple, inn, shop, monster, hidden
+   wall, district or treasure. **Delete…** confirms deletion of symbol and page.
+
+There is no annotation toggle or separate map-drawing action. Each flag owns
+its own [map-plus-writing page](MAP_INK.md), not a shared area-wide overlay.
 
 The note sheet stays above the screen midpoint and does not dim the game. Its
 fixed-aspect paper keeps handwriting in proportion when the window changes size.
@@ -57,9 +60,10 @@ exceeding a limit rejects the unfinished stroke with visible feedback.
 export/import is still the separate N4 backlog item. Do not treat this prototype
 as your only copy of irreplaceable campaign notes. No Android cloud backup is used.
 
-Drawing directly on the map (N2), physical stylus/palm-rejection/e-ink polish (N3),
-and notebook backup/import (N4) are separate unfinished features. Emulator checks
-do not establish physical tablet acceptance.
+Version 2 adds symbols and a wide composite page; version-1 handwriting moves
+into its right half without distortion, with an original-byte backup before
+the first rewrite. Physical stylus/palm-rejection/e-ink polish (N3) and notebook
+backup/import (N4) remain unfinished. Emulator checks are not tablet acceptance.
 
 ## Local acceptance — 0.4.0
 

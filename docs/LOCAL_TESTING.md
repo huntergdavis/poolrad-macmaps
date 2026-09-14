@@ -62,6 +62,46 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.5.0 integrated acceptance (2026-09-13)
+
+- Normal Mac II universal build and all four ABI variants succeed, versionCode
+  67. **149 Java tests pass**, with zero failures, errors or skipped tests.
+  The automatic-input regression verifies that readbacks received while a key
+  is still held cannot consume the next letter or Return without dispatching it.
+- Native map, wheel and party readers pass their focused address/undefined
+  sanitizer checks. All 72 checked-in rune GIFs match the APK; no ROM, disk or
+  game archive is bundled in this public candidate.
+- Six synthetic Android software-View checks exercise the actual composite
+  ink sheet: left map/right writing, cross-sheet pen and ink-only erasing,
+  symbol changes, nine distinct glyphs, cancellation and resize anchoring.
+  See `tools/CompositeSheetRenderCheck.java` and [the page guide](MAP_INK.md).
+- Character-field interpretation is checked against the original Mac executable
+  and two private live captures, not inferred from identical full-health values.
+  [Party evidence and limits](PARTY.md).
+- The wheel reader follows the current input frame and live TextEdit buffer.
+  The final candidate automatically typed six verified letters and Return;
+  the original game accepted them and enabled Load Saved Game. No outside
+  letter/Return input was supplied. A second distinct automatic prompt and
+  exit/reload coverage remain separate checks. [Evidence](WHEEL_MEMORY.md).
+- The existing ten-stroke TYR note at New Phlan 11,2 opened with a map on the
+  left and unchanged handwriting on the right. Opening left its old file
+  byte-identical; first save created an exact `.ink.v1` backup (SHA-256
+  `c8b4c152a48451e712f85bfcca08aef973693f6cb652b7c98c36f8ce8c2e0aaf`).
+- Changed that flag to Temple, drew across both halves and erased over a map
+  wall: only ink disappeared. Undo/redo reproduced identical saved bytes.
+  Undid the two test strokes, closed and reopened: Temple and TYR remained.
+  A separate Smithy page at 10,2 retained its own stroke on reopen; explicit
+  deletion removed only that test page. The original note/backup survived,
+  and the guest stayed at 15,1 W. No standalone map-ink editor is shipped.
+- The actual eight-action menu has no Annotate, standalone map editor or
+  Capture RAM. Spells browse 55 entries, narrowed to eight Cleric 1 entries
+  without search/keyboard. Equipment shows 46 weapons and 11 armor rows;
+  banded-mail/chain-mail details and comparison pass in the upper-half panel.
+- The sample party's six names and current/max HP display beside the map:
+  12/12, 8/8, 7/7, 10/10, 9/9, 9/9. Further live damage/healing/reorder checks
+  remain in [PARTY.md](PARTY.md), not inferred from full-health screenshots.
+- No physical e-ink, stylus, real-device or full-game-mode acceptance is claimed.
+
 ## 0.4.0 handwritten cartographer acceptance (2026-09-13)
 
 - Normal Mac II universal build and all four ABI variants pass. **90 Java tests**
