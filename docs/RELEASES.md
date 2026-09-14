@@ -1,4 +1,10 @@
-# 0.5.1 — Hands-free code-wheel acceptance
+# 0.5.2 — Party health through combat
+
+[Release notes](releases/0.5.2.md): the health reader separates heroes from
+enemies in the original Mac combat list. Current/max HP and party order remain
+visible; 152 Java tests, three native suites and seven Android View checks pass.
+
+## 0.5.1 — Hands-free code-wheel acceptance
 
 [Release notes](releases/0.5.1.md): distinct automatic answers and normal
 game quit/relaunch verified end to end, with 152 Java tests passing.

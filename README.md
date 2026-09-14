@@ -22,7 +22,7 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 ## What works
 
 - Live area map with walls, door outlines, coordinates, and facing arrow.
-- Party names, current/max HP and monochrome health bars beside the map.
+- Party names, current/max HP and monochrome bars, including during combat.
 - Tap a tile or symbol for a map-left, writing-right handwritten page.
 - Pen, ink-only eraser, undo/redo, autosave, and nine selectable map symbols.
 - Separate local notebooks keep different campaigns' notes apart.
@@ -35,17 +35,17 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 
 **Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
 Phlan and on the adjoining Slums gate round trip. Other transitions and
-combat/wilderness tracking still need validation. Notebook backups and physical
+combat/wilderness map modes still need validation. Notebook backups and physical
 stylus polish remain on the backlog.
 [Handwritten notes](docs/NOTEBOOK.md) · [Flag pages & symbols](docs/MAP_INK.md)
 
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.5.1 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.5.1)
+[0.5.2 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.5.2)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.5.1/poolrad-macmaps-0.5.1.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.5.2/poolrad-macmaps-0.5.2.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

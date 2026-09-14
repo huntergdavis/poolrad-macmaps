@@ -62,6 +62,28 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## 0.5.2 party-health acceptance (2026-09-14)
+
+The Mac II universal/all-four-ABI build succeeds, versionCode 69. **152 Java
+tests, zero failures/errors/skips**, all three native sanitizer suites, and seven
+actual Android health-pane View checks pass. All 72 rune GIFs are unchanged in
+the APK; no ROMs, disks or game archives are bundled. The signing certificate
+matches the preceding release, and an in-place update preserved both the
+existing handwritten note and its original-byte backup exactly.
+
+The real Slums combat list exposed a bug: enemies appended after the six
+heroes caused the old eight-record reader to reject the entire list. The
+corrected bounded reader distinguishes verified member slots from enemy groups.
+The updated APK displays all six heroes during an actual kobold battle,
+including new injuries and zero HP, without emitting enemy rows.
+
+Normal game controls moved Zarram from last to first and saved `F7Injured`;
+the update reloaded its names/order/HP correctly. After normal spell preparation
+and rest, Cure Light Wounds raised Arax from **7/12 to 12/12** in both the guest
+and companion pane. No game data was patched. [Evidence and replay/View-check
+instructions](PARTY.md). These are local emulator checks, not CI or physical
+e-ink/stylus acceptance; broader mode recognition remains open.
+
 ## 0.5.1 automatic-wheel acceptance (2026-09-13)
 
 The normal Mac II universal/all-four-ABI build succeeds (versionCode 68), with

@@ -33,6 +33,7 @@ static void fixture(uint32_t a5, uint32_t handles, uint32_t records, unsigned co
         snprintf((char *) ram + record, 16, "Hero %u", i + 1);
         ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 10 + i;
         ram[record + POOLRAD_PARTY_MAX_HP_OFFSET] = 10 + i;
+        ram[record + POOLRAD_PARTY_SLOT_OFFSET] = i % POOLRAD_PARTY_MAX_MEMBERS;
         put32(record + POOLRAD_PARTY_NEXT_OFFSET, i + 1 < count ? member_handle(i + 1) : 0);
     }
 }
@@ -41,6 +42,16 @@ static void unavailable(void) {
     memset(output, 0xff, sizeof(output));
     assert(!poolrad_party_probe(ram, sizeof(ram), output));
     for (unsigned i = 0; i < sizeof(output); i++) assert(output[i] == 0);
+}
+
+static void combat_fixture(unsigned members, unsigned combatants) {
+    /* Keep the largest fixture clear of A5 globals and the geometry block. */
+    fixture(0x6000, 0x2000, 0x8000, members + combatants);
+    for (unsigned i = members; i < members + combatants; i++) {
+        uint32_t record = member_record(i);
+        ram[record + POOLRAD_PARTY_SLOT_OFFSET] = 8;
+        snprintf((char *) ram + record, 16, "Enemy %u", i - members + 1);
+    }
 }
 
 static void tests(void) {
@@ -75,6 +86,44 @@ static void tests(void) {
     assert(output[4] == 3 && output[24] == 12 && output[44] == 10 && output[64] == 11);
 
     fixture(0xe000, 0x2000, 0x3000, 9); unavailable();
+    combat_fixture(6, 10); // Real first-orc-combat shape, entirely synthetic bytes.
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 6);
+    for (unsigned i = 0; i < 6; i++) assert(output[8 + i * 20 + 16] == 10 + i);
+    for (unsigned i = 8 + 6 * 20; i < sizeof(output); i++) assert(output[i] == 0);
+    ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 4;
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 4);
+    ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 10;
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 10);
+    // Enemy health is neither displayed nor mistaken for party validity.
+    ram[member_record(6) + POOLRAD_PARTY_MAX_HP_OFFSET] = 0;
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 6);
+    combat_fixture(8, 63);
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 8);
+    combat_fixture(8, 64); unavailable(); // Complete linked walk remains bounded.
+    combat_fixture(1, 64); unavailable(); // Independent monster-count bound.
+    combat_fixture(0, 10); unavailable(); // Enemies alone are not a loaded party.
+    combat_fixture(6, 10);
+    ram[member_record(4) + POOLRAD_PARTY_SLOT_OFFSET] = 0; unavailable();
+    combat_fixture(6, 10);
+    ram[member_record(6) + POOLRAD_PARTY_SLOT_OFFSET] = 0xff; unavailable();
+    combat_fixture(6, 10);
+    put32(member_record(15) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(6)); unavailable();
+    combat_fixture(6, 10);
+    put32(member_handle(8), member_record(7)); unavailable();
+    combat_fixture(6, 10);
+    put32(member_record(9) - 8, 0x82000130); unavailable();
+    combat_fixture(6, 10);
+    put32(member_record(15) + POOLRAD_PARTY_NEXT_OFFSET, 0x00ffffff); unavailable();
+    combat_fixture(3, 2);
+    // Filtering follows member order even if nonparty links are interleaved.
+    put32(fixture_a5 - POOLRAD_PARTY_HEAD_BACK, member_handle(3));
+    put32(member_record(3) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(2));
+    put32(member_record(2) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(0));
+    put32(member_record(0) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(4));
+    put32(member_record(4) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(1));
+    put32(member_record(1) + POOLRAD_PARTY_NEXT_OFFSET, 0);
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(output[4] == 3 && output[24] == 12 && output[44] == 10 && output[64] == 11);
     fixture(0xe000, 0x2000, 0x3000, 0); unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[0x911] = 'X'; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); memset(ram + 0x7000, 0, 1024); unavailable();
@@ -114,7 +163,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, 1-8 members, health and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, 1-8 members, combat filtering, health and failure clearing passed.");
 }
 
 static int replay(const char *path) {

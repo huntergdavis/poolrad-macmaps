@@ -1,6 +1,6 @@
 # PoolRad Mac Maps — current backlog
 
-Updated 2026-09-13. This is the authoritative feature queue. The earlier
+Updated 2026-09-14. This is the authoritative feature queue. The earlier
 [implementation plan](PLAN.md) retains the architecture and historical proof
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
@@ -30,11 +30,11 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.5.0 | Always-on flags, per-flag map/writing pages, nine symbols and lossless old-note migration |
 | Done — 0.5.0 | Browse-only spells and 59-entry offline equipment browser/comparison |
 | Done — 0.5.1 | Automatic code wheel; distinct answers and same-process game quit/relaunch verified |
-| Working — 0.5.0 | Read-only current/max party health beside the map; broader live health acceptance open |
+| Done — 0.5.2 | Current/max party health through combat; real damage, healing, reorder and reload verified |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: comprehensive area/mode recognition, broader party-health acceptance,
+Not done: comprehensive area/mode recognition, expanded party details,
 bundled personal APK, notebook export/import, physical pen polish, or wallpaper
 controls. Separate area-wide drawing was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
@@ -85,17 +85,17 @@ the lower-priority queue.
   the selection with the note; never infer undiscovered places from game scripts.
   **Delivered 0.5.0:** Temple and Smithy choices persist on separate live-map
   flags and reopened note pages; all nine glyphs pass distinct-render checks.
-- [ ] **F7 — Current/max party health at a glance.** A compact upper-pane party
+- [x] **F7 — Current/max party health at a glance.** A compact upper-pane party
   strip with character names (icons where useful), current/max HP and dark health
   bars. Verify the actual Mac party records and maximum HP first; no guessed
   totals or simulated mana. Validate reorder and damaged/healed values; collapse
   sensibly on narrow windows and leave the Mac display playable below.
-  **Implemented; acceptance in progress:** six actual sample-party names and
-  current/max values display beside the map. Executable evidence and synthetic
-  damage/healing/order tests pass; remaining live checks are in [PARTY.md](PARTY.md).
-  A bounded normal-game tour and last-member selection also preserve all six
-  rows. Actual changed order, damage and healing remain unverified; no marathon
-  playthrough or hardware acceptance is being substituted for those checks.
+  **Delivered 0.5.2:** fixed enemies sharing the Mac combat list so the strip
+  continues to show only party members. Actual damage, zero HP, Zarram moved
+  last-to-first, and injured-save reload agree with the game. Normal Cure Light
+  Wounds raises Arax from 7/12 to 12/12, with the bar filling correctly. Seven
+  Android View checks cover narrow/tiny layouts, touch routing and clearing.
+  [Evidence](PARTY.md). Physical pen/e-ink and broader mode coverage remain open.
 - [x] **F8 — Weapons & armor reference browser (REF3 promoted).** Original-game
   equipment lists with damage, protection, cost, weight and restrictions; compact
   categories, offline, upper-half only, and no search field. Verify the supplied
