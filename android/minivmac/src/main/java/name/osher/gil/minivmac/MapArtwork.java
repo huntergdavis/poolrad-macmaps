@@ -6,19 +6,31 @@ import android.graphics.Paint;
 import android.graphics.Path;
 
 import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
 import name.osher.gil.minivmac.mapper.GeoMap;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.NoteIcon;
+import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /** Shared map artwork, extracted from LiveMapView. Labels and user ink are separate layers. */
 public final class MapArtwork {
     private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path arrow = new Path();
+    private ExplorationTrail preparedTrail;
+    private final int[] latestFrom = new int[GeoMap.WIDTH * GeoMap.WIDTH];
+
+    public interface TileVisibility { boolean visible(int tile); }
 
     public void drawGeometry(Canvas canvas, GeoMap map, float left, float top,
+            float cell, float density) {
+        drawGeometry(canvas,map,null,left,top,cell,density);
+    }
+
+    /** A hidden neighbor never contributes its own wall or door to an explored tile. */
+    public void drawGeometry(Canvas canvas, GeoMap map, TileVisibility visible, float left, float top,
             float cell, float density) {
         if (map == null || !(cell > 0) || !(density > 0)) return;
         ink.setColor(Color.BLACK);
@@ -26,6 +38,7 @@ public final class MapArtwork {
         for (int y = 0; y <= GeoMap.WIDTH; y++) for (int x = 0; x <= GeoMap.WIDTH; x++)
             canvas.drawCircle(left + x * cell, top + y * cell, .65f * density, ink);
         for (int y = 0; y < GeoMap.WIDTH; y++) for (int x = 0; x < GeoMap.WIDTH; x++) {
+            if(visible!=null && !visible.visible(y*GeoMap.WIDTH+x)) continue;
             for (int direction = 0; direction < 4; direction++) {
                 if (map.wall(x, y, direction) == 0 && map.door(x, y, direction) == 0) continue;
                 float x1 = left + x * cell, y1 = top + y * cell;
@@ -44,6 +57,7 @@ public final class MapArtwork {
         }
         // Doors are painted after all walls so adjacent cells cannot close their openings.
         for (int y = 0; y < GeoMap.WIDTH; y++) for (int x = 0; x < GeoMap.WIDTH; x++) {
+            if(visible!=null && !visible.visible(y*GeoMap.WIDTH+x)) continue;
             for (int direction = 0; direction < 4; direction++) {
                 if (map.door(x, y, direction) == 0) continue;
                 float cx = left + (x + .5f) * cell, cy = top + (y + .5f) * cell;
@@ -57,6 +71,72 @@ public final class MapArtwork {
                 canvas.drawRect(cx + dx - hw, cy + dy - hh, cx + dx + hw, cy + dy + hh, ink);
             }
         }
+    }
+
+    /**
+     * Live-map replacement for drawGeometry, not an extra overlay after unfiltered geometry.
+     * Paint order: visited stipple, feet, walls/doors; caller then paints manual markers/party.
+     * Note sheets keep calling the original unfiltered drawGeometry overload.
+     */
+    public void drawExploration(Canvas canvas, GeoMap map, ExplorationTrail trail,
+            boolean visitedOnly, boolean footprints, float left,float top,float cell,float density) {
+        if(map==null || !(cell>0) || !(density>0) || Float.isInfinite(cell*GeoMap.WIDTH) || Float.isInfinite(density)
+                || Float.isNaN(left) || Float.isNaN(top) || Float.isInfinite(left) || Float.isInfinite(top)) return;
+        int saved=canvas.save();
+        try {
+            canvas.clipRect(left,top,left+GeoMap.WIDTH*cell,top+GeoMap.WIDTH*cell);
+            ink.setColor(Color.WHITE);ink.setStyle(Paint.Style.FILL);
+            canvas.drawRect(left,top,left+GeoMap.WIDTH*cell,top+GeoMap.WIDTH*cell,ink);
+            if(trail!=null) {
+                ink.setColor(Color.BLACK);ink.setStyle(Paint.Style.FILL);
+                float dot=Math.min(cell*.045f,Math.max(.55f*density,cell*.022f));
+                for(int tile=0;tile<256;tile++) if(trail.visited(tile)) {
+                    float x=left+(tile%16)*cell,y=top+(tile/16)*cell;
+                    canvas.drawCircle(x+.2f*cell,y+.2f*cell,dot,ink);
+                    canvas.drawCircle(x+.8f*cell,y+.2f*cell,dot,ink);
+                    canvas.drawCircle(x+.2f*cell,y+.8f*cell,dot,ink);
+                    canvas.drawCircle(x+.8f*cell,y+.8f*cell,dot,ink);
+                }
+                if(footprints && cell>=12*density) {
+                    prepareTrail(trail);
+                    for(int tile=0;tile<256;tile++) {
+                        int from=latestFrom[tile];
+                        if(from<0 || !trail.visited(tile)) continue;
+                        int dx=tile%16-from%16,dy=tile/16-from/16;
+                        if(Math.abs(dx)+Math.abs(dy)!=1) continue; // No row-wrap or gap arrows.
+                        float degrees=dx==1 ? 90 : dx==-1 ? 270 : dy==1 ? 180 : 0;
+                        drawFeet(canvas,left+(tile%16+.5f)*cell,top+(tile/16+.5f)*cell,cell,degrees);
+                    }
+                }
+            }
+            TileVisibility visibility=visitedOnly ? tile -> trail!=null && trail.visited(tile) : null;
+            drawGeometry(canvas,map,visibility,left,top,cell,density);
+        } finally { canvas.restoreToCount(saved); }
+    }
+
+    private void prepareTrail(ExplorationTrail trail) {
+        if(preparedTrail==trail) return;
+        Arrays.fill(latestFrom,-1);
+        // A footprint represents the latest recorded travel into this tile, not
+        // an inferred arrival after an observation gap. Anchors contain no
+        // movement: they neither invent a new direction nor erase recorded feet.
+        for(ExplorationTrail.Step step:trail.steps)
+            if(step.to>=0 && step.to<256 && step.from>=0 && step.from<256)
+                latestFrom[step.to]=step.from;
+        preparedTrail=trail;
+    }
+
+    /** Two staggered soles with separate heels, facing north before rotation. */
+    private void drawFeet(Canvas canvas,float cx,float cy,float cell,float degrees) {
+        int saved=canvas.save();
+        try {
+            canvas.translate(cx,cy);canvas.rotate(degrees);canvas.scale(cell,cell);
+            ink.setColor(Color.BLACK);ink.setStyle(Paint.Style.FILL);
+            canvas.drawOval(-.24f,-.32f,-.045f,-.035f,ink);
+            canvas.drawOval(-.215f,.005f,-.075f,.145f,ink);
+            canvas.drawOval(.045f,-.145f,.24f,.14f,ink);
+            canvas.drawOval(.075f,.18f,.215f,.32f,ink);
+        } finally { canvas.restoreToCount(saved); }
     }
 
     public void drawMarkers(Canvas canvas, Set<Integer> flags, PoolRadState state,

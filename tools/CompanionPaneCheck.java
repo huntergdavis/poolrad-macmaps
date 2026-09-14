@@ -42,7 +42,8 @@ import name.osher.gil.minivmac.R;
  *     -d "$check_dir/classes" tools/CompanionPaneCheck.java \
  *     "$source_dir/CompanionPane.java" "$source_dir/MapStackLayout.java" "$source_dir/CompanionGeometry.java" \
  *     "$source_dir/LiveMapView.java" "$source_dir/MapArtwork.java" \
- *     "$source_dir/notebook/NoteIcon.java" "$source_dir/mapper/PartyState.java" \
+ *     "$source_dir/notebook/NoteIcon.java" "$source_dir/notebook/ExplorationTrail.java" \
+ *     "$source_dir/mapper/PartyState.java" \
  *     "$source_dir/mapper/PartyPaneLayout.java" "$source_dir/mapper/MapViewport.java" \
  *     "$source_dir/mapper/PoolRadState.java" "$source_dir/mapper/GeoMap.java" \
  *     "$source_dir/mapper/AreaIdentity.java"
@@ -60,6 +61,7 @@ public final class CompanionPaneCheck {
     private static Context context;
     private static int passed;
     private static final int[] TOOL_IDS = {
+            R.id.companion_tool_exploration,
             R.id.companion_tool_levels, R.id.companion_tool_spells, R.id.companion_tool_equipment,
             R.id.companion_tool_money, R.id.companion_tool_wheel};
 
@@ -128,7 +130,7 @@ public final class CompanionPaneCheck {
             assertNotFocusable(pane);
         });
 
-        run("All five real tool buttons deliver distinct enum callbacks, including equipment", () -> {
+        run("All six real tool buttons deliver distinct enum callbacks, including exploration", () -> {
             CompanionPane pane = pane(context, 480, 360);
             pane.setTab(CompanionPane.INFO);
             List<CompanionPane.Tool> tools = new ArrayList<>();
@@ -142,7 +144,7 @@ public final class CompanionPaneCheck {
             check(CompanionPane.INFO.equals(pane.selectedTab()), "Tool click changed underlying Info tab");
             pane.setOnToolSelectedListener(null);
             pane.findViewById(TOOL_IDS[0]).performClick();
-            check(tools.size() == 5, "Cleared tool listener retained callback");
+            check(tools.size() == TOOL_IDS.length, "Cleared tool listener retained callback");
         });
 
         run("Short landscape keeps Info scrolling inside the existing pane and retains its position", () -> {

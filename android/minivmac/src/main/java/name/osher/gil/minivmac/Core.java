@@ -62,6 +62,18 @@ public class Core {
 	private static native boolean requestMapSampleNative();
 	@SuppressWarnings("unused") // Called on the emulation thread through JNI.
 	public void onMapSample(byte[] sample) {
+		// Developer opt-in only: adb shell setprop log.tag.PoolRad.Walk DEBUG.
+		// Metadata, never RAM/geometry or disk bytes; INFO disables it again.
+		if (BuildConfig.DEBUG && android.util.Log.isLoggable("PoolRad.Walk", android.util.Log.DEBUG)) {
+			String state = "unavailable";
+			if (sample != null && sample.length == 1200 && sample[3] == '3') {
+				long epoch = ((sample[28]&255L)<<24) | ((sample[29]&255L)<<16)
+						| ((sample[30]&255L)<<8) | (sample[31]&255L);
+				state = "safe="+(sample[26]&255)+" engine="+(sample[27]&255)+" epoch="+epoch
+						+" area="+(sample[35]&255)+" x="+(sample[130]&255)+" y="+(sample[131]&255);
+			}
+			android.util.Log.d("PoolRad.Walk", state);
+		}
 		MapSampleListener listener = mMapSampleListener;
 		if (listener != null) listener.onSample(sample);
 	}

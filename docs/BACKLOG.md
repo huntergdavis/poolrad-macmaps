@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 287 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 325 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -40,6 +40,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.10.0 | Fresh-save party fix, map-left HP/AC/class sidebar, tap-for-details and small-window collapse |
 | Done — 0.11.0 | 29 named areas, live GEO ID plus immutable-prefix validation, door-stable note keys and bounded map headers |
 | Done — 0.11.0 | Gate round trip, ordinary save/cold reload, preserved handwriting and matching party sidebar across an in-place update |
+| Done — 0.12.0 | Walked tiles, optional visited-only fog, directional feet and recent return directions per notebook/area; backed up with notes |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
@@ -55,6 +56,33 @@ while scope is expanding.
 These requests supersede the separate area-wide drawing editor and the old
 optional-only code-wheel recognition policy below. Finish them before expanding
 the lower-priority queue.
+
+- [x] **F10 — Walked tiles and directional footprints (new P0).** Remember
+  the squares actually occupied by this campaign's party on each verified area
+  map. Offer a visited-only / fog-of-war view and small directional footprints
+  so a player can follow their route back. Derive travel direction from observed
+  moves, not the direction the party is facing; turning in place is not a step.
+  Keep a bounded recent trail alongside permanent tile coverage. Do not invent
+  connecting steps after a load, map change, missing sample, jump or combat.
+  Save locally with the active notebook, retain across restarts and updates,
+  include in notebook backup/restore, and allow explicit trail clearing without
+  deleting handwritten flags. Keep walls, flags and the current arrow legible.
+  Establish a reliable exploration-only sampling gate before recording movement;
+  do not mistake stale exploration coordinates for a tactical/world-map route.
+  This promotes R6's visited tiles/breadcrumbs ahead of the remaining P1 queue.
+  **Delivered 0.12.0:** actual eastward travel supplies a westward return
+  direction; fog reveals three walked Phlan squares, feet remain behind the
+  party, and the Slums has independent coverage. Returning retains Phlan's
+  coverage and old flag. Recording works with Info selected. Explicit reset
+  and footprints-only clear preserve handwriting; a real Android backup
+  restores both areas and exact ink through the production store. The corrected
+  APK preserves earlier coverage through in-place update/cold reload. 325 Java
+  tests, 32 Android View/Canvas checks and existing native/helper checks pass.
+  The read-only settled-exploration gate rejects combat/camp/loading state;
+  missing/slow samples deliberately break the route, not guess omitted steps.
+  This is sampled history, not complete instruction-level replay. Physical
+  e-ink/stylus and full tactical/wilderness presentation remain open.
+  [Guide](EXPLORATION.md) · [evidence](LOCAL_TESTING.md).
 
 - [x] **F1 — Browse spells, no search.** Remove spell text search and its keypad.
   Keep the small class/level lists. Future equipment references should browse
@@ -304,6 +332,10 @@ are gates for the affected feature, not a second giant framework project.
 - [ ] **M2 — Exploration/combat/wilderness/loading detection.** Retain geometry
   with an explicit non-live state when appropriate. Do not show the exploration
   party position as a tactical combatant or world-map coordinate.
+  **F10 prerequisite delivered 0.12.0:** verified settled-local-movement gate
+  protects recording and removes the live arrow when unsafe. Richer named
+  mode presentation and broader played-through mode acceptance remain here;
+  do not repeat the gate implementation or treat this whole item as complete.
 - [x] **M3 — Cross-area / save-load acceptance route.** Walk between distinct
   areas, return, save/reload, and cold boot; pair observed positions with the
   game's own display. Verify notes and the eventual party sidebar on that route.
@@ -392,7 +424,7 @@ research for sources and portability limits.
   entries/bookmarks to map flags, handwritten comments, and manually checked
   tasks. No automatic quest truth or read-ahead spoiler dump.
 - [ ] **R6 — Exploration aids.** Search-mode indicator, coordinates on demand,
-  visited-only reveal option, and subtle visited-tile/breadcrumb history.
+  with visited-only reveal and directional breadcrumbs promoted to P0 F10 above.
 - [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,
   shops, and training; manually checked tasks linked to notes. Do not expose
   unvisited event scripts as if the player discovered them.

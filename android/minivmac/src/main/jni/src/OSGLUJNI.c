@@ -57,6 +57,7 @@ jmethodID jRamSnapshot;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 jmethodID jMapSample;
 LOCALVAR atomic_int WantMapSample = 0;
+LOCALVAR poolrad_walk_tracker MapWalkTracker = {0};
 jmethodID jWheelSample;
 LOCALVAR atomic_int WantWheelSample = 0;
 jmethodID jPartySample;
@@ -1248,7 +1249,7 @@ LOCALPROC DeliverMapSample(void)
     ui3p ram = GetRamForSnapshot(&size);
     unsigned char data[POOLRAD_PROBE_SIZE];
     jbyteArray sample = NULL;
-    if (poolrad_probe(ram, size, data)) {
+    if (poolrad_walk_probe(ram, size, &MapWalkTracker, data)) {
         sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_PROBE_SIZE);
         if (sample != NULL)
             (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_PROBE_SIZE, (const jbyte *)data);
@@ -1324,6 +1325,12 @@ GLOBALOSGLUFUNC blnr ExtraTimeNotOver(void)
 
 GLOBALOSGLUPROC WaitForNextTick(void)
 {
+    /* Observe once per core-tick entry, not only on an Android map request.
+     * All reads and the tracker stay on the emulator thread. Retry/paused
+     * iterations below cannot create artificial continuity changes. */
+    ui5b mapRamSize;
+    ui3p mapRam = GetRamForSnapshot(&mapRamSize);
+    poolrad_walk_observe(mapRam, mapRamSize, &MapWalkTracker);
     label_retry:
     sleep(0);
     CheckForSavedTasks();
@@ -1389,6 +1396,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     ForceMacOff = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
     atomic_store(&WantMapSample, 0);
+    poolrad_walk_reset(&MapWalkTracker);
     atomic_store(&WantWheelSample, 0);
     atomic_store(&WantPartySample, 0);
 

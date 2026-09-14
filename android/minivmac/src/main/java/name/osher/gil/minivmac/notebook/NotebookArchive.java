@@ -21,7 +21,7 @@ import java.util.Set;
 /** PRNA v1: UUID, counted raw files, SHA-256 trailer. No compressed or executable content. */
 final class NotebookArchive {
     static final long MAX_BYTES = 64L * 1024 * 1024;
-    static final int MAX_ENTRIES = 1 + 33 * (256 * 2 + 1);
+    static final int MAX_ENTRIES = 1 + 33 * (256 * 2 + 2);
     static final int MAX_ENTRY_BYTES = InkNote.MAX_TOTAL_POINTS * 8
             + InkNote.MAX_STROKES * 9 + 1024 + 20;
     private static final int MAGIC = 0x50524e41; // PRNA
@@ -49,13 +49,18 @@ final class NotebookArchive {
         if (pieces.length != 2 || !area(pieces[0])) throw new IOException("Invalid notebook archive path");
         String name = pieces[1];
         if (name.equals("map.ink")) return; // Preserve unshipped prototype bytes without interpreting them.
+        if (name.equals("exploration.bin")) return;
         if (!name.matches("(0|[1-9][0-9]{0,2})\\.ink(\\.v1)?")
                 || Integer.parseInt(name.substring(0, name.indexOf('.'))) > 255) {
             throw new IOException("Unrecognized notebook archive entry");
         }
     }
 
-    private static int maximumLength(String path) { return path.equals("notebook.bin") ? 1044 : MAX_ENTRY_BYTES; }
+    private static int maximumLength(String path) {
+        if (path.equals("notebook.bin")) return 1044;
+        if (path.endsWith("/exploration.bin")) return NotebookStore.MAX_EXPLORATION_BYTES + 20;
+        return MAX_ENTRY_BYTES;
+    }
 
     static void write(String id, List<Entry> entries, OutputStream destination) throws IOException {
         if (destination == null) throw new IllegalArgumentException("Missing backup destination");

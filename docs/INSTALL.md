@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.11.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.11.0)
+[0.12.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.12.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.11.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.11.0/poolrad-macmaps-0.11.0.apk)
+   [`poolrad-macmaps-0.12.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.12.0/poolrad-macmaps-0.12.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -48,6 +48,14 @@ dimming or covering the game. Close returns to the selected tab.
 When recognized party records are available, names, current/max HP and black
 health bars appear beside the map. Unknown health is not guessed or retained.
 
+**Info → Exploration trail** controls visited-only fog and directional feet,
+and lists recent return directions. The full map is the default; walked tiles
+are remembered per notebook and area, starting with this version. Turning in
+place is not walking. Missing observations start separate segments, never
+guessed connecting paths. Tracking continues on Info or with the pane hidden
+while the app is resumed. Clear footprints or reset one walked map explicitly;
+neither removes your handwritten flags. [Exploration guide](EXPLORATION.md).
+
 **PoolRad → Screenshot** captures the selected Map/Info tab, game, and visible keyboard.
 Choose **Save PNG…** to keep it in Downloads or another location, or **Share
 PNG…** to open Android's share chooser. Menus and system bars are not part of
@@ -80,7 +88,8 @@ pen-only mode) to move the page. **Fit page** restores the complete sheet.
 
 **Update in place to retain your notes.** Uninstalling or clearing app data
 removes them. **PoolRad → Notebooks → Back up Notebook N…** saves that campaign
-as a `.prnb` file outside the app. **Restore backup…** restores without overwriting
+as a `.prnb` file outside the app, including its exploration history. Backups
+containing exploration need 0.12.0 or newer. **Restore backup…** restores without overwriting
 another notebook; select the restored campaign yourself. Each flag page also
 has **Save PNG** for a readable picture, not an editable backup.
 [Backup, restore and deliberate removal guide](NOTEBOOK_BACKUPS.md).

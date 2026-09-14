@@ -62,6 +62,90 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## F10 exploration memory (0.12.0, 2026-09-14)
+
+Reused the proven native identity/allocator work from [M1](AREA_IDENTITY.md),
+the original notebook store/archive, and the existing detached Android Canvas
+and lifecycle harnesses. Local `deja` recalls timed out; no unseen historical
+result is treated as evidence. All new checks used copies on the isolated
+`poolrad-package-test` / `emulator-5584`; the older `emulator-5580` was untouched.
+
+### Checks and live corrections
+
+Public universal APK build and all **325 Java tests pass**, including PRM3
+compatibility/processing validation, immutable visited bits and bounded route,
+ordered recording/gaps/clearing, corrupt persistence, and exact backup restore.
+Three C address/undefined-behavior sanitizer suites pass. Existing Python
+packaging/fetch/boot suites pass (16 + 25 + 13), as do ten actual lifecycle-source
+and eight stopped-core input-binding checks. No marathon CI suite was added.
+
+Actual Android software rendering passes eight exploration checks, sixteen
+party/map checks and eight companion checks. These cover four travel directions,
+visited-only geometry, prior real feet surviving a later anchor, unchanged note
+geometry, wall/flag layering, unsafe-area overlay clearing, identical-sample
+callbacks and all six Info tools. They use synthetic fixtures, not physical
+e-ink or GPU acceptance. The first standalone launch used an incorrect class
+name and aborted; the documented unqualified invocation passes all eight checks.
+
+The first live APK exposed over-fragmented stationary anchors. System 7 briefly
+switches CurApName to background processes between game ticks; the observer now
+skips those bounded non-game intervals rather than reading cached game pointers
+or treating every switch as a load. An explicitly unavailable requested sample
+still breaks continuity. Input-busy engine-4 packets record nothing; the next
+settled sample must retain the native epoch and fit the 1,250 ms/tile limits.
+Identical stationary anchors collapse, and gaps do not erase earlier genuine
+directional feet. Focused regressions cover all three corrections.
+
+A debugger callback trace was inconclusive and is not acceptance evidence.
+The corrected build was checked without suspending the core, using temporary
+opt-in `PoolRad.Walk` DEBUG metadata (no RAM contents); logging was disabled
+again afterward. [Verified gate fields and limitations](MAP_MEMORY.md).
+
+### Actual game and storage acceptance
+
+Normal game Quit → Finder Shut Down reached **Restart Emulator** before APK
+replacement. Updating to the corrected 0.12.0 build retained the existing note
+byte-for-byte and earlier three-square coverage through cold boot and normal
+File → Load of the private `m1gate` save (New Phlan 0,4 E). No save was overwritten.
+
+After the explicit New Phlan reset confirmation, ordinary forward inputs
+visited 0,4, 1,4 and 2,4. The actual Info route includes **2,4 — return west to
+1,4**, recorded while Info was selected. Turning west and returning to 1,4
+leaves the earlier eastward feet visible behind the party. Fog shows three
+walked squares, hides other geometry and leaves the user's old manual flag
+visible. The companion coordinates and all six HP/AC rows match the guest.
+Host stalls/missing samples produced explicit segment starts on some moves;
+this is deliberately not a claim of complete step-by-step replay.
+
+The ordinary west gate crossing shows **Slums of Phlan 15,4 W**, zero flags and
+one independently walked square. Turning back and returning to New Phlan
+restores its three-square coverage and original flag. Clear footprints only
+retains those three squares and leaves a fresh current-tile anchor; handwriting
+is unchanged. The old tile 11,2 flag still opens its saved composite note page
+while fog is enabled. Reset and clear confirmations stay above the undimmed game.
+
+A real Android document-picker export creates a 727-byte PRNA backup containing
+the notebook record, original ink and exploration for GEO 0 and GEO 20. Its
+length/trailer SHA-256 pass independent inspection. The production
+`NotebookStore.importNotebook` restores this actual export into a fresh local
+directory; a new store instance reads Phlan=3 and Slums=1 and the exact original
+219-byte flag record. An initial ad-hoc assertion used a private field and did
+not run; the corrected public-API assertions all pass before this claim.
+The installed campaign was never removed or overwritten for this check.
+
+Original ink SHA-256 remains
+`4f54c36f19a4de315c33bebd1b6c0a72850ee5501cb5b24a094fec26a0919d10`.
+Private screenshots/RAM/exports stay in ignored `scratch/`. Both public and
+personal universal builds pass. Public 0.12.0 SHA-256:
+`fb89523c1ad9905ccafb1cd73137ffe4ebb9d0f6cd880f758f68ee628c85b836`.
+The public APK has only the 72 credited rune assets, no ROM/disks/game archive,
+and the same prototype certificate. The personal artifact stays local at
+`scratch/poolrad-macmaps-0.12.0-personal.apk`; it is not a public release asset.
+
+Physical e-ink/stylus, full-game mode presentation, all-area playthrough and
+instruction-level continuity remain explicitly unclaimed. Hardware N3/Q1 and
+the remaining M2/P1 queue are not closed by these software checks.
+
 ## M1 named area identity (0.11.0, 2026-09-14)
 
 Public and local-only personal universal/all-four-ABI APKs build, versionCode 76.

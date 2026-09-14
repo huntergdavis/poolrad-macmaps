@@ -16,15 +16,19 @@ import java.util.Collections;
 import java.util.List;
 import java.util.HashSet;
 import java.util.Set;
+import java.security.MessageDigest;
 import name.osher.gil.minivmac.LiveMapView;
+import name.osher.gil.minivmac.MapArtwork;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.PartyState;
+import name.osher.gil.minivmac.mapper.PoolRadState;
+import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /**
  * Focused checks of the actual LiveMapView on Android software Canvas.
- * Synthetic PRP1/PRP2/PRM1 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
+ * Synthetic PRP1/PRP2/PRM1/PRM3 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
  * Reuses CompositeSheetRenderCheck's system-context harness and PartyStateTest's packet layout.
  *
  * Compile from the repository root (no Gradle or running app required):
@@ -33,7 +37,7 @@ import name.osher.gil.minivmac.mapper.PartyState;
  *   javac --release 8 -cp /usr/lib/android-sdk/platforms/android-34/android.jar \
  *     -d "$check_dir/classes" tools/PartyPaneRenderCheck.java \
  *     "$source_dir/LiveMapView.java" "$source_dir/MapArtwork.java" \
- *     "$source_dir/notebook/NoteIcon.java" \
+ *     "$source_dir/notebook/NoteIcon.java" "$source_dir/notebook/ExplorationTrail.java" \
  *     "$source_dir/mapper/PartyState.java" "$source_dir/mapper/PartyPaneLayout.java" \
  *     "$source_dir/mapper/MapViewport.java" "$source_dir/mapper/PoolRadState.java" \
  *     "$source_dir/mapper/GeoMap.java" "$source_dir/mapper/AreaIdentity.java"
@@ -303,6 +307,84 @@ public final class PartyPaneRenderCheck {
             view.showPartySample(maximum);checkBars(render(view),pane(view,6),maximum);
         });
 
+        run("safe area A to unsafe area B clears A's stored shading and footprints", () -> {
+            SyntheticAreas areas = new SyntheticAreas();
+            LiveMapView view = view(null, 960, 480);
+            ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
+            PoolRadState first = areas.state(0, true, 1), second = areas.state(20, false, 2);
+            showState(view, first); view.setExplorationStyle(true, true);
+            view.showExploration(walkedTrail(), "Synthetic A trail");
+            assertMap(view, first, walkedTrail(), true, "Initial safe A overlay");
+            showState(view, second);
+            check(view.displayedArea().equals(second.area), "Unsafe B did not replace displayed A");
+            check(view.currentArea() == null && view.snapshot() == null, "Unsafe B exposed a live position");
+            checkWalked(view, 0);
+            check(listener.areas.equals(Arrays.asList(first.area, second.area)),
+                    "Displayed-area transition failed to request B's own saved trail");
+            assertMap(view, second, ExplorationTrail.empty(), false, "Safe A to unsafe B retained A ink");
+        });
+
+        run("unsafe area A to unsafe area B also clears coverage despite both current areas being null", () -> {
+            SyntheticAreas areas = new SyntheticAreas();
+            LiveMapView view = view(null, 960, 480);
+            ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
+            PoolRadState first = areas.state(0, false, 1), second = areas.state(20, false, 2);
+            showState(view, first); view.setExplorationStyle(true, true);
+            // A stored trail can finish loading while the party position is unavailable.
+            view.showExploration(walkedTrail(), "Synthetic A trail");
+            check(view.currentArea() == null, "Fixture A must have no live current area");
+            assertMap(view, first, walkedTrail(), false, "Initial unavailable A overlay");
+            showState(view, second);
+            check(view.currentArea() == null && view.displayedArea().equals(second.area),
+                    "Unavailable displayed-area transition lost B's identity");
+            checkWalked(view, 0);
+            check(listener.areas.equals(Arrays.asList(first.area, second.area)),
+                    "Two unavailable areas did not invalidate the displayed-area trail");
+            assertMap(view, second, ExplorationTrail.empty(), false, "Unsafe A to unsafe B retained A ink");
+        });
+
+        run("same-area unsafe samples preserve its own visited tiles but remove the live party arrow", () -> {
+            SyntheticAreas areas = new SyntheticAreas();
+            LiveMapView view = view(null, 960, 480);
+            ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
+            PoolRadState safe = areas.state(0, true, 1), unsafe = areas.state(0, false, 2);
+            showState(view, safe); view.setExplorationStyle(true, true);
+            view.showExploration(walkedTrail(), "Synthetic A trail");
+            Bitmap before = render(view);
+            assertMap(view, safe, walkedTrail(), true, "Safe map must show the party arrow");
+            showState(view, unsafe);
+            checkWalked(view, 4);
+            check(view.currentArea() == null && view.snapshot() == null, "Unsafe sample exposed the party position");
+            check(view.displayedArea().equals(safe.area), "Same-area unsafe sample discarded its map identity");
+            check(listener.areas.equals(Collections.singletonList(safe.area)),
+                    "Same-area unavailability unnecessarily invalidated its own stored trail");
+            Bitmap after = render(view);
+            assertMap(view, unsafe, walkedTrail(), false, "Unsafe map lost coverage or retained a party arrow");
+            check(mapChangedPixels(before, after, view) > 10, "Safe-to-unsafe map pixels did not remove the arrow");
+            Bitmap blank = expectedMap(view, unsafe, ExplorationTrail.empty(), false);
+            check(mapChangedPixels(after, blank, view) > 10, "Retained visited squares have no visible coverage");
+        });
+
+        run("unchanged safe samples still notify the trail listener, including a new continuity epoch", () -> {
+            SyntheticAreas areas = new SyntheticAreas();
+            LiveMapView view = view(null, 960, 480);
+            ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
+            PoolRadState first = areas.state(0, true, 1), repeated = areas.state(0, true, 1);
+            PoolRadState newEpoch = areas.state(0, true, 0x80000002L);
+            check(first.sameDisplay(repeated) && first.sameDisplay(newEpoch),
+                    "Fixture must exercise the real unchanged-display early return");
+            showState(view, first); view.setExplorationStyle(true, true);
+            view.showExploration(walkedTrail(), "Synthetic A trail");
+            Bitmap before = render(view);
+            showState(view, first); showState(view, repeated); showState(view, newEpoch);
+            check(listener.samples.size() == 4, "An unchanged sample skipped the continuity listener");
+            check(listener.samples.get(3) == newEpoch && listener.samples.get(3).continuityToken == 0x80000002L,
+                    "Continuity listener received an old snapshot instead of the latest epoch");
+            check(listener.areas.equals(Collections.singletonList(first.area)),
+                    "An unchanged display needlessly reset the stored area trail");
+            checkWalked(view, 4); equal(before, render(view), "Unchanged samples altered visible coverage");
+        });
+
         System.out.println("PASS " + passed + " party-pane actual Android View/software-Canvas checks; "
                 + "synthetic samples only, no live-RAM/combat/GPU/e-ink/stylus acceptance.");
     }
@@ -345,6 +427,124 @@ public final class PartyPaneRenderCheck {
         for (int tile=0; tile<256; tile++)
             sample[176+tile]=(byte)((tile%16%4==0 ? 1 : 0) | (tile/16%3==0 ? 0x10 : 0));
         return sample;
+    }
+
+    /** Uses the actual production parser with invented, independently hashed geometry. */
+    private static final class SyntheticAreas {
+        private final byte[][] packets = {mapPacket(), mapPacket()};
+        private final Object catalog;
+        private final java.lang.reflect.Method parse;
+
+        SyntheticAreas() {
+            packets[1][176] ^= 0x40; // A second exact, distinct immutable prefix, not a private game map.
+            String[] exact = new String[2], prefix = new String[2];
+            for (int i = 0; i < 2; i++) {
+                int id = i == 0 ? 0 : 20;
+                exact[i] = id + " " + digest(packets[i], 176, 1200);
+                prefix[i] = id + " " + digest(packets[i], 176, 176 + 768);
+            }
+            try {
+                Class<?> type = Class.forName("name.osher.gil.minivmac.mapper.AreaIdentity$Catalog");
+                java.lang.reflect.Constructor<?> constructor = type.getDeclaredConstructor(String[].class, String[].class);
+                constructor.setAccessible(true);
+                catalog = constructor.newInstance(new Object[]{exact, prefix});
+                parse = PoolRadState.class.getDeclaredMethod("parse", byte[].class, type);
+                parse.setAccessible(true);
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError("Cannot construct the synthetic production-parser catalog", failure);
+            }
+        }
+
+        PoolRadState state(int id, boolean safe, long epoch) {
+            check(id == 0 || id == 20, "Synthetic area must be A or B");
+            byte[] sample = packets[id == 0 ? 0 : 1].clone();
+            sample[3] = '3'; sample[25] = 1; sample[26] = (byte) (safe ? 1 : 0);
+            sample[27] = (byte) (safe ? 4 : 2);
+            for (int i = 0; i < 4; i++) sample[28 + i] = (byte) (epoch >>> (24 - i * 8));
+            sample[32] = 1; sample[33] = 1; sample[34] = 0; sample[35] = (byte) id;
+            try {
+                PoolRadState value = (PoolRadState) parse.invoke(null, sample, catalog);
+                check(value != null && value.area != null && value.area.id().equals("por-mac-v11-geo-" + id),
+                        "Synthetic PRM3 fixture failed actual canonical identity parsing");
+                check(value.hasExplorationMetadata && value.explorationSafe == safe && value.continuityToken == epoch,
+                        "Synthetic PRM3 fixture failed actual continuity/safety parsing");
+                return value;
+            } catch (ReflectiveOperationException failure) {
+                throw new AssertionError("Cannot parse the synthetic PRM3 fixture", failure);
+            }
+        }
+    }
+
+    private static String digest(byte[] input, int from, int to) {
+        try {
+            byte[] hash = MessageDigest.getInstance("SHA-256").digest(Arrays.copyOfRange(input, from, to));
+            StringBuilder hex = new StringBuilder(64);
+            for (byte value : hash) {
+                hex.append("0123456789abcdef".charAt((value & 255) >>> 4));
+                hex.append("0123456789abcdef".charAt(value & 15));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException failure) { throw new AssertionError(failure); }
+    }
+
+    private static final class ExplorationListener implements LiveMapView.Listener {
+        final List<AreaIdentity> areas = new ArrayList<>();
+        final List<PoolRadState> samples = new ArrayList<>();
+        @Override public void onAreaChanged(AreaIdentity area) { }
+        @Override public void onTileTapped(AreaIdentity area, int x, int y) { }
+        @Override public void onExplorationAreaChanged(AreaIdentity area) { areas.add(area); }
+        @Override public void onExplorationSample(PoolRadState sample) { samples.add(sample); }
+    }
+
+    private static void showState(LiveMapView view, PoolRadState state) {
+        // Only bridge the catalog injection boundary: the production View handles
+        // all display availability, invalidation, callbacks, flags and rendering.
+        try {
+            java.lang.reflect.Method method = LiveMapView.class.getDeclaredMethod("showState", PoolRadState.class);
+            method.setAccessible(true); method.invoke(view, state);
+        } catch (ReflectiveOperationException failure) {
+            throw new AssertionError("Cannot exercise the actual View's parsed-state path", failure);
+        }
+    }
+
+    private static ExplorationTrail walkedTrail() {
+        return ExplorationTrail.empty().record(34, -1).record(35, 34).record(51, 35).record(52, 51);
+    }
+
+    private static void checkWalked(LiveMapView view, int count) {
+        check(view.getContentDescription().toString().contains(" " + count + " walked squares."),
+                "Accessible coverage count is stale: " + view.getContentDescription());
+    }
+
+    private static MapViewport mapBounds(LiveMapView view) {
+        PartyPaneLayout pane = pane(view, 0);
+        return new MapViewport(pane.mapWidth, pane.mapHeight, density);
+    }
+
+    private static Bitmap expectedMap(LiveMapView view, PoolRadState state, ExplorationTrail trail, boolean showArrow) {
+        Bitmap bitmap = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
+        BITMAPS.add(bitmap);
+        Canvas canvas = new Canvas(bitmap); canvas.drawColor(Color.WHITE);
+        MapViewport map = mapBounds(view); MapArtwork artwork = new MapArtwork();
+        artwork.drawExploration(canvas, state.map, trail, true, true, map.left, map.top, map.cell, density);
+        artwork.drawMarkers(canvas, Collections.<Integer>emptySet(), state, showArrow,
+                map.left, map.top, map.cell, density);
+        return bitmap;
+    }
+
+    private static void assertMap(LiveMapView view, PoolRadState state, ExplorationTrail trail,
+                                  boolean showArrow, String message) {
+        check(mapChangedPixels(render(view), expectedMap(view, state, trail, showArrow), view) == 0, message);
+    }
+
+    private static int mapChangedPixels(Bitmap first, Bitmap second, LiveMapView view) {
+        MapViewport map = mapBounds(view); int changed = 0;
+        // Exclude only the outer antialiased edge; header/footer text is deliberately
+        // outside this comparison. All 256 tile interiors and their shared walls count.
+        for (int y = (int) Math.ceil(map.top + 1); y < map.top + 16 * map.cell - 1; y++)
+            for (int x = (int) Math.ceil(map.left + 1); x < map.left + 16 * map.cell - 1; x++)
+                if (first.getPixel(x, y) != second.getPixel(x, y)) changed++;
+        return changed;
     }
 
     private static LiveMapView view(byte[] party, int widthDp, int heightDp) {

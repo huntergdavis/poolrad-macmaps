@@ -1,5 +1,12 @@
 # Releases
 
+## 0.12.0 — Follow your own footsteps
+
+[Release notes](releases/0.12.0.md): remembered walked squares, optional
+visited-only fog, directional feet and a bounded route with return directions.
+Exploration belongs to each campaign notebook, survives area changes and is
+included in complete backups. The original game remains unchanged.
+
 ## 0.11.0 — A place for every note
 
 [Release notes](releases/0.11.0.md): 29 named Macintosh areas, verified live

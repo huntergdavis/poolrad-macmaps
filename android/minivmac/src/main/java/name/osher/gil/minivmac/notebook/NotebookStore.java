@@ -27,6 +27,8 @@ public final class NotebookStore {
     private static final int INK_VERSION = 2;
     private static final int BOOK_MAGIC = 0x50524e42; // PRNB
     private static final int INK_MAGIC = 0x50524e49; // PRNI
+    private static final int EXPLORATION_MAGIC = 0x50524558; // PREX
+    static final int MAX_EXPLORATION_BYTES = 1024;
     private static final int MAX_NOTE_BYTES = InkNote.MAX_TOTAL_POINTS * 8
             + InkNote.MAX_STROKES * 9 + 1024;
     private static final int MAX_NOTEBOOKS = 256;
@@ -166,7 +168,9 @@ public final class NotebookStore {
                     requirePendingFile(file); continue;
                 }
                 NotebookArchive.Entry entry = new NotebookArchive.Entry(name + "/" + filename, file);
-                if (!filename.equals("map.ink")) {
+                if (filename.equals("exploration.bin")) {
+                    readExploration(file, id, name);
+                } else if (!filename.equals("map.ink")) {
                     int tile = Integer.parseInt(filename.substring(0, filename.indexOf('.')));
                     StoredNote stored = readInk(file, id, name, tile % 16, tile / 16);
                     if (filename.endsWith(".v1") && stored.version != 1) {
@@ -256,6 +260,55 @@ public final class NotebookStore {
         writeAtomic(new File(directory, "notebook.bin"), BOOK_MAGIC, BOOK_VERSION, bytes.toByteArray());
     }
 
+    /** A missing record means nothing has been observed; malformed records never become empty. */
+    public synchronized ExplorationTrail loadExploration(String notebookId, String areaId) throws IOException {
+        File file = explorationFile(notebookId, areaId, false);
+        return file.exists() ? readExploration(file, notebookId, areaId) : ExplorationTrail.empty();
+    }
+
+    /** Atomic app-private companion history; does not modify any guest disk or game save. */
+    public synchronized void saveExploration(String notebookId, String areaId, ExplorationTrail trail) throws IOException {
+        if (trail == null) throw new IllegalArgumentException("Missing exploration history");
+        File file = explorationFile(notebookId, areaId, true);
+        if (file.exists()) readExploration(file, notebookId, areaId); // Preserve unreadable or future data.
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(notebookId); out.writeUTF(areaId);
+            out.write(trail.copyVisited()); out.writeShort(trail.steps.size());
+            for (ExplorationTrail.Step step : trail.steps) {
+                out.writeShort(step.from); out.writeByte(step.to);
+            }
+        }
+        writeAtomic(file, EXPLORATION_MAGIC, 1, bytes.toByteArray());
+    }
+
+    private File explorationFile(String notebookId, String areaId, boolean create) throws IOException {
+        File parent = areaDirectory(notebookId, areaId, false);
+        File book = new File(root, notebookId);
+        requireDirectChild(root, book); requireDirectChild(book, parent);
+        File file = new File(parent, "exploration.bin");
+        requireDirectChild(parent, file);
+        directory(parent, create);
+        return file;
+    }
+
+    private static ExplorationTrail readExploration(File file, String notebookId, String areaId) throws IOException {
+        Envelope record = readEnvelope(file, EXPLORATION_MAGIC, 1, MAX_EXPLORATION_BYTES);
+        try (DataInputStream in = record.input()) {
+            if (!notebookId.equals(in.readUTF()) || !areaId.equals(in.readUTF()))
+                throw new IOException("Exploration identity does not match its notebook and area");
+            byte[] visited = new byte[32]; in.readFully(visited);
+            int count = in.readUnsignedShort();
+            if (count > ExplorationTrail.MAX_STEPS) throw new IOException("Too many exploration steps");
+            List<ExplorationTrail.Step> steps = new ArrayList<>(count);
+            for (int i = 0; i < count; i++) steps.add(new ExplorationTrail.Step(in.readShort(), in.readUnsignedByte()));
+            if (in.read() != -1) throw new IOException("Unexpected extra exploration data");
+            return ExplorationTrail.restore(visited, steps);
+        } catch (IllegalArgumentException invalid) {
+            throw new IOException("Invalid exploration history", invalid);
+        }
+    }
+
     /** A missing flag is empty ink; listFlags distinguishes it from a saved blank note. */
     public synchronized InkNote read(String notebookId, String areaId, int x, int y)
             throws IOException {
@@ -332,9 +385,9 @@ public final class NotebookStore {
         for (File file : files) {
             String name = file.getName();
             if (name.startsWith(".pending-")) continue; // Interrupted, uncommitted write.
-            // Only this exact internal prototype filename is ignored. Area-wide
-            // map ink was never shipped; it is not a flag or a composite sheet.
-            if (name.equals("map.ink")) continue;
+            // These exact area-wide records are independent of flag notes;
+            // corruption in exploration must not conceal readable handwriting.
+            if (name.equals("map.ink") || name.equals("exploration.bin")) continue;
             if (name.matches("(0|[1-9][0-9]{0,2})\\.ink\\.v1")) {
                 int tile = Integer.parseInt(name.substring(0, name.indexOf('.')));
                 if (tile > 255) throw new IOException("Invalid legacy backup tile");

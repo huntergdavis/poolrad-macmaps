@@ -259,13 +259,13 @@ public final class CompanionLifecycleCheck {
                 MiniVMac fresh=new MiniVMac(); fresh.restoreState(null); fresh.showEmulator();
                 check("map".equals(((EmulatorFragment)fresh._currentFragment).selectedCompanionTab()), "Fresh session did not default Map");
             });
-            run("polling requires resumed, shown companion and Map, not nested map visibility alone", () -> {
+            run("recording requires resumed views, independently of tab or pane visibility", () -> {
                 EmulatorFragment f=fixture(); check(f.companionMapActive(), "Visible resumed Map should be active");
                 f.resumed=false; check(!f.companionMapActive(), "Paused fragment polled"); f.resumed=true;
                 f.mCompanionPane.setVisibility(View.GONE);
-                check(f.mLiveMap.getVisibility()==View.VISIBLE && !f.companionMapActive(), "Hidden ancestor still polled");
+                check(f.companionMapActive(), "Hidden companion lost exploration recording");
                 f.mCompanionPane.setVisibility(View.VISIBLE); f.mCompanionPane.setTab("info");
-                check(!f.companionMapActive(), "Info tab still polled");
+                check(f.companionMapActive(), "Info tab lost exploration recording");
                 f.mCompanionPane.setTab("map"); f.mLiveMap=null; check(!f.companionMapActive(), "Destroyed map polled");
                 f.mLiveMap=new LiveMapView(); f.mCompanionPane=null; check(!f.companionMapActive(), "Destroyed pane polled");
             });
@@ -292,9 +292,9 @@ public final class CompanionLifecycleCheck {
             run("tab and visibility changes retain selection, focus guest and do not pause or restart it", () -> {
                 EmulatorFragment f=fixture(); f.startMapPolling(); Core core=f.mCore; LiveMapView map=f.mLiveMap;
                 f.mCompanionPane.setTab("info");
-                check(!f.mMapPolling && f.mUIHandler.pending.isEmpty(), "Info left map polling active");
+                check(f.mMapPolling && f.mUIHandler.pending.size()==1, "Info interrupted or duplicated recording");
                 f.setCompanionVisible(false); f.setCompanionVisible(true);
-                check("info".equals(f.selectedCompanionTab()) && !f.mMapPolling, "Show/hide changed Info or restarted Map polling");
+                check("info".equals(f.selectedCompanionTab()) && f.mMapPolling, "Show/hide interrupted recording or changed Info");
                 f.mCompanionPane.setTab("map");
                 check(f.mMapPolling && f.mUIHandler.pending.size()==1 && f.mScreenView.focus==2, "Map return lacked one fresh poll/guest focus");
                 check(f.mLiveMap==map && f.mCore==core, "Tab change replaced map or native Core");
@@ -306,7 +306,7 @@ public final class CompanionLifecycleCheck {
             run("actual callbacks reject old generations and old Core but accept fresh returned samples", () -> {
                 EmulatorFragment f=fixture(); f.startMapPolling(); f.bindSamples(); f.mUIHandler.pending.clear();
                 Core old=f.mCore; old.mapListener.accept(new byte[]{1}); old.partyListener.accept(new byte[]{1});
-                f.mCompanionPane.setTab("info"); f.mCompanionPane.setTab("map"); f.mUIHandler.runQueued();
+                f.stopMapPolling(); f.startMapPolling(); f.mUIHandler.runQueued();
                 check(f.mLiveMap.mapUpdates==0 && f.mLiveMap.partyUpdates==0, "Stale generation revived arrow or HP");
                 f.mUIHandler.pending.clear(); old.mapListener.accept(new byte[]{1}); old.partyListener.accept(new byte[]{1});
                 f.mCore=new Core(); f.bindSamples(); f.mUIHandler.runQueued();
@@ -314,21 +314,21 @@ public final class CompanionLifecycleCheck {
                 f.mCore.mapListener.accept(new byte[]{1}); f.mCore.partyListener.accept(new byte[]{1}); f.mUIHandler.runQueued();
                 check(f.mLiveMap.mapUpdates==1 && f.mLiveMap.partyUpdates==1, "Fresh returned samples were not displayed");
             });
-            run("callbacks independently refuse hidden or paused pane even before explicit generation invalidation", () -> {
+            run("callbacks record while hidden but reject paused activity before generation invalidation", () -> {
                 EmulatorFragment f=fixture(); f.startMapPolling(); f.bindSamples(); f.mUIHandler.pending.clear();
                 f.mCore.mapListener.accept(new byte[]{1}); f.mCore.partyListener.accept(new byte[]{1});
                 f.mCompanionPane.visibility=View.GONE; f.mUIHandler.runQueued();
-                check(f.mLiveMap.mapUpdates==0 && f.mLiveMap.partyUpdates==0, "Hidden pane accepted queued samples");
+                check(f.mLiveMap.mapUpdates==1 && f.mLiveMap.partyUpdates==1, "Hidden pane lost valid recording samples");
                 f.mCompanionPane.visibility=View.VISIBLE; f.resumed=false;
                 f.mCore.mapListener.accept(new byte[]{1}); f.mCore.partyListener.accept(new byte[]{1}); f.mUIHandler.runQueued();
-                check(f.mLiveMap.mapUpdates==0 && f.mLiveMap.partyUpdates==0, "Paused pane accepted queued samples");
+                check(f.mLiveMap.mapUpdates==1 && f.mLiveMap.partyUpdates==1, "Paused pane accepted queued samples");
             });
-            run("actual pause/resume stops and resumes Map; Info stays quiet while wheel resumes independently", () -> {
+            run("actual pause/resume stops and resumes recording on both tabs; wheel remains independent", () -> {
                 EmulatorFragment f=fixture(); f.startMapPolling(); f.onPause();
                 check(!f.mMapPolling && f.mUIHandler.pending.isEmpty() && f.mCore.pauses==1, "Pause left polling or failed normal guest pause");
                 f.onResume(); check(f.mMapPolling && f.mCore.resumes==1, "Visible Map failed to resume normally");
                 f.mCompanionPane.setTab("info"); f.onPause(); f.onResume();
-                check(!f.mMapPolling && f.mUIHandler.pending.isEmpty(), "Info resumed map polling");
+                check(f.mMapPolling && f.mUIHandler.pending.size()==1, "Info failed to resume exploration recording");
                 check(f.wheelStarts==2 && f.wheelStops==2 && f.restarts==0, "Wheel incorrectly followed selected tab or guest restarted");
             });
             System.out.println("PASS " + passed + " actual companion lifecycle checks; recording fixtures only, no Android/device acceptance");

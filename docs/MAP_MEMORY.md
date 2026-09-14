@@ -136,3 +136,134 @@ GEO `0` for all New Phlan samples and `20` for Slums. These are actual input
 checks, not claims of all-area playthrough, physical e-ink/stylus acceptance,
 or M3's complete save/load route. Live transition and door-interaction evidence
 is recorded separately in [AREA_IDENTITY.md](AREA_IDENTITY.md).
+
+## PRM3: settled exploration, not combat coordinates
+
+F10 adds a narrow **positive exploration gate**, independent of map identity.
+A combat screenshot and its read-only capture have presentation mode `1` just
+like exploration: that byte alone cannot authorize footprints or a live walking
+arrow. The additional fields come from the same original Macintosh executable,
+not a DOS profile or a list of values observed without code evidence.
+
+| A5-relative field | Required value | Verified use |
+| --- | --- | --- |
+| `−0x5e90`, engine/layout byte | `4` | CODE 3 `+0x2d40` initializes the local exploration view. CODE 9 combat entry `+0x54` writes `5` at `+0x5a`; CODE 4 camp entry `+0x1c2a` writes `2` at `+0x1c36`, restoring the previous value at exit. Outdoor paths select `3`. |
+| `−0x617e`, active input tag | `0x56` | Ordinary movement loop CODE 4 `+0x5e08..0x5e3e` clears pending input, sets this tag, calls the input reader, then clears the tag **before** acting on its result. This tag is not unique to movement: engine/startup checks below are also mandatory. |
+| `−0x60a4`, pending input byte | `0` | Cleared at CODE 4 `+0x5e08` immediately before entering that input wait. An already pending action is not a settled sample. |
+| `−0x5ed4`, big-endian menu-state word | `2` | CODE 2 `+0x7432` / `+0x747c` store the current menu classification before updating enabled items. Case `2` of `+0x432a` reaches `+0x4574`, disabling File **Load Saved Game**, **Save Current Game**, and **Begin Adventuring**. |
+| `−0x30e1`, initial party/load flag | `0` | CODE 7 `+0x1df6` sets `1` before initial party selection and the saved-game loader; `+0x1e34` clears it after successful loading. The manual File-load completion path clears it at CODE 2 `+0x3f92`. |
+| `−0x5e8b`, pending loaded-game continuation | `0` | Successful automatic/manual load sets it at CODE 7 `+0x1e30` / CODE 2 `+0x3f8e`; the script initialization path consumes it at CODE 5 `+0x43a`. |
+| `−0x1921`, script-coordinate relocation flag | `0` | Script variable setters CODE 5 `+0xfbe`, `+0xfce`, and `+0x1026` mark relocation before coordinate changes. The redraw path tests it at `+0x2e1e` and clears it at `+0x2e3c`. Ordinary movement CODE 4 `+0x5ad6` changes coordinates without this flag. |
+
+The loading checks matter: CODE 2's saved-game reader restores the engine byte
+at `+0x3354..0x3358` **before** all state/maps finish loading. Merely seeing
+engine `4` would accept an intermediate load. The initial-load flag, pending
+loaded-game flag, and actual menu eligibility close that known path. Root's
+separate live `f10-file-walking.png` screenshot confirms all three File commands
+above are disabled during ordinary exploration. Camp is rejected independently,
+even if it uses input tag `0x56` and the same local geometry.
+
+These predicates are added to the existing bounded application, A5, geometry,
+state-handle, local-mode, and record-number checks. Java must **still** authenticate
+the exact immutable prefix against the reported GEO ID. Unknown/malformed state
+is not an exploration sample. An unsafe sample may retain an authenticated area
+map for viewing; it cannot authorize a new visited tile or movement arrow.
+
+### Host-only continuity token
+
+`poolrad_walk_tracker` lives on the emulator thread and never writes guest RAM.
+`OSGLUJNI.c` observes it once on entry to `WaitForNextTick`, not merely when the
+Android UI asks for a map. `poolrad_walk_probe` observes once more at delivery.
+Entering a hard discontinuity (camp/combat/outdoors, loading/relocation flag,
+non-exploration menu, or an invalid current-game profile) changes its epoch. A changed A5,
+geometry address, state address, or GEO number also changes it. Addresses serve
+only as conservative continuity breaks; they never become saved area keys.
+
+**Clearing the input tag or receiving pending input alone does not change the
+epoch.** Normal walking itself does that between every step. Java identifies a
+PRM3 version-1 packet with `safe=0` and engine `4` as `explorationProcessing`:
+it records nothing and leaves the previous safe observation unchanged, rather
+than interrupting the route during each ordinary action. The next safe sample
+must still have the same native epoch, notebook, and area, be adjacent to the
+last safe position, and arrive within 1,250 ms of that observation. Processing
+frames do not refresh that deadline. A loading/menu/script change may also have
+engine `4`, but its native epoch change prevents joining across it. Repeated
+observation of the same hard interval does not repeatedly advance the token. Native restart
+advances the sequence; unsigned-32-bit exhaustion disables recording instead of
+wrapping to an earlier token.
+
+System 7 background scheduling is **not** such a discontinuity. Apple's
+[context-switching documentation](https://dev.os9.ca/techpubs/mac/Toolbox/Toolbox-34.html)
+explains that a minor switch can leave the game's windows frontmost while
+replacing its A5 world and application-specific low-memory environment.
+[CurrentA5 belongs to the currently executing process](https://dev.os9.ca/techpubs/mac/Memory/Memory-10.html),
+not necessarily the frontmost window. Actual `f7-combat-active-1.ram` and
+`-3.ram` contain Finder's name/A5 while `-2.ram` contains the game's. The first
+live F10 trial also exposed the consequence: two correctly visited tiles but
+repeated disconnected anchors rather than the observed one-tile step.
+
+The corrected **tick observer only** treats a bounded, nonempty, different
+application name as an observation gap. It leaves the prior context, epoch,
+and any already observed hard break unchanged. It never dereferences a cached
+game pointer while another process is current. A malformed name/truncated RAM,
+or the exact game name with invalid A5/map/state, still breaks continuity.
+An actual Android map request during a background-process interval still returns
+unavailable and breaks the consumer's segment. On return to the game, every
+normal profile and continuity check runs again. This removes an artificial
+per-scheduling-slice epoch break; it does not pretend to observe execution during
+the gap or weaken the separate loading/combat guards.
+
+This is sampled evidence, not an instruction-by-instruction execution log.
+A transition completely between native observations can be missed. The consumer
+therefore also breaks on missing samples, non-processing unsafe samples, time
+gaps, context changes, and nonadjacent movement. Skipped local-processing frames
+cannot authorize a tile or bypass the next safe sample's checks; the consumer
+must never interpolate an unobserved route or infer
+direction from facing alone. No claim is made to detect every possible game
+script, every tactical combat state, or the exact stage of a map redraw. Those
+broader mode/presentation details remain outside this narrow F10 gate.
+
+### Wire format and checks
+
+PRM3 keeps 1,200 bytes and all PRM2 identity/geometry offsets. Its explicit magic
+is essential: PRM1/2 copied unchecked trailing bytes from the diagnostic app-name
+buffer, so a plausible-looking extension in an old packet is not trustworthy.
+
+| Bytes | PRM3 meaning |
+| --- | --- |
+| `0..3` | `PRM3` |
+| `25` | Movement-profile version, exactly `1` |
+| `26` | Settled exploration: exactly `0` or `1` |
+| `27` | Raw verified engine byte; `255` if unavailable |
+| `28..31` | Big-endian unsigned continuity epoch; `0` disables tracking |
+| `32..1199` | Unchanged PRM2 identity, diagnostic, globals, and geometry fields |
+
+The original `poolrad_probe` still emits PRM2 for independent party readers and
+legacy diagnostic tools. Only the tracked map-delivery wrapper emits PRM3;
+legacy PRM1/2 maps never enable movement recording.
+
+Native address/undefined-behavior sanitizer tests cover all input-tag, pending
+input, engine, and low menu values; each hard-break field; ordinary busy/turn/move
+sequences that retain the epoch; area round trips between UI polls; A5, map, and
+state relocation; invalid/short RAM; restart; overflow; and unchanged guest RAM.
+Additional regressions cover safe game → Finder ticks → same safe game preserving
+the epoch; a real game hard break surviving intervening Finder ticks; requested
+Finder samples remaining unavailable; and malformed names/current-game A5 still
+breaking the epoch.
+Existing map, party, and wheel native suites also pass.
+
+Read-only replay of actual captures gives these independently labeled results:
+
+| Capture | Result |
+| --- | --- |
+| `m1-new-phlan-before.ram` (Rolf introduction) | Unsafe: local engine `4`, but not at the movement input wait |
+| `m1-slums-arrival.ram`, `m1-slums-settled.ram` | Safe: local exploration engine `4` |
+| `m1-new-phlan-return.ram`, `m1-upgrade-reload.ram` | Safe: settled New Phlan after return/reload |
+| `f7-combat-active-2.ram` | Unsafe: combat engine `5`, despite local presentation `1` |
+| `f10-walking.ram` | Safe: New Phlan `(0,4)` east after dismissing the File menu |
+| `f10-camp.ram` | Unsafe: camp engine `2`, same area and coordinates |
+
+This verifies the positive and negative native inputs; end-to-end rendering,
+on-device acceptance, and physical e-ink/stylus behavior are separate checks.
+The mandatory F10 `deja` recall timed out without reusable results; this work
+reuses the existing M1 probe and private resource-disassembly tooling.

@@ -18,11 +18,16 @@ below the game. Switching tabs never replaces, pauses or restarts the emulator.
 **Map** retains the map, flag pages and [compact party sidebar](PARTY.md):
 HP bars, AC, class symbols and tap-for-details when there is room. The sidebar
 collapses in narrow/short windows without reducing the guest's allocation.
-**Info** groups five working tools: Levels & skills, Spells, Weapons & armor,
-Money conversion, and the illustrated Code wheel. A tool opens within the
-companion's actual rectangle; Close returns to Info. Lists scroll inside that
-space, including when the guest keyboard makes it shorter. No search keyboard,
-swipe navigation, flashing marker or animated tab transition is added.
+Walked squares and recorded directional footprints stay with each notebook's
+area; optional fog hides unvisited geometry without changing the original game.
+**Info** groups six working tools, in order: **Exploration trail**, Levels &
+skills, Spells, Weapons & armor, Money conversion, and the illustrated Code
+wheel. [Exploration trail](EXPLORATION.md) controls fog, footprints and the
+recent observed route, with separate confirmed actions to clear feet or reset
+coverage. A tool opens within the companion's actual rectangle; Close returns
+to Info. Lists scroll inside that space, including when the guest keyboard
+makes it shorter. No search keyboard, swipe navigation, flashing marker or
+animated tab transition is added.
 
 [Actual Info + game screenshot](images/companion-info.png), captured in the
 Android emulator during Rolf's introduction, not a mockup or physical tablet.
@@ -39,9 +44,14 @@ Desktop appearance while the companion is hidden reveals it first.
 - A fresh session starts on Map. Activity/fragment saved state carries stable
   `map`/`info` IDs through restoration; unknown IDs fall back to Map.
 - One `LiveMapView` and notebook controller stay mounted across tab changes.
-  Map/party polling runs only while resumed, shown and on Map. Leaving Map
-  clears the live arrow/HP claim but retains geometry; returning requests a
-  fresh sample. Old-generation and old-core callbacks are rejected.
+  Map/party polling and eligible exploration recording continue while the
+  activity is resumed, including on Info or with the companion hidden. Tab
+  selection and hide/show do not reset the trail or its sampling continuity.
+  Backgrounding or destroying the activity stops sampling and breaks
+  continuity; stale live arrow/HP claims are cleared while geometry and saved
+  coverage remain. Resuming requests fresh samples. Old-generation and
+  old-core callbacks are rejected. The [exploration guide](EXPLORATION.md)
+  explains which game states can authorize a recorded step.
 - Automatic code-wheel recognition remains independent of tab selection.
   Manual code entry retains its existing dialog host and ordinary keystrokes.
 - Companion touches stay in the pane. Controls do not take hardware-key focus

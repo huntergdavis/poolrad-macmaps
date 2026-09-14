@@ -3,6 +3,7 @@
     <string name="companion_tab_map">Map</string>
     <string name="companion_tab_info">Info</string>
     <string name="companion_tab_accessibility">%1$s tab</string>
+    <string name="companion_tool_exploration">Exploration trail</string>
     <string name="companion_tool_levels">Levels &amp; skills</string>
     <string name="companion_tool_spells">Spells</string>
     <string name="companion_tool_equipment">Weapons &amp; armor</string>

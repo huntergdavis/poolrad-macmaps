@@ -22,6 +22,170 @@ static void fixture(uint32_t globals, uint32_t handle, uint32_t map) {
     put32(0x2200, 0x6000); put32(0x5ff8, 0x80000808);
     ram[a5 - POOLRAD_MODE_BACK] = 1;
     ram[0x618b] = 20;
+    ram[a5 - POOLRAD_ENGINE_BACK] = 4;
+    if (a5 >= POOLRAD_INPUT_TAG_BACK) ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0x56;
+    ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = 2;
+}
+static void walk_tests(void) {
+    const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
+    poolrad_walk_tracker tracker = {0};
+    fixture(0x8000, 0x2000, 0x4000);
+    unsigned char original[sizeof(ram)];
+    memcpy(original, ram, sizeof(ram));
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+    assert(memcmp(output, "PRM3", 4) == 0);
+    assert(output[25] == 1 && output[26] == 1 && output[27] == 4);
+    assert(poolrad_u32(output + 28) == 1 && tracker.epoch == 1);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 1 && memcmp(original, ram, sizeof(ram)) == 0);
+    /* A System 7 minor switch swaps low-memory app/A5 without moving the game.
+     * Tick gaps preserve the token, but never become a fabricated UI sample. */
+    ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
+    put32(0x904, 0x3000);
+    for (int tick = 0; tick < 12; tick++) poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 1 && tracker.a5 == a5 && !tracker.discontinuity);
+    memcpy(ram, original, sizeof(ram));
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch == 1);
+    /* Ordinary action processing is unavailable if sampled, but must not
+     * advance the epoch at every core tick and erase every real step. */
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0;
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 1);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && !output[26]);
+    ram[0x8052] = 14;
+    ram[0x8054] = 0; // A turn alone is not a continuity break or a footstep.
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0x56;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch == 1);
+    for (unsigned value = 0; value < 256; value++) {
+        ram[a5 - POOLRAD_INPUT_TAG_BACK] = value;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (value == 0x56) && tracker.epoch == 1);
+    }
+    ram[a5 - POOLRAD_INPUT_TAG_BACK] = 0x56;
+    for (unsigned value = 0; value < 256; value++) {
+        ram[a5 - POOLRAD_PENDING_INPUT_BACK] = value;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (value == 0) && tracker.epoch == 1);
+    }
+    ram[a5 - POOLRAD_PENDING_INPUT_BACK] = 0;
+    /* A real hard break must survive intervening background-process ticks. */
+    ram[a5 - POOLRAD_ENGINE_BACK] = 2;
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 2 && tracker.discontinuity);
+    ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
+    put32(0x904, 0x3000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch == 2 && tracker.discontinuity);
+    fixture(0x8000, 0x2000, 0x4000);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch == 2 && !tracker.discontinuity);
+    /* By contrast, an actual requested Finder sample emits nothing and breaks
+     * the route. Ignoring a tick cannot relax the map-delivery profile guard. */
+    ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
+    assert(!poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+    assert(tracker.epoch > 2 && tracker.discontinuity);
+    fixture(0x8000, 0x2000, 0x4000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    uint32_t before_invalid = tracker.epoch;
+    put32(0x904, 1); // The game name with corrupt A5 is NOT a background gap.
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch > before_invalid && tracker.discontinuity);
+    const unsigned bad_names[] = {0, 32, 255};
+    for (unsigned i = 0; i < sizeof(bad_names) / sizeof(bad_names[0]); i++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        poolrad_walk_observe(ram, sizeof(ram), &tracker);
+        before_invalid = tracker.epoch;
+        ram[0x910] = bad_names[i];
+        poolrad_walk_observe(ram, sizeof(ram), &tracker);
+        assert(tracker.epoch > before_invalid && tracker.discontinuity);
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    before_invalid = tracker.epoch;
+    poolrad_walk_observe(ram, 0x920, &tracker);
+    assert(tracker.epoch > before_invalid && tracker.discontinuity);
+    /* Combat/camp/load/outdoor and script-relocation signals break even when
+     * they start and end between Android requests (observe, no probe). */
+    const uint32_t guards[] = { POOLRAD_ENGINE_BACK, POOLRAD_MENU_STATE_BACK,
+        POOLRAD_STARTUP_BACK, POOLRAD_LOADED_BACK, POOLRAD_RELOCATION_BACK,
+        POOLRAD_MODE_BACK };
+    for (unsigned i = 0; i < sizeof(guards) / sizeof(guards[0]); i++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        poolrad_walk_observe(ram, sizeof(ram), &tracker);
+        uint32_t previous = tracker.epoch;
+        unsigned char old = ram[a5 - guards[i]];
+        ram[a5 - guards[i]] = 255;
+        poolrad_walk_observe(ram, sizeof(ram), &tracker);
+        assert(tracker.epoch > previous);
+        uint32_t interrupted = tracker.epoch;
+        poolrad_walk_observe(ram, sizeof(ram), &tracker);
+        assert(tracker.epoch == interrupted);
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && !output[26]);
+        ram[a5 - guards[i]] = old;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+        assert(poolrad_u32(output + 28) > previous);
+    }
+    for (unsigned engine = 0; engine < 256; engine++) {
+        ram[a5 - POOLRAD_ENGINE_BACK] = engine;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (engine == 4) && output[27] == engine);
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    for (unsigned menu = 0; menu < 256; menu++) {
+        ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = menu;
+        assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[26] == (menu == 2));
+    }
+    fixture(0x8000, 0x2000, 0x4000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    uint32_t previous = tracker.epoch;
+    ram[0x618b] = 0;
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    ram[0x618b] = 20;
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch > previous); // Area round trip entirely between polls.
+    previous = tracker.epoch;
+    memcpy(ram + 0x7000 - 8, ram + 0x6000 - 8, 2056);
+    put32(0x2200, 0x7000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch > previous); // The same ID at a moved state pointer.
+    previous = tracker.epoch;
+    memcpy(ram + 0x5000 - 8, ram + 0x4000 - 8, 1032);
+    put32(0x2000, 0x5000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch > previous);
+    previous = tracker.epoch;
+    fixture(0x9000, 0x3000, 0x5000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    assert(tracker.epoch > previous); // Independent A5 relocation.
+    previous = tracker.epoch;
+    ram[0x911] = 'X';
+    assert(!poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+    assert(tracker.epoch > previous);
+    fixture(0x8000, 0x2000, 0x4000);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(!poolrad_walk_probe(NULL, sizeof(ram), &tracker, output));
+    assert(!poolrad_walk_probe(ram, sizeof(ram), &tracker, NULL));
+    assert(poolrad_walk_probe(ram, sizeof(ram), NULL, output));
+    assert(!output[26] && poolrad_u32(output + 28) == 0);
+    poolrad_walk_observe(NULL, 0, NULL);
+    poolrad_walk_reset(NULL);
+    fixture(0x24c0, 0x2000, 0x4000); // Valid older map, insufficient A5 guard interval.
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+    assert(!output[26] && output[27] == 255);
+    fixture(0x8000, 0x2000, 0x4000);
+    poolrad_walk_observe(ram, sizeof(ram), &tracker);
+    previous = tracker.epoch;
+    poolrad_walk_reset(&tracker);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output) && output[26]);
+    assert(tracker.epoch > previous);
+    tracker.epoch = UINT32_MAX;
+    poolrad_walk_reset(&tracker);
+    assert(poolrad_walk_probe(ram, sizeof(ram), &tracker, output));
+    assert(!output[26] && poolrad_u32(output + 28) == 0 && tracker.exhausted);
+    puts("Movement probe: PRM3 settled-input gate, combat/load rejection and continuity passed.");
 }
 static void unknown_identity(void) {
     assert(poolrad_probe(ram, sizeof(ram), output));
@@ -38,11 +202,14 @@ static void replay(const char *path) {
     unsigned char *capture = malloc((size_t)length);
     assert(capture && fread(capture, 1, (size_t)length, file) == (size_t)length);
     assert(fclose(file) == 0);
-    int valid = poolrad_probe(capture, (size_t)length, output);
+    poolrad_walk_tracker tracker = {0};
+    int valid = poolrad_walk_probe(capture, (size_t)length, &tracker, output);
     printf("Capture %s: %s", path, valid ? "map" : "unavailable");
     if (valid) printf(" mode=%u identity-valid=%u GEO=%u x=%u y=%u facing=%u",
         output[32], output[33], ((unsigned)output[34] << 8) | output[35],
         output[130], output[131], output[132] / 2);
+    if (valid) printf(" exploration-safe=%u engine=%u epoch=%u", output[26], output[27],
+        poolrad_u32(output + 28));
     puts("");
     free(capture);
 }
@@ -137,6 +304,7 @@ int main(int argc, char **argv) {
     assert(poolrad_probe(ram, sizeof(ram), output) && output[35] == 20);
     assert(output[176 + 768] == ram[0x4300]);
     puts("Map probe: PRM2 identity, modes, logical heap sizes, relocation and bounds passed.");
+    walk_tests();
     for (int i = 1; i < argc; i++) replay(argv[i]);
     return 0;
 }

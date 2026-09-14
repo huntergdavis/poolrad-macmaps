@@ -17,7 +17,7 @@ public final class CompanionPane extends LinearLayout {
     public static final String MAP = "map";
     public static final String INFO = "info";
 
-    public enum Tool { LEVELS, SPELLS, EQUIPMENT, MONEY, WHEEL }
+    public enum Tool { EXPLORATION, LEVELS, SPELLS, EQUIPMENT, MONEY, WHEEL }
     public interface OnTabSelectedListener { void onTabSelected(String tab); }
     public interface OnToolSelectedListener { void onToolSelected(Tool tool); }
 
@@ -74,6 +74,7 @@ public final class CompanionPane extends LinearLayout {
         tools.setOrientation(VERTICAL);
         tools.setPadding(dp(8), dp(6), dp(8), dp(6));
         tools.setFocusable(false);
+        addTool(tools, Tool.EXPLORATION, R.id.companion_tool_exploration, R.string.companion_tool_exploration);
         addTool(tools, Tool.LEVELS, R.id.companion_tool_levels, R.string.companion_tool_levels);
         addTool(tools, Tool.SPELLS, R.id.companion_tool_spells, R.string.companion_tool_spells);
         addTool(tools, Tool.EQUIPMENT, R.id.companion_tool_equipment, R.string.companion_tool_equipment);

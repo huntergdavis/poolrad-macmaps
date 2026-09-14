@@ -192,15 +192,15 @@ public class EmulatorFragment extends Fragment
     }
 
     private boolean companionMapActive() {
-        return isResumed() && mLiveMap != null && mCompanionPane != null
-                && mCompanionPane.getVisibility() == View.VISIBLE && mCompanionPane.isMapSelected();
+        // User-owned exploration keeps recording while Info is selected or the
+        // companion is hidden. Pausing/destroying the activity still stops it.
+        return isResumed() && mLiveMap != null && mCompanionPane != null;
     }
 
     String selectedCompanionTab() { return mSelectedCompanionTab; }
 
     private void onCompanionTabSelected(String tab) {
         mSelectedCompanionTab = tab;
-        startMapPolling();
         mScreenView.requestFocus();
     }
 
@@ -223,7 +223,6 @@ public class EmulatorFragment extends Fragment
         PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
                 .putBoolean(PREF_SHOW_COMPANION, show).apply();
         requireActivity().invalidateOptionsMenu();
-        startMapPolling();
     }
 
     private void cancelPendingCompanionTool() {
@@ -256,6 +255,7 @@ public class EmulatorFragment extends Fragment
     private void showCompanionTool(CompanionPane.Tool tool) {
         openCompanionTool(() -> {
             switch (tool) {
+                case EXPLORATION: mNotebook.showExploration(); break;
                 case LEVELS: LevelsReferenceDialog.show(requireActivity()); break;
                 case SPELLS: SpellReferenceDialog.show(requireActivity()); break;
                 case EQUIPMENT: EquipmentReferenceDialog.show(requireActivity()); break;

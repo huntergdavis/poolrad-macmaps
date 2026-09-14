@@ -12,7 +12,8 @@ game and its saves. No account, cloud backup or handwriting service is involved.
 
 Repeat for each campaign. A backup contains that notebook's original run UUID,
 all areas' flags, chosen symbols and vector handwriting, including blank flags
-and retained version-1 originals. It does not contain ROMs, disks, character
+and retained version-1 originals, plus walked-tile coverage and recent
+directional trails (0.12.0 onward). It does not contain ROMs, disks, character
 stats, game saves or another notebook. Completed autosaves queued before the
 backup are included; an unfinished pen gesture is not a saved stroke.
 
@@ -35,6 +36,10 @@ then explicitly remove it, then restore the older file. If an unrelated local
 notebook has the same display label, the restored one gets an unused local
 number; its campaign UUID and note bytes are unchanged.
 
+Old backups restore normally with no exploration history until you walk again.
+A backup containing exploration requires 0.12.0 or newer; older apps refuse the
+unknown record rather than silently dropping it. [Exploration guide](EXPLORATION.md).
+
 Malformed, incomplete, corrupt, unsupported or oversized backups are rejected
 before they become visible. A full backup is limited to 64 MiB; individual page
 limits remain unchanged. This is a notebook backup, not an emulator save state.
@@ -54,8 +59,9 @@ half; Android owns its full-screen document picker.
 ## Remove a notebook deliberately
 
 **Notebooks → Remove Notebook N…** names the notebook and requires confirmation
-before removing all its flags/pages, across every area. Export first: there is
-no undo button. Other notebooks and all original game saves stay untouched.
+before removing all its flags/pages, coverage and trails across every area.
+Export first: there is no undo button. Other notebooks and all original game
+saves stay untouched.
 Removing the last notebook creates an empty replacement. If replacement
 selection fails, the app reports that separately and lets you choose/create one.
 

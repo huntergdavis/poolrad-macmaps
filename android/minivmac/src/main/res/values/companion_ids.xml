@@ -6,6 +6,7 @@
     <item type="id" name="companion_tab_info" />
     <item type="id" name="companion_content" />
     <item type="id" name="companion_info" />
+    <item type="id" name="companion_tool_exploration" />
     <item type="id" name="companion_tool_levels" />
     <item type="id" name="companion_tool_spells" />
     <item type="id" name="companion_tool_equipment" />

@@ -160,4 +160,49 @@ public class PoolRadStateTest {
         assertEquals(before.area,PoolRadState.parse(phlan.clone(),catalog).area);
         assertEquals("por-mac-v11-geo-0",PoolRadState.parse(phlan,catalog).area.id());
     }
+
+    @Test public void prm3RequiresExplicitExplorationGateAndReadsUnsignedContinuity() {
+        byte[] data=verified(20); data[3]='3'; data[25]=1; data[26]=1; data[27]=4;
+        data[28]=(byte)0xfe; data[29]=(byte)0xdc; data[30]=(byte)0xba; data[31]=(byte)0x98;
+        AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        PoolRadState live=PoolRadState.parse(data,catalog);
+        assertTrue(live.hasExplorationMetadata); assertTrue(live.explorationSafe);
+        assertEquals(0xfedcba98L,live.continuityToken);
+        for(int at:new int[]{25,26,27}) {
+            for(int value=0;value<256;value++) {
+                byte[] changed=data.clone();changed[at]=(byte)value;
+                assertEquals(value==(at==27?4:1),PoolRadState.parse(changed,catalog).explorationSafe);
+            }
+        }
+    }
+
+    @Test public void legacyDiagnosticBytesCannotMasqueradeAsWalkingMetadata() {
+        byte[] data=verified(20); data[25]=1;data[26]=1;data[27]=4;
+        AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        for(byte protocol:new byte[]{'1','2'}) {
+            data[3]=protocol;PoolRadState old=PoolRadState.parse(data,catalog);
+            assertFalse(old.hasExplorationMetadata);assertFalse(old.explorationSafe);
+        }
+    }
+
+    @Test public void processingFramesDoNotAuthorizePositionOrUnknownMetadata() {
+        byte[] data=verified(20);data[3]='3';data[25]=1;data[26]=0;data[27]=4;
+        AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        PoolRadState processing=PoolRadState.parse(data,catalog);
+        assertTrue(processing.explorationProcessing);assertFalse(processing.explorationSafe);
+        data[26]=2;assertFalse(PoolRadState.parse(data,catalog).explorationProcessing);
+        data[26]=0;data[27]=5;assertFalse(PoolRadState.parse(data,catalog).explorationProcessing);
+        data[27]=4;data[25]=0;assertFalse(PoolRadState.parse(data,catalog).explorationProcessing);
+        data[25]=1;data[3]='2';assertFalse(PoolRadState.parse(data,catalog).explorationProcessing);
+    }
+
+    @Test public void prm3KeepsStrictIdentityAndSuppressesUnsafeLivePosition() {
+        byte[] data=verified(20);data[3]='3';data[25]=1;data[26]=1;data[27]=4;
+        AreaIdentity.Catalog catalog=verifiedCatalog(20,data);
+        PoolRadState live=PoolRadState.parse(data,catalog);
+        data[27]=5;PoolRadState combat=PoolRadState.parse(data,catalog);
+        assertEquals(live.area,combat.area);assertFalse(combat.explorationSafe);assertFalse(live.sameDisplay(combat));
+        data[35]=0;assertNull(PoolRadState.parse(data,catalog));
+        data[35]=20;data[176]^=1;assertNull(PoolRadState.parse(data,catalog));
+    }
 }

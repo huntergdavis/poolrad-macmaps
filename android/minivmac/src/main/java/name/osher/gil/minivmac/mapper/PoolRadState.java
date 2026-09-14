@@ -7,6 +7,8 @@ public final class PoolRadState {
     public final int x, y, facing;
     public final GeoMap map;
     public final AreaIdentity area;
+    public final boolean hasExplorationMetadata, explorationSafe, explorationProcessing;
+    public final long continuityToken;
     private final byte[] geometry;
 
     private PoolRadState(byte[] sample, AreaIdentity.Catalog identities) {
@@ -16,7 +18,15 @@ public final class PoolRadState {
         geometry = Arrays.copyOfRange(sample, 176, 1200);
         byte[] record = new byte[1026];
         System.arraycopy(geometry, 0, record, 2, geometry.length);
-        boolean verifiedPacket = sample[3] == '2';
+        boolean verifiedPacket = sample[3] == '2' || sample[3] == '3';
+        hasExplorationMetadata = sample[3] == '3';
+        explorationSafe = hasExplorationMetadata && sample[25] == 1 && sample[26] == 1 && sample[27] == 4;
+        // Not a position observation. A later settled sample must still share
+        // the native epoch; native load/menu/script guards advance it even if
+        // the renderer remains the local-view engine throughout the change.
+        explorationProcessing = hasExplorationMetadata && sample[25] == 1 && sample[26] == 0 && sample[27] == 4;
+        continuityToken = ((sample[28] & 255L) << 24) | ((sample[29] & 255L) << 16)
+                | ((sample[30] & 255L) << 8) | (sample[31] & 255L);
         int recordId = verifiedPacket ? ((sample[34]&255)<<8) | (sample[35]&255) : -1;
         map = new GeoMap(recordId, record);
         if(verifiedPacket) area = identities == null ? AreaIdentity.resolveMutable(recordId,map)
@@ -31,8 +41,8 @@ public final class PoolRadState {
     // Package-private catalog injection keeps regression fixtures synthetic.
     static PoolRadState parse(byte[] sample, AreaIdentity.Catalog identities) {
         if (sample == null || sample.length != 1200 || sample[0] != 'P' || sample[1] != 'R'
-                || sample[2] != 'M' || (sample[3] != '1' && sample[3] != '2')) return null;
-        if(sample[3]=='2') {
+                || sample[2] != 'M' || (sample[3] != '1' && sample[3] != '2' && sample[3] != '3')) return null;
+        if(sample[3]=='2' || sample[3]=='3') {
             // Native verifies the original map mode and movable state allocation.
             // An explicit untrusted/unknown PRM2 sample may not fall back to PRM1
             // hashing, even if old geometry still happens to match the catalog.
@@ -41,11 +51,12 @@ public final class PoolRadState {
         int x = sample[130] & 255, y = sample[131] & 255, direction = sample[132] & 255;
         if (x >= 16 || y >= 16 || direction > 6 || (direction & 1) != 0) return null;
         PoolRadState state = new PoolRadState(sample, identities);
-        return sample[3]=='2' && state.area==null ? null : state;
+        return sample[3]!='1' && state.area==null ? null : state;
     }
 
     public boolean sameDisplay(PoolRadState other) {
         return other != null && x == other.x && y == other.y && facing == other.facing
+                && hasExplorationMetadata == other.hasExplorationMetadata && explorationSafe == other.explorationSafe
                 && (area == null ? other.area == null : area.equals(other.area))
                 && Arrays.equals(geometry, other.geometry);
     }

@@ -23,6 +23,7 @@ import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.notebook.NoteIcon;
+import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /** Static black-on-white cartography: no animation, blink, or network access. */
 public final class LiveMapView extends View {
@@ -40,6 +41,9 @@ public final class LiveMapView extends View {
     private boolean positionAvailable;
     private String notebook = "Loading notebook…";
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
+    private ExplorationTrail exploration = ExplorationTrail.empty();
+    private boolean visitedOnly, footprints = true;
+    private String explorationStatus = "";
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
     private float touchX, touchY;
@@ -55,10 +59,13 @@ public final class LiveMapView extends View {
             onTileTapped(area, x, y);
         }
         default void onPartyMemberTapped(PartyState.Member member) { }
+        default void onExplorationSample(PoolRadState sample) { }
+        default void onExplorationAreaChanged(AreaIdentity area) { }
     }
 
     public void setListener(Listener value) { listener = value; }
     public AreaIdentity currentArea() { return positionAvailable && state != null ? state.area : null; }
+    public AreaIdentity displayedArea() { return state == null ? null : state.area; }
     public PoolRadState snapshot() { return positionAvailable ? state : null; }
     public void showPartySample(byte[] sample) {
         PartyState next = PartyState.parse(sample);
@@ -77,6 +84,17 @@ public final class LiveMapView extends View {
         cancelTap(); notebook = label; flags = copy; refreshDescription(); invalidate();
     }
 
+    public void setExplorationStyle(boolean fog, boolean feet) {
+        if (visitedOnly == fog && footprints == feet) return;
+        visitedOnly = fog; footprints = feet; refreshDescription(); invalidate();
+    }
+
+    public void showExploration(ExplorationTrail trail, String status) {
+        if (trail == exploration && explorationStatus.equals(status)) return;
+        exploration = trail; explorationStatus = status;
+        refreshDescription(); invalidate();
+    }
+
     private void refreshDescription() {
         String status = state == null ? "Waiting for party" : !positionAvailable ? "Position unavailable"
                 : (state.area == null ? "Unidentified area" : state.area.label()) + ". Party at " + state.positionLabel();
@@ -86,7 +104,9 @@ public final class LiveMapView extends View {
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
                     .append("; ").append(member.classLabel()).append('.');
         setContentDescription(status + ". Tap a tile to add a note; tap a symbol to reopen it. "
-                + notebook + ". " + flags.size() + " flags." + health);
+                + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
+                + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
+                + explorationStatus + health);
     }
 
     public LiveMapView(Context context, AttributeSet attrs) {
@@ -101,24 +121,41 @@ public final class LiveMapView extends View {
     }
 
     public void showSample(byte[] sample) {
+        showState(PoolRadState.parse(sample));
+    }
+
+    private void showState(PoolRadState next) {
         AreaIdentity previous = currentArea();
-        PoolRadState next = PoolRadState.parse(sample);
+        AreaIdentity previousDisplay = displayedArea();
         if (next == null) {
-            if (!positionAvailable) return;
+            if (!positionAvailable) {
+                if (listener != null) listener.onExplorationSample(null);
+                return;
+            }
             positionAvailable = false;
             setContentDescription("Last area map. Position unavailable; party arrow hidden.");
         } else {
-            if (positionAvailable && state != null && state.sameDisplay(next)) return;
+            boolean available = !next.hasExplorationMetadata || next.explorationSafe;
+            if (positionAvailable == available && state != null && state.sameDisplay(next)) {
+                if (listener != null) listener.onExplorationSample(next);
+                return;
+            }
             state = next;
-            positionAvailable = true;
+            positionAvailable = available;
             setContentDescription("Area map. Party at " + next.positionLabel() + ". North is up.");
         }
         AreaIdentity current = currentArea();
+        AreaIdentity displayed = displayedArea();
+        if (!(previousDisplay == null ? displayed == null : previousDisplay.equals(displayed))) {
+            exploration = ExplorationTrail.empty(); explorationStatus = displayed == null ? "" : "Loading trail";
+            if (listener != null) listener.onExplorationAreaChanged(displayed);
+        }
         if (!(previous == null ? current == null : current != null && previous.id().equals(current.id()))) {
             cancelTap();
             flags = Collections.emptyMap();
             if (listener != null) listener.onAreaChanged(current);
         }
+        if (listener != null) listener.onExplorationSample(next);
         refreshDescription();
         invalidate();
     }
@@ -250,11 +287,14 @@ public final class LiveMapView extends View {
             canvas.drawText(Integer.toString(i), left + (i + .5f) * cell, top - 5 * density, ink);
             canvas.drawText(Integer.toString(i), left - 11 * density, top + (i + .7f) * cell, ink);
         }
-        artwork.drawGeometry(canvas, state.map, left, top, cell, density);
+        artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(10 * density); ink.setTextAlign(Paint.Align.CENTER);
-        canvas.drawText("North up · outlined gaps are doors", pane.mapWidth / 2f, pane.mapHeight - 23 * density, ink);
+        canvas.drawText(explorationStatus.isEmpty()
+                        ? "North up · " + exploration.visitedCount() + " walked · Info: trail options"
+                        : explorationStatus,
+                pane.mapWidth / 2f, pane.mapHeight - 23 * density, ink);
         ink.setTextSize(11 * density);
         canvas.drawText("Tap a tile or symbol · " + notebook,
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);

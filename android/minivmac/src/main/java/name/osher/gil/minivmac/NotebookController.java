@@ -6,6 +6,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
@@ -33,16 +34,21 @@ import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
+import name.osher.gil.minivmac.notebook.ExplorationRecorder;
+import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /** User-owned notes only. This class has no reference to the emulator Core. */
 public final class NotebookController implements LiveMapView.Listener {
     private static final String ACTIVE = "poolrad_notebook_id";
     private static final String PEN_ONLY = "poolrad_notes_pen_only";
+    private static final String VISITED_ONLY = "poolrad_visited_only";
+    private static final String FOOTPRINTS = "poolrad_footprints";
     // One ordered queue also lets an old Activity finish its saves before a new one reads them.
     static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private final Activity activity;
     private final LiveMapView map;
     private final NotebookStore store;
+    private final ExplorationRecorder exploration;
     private final SharedPreferences prefs;
     private final NotebookTransferController transfers;
     private final Handler main = new Handler(Looper.getMainLooper());
@@ -53,12 +59,15 @@ public final class NotebookController implements LiveMapView.Listener {
     private int generation;
     private Session session;
     private AlertDialog picker;
+    private boolean explorationInterrupted = true, explorationFailed;
 
     public NotebookController(Activity activity, LiveMapView map) {
         this.activity = activity; this.map = map;
         transfers = ((MiniVMac) activity).notebookTransfers();
         store = new NotebookStore(new File(activity.getFilesDir(), "notebooks"));
+        exploration = new ExplorationRecorder(store);
         prefs = PreferenceManager.getDefaultSharedPreferences(activity);
+        map.setExplorationStyle(prefs.getBoolean(VISITED_ONLY, false), prefs.getBoolean(FOOTPRINTS, true));
         map.setListener(this);
         IO.execute(() -> {
             try {
@@ -95,13 +104,151 @@ public final class NotebookController implements LiveMapView.Listener {
 
     private void selectOnDisk(NotebookStore.Notebook selected) throws IOException {
         if (!prefs.edit().putString(ACTIVE, selected.id()).commit()) throw new IOException("Notebook selection could not be saved");
+        exploration.forget();
         main.post(() -> {
             if (disposed) return;
             notebook = selected; opening = false; refreshFlags();
+            explorationInterrupted = true; explorationFailed = false;
+            map.showExploration(ExplorationTrail.empty(), "Loading trail");
+            onExplorationAreaChanged(map.displayedArea());
+            onExplorationSample(map.snapshot());
         });
     }
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
+
+    @Override public void onExplorationSample(PoolRadState sample) {
+        if (disposed) return;
+        // A normal step clears the input-wait tag while it updates the map.
+        // Do not record that transient position or mistake it for a reload.
+        // The next settled sample still needs the same epoch and a short gap.
+        if (sample != null && sample.explorationProcessing) return;
+        if (notebook == null || sample == null || sample.area == null || !sample.explorationSafe) {
+            if (!explorationInterrupted) IO.execute(exploration::interrupt);
+            explorationInterrupted = true;
+            return;
+        }
+        explorationInterrupted = false;
+        final NotebookStore.Notebook book = notebook;
+        final String key = sample.area.id();
+        final long time = SystemClock.elapsedRealtime();
+        IO.execute(() -> {
+            try {
+                ExplorationTrail recorded = exploration.observe(book.id(), key,
+                        sample.y * 16 + sample.x, sample.continuityToken, time);
+                main.post(() -> {
+                    if (!explorationTarget(book, key)) return;
+                    explorationFailed = false; map.showExploration(recorded, "");
+                });
+            } catch (IOException | RuntimeException failure) {
+                main.post(() -> {
+                    if (!explorationTarget(book, key)) return;
+                    map.showExploration(ExplorationTrail.empty(), "Trail unavailable · retry in Info");
+                    if (!explorationFailed) {
+                        explorationFailed = true;
+                        report("Cannot save exploration trail", failure);
+                    }
+                });
+            }
+        });
+    }
+
+    private boolean explorationTarget(NotebookStore.Notebook book, String key) {
+        AreaIdentity shown = map.displayedArea();
+        return !disposed && notebook == book && shown != null && key.equals(shown.id());
+    }
+
+    @Override public void onExplorationAreaChanged(AreaIdentity target) {
+        if (disposed || notebook == null || target == null) return;
+        final NotebookStore.Notebook book = notebook;
+        IO.execute(() -> {
+            try {
+                ExplorationTrail saved = exploration.read(book.id(), target.id());
+                main.post(() -> {
+                    if (explorationTarget(book, target.id())) map.showExploration(saved, "");
+                });
+            } catch (IOException | RuntimeException failure) {
+                main.post(() -> {
+                    if (explorationTarget(book, target.id()))
+                        map.showExploration(ExplorationTrail.empty(), "Trail unavailable · retry in Info");
+                });
+            }
+        });
+    }
+
+    public void showExploration() {
+        if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
+        final NotebookStore.Notebook book = notebook;
+        final AreaIdentity target = map.displayedArea();
+        if (book == null || target == null) { toast("Load a supported area map first."); return; }
+        opening = true;
+        IO.execute(() -> {
+            try {
+                ExplorationTrail trail = exploration.read(book.id(), target.id());
+                main.post(() -> {
+                    opening = false;
+                    if (disposed || notebook != book) return;
+                    showExplorationOptions(book, target, trail);
+                });
+            } catch (IOException | RuntimeException failure) {
+                main.post(() -> opening = false); report("Cannot read exploration trail", failure);
+            }
+        });
+    }
+
+    private void showExplorationOptions(NotebookStore.Notebook book, AreaIdentity target, ExplorationTrail trail) {
+        LinearLayout list = column();
+        list.addView(text(book.label() + " · " + target.label() + "\n" + trail.visitedCount() + " of 256 squares walked"));
+        list.addView(text("Observed visits, not line of sight. Footprints point in the direction travelled, not where the party looked. History starts now, not retroactively. Switch notebooks when changing campaigns."));
+        CheckBox fog = new CheckBox(activity); fog.setText("Show only walked squares (fog of war)");
+        CheckBox feet = new CheckBox(activity); feet.setText("Show directional footprints");
+        fog.setTextColor(Color.BLACK); feet.setTextColor(Color.BLACK);
+        fog.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
+        feet.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
+        fog.setStateListAnimator(null); feet.setStateListAnimator(null);
+        fog.setChecked(prefs.getBoolean(VISITED_ONLY, false)); feet.setChecked(prefs.getBoolean(FOOTPRINTS, true));
+        fog.setMinHeight(dp(48)); feet.setMinHeight(dp(48)); list.addView(fog); list.addView(feet);
+        android.widget.CompoundButton.OnCheckedChangeListener style = (view, checked) -> {
+            prefs.edit().putBoolean(VISITED_ONLY, fog.isChecked()).putBoolean(FOOTPRINTS, feet.isChecked()).apply();
+            map.setExplorationStyle(fog.isChecked(), feet.isChecked());
+        };
+        fog.setOnCheckedChangeListener(style); feet.setOnCheckedChangeListener(style);
+        button(list, "Clear footprints only…").setOnClickListener(v -> {
+            picker.dismiss(); confirmClearExploration(book, target, false);
+        });
+        button(list, "Reset walked map…").setOnClickListener(v -> {
+            picker.dismiss(); confirmClearExploration(book, target, true);
+        });
+        list.addView(text("Recent observed route — newest first (up to 256 observations). Use the return directions to retrace it. Breaks are not connected; older visits remain shaded. This is a snapshot, not turn-by-turn navigation."));
+        list.addView(text(ExplorationSummary.describe(trail)));
+        ScrollView scroll = new ScrollView(activity); scroll.setSmoothScrollingEnabled(false); scroll.addView(list);
+        picker = UpperHalfReferenceDialog.show(activity, "Exploration trail", scroll);
+    }
+
+    private void confirmClearExploration(NotebookStore.Notebook book, AreaIdentity target, boolean coverage) {
+        LinearLayout list = column();
+        list.addView(text((coverage ? "Reset walked squares and footprints" : "Clear recent footprints but retain walked squares")
+                + " for " + target.label() + " in " + book.label() + "?\nFlags, handwritten notes, other areas and the original game stay untouched. No undo; export your notebook first if you need a backup."));
+        Button clear = button(list, coverage ? "Reset this area's walked map" : "Clear this area's footprints");
+        picker = UpperHalfReferenceDialog.show(activity, "Clear exploration?", list);
+        clear.setOnClickListener(v -> {
+            clear.setEnabled(false); opening = true;
+            IO.execute(() -> {
+                try {
+                    ExplorationTrail reset = exploration.clear(book.id(), target.id(), coverage);
+                    main.post(() -> {
+                        if (disposed) return;
+                        opening = false; picker.dismiss();
+                        if (explorationTarget(book, target.id())) map.showExploration(reset, "");
+                        toast("Exploration cleared. Flags and handwriting were kept. Current position is recorded again when tracking resumes.");
+                    });
+                } catch (IOException | RuntimeException failure) {
+                    main.post(() -> { opening = false; if (!disposed) clear.setEnabled(true); });
+                    report("Cannot clear exploration", failure);
+                }
+            });
+        });
+    }
 
     @Override public void onPartyMemberTapped(PartyState.Member member) {
         if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
@@ -247,7 +394,7 @@ public final class NotebookController implements LiveMapView.Listener {
     private void confirmRemoveNotebook(NotebookStore.Notebook target) {
         if (disposed || session != null || opening) return;
         LinearLayout content = column();
-        content.addView(text("Remove " + target.label() + " and ALL its flags and handwritten pages in every area? "
+        content.addView(text("Remove " + target.label() + " and ALL its flags, handwritten pages and exploration history in every area? "
                 + "Save a .prnb backup first. There is no undo. Other notebooks and the original game saves are untouched."));
         Button remove = button(content, "Remove " + target.label() + " and all its notes");
         picker = UpperHalfReferenceDialog.show(activity, "Remove notebook?", content);
@@ -271,7 +418,11 @@ public final class NotebookController implements LiveMapView.Listener {
                     main.post(() -> {
                         if (disposed) return;
                         opening = false;
-                        if (didRemove) { notebook = null; refreshFlags(); }
+                        if (didRemove) {
+                            notebook = null; refreshFlags();
+                            map.showExploration(ExplorationTrail.empty(), "Notebook unavailable");
+                            IO.execute(exploration::forget); explorationInterrupted = true;
+                        }
                         toast(didRemove ? "Notebook removed, but replacement selection failed. Open Notebooks to choose/create one."
                                 : "Notebook was not removed. Existing notes are unchanged.");
                     });
@@ -282,6 +433,7 @@ public final class NotebookController implements LiveMapView.Listener {
 
     public void dispose() {
         disposed = true; generation++; map.setListener(null);
+        IO.execute(exploration::interrupt);
         if (session != null) { session.sheet.cancelActiveStroke(); session.dialog.dismiss(); }
         if (picker != null) picker.dismiss();
         // Completed strokes already queued for autosave are allowed to finish.
