@@ -1,9 +1,10 @@
 # PoolRad Mac Maps — continuation handoff
 
-Updated 2026-09-14. **R5 is complete for v0.16.0**, following R1 in v0.15.0.
-See [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking and limits,
-[docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for what a backup carries,
-and [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
+Updated 2026-09-14. **R8 is complete for v0.17.0**, following R5 in v0.16.0 and
+R1 in v0.15.0. See [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk
+checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
+[docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for backup contents, and
+[docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
 
 ## Resume here
 
@@ -11,12 +12,14 @@ and [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
   `git@github.com:huntergdavis/poolrad-macmaps.git`, branch `main`.
 - Read **[docs/BACKLOG.md](docs/BACKLOG.md)** and current Git status/history.
   Do not resume the old Grind/Melt Squad projects from chat history.
-- **Next actionable software item: R8 — save checkpoints.** Self-contained, no
-  disassembly; the hard part is quiescing disk writes before copying. Reuse the
-  clean-eject and `/proc/<pid>/fd` discipline below, and never call an in-flight
-  disk copy a safe emulator save state. User-agreed order after R8: R3 spell
-  readiness, R4 equipment, R2 training, R7 useful places, R9 automatic
-  encountered entries, then P3. R3/R4 reuse R1's packet-versioning pattern.
+- **Next actionable software item: R3 — spell readiness.** Same shape as R1:
+  find the per-character prepared/spent spell table in the Mac executable,
+  extend the probe to a PRP4 packet keeping PRP1/2/3 readable, and surface it in
+  the character details only. No invented mana gauge or instant restoration.
+  User-agreed order after R3: R4 equipment, R2 training, R7 useful places, R9
+  automatic encountered entries, then P3. R6 is largely absorbed by F10 and
+  should be reduced to the search-mode indicator and coordinates on demand,
+  or closed.
 - All P0 items are checked. Q1/Q3 still need actual tablet model/Android details
   and specific keyboard/rotation/vendor observations, already requested.
   The user HAS accepted stylus drawing, two-finger zoom/scroll and ordinary
@@ -38,6 +41,28 @@ and [docs/PARTY_CONDITIONS.md](docs/PARTY_CONDITIONS.md) for the badge table.
   debug build succeeds. No new guest gameplay/device acceptance was performed.
 - Q2 itself was tools-only; REF5 now advances the public app to v0.14.0.
   Existing installed disks, saves and private APK bundle remain unchanged.
+
+## R8 delivered
+
+- Info → Save checkpoints: verified copies of one writable disk, in
+  `filesDir/checkpoints/<uuid>/` as `disk.img` plus a CRC-checked PRCK v1
+  `checkpoint.bin` holding size, SHA-256, time, last shown area, notebook and a
+  small map PNG. Staged under `.pending-` and published by one rename.
+- **Every operation takes `DiskAccessGate.tryBeginMaintenance()`**, so saving,
+  restoring and deleting are impossible while emulation holds the disk. This is
+  the same lease the desktop appearance tool uses; reuse it for any future
+  disk-touching feature rather than inventing another guard.
+- Restore checkpoints the current disk first (labelled *Before restoring a
+  checkpoint*), so it is always undoable, and is refused if the checkpoint or
+  the new copy fails to verify or there is no free slot. Six checkpoints max.
+- **385 Java tests and 8 companion View checks pass**; APK gate and signature
+  verification pass. Python helpers unchanged and not re-run.
+- Live on the real 32 MiB `disk1.dsk`: the copy matched `8a918d7d…` by
+  independent on-device `sha256sum`; after a restart changed it to `ba177721…`,
+  restoring returned it to `8a918d7d…` with the safety copy holding `ba177721…`,
+  and the restored disk cold-booted clean with the campaign intact.
+- "Last shown area" is *Not recorded* when the guest is shut down, because the
+  companion genuinely has no verified area then. Do not present it otherwise.
 
 ## R5 delivered
 
@@ -125,9 +150,10 @@ Everything below remains ignored; do not publish it.
   SHA-256 `a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
   Copy this separately to the tablet and import under Info → Journal. The older
   `scratch/poolrad-journal.prjr` was a test draft; use the versioned file instead.
-- Public universal APK: `scratch/poolrad-macmaps-0.16.0.apk`;
-  SHA-256 `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`.
-  Earlier builds remain for comparison: 0.15.0
+- Public universal APK: `scratch/poolrad-macmaps-0.17.0.apk`;
+  SHA-256 `b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`.
+  Earlier builds remain for comparison: 0.16.0
+  `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`, 0.15.0
   `b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`, 0.14.0
   `84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
 - **Never overwrite a current campaign with a fresh sample disk.** A later
@@ -164,10 +190,11 @@ REF5 uses the isolated `poolrad-package-test` AVD on emulator-5584. Shut down
 the guest normally before stopping it. **emulator-5580 is not owned by this
 task: do not kill/reset/install over it.** Check current ADB/process state before
 reusing 5584. No app data was cleared or campaign disk replaced for REF5.
-At handoff, 5584 is left running the final 0.16.0 APK with `SampleParty` loaded
-at the Rolf tour and Notebook 1's migrated journal record in place; the party
-sidebar, journal history, tasks and flag links have been checked, not a new
-campaign playthrough. **Driving guest menus works with `adb shell input
+At handoff, 5584 is left running the final 0.17.0 APK. `disk1.dsk` has been
+restored from a checkpoint and cold-boots clean; two checkpoints are stored
+(`8a918d7d…` and the `ba177721…` safety copy) and can be deleted freely. The
+party sidebar, journal history, tasks, flag links and the checkpoint panel have
+been checked, not a new campaign playthrough. **Driving guest menus works with `adb shell input
 motionevent DOWN/MOVE/UP`**, which holds the classic Mac menu open across
 separate commands so it can be screenshotted; a plain `input tap` or `input
 swipe` closes it again before capture. Do not

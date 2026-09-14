@@ -49,6 +49,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.14.0 | Offline illustrated journal/proclamation/tavern lookup, private book import, recent numbers and per-notebook bookmarks |
 | Done — 0.15.0 | Verified party condition badges, poison/helpless effects and condition text on tap |
 | Done — 0.16.0 | Journal history inside the notebook and its backup; player-made flag links and checked tasks |
+| Done — 0.17.0 | Verified disk checkpoints with automatic undo copy, taken only while the Mac is shut down |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
@@ -533,9 +534,24 @@ research for sources and portability limits.
 - [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,
   shops, and training; manually checked tasks linked to notes. Do not expose
   unvisited event scripts as if the player discovered them.
-- [ ] **R8 — Save checkpoints.** Explicit backups of writable disk/save copies
+- [x] **R8 — Save checkpoints.** Explicit backups of writable disk/save copies
   with a thumbnail and known area label. Quiesce disk writes before copying;
   never claim an in-flight disk copy is a safe emulator save state.
+  **Delivered 0.17.0:** Info → Save checkpoints copies one writable disk while
+  holding the same maintenance lease the desktop tool uses, so saving, restoring
+  and deleting are all refused while the emulator holds the disk. Each copy is
+  re-read and published only if its SHA-256 matches; each record keeps the size,
+  digest, time, last shown area, notebook and a small map picture, and the panel
+  says plainly that this is not an emulator save state. Restoring replaces the
+  whole disk after checkpointing the current one automatically, so it can always
+  be undone, and is refused if anything fails to verify or there is no room for
+  the safety copy. Bounded at six checkpoints with a free-space check.
+  **Live proof:** a 32 MiB copy of the real `disk1.dsk` matched
+  `8a918d7d…` byte-for-byte by independent `sha256sum`; after a reboot changed
+  the disk to `ba177721…`, restoring returned it to `8a918d7d…` while the
+  automatic safety copy held `ba177721…`, and the restored disk cold-booted with
+  the campaign intact. 385 Java tests and 8 companion View checks pass.
+  [Guide and limits](CHECKPOINTS.md) · [evidence](LOCAL_TESTING.md).
 - [ ] **R9 — Encountered journal entries, automatically (formerly L6).** Detect
   journal entries, proclamations and tavern tales actually shown by the running
   game; add them to the active notebook's persistent, deduplicated Journal list.

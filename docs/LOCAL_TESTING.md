@@ -1,5 +1,56 @@
 # Local Android prototype
 
+## R8 — disk save checkpoints (2026-09-14, v0.17.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.17.0.apk`, SHA-256
+`b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`, versionCode 83.
+Behaviour and limits: [CHECKPOINTS.md](CHECKPOINTS.md).
+
+Automated suites:
+
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **385 tests,
+  zero failures/errors/skips** (377 before). `DiskCheckpointStoreTest` adds eight
+  covering the exact-bytes copy and its labels, refusal of every operation while
+  a lease models a running guest, restore leaving a working undo copy, the
+  newest-first order and six-checkpoint limit, refusal of a tampered payload
+  with the live disk left alone, damaged/truncated/renamed records reported as
+  errors rather than an empty list, rejection of unusable disks, oversized and
+  control-character labels and non-PNG thumbnails before any copy, and refusal
+  of null, empty, traversal and unknown ids.
+- **8 companion Android View checks** pass on emulator-5584; the tool list is now
+  eight entries and routes `CHECKPOINTS` distinctly.
+- `check-wheel-apk.mjs` passes and `apksigner verify` succeeds on the same key.
+  Python helpers were not re-run: no helper or build tooling changed.
+
+Live on isolated `poolrad-package-test`, emulator-5584, API 30, 1200×1600, on the
+real 32 MiB `disk1.dsk`. The guest was quit and shut down with **Special → Shut
+Down** and `/proc/<pid>/fd` confirmed to hold no `.dsk` handle before the update:
+
+- With the guest **running**, the panel shows the shutdown instruction and its
+  actions are disabled: `scratch/r8-refused-while-running.png`.
+- With the guest **shut down**, it reports "The Mac is shut down; checkpoints can
+  be saved" and Save produced "Checkpoint saved and verified", listing
+  `disk1.dsk · 32 MB · 8a918d7d` with the map thumbnail:
+  `scratch/r8-saved.png`. Independent `sha256sum` on device gives
+  `8a918d7d0f3ae6c804307d4a17c7880152bf1ea2663635f7e9d1d176d93446a1` for **both**
+  the live disk and `checkpoints/<id>/disk.img` — a byte-identical copy.
+- A normal restart-and-shutdown cycle changed the disk to
+  `ba17772176218e5142e79b27fe4c8507bfba62d39b07cbcbd6e60cd66cc890c3`. Restoring
+  the checkpoint returned the live disk to `8a918d7d…` exactly, and the automatic
+  safety copy holds `ba177721…`, so the restore is reversible:
+  `scratch/r8-restored.png`.
+- The restored disk cold-booted with **no improper-shutdown notice**, all 15
+  items including `PoolRadSave` present, and the game auto-launched.
+- The area reads "Not recorded" because the companion has no verified area while
+  the guest is shut down. That is the honest value, not a decoded position.
+
+Not claimed: no checkpoint was taken of a disk holding an in-progress campaign
+beyond the sample state above, the six-checkpoint and free-space limits were
+exercised in unit tests rather than by filling the device, and physical e-ink
+acceptance of this panel is untested. The user's `m1gate` save was never opened;
+it rode along inside the copied disk and returned intact. Only emulator-5584 was
+used.
+
 ## R5 — journal history in the notebook, tasks and flag links (2026-09-14, v0.16.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.16.0.apk`, SHA-256

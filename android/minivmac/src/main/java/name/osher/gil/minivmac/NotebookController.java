@@ -143,6 +143,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         }
     }
 
+    /** The selected notebook's display label, or null while none is open. */
+    public String notebookLabel() { return notebook == null ? null : notebook.label(); }
+
     @Override public JournalHistory journalHistory() { return journal; }
     @Override public String areaId() { return area == null ? null : area.id(); }
     @Override public String areaLabel() { return area == null ? null : area.label(); }

@@ -1,5 +1,11 @@
 # Releases
 
+## 0.17.0 — A copy you can go back to
+
+[Release notes](releases/0.17.0.md): verified copies of a writable disk, taken
+only while the Mac is shut down, with an automatic undo copy before any restore.
+A checkpoint is a file copy, never an emulator save state.
+
 ## 0.16.0 — Your journal, kept with your notes
 
 [Release notes](releases/0.16.0.md): journal lookups, bookmarks, your own
