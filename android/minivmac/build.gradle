@@ -68,18 +68,16 @@ android {
         buildConfig true
     }
     namespace 'name.osher.gil.minivmac'
-    // Personal reference artwork is packaged locally, not redistributed in Git.
-    sourceSets.main.assets.srcDir 'private-assets'
 }
 
 tasks.register('verifyRuneArtwork') {
-    def artwork = file('private-assets/codewheel')
+    def artwork = file('src/main/assets/codewheel')
     inputs.dir artwork
     doLast {
         ['esp', 'det'].each { ring ->
             (1..36).each { id ->
                 def image = new File(artwork, String.format('%s%02d.gif', ring, id))
-                if (!image.isFile()) throw new GradleException("Missing personal rune artwork: ${image}. See docs/LOCAL_TESTING.md.")
+                if (!image.isFile()) throw new GradleException("Missing bundled rune artwork: ${image}. Restore it from the repository.")
                 byte[] data = image.bytes
                 if (data.length < 10 || data.length > 32768 ||
                         !(new String(data, 0, 6, 'US-ASCII') in ['GIF87a', 'GIF89a']))

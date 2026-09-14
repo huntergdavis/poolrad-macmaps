@@ -3,14 +3,12 @@
 ## Build
 
 Use JDK 17, Android SDK 34, build-tools 34.0.0, and NDK 27.0.12077973.
-The personal build also needs the 72 reference GIFs in
-`android/minivmac/private-assets/codewheel/`: `esp01.gif`–`esp36.gif` and
-`det01.gif`–`det36.gif`, retaining the numbering from
-`https://dkennedy.io/por-code-wheel/img/`. This ignored folder is an Android asset
-source, not the app's cache. The local files were recovered unchanged from our
-previously downloaded emulator reference images. A fresh checkout needs these
-private build inputs supplied separately. `verifyRuneArtwork` fails a build
-with missing, oversized, or invalid-header/dimension images.
+The 72 rune GIFs are checked in under
+`android/minivmac/src/main/assets/codewheel/`: `esp01.gif`–`esp36.gif` and
+`det01.gif`–`det36.gif`. No external artwork preparation or runtime download is
+needed. The original numbering and unchanged reference images are credited in
+[CODE_WHEEL_ARTWORK.md](../licenses/CODE_WHEEL_ARTWORK.md).
+`verifyRuneArtwork` rejects missing, oversized, or invalid-header/dimension images.
 
 From `android/`:
 
@@ -82,7 +80,7 @@ content scroll on smaller windows; Close/Cancel/Enter stay in the action row.
 Rotation resizes open panels, and closing or cancelling sends no game input.
 
 After building, run `node tools/check-wheel-apk.mjs` from the repository root
-to check that all 72 images in the universal APK match the private originals,
+to check that all 72 images in the universal APK match the checked-in originals,
 and that no ROMs, disks, or game data were packaged with them.
 
 The linked table spells one entry `80ASIS` (with a zero); we preserve it instead
@@ -110,6 +108,17 @@ unverified in-game. A leading wheel alignment digit is omitted when typing.
   `wheel-landscape-grid-scrolled.png`, and `wheel-real-prompt-answer.png`.
 
 ## Live area-map prototype
+
+### Area identity investigation (not a finished notes feature)
+
+`tools/AreaFingerprints.java` reuses our existing DAX/GEO reader to compare
+full-geometry SHA-256 fingerprints without exporting map data. The supplied
+29 decoded maps have distinct fingerprints; two separate New Phlan live
+samples match GEO record 0. This is only a candidate identity scheme. It has
+not yet passed cross-area, mutable-map, or note persistence acceptance, and
+N1/M1 remain unchecked. The tool never changes the game or its save.
+
+### Current live-map behavior
 
 The map appears above the Mac display by default. **PoolRad → Show live map**
 toggles it and stores the choice locally. Opening the virtual keyboard reserves

@@ -7,7 +7,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Locale;
 
-/** Personal APK artwork: available on first launch, with no cache or network request. */
+/** Bundled artwork: available on first launch, with no cache or network request. */
 public final class RuneArtwork {
     private final AssetManager assets;
     private final Bitmap[] images = new Bitmap[72];

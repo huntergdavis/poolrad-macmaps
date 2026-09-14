@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PoolRad Maps (II)</string>
+    <string name="app_name">Pool of Radiance</string>
     <string name="defaultRomFileName">MacII.ROM</string>
     <string name="aboutTitle">A Macintosh Emulator for Android based on Mini vMac</string>
     <string name="defaultModuleName">libmnvmcoreii.so</string>

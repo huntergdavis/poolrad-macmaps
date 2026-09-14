@@ -14,7 +14,7 @@ assert.deepEqual(entries.filter(name => name.startsWith('assets/codewheel/')).so
 let total = 0;
 for (const name of expected) {
     const bundled = execFileSync('unzip', ['-p', apk, `assets/codewheel/${name}`]);
-    const original = readFileSync(`${root}android/minivmac/private-assets/codewheel/${name}`);
+    const original = readFileSync(`${root}android/minivmac/src/main/assets/codewheel/${name}`);
     assert.deepEqual(bundled, original, `${name}: bundled artwork differs`);
     assert.match(bundled.toString('ascii', 0, 6), /^GIF8[79]a$/);
     assert.ok(bundled.length >= 10 && bundled.length <= 32768);

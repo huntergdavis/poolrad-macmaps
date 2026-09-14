@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">PoolRad Maps (Plus)</string>
+    <string name="app_name">Pool of Radiance</string>
     <string name="defaultRomFileName">vMac.ROM</string>
     <string name="aboutTitle">Mini vMac for Android</string>
     <string name="defaultModuleName">libmnvmcoreplus.so</string>

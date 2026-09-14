@@ -1,49 +1,56 @@
 # PoolRad Mac Maps
 
-A personal, offline, black-and-white automap for **Macintosh Pool of Radiance**
-running in Mini vMac on an Android e-ink tablet.
+**Your Macintosh Pool of Radiance adventure, with a live map above it.**
 
-The goal: the current area, walls, doors, and party arrow above the original
-Mac display, with the keyboard below. No character editor, cloud service, or
-game remake. A **PoolRad** toolbar menu groups the game-specific helpers.
+A small Android Mini vMac fork built for playing on an e-ink tablet. The
+original game runs unchanged; a monochrome map follows your party directly
+from emulated memory. No root, cloud, or separate companion window.
 
-**Status: live-map Android prototype for the supplied Macintosh v1.1 game.**
+**Inspired by [Gold Box Companion](https://gbc.zorbus.net/), the PC/DOSBox
+companion for Pool of Radiance.** Its automapping and convenience features
+sparked this project; this is an independent Macintosh/Android implementation,
+not a port of its code or an official game release.
 
-- Boots the supplied Mac II ROM and copied disks in a local Android emulator;
-  launches Pool of Radiance v1.1 and loads its sample party.
-- **Map above the Mac:** monochrome walls, door outlines, and a facing arrow,
-  read directly from the running game's RAM. No separate map import. The
-  optional keyboard stays underneath; **PoolRad → Show live map** remembers
-  whether you want the pane visible.
-- Samples a small read-only packet four times a second while visible; redraws
-  only when map/position changes. No blinking arrow or network connection.
-- **PoolRad → Code wheel lookup:** select both runes and a path, then **Enter
-  code** types the answer and presses Return. All 72 rune illustrations are
-  bundled in the personal APK: no download or cache setup. The lookup and
-  pickers stay in the top half without dimming the game below.
-- Read-only guest RAM capture works in debug builds, under the same menu.
-- The map reader validates all 29 supplied maps, with bounds-checked decoding.
-- First-area prototype, not complete game coverage: area names, transitions,
-  combat/wilderness detection, and physical e-ink behavior still need validation.
+<p>
+  <img src="docs/images/phlan-arrival.png" width="360" alt="Rolf welcomes the party to New Phlan, with the live area map above the Mac game">
+  <img src="docs/images/phlan-temple-tour.png" width="360" alt="The Phlan tutorial reaches the Temple of Tyr; the map tracks the party's new position and facing">
+</p>
 
-- [Full prioritized backlog — handwriting is next](docs/BACKLOG.md)
-- [Feature research and the new tablet layout](docs/FEATURE_RESEARCH.md)
-- [Implementation plan and scope](docs/PLAN.md)
-- [Research, sources, and local test findings](docs/RESEARCH.md)
-- [Build, local testing, and current limitations](docs/LOCAL_TESTING.md)
-- [Pinned emulator source and license](android/UPSTREAM.md)
+*Actual Android-emulator captures during the opening tour, not mockups or
+physical e-ink screenshots. Game artwork belongs to its respective owners.*
 
-The fork installs separately from the Play Store app. Local testing currently
-uses the Mac II flavor to match the supplied 256 KiB ROM; the tablet's selected
-machine/ROM configuration still needs confirmation.
+## What works
 
-Keep ROMs, disk images, game files, saves, and RAM captures under `scratch/`.
-They are local test inputs, ignored by Git, and must not be bundled in the app.
+- Live area map with walls, door outlines, coordinates, and facing arrow.
+- Map above the Mac display; optional keyboard below; no blinking marker.
+- Offline illustrated code wheel that enters the answer and presses Return.
+- Upper-half lookup panels that leave the game visible and undimmed.
+- A separate app installation: keep your existing Mini vMac setup.
 
-The emulator source retains its GPLv2 license. The DAX/GEO reader credits
-[Gold Box Explorer](https://github.com/bsimser/Gold-Box-Explorer), with its MIT
-notice in `licenses/`. Code-wheel arithmetic/table reference:
-[Dave Kennedy / Andrew Schultz](https://dkennedy.io/por-code-wheel/wwm.html).
-The reference's images are private build inputs, bundled only in the personal
-APK, not redistributed in this source tree. See the build notes before sharing
-an APK publicly.
+**Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
+Phlan. Broader area transitions and combat/wilderness tracking still need
+validation. Handwritten map notes are next, not implemented yet.
+
+## Install
+
+This is an **Android app, not a browser game**. Source is public; a public
+prebuilt APK download is not available yet.
+
+1. [Build the APK](docs/INSTALL.md#build-an-apk-from-source), then copy it to your tablet.
+2. Tap the APK and allow installation from your file manager when prompted.
+3. Open **Pool of Radiance** and select your own matching Mac ROM.
+4. Import copies of your boot/game disks, launch the game, and load your party.
+
+**Bring your own ROM, Mac system disk, and Macintosh game.** None are included.
+[Step-by-step setup and troubleshooting →](docs/INSTALL.md)
+
+## Project
+
+[Backlog](docs/BACKLOG.md) · [Build/test details](docs/LOCAL_TESTING.md) ·
+[Research](docs/RESEARCH.md)
+
+Built on [Mini vMac for Android](android/UPSTREAM.md) (GPLv2), with DAX/GEO
+format work credited to [Gold Box Explorer](licenses/GoldBoxExplorer-MIT.txt)
+(MIT). Code-wheel reference: [Dave Kennedy / Andrew Schultz](https://dkennedy.io/por-code-wheel/wwm.html).
+All 72 rune pictures are [bundled and credited](licenses/CODE_WHEEL_ARTWORK.md);
+no artwork downloads are needed to build or use the app.

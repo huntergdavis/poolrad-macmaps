@@ -20,7 +20,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Map above game; optional keyboard below; map visibility preference |
 | Done | First-area turns, steps, blocked movement, boot/load, and background/resume checks |
 | Done | Offline code wheel, rune/path selection, answer plus Return |
-| Done — 0.2.1 | All 72 rune pictures bundled in personal APK; no runtime download/cache |
+| Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
 | Done | 29 GEO records decoded; 24 Java tests plus native reader checks |
 | Done | Sideload/update build and documented SMB transfer route |
@@ -176,6 +176,13 @@ research for sources and portability limits.
   pane plus party conditions are insufficient; no automatic combat or spoilers.
 - [ ] **L3 — Automatic rune/prompt recognition.** Optional convenience after
   the manual illustrated helper; never submit a guessed code automatically.
+- [ ] **L6 — Automatic journal-entry recognition.** Detect journal numbers
+  actually presented by the running game and maintain a persistent, deduplicated
+  encountered-entry list, linked to REF5 for immediate reading without retyping
+  numbers. Keep entry categories distinct and associate the history with the
+  notebook/run. Read only observed prompts/state, not future script entries;
+  uncertain recognition must not silently add a guessed number. Entirely local,
+  no LLM or cloud; same optional priority as automatic rune recognition.
 - [ ] **L4 — More visual personalization.** Portrait picker, user artwork, and
   optional guest-icon reuse; monochrome defaults, no third-party sprite rip pack.
 - [ ] **L5 — Fine layout preferences.** Upper-pane sizing and map zoom, with
