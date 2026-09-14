@@ -15,7 +15,9 @@ below the game. Switching tabs never replaces, pauses or restarts the emulator.
  +-------------------------------------------+
 ```
 
-**Map** retains the existing map, flag pages and recognized party-health strip.
+**Map** retains the map, flag pages and [compact party sidebar](PARTY.md):
+HP bars, AC, class symbols and tap-for-details when there is room. The sidebar
+collapses in narrow/short windows without reducing the guest's allocation.
 **Info** groups five working tools: Levels & skills, Spells, Weapons & armor,
 Money conversion, and the illustrated Code wheel. A tool opens within the
 companion's actual rectangle; Close returns to Info. Lists scroll inside that

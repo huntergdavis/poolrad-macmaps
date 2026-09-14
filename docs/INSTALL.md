@@ -1,7 +1,7 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.9.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.9.0)
+[0.10.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.10.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 

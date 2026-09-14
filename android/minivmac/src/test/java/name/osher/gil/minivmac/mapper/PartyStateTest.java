@@ -20,6 +20,17 @@ public class PartyStateTest {
         return packet;
     }
 
+    private static byte[] detailedPacket(int count) {
+        byte[] packet = packet(count);
+        packet[3] = '2';
+        for (int i = 0; i < count; i++) {
+            int row = 8 + i * PartyState.ROW_SIZE;
+            packet[row + 18] = (byte) 0x80;
+            packet[row + 19] = (byte) 0xff;
+        }
+        return packet;
+    }
+
     @Test public void decodesOrderedPartyWithoutAssumingNamesOrSixMembers() {
         for (int count = 1; count <= 8; count++) {
             PartyState state = PartyState.parse(packet(count));
@@ -103,8 +114,12 @@ public class PartyStateTest {
         byte[] valid = packet(1);
         assertNull(PartyState.parse(Arrays.copyOf(valid, valid.length - 1)));
         assertNull(PartyState.parse(Arrays.copyOf(valid, valid.length + 1)));
-        for (int offset = 0; offset < 4; offset++) {
+        for (int offset = 0; offset < 3; offset++) {
             byte[] broken = valid.clone(); broken[offset]++;
+            assertNull(PartyState.parse(broken));
+        }
+        for (int version : new int[] {0, '0', '3', 255}) {
+            byte[] broken = valid.clone(); broken[3] = (byte) version;
             assertNull(PartyState.parse(broken));
         }
     }
@@ -152,5 +167,130 @@ public class PartyStateTest {
         }
         broken = packet(1); broken[23] = 'X';
         assertNull(PartyState.parse(broken));
+    }
+
+    @Test public void legacyReservedZerosDoNotInventArmorClassOrClericIdentity() {
+        for (PartyState.Member member : PartyState.parse(packet(8)).members) {
+            assertNull(member.armorClass);
+            assertEquals(-1, member.characterClass);
+            assertEquals("Class unavailable", member.classLabel());
+        }
+    }
+
+    @Test public void detailedPacketDecodesSignedArmorClassesAndAllEightRows() {
+        byte[] packet = detailedPacket(8);
+        int[] ac = {0, -1, 60, -127, -10, 10, -128, 3};
+        int[] classes = {0, 5, 17, 15, 1, 7, 255, 13};
+        for (int i = 0; i < ac.length; i++) {
+            packet[8 + i * PartyState.ROW_SIZE + 18] = (byte) ac[i];
+            packet[8 + i * PartyState.ROW_SIZE + 19] = (byte) classes[i];
+        }
+        PartyState state = PartyState.parse(packet);
+        assertNotNull(state);
+        assertEquals(8, state.members.size());
+        for (int i = 0; i < ac.length; i++) {
+            PartyState.Member member = state.members.get(i);
+            assertEquals(ac[i] == -128 ? null : Integer.valueOf(ac[i]), member.armorClass);
+            assertEquals(classes[i] == 255 ? -1 : classes[i], member.characterClass);
+            assertEquals("Hero " + (i + 1), member.name);
+            assertEquals(10 + i, member.currentHp);
+        }
+    }
+
+    @Test public void classLabelsMatchTheOriginalMacTableIncludingMulticlasses() {
+        String[] expected = {"Cleric", "Druid", "Fighter", "Paladin", "Ranger", "Magic-User", "Thief", "Monk",
+                "Cleric/Fighter", "Cleric/Fighter/Magic-User", "Cleric/Ranger", "Cleric/Magic-User",
+                "Cleric/Thief", "Fighter/Magic-User", "Fighter/Thief", "Fighter/Magic-User/Thief",
+                "Magic-User/Thief", "Monster"};
+        for (int id = 0; id < expected.length; id++) {
+            byte[] packet = detailedPacket(1); packet[27] = (byte) id;
+            PartyState.Member member = PartyState.parse(packet).members.get(0);
+            assertEquals(id, member.characterClass);
+            assertEquals(expected[id], member.classLabel());
+        }
+    }
+
+    @Test public void unknownDetailsAreIndependentAndDoNotHideValidHealth() {
+        byte[] packet = detailedPacket(1);
+        PartyState.Member unknown = PartyState.parse(packet).members.get(0);
+        assertNull(unknown.armorClass);
+        assertEquals(-1, unknown.characterClass);
+        assertEquals("Class unavailable", unknown.classLabel());
+        assertEquals(10, unknown.currentHp);
+        packet[26] = 0;
+        PartyState.Member onlyAc = PartyState.parse(packet).members.get(0);
+        assertEquals(Integer.valueOf(0), onlyAc.armorClass);
+        assertEquals(-1, onlyAc.characterClass);
+        packet[26] = (byte) 0x80; packet[27] = 0;
+        PartyState.Member onlyClass = PartyState.parse(packet).members.get(0);
+        assertNull(onlyClass.armorClass);
+        assertEquals(0, onlyClass.characterClass);
+        assertEquals("Cleric", onlyClass.classLabel());
+    }
+
+    @Test public void detailedDisplayDetectsAcClassAndAvailabilityChanges() {
+        byte[] packet = detailedPacket(1); packet[26] = -1; packet[27] = 2;
+        PartyState first = PartyState.parse(packet);
+        assertTrue(first.sameDisplay(PartyState.parse(packet.clone())));
+        byte[] ac = packet.clone(); ac[26] = 0;
+        byte[] characterClass = packet.clone(); characterClass[27] = 5;
+        assertFalse(first.sameDisplay(PartyState.parse(ac)));
+        assertFalse(first.sameDisplay(PartyState.parse(characterClass)));
+        assertFalse(first.sameDisplay(PartyState.parse(detailedPacket(1))));
+        packet[26] = 3; packet[27] = 6;
+        assertEquals(Integer.valueOf(-1), first.members.get(0).armorClass);
+        assertEquals("Fighter", first.members.get(0).classLabel());
+    }
+
+    @Test public void reorderedDetailedRowsKeepAcAndClassWithTheirMember() {
+        byte[] packet = detailedPacket(2);
+        packet[26] = -1; packet[27] = 2;
+        packet[46] = 3; packet[47] = 5;
+        PartyState original = PartyState.parse(packet);
+        byte[] first = Arrays.copyOfRange(packet, 8, 28);
+        System.arraycopy(packet, 28, packet, 8, PartyState.ROW_SIZE);
+        System.arraycopy(first, 0, packet, 28, PartyState.ROW_SIZE);
+        PartyState reordered = PartyState.parse(packet);
+        assertFalse(original.sameDisplay(reordered));
+        assertEquals("Hero 2", reordered.members.get(0).name);
+        assertEquals(Integer.valueOf(3), reordered.members.get(0).armorClass);
+        assertEquals("Magic-User", reordered.members.get(0).classLabel());
+        assertEquals("Hero 1", reordered.members.get(1).name);
+        assertEquals(Integer.valueOf(-1), reordered.members.get(1).armorClass);
+        assertEquals("Fighter", reordered.members.get(1).classLabel());
+    }
+
+    @Test public void rejectsDetailedWireValuesOutsideVerifiedRanges() {
+        for (int ac : new int[]{61, 100, 127}) {
+            byte[] broken = detailedPacket(1); broken[26] = (byte) ac;
+            assertNull("AC " + ac + " is not in the PRP2 contract", PartyState.parse(broken));
+        }
+        for (int id : new int[]{18, 19, 127, 128, 254}) {
+            byte[] broken = detailedPacket(1); broken[27] = (byte) id;
+            assertNull("Class " + id + " must be normalized to unavailable by the native reader", PartyState.parse(broken));
+        }
+    }
+
+    @Test public void detailedPacketsKeepStrictHeaderUnusedRowsAndNameValidation() {
+        byte[] valid = detailedPacket(1);
+        for (int offset : new int[]{5, 6, 7, 23, 28, 46, 47, PartyState.PACKET_SIZE - 1}) {
+            byte[] broken = valid.clone(); broken[offset] = 1;
+            assertNull("Invalid detailed padding/header byte " + offset, PartyState.parse(broken));
+        }
+        byte[] broken = valid.clone(); Arrays.fill(broken, 8, 24, (byte) 'A');
+        assertNull(PartyState.parse(broken));
+        broken = valid.clone(); broken[8] = 31;
+        assertNull(PartyState.parse(broken));
+        assertNull(PartyState.parse(Arrays.copyOf(valid, valid.length - 1)));
+        assertNull(PartyState.parse(Arrays.copyOf(valid, valid.length + 1)));
+    }
+
+    @Test public void detailedHpKeepsUnsignedZeroAndInvalidHealthSemantics() {
+        byte[] packet = detailedPacket(1); packet[25] = (byte) 255; packet[24] = (byte) 200;
+        PartyState.Member member = PartyState.parse(packet).members.get(0);
+        assertEquals(200, member.currentHp); assertEquals(255, member.maxHp);
+        packet[24] = 0; assertEquals(0f, PartyState.parse(packet).members.get(0).healthFraction(), 0f);
+        packet[25] = 0; assertNull(PartyState.parse(packet));
+        packet[25] = 3; packet[24] = 4; assertNull(PartyState.parse(packet));
     }
 }

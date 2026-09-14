@@ -22,7 +22,7 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 262 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 277 Java tests plus three native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -37,10 +37,11 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Explicit pinned-source private builds, verified offline cache, no checkout downloads or public private-asset uploads |
 | Done — 0.8.0 | Real Mac desktop White/Mist/Stonework previews, safe offline Apply and original-setting restoration |
 | Done — 0.9.0 | Map/Info tabs, five offline tools, smaller menu and reference/picker windows fitted above the guest |
+| Done — 0.10.0 | Fresh-save party fix, map-left HP/AC/class sidebar, tap-for-details and small-window collapse |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: comprehensive area/mode recognition, expanded party details,
+Not done: comprehensive area/mode recognition, party conditions/equipment,
 Journal, a dedicated Notes index, or physical pen acceptance. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
@@ -159,8 +160,8 @@ No OCR, handwriting-to-text service, or cloud dependency.
   render checks also pass. [Guide and physical acceptance steps](PEN_NOTES.md).
   Do not repeat implementation or mark hardware done from emulator results.
   While awaiting the actual tablet check, continue with the next unchecked
-  actionable software item; the remaining P1 party work follows the completed
-  B1/B2/W1/UI1 slices. Keep the fresh-save HP follow-up below visible.
+  actionable software item: M1 and the remaining P1 work follow the completed
+  B1/B2/W1/UI1/party slices. Fresh-save HP is corrected in 0.10.0 below.
 - [x] **N4 — Protect the notebook.** Export/import the complete local notebook
   (flags + vector strokes + area/run identities), export a readable image,
   atomic saves and failure feedback, and confirmed clearing. App updates retain
@@ -241,7 +242,7 @@ are gates for the affected feature, not a second giant framework project.
   byte-identical Android Save output, cancelled picker and successful subsequent
   capture, and the Android image/png share chooser verified in the emulator.
   No external recipient was selected. System bars/separate dialogs are excluded.
-- [ ] **P1 — Map left, compact party right.** Use the currently spare horizontal
+- [x] **P1 — Map left, compact party right.** Use the currently spare horizontal
   space in the upper pane; leave the Mac display underneath. Name, monochrome
   face/class icon, AC, and current/max HP with a small high-contrast bar. Tap a
   row for details instead of always showing a full sheet. Read actual Mac party
@@ -251,11 +252,18 @@ are gates for the affected feature, not a second giant framework project.
   Auto-collapse the sidebar on narrow windows rather than shrink the game.
   **Immediate health subset promoted to F7:** current/max HP and compact names
   are now requested first. AC, portraits and expanded details remain here.
-  **Fresh-save coverage follow-up from 0.7.0:** the original SampleParty on the
-  combined disk loads New Phlan/Rolf and the live map, but companion HP bars
-  remain unavailable. B1 does not change the party reader or its polling.
-  Inspect fresh-save slot/heap validation before claiming the postcombat F7
-  acceptance covers this starting state; the cause is not yet established.
+  **Delivered 0.10.0:** verified Mac AC/class fields, original class marks,
+  readable snapshot details above the guest, and narrow/short/large-text
+  collapse. The original SampleParty now shows all six correct HP/AC rows at
+  Rolf's introduction. The fresh-save failure was allocator padding, not slots:
+  validate the proven 302-byte logical record instead of a fixed physical size.
+  Lara's negative AC/multiclass details, keyboard collapse/restoration and real
+  Info → Map return pass. Existing F7 live damage/healing/reorder evidence is
+  retained; native/Java/Android View fixtures validate join/leave changes,
+  stale selections and unknown fields. 277 Java tests, 11 party View checks,
+  eight companion View checks and existing helper/native suites pass. Broader
+  live NPC/mode coverage and physical pen/e-ink remain separate; [evidence](PARTY.md)
+  and [local acceptance](LOCAL_TESTING.md).
 - [x] **W1 — PoolRad → Desktop appearance.** First offer a quiet flat guest
   desktop and Restore original. Then an optional restrained monochrome fantasy
   motif or user-imported image, previewed before applying. This is the actual

@@ -1,5 +1,13 @@
 # Releases
 
+## 0.10.0 — Know your party
+
+[Release notes](releases/0.10.0.md): map-left party HP/AC/class rows,
+tap-for-details and small-window collapse. Fresh-save health is corrected by
+validating the Mac allocator's real logical record size. 277 Java tests,
+focused Android View checks and existing helper/native suites pass; actual
+fresh load, details and keyboard/tab transitions are verified locally.
+
 ## 0.9.0 — A place for the companion
 
 [Release notes](releases/0.9.0.md): retained Map/Info tabs, five working offline

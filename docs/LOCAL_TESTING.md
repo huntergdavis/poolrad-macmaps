@@ -62,6 +62,57 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## P1 compact party acceptance (0.10.0, 2026-09-14)
+
+Public and local-only personal universal APKs build; **277 Java tests** pass
+with zero failures/errors. The 54 Python helper tests, three native ASAN/UBSAN
+reader suites, eight stopped-core input checks and ten companion lifecycle
+checks also pass. The new packet decoder has 20 focused tests; the layout has
+11. No CI or physical tablet run is inferred from these local checks.
+
+Eleven actual detached Android View/software-Canvas party checks pass:
+full/partial/zero HP, signed/unknown AC, all 18 distinct original class marks,
+unknown class, join/leave/reorder, map-versus-row touch routing, stale touch and
+accessibility actions, cancellation and small/large-text layout collapse.
+Eight existing companion View checks also pass against the new source. An
+initial hide/show fixture failed because detached Views do not receive Android's
+attached visibility dispatch. The corrected fixture explicitly calls the real
+visibility callback; it tests cancellation, not attachment. Production gesture
+code was not weakened. The actual Info → Map transition was checked separately.
+
+On isolated API 30 `emulator-5584` (1200×1600, density 200), the public 0.9.0
+APK reproduced the fresh-SampleParty failure while Rolf and New Phlan `15,1 W`
+were visible. Two private read-only captures established the Mac allocator
+padding error described in [PARTY.md](PARTY.md). `tools/CapturePartyRam.java`
+invokes the existing DEBUG snapshot request through local JDWP; it adds no
+everyday menu or guest-memory editing. Original campaign emulator `5580` was
+not touched.
+
+After normal guest Quit → Finder Shut Down, the 0.10.0 APK installed in place.
+The writable combined disk retained SHA-256
+`71747cde21672d524d6b5c574220cf699130a57b46897d4933b70d9179248a53`
+across installation. A fresh boot and the original unmodified SampleParty then
+showed all six correct HP pairs and AC `0,−1,1,1,0,3` beside the Mac's own rows.
+Lara's tap opened Fighter/Magic-User, 8/8 HP and AC −1 in the undimmed upper
+companion rectangle. Keyboard open collapsed the sidebar and retained the map;
+closing it restored the rows. Info → Map also restored fresh rows, with Rolf
+and the guest position unchanged. Screenshots: `scratch/p1-final-party.png`,
+`p1-lara-details.png`, `p1-keyboard-open.png`, `p1-restored-map.png`.
+
+Existing F7 actual damage/healing/reorder acceptance remains documented in
+PARTY.md; its HP/list semantics are unchanged and private combat captures replay
+through the new reader. Join/leave changes are checked with native, Java and
+Android View fixtures, not a claim of newly exercised live NPC recruitment.
+Broader NPC/mode coverage, physical e-ink/stylus and Q1 recreation remain open.
+
+The public APK has all 72 unchanged rune illustrations and no private media.
+Public SHA-256:
+`4920b928c32b6049374f203b3fbcd4786b781f6b1baa937463d50cfd38fa64da`.
+Local-only personal APK SHA-256:
+`1f803852afef8110ce5ba325319549d95fefd1b127231843b0982a36bfb39d0a`.
+The signing certificate is unchanged from prior updates; private assets,
+diagnostic RAM, writable disks and personal APKs remain ignored/unpublished.
+
 ## UI1 companion tabs acceptance (0.9.0, 2026-09-14)
 
 Public and local-only personal universal APKs build. **262 Java unit tests**

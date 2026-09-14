@@ -8,11 +8,14 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.accessibility.AccessibilityNodeInfo;
 import android.widget.FrameLayout;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import name.osher.gil.minivmac.LiveMapView;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
@@ -20,8 +23,8 @@ import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.PartyState;
 
 /**
- * Seven focused checks of the actual LiveMapView on Android software Canvas.
- * Synthetic PRP1/PRM1 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
+ * Focused checks of the actual LiveMapView on Android software Canvas.
+ * Synthetic PRP1/PRP2/PRM1 data only: not RAM-probe, combat, hardware-GPU or e-ink acceptance.
  * Reuses CompositeSheetRenderCheck's system-context harness and PartyStateTest's packet layout.
  *
  * Compile from the repository root (no Gradle or running app required):
@@ -40,8 +43,8 @@ import name.osher.gil.minivmac.mapper.PartyState;
  *     --output "$check_dir/party-pane-check.zip" "$check_dir/classes.jar"
  *
  * Only the agent/user owning the emulator should run these next commands:
- *   adb -s emulator-5580 push "$check_dir/party-pane-check.zip" /data/local/tmp/
- *   adb -s emulator-5580 shell \
+ *   adb -s emulator-5584 push "$check_dir/party-pane-check.zip" /data/local/tmp/
+ *   adb -s emulator-5584 shell \
  *     'CLASSPATH=/data/local/tmp/party-pane-check.zip app_process /system/bin PartyPaneRenderCheck'
  * This creates no app window and injects no guest/device input. Touch checks below
  * call a detached synthetic View directly, never Android's input manager.
@@ -96,15 +99,17 @@ public final class PartyPaneRenderCheck {
             equal(before, render(view), "Healing did not restore the exact full-health display");
         });
 
-        run("narrow portrait uses two columns with all six readable health bars", () -> {
+        run("narrow portrait and short panes collapse the sidebar and preserve the full map", () -> {
             byte[] sample = packet(true);
             LiveMapView view = view(sample, 360, 320);
             PartyPaneLayout pane = pane(view, MEMBERS);
-            check(pane.columns == 2 && pane.rows == 3, "Portrait must use three rows of two companions");
-            check(pane.partyTop == pane.mapHeight && pane.mapHeight + pane.partyHeight == view.getHeight(),
-                    "Portrait party/map regions overlap or exceed the allocated pane");
-            checkBars(render(view), pane, sample);
+            check(pane.rows == 0 && pane.mapWidth == view.getWidth() && pane.mapHeight == view.getHeight(),
+                    "Portrait sidebar must collapse without taking any guest/map height");
+            equal(render(view(null,360,320)),render(view),"Collapsed rows left pixels in the map");
             checkDescription(view, sample);
+            resize(view,960,200);
+            check(pane(view,MEMBERS).rows==0,"Short wide window must not cram six rows together");
+            equal(render(view(null,960,200)),render(view),"Short pane left clipped party labels");
         });
 
         run("actual map taps follow the resized viewport and party taps create no flag", () -> {
@@ -163,8 +168,7 @@ public final class PartyPaneRenderCheck {
         run("tiny panes collapse impossible rows without clipping failures or invented HP", () -> {
             LiveMapView view = view(packet(false), 96, 72);
             PartyPaneLayout pane = pane(view, MEMBERS);
-            check((pane.partyHeight - 22 * density) / pane.rows < 16 * density,
-                    "Tiny fixture unexpectedly has room for full party rows");
+            check(pane.rows == 0 && pane.partyWidth == 0,"Tiny pane reserved unusable sidebar space");
             Bitmap before = render(view);
             view.showPartySample(packet(true));
             equal(before, render(view), "Tiny pane drew health rows that cannot fit its allocation");
@@ -173,8 +177,104 @@ public final class PartyPaneRenderCheck {
             Bitmap pixel = render(view);
             check(pixel.getWidth() == 1 && pixel.getHeight() == 1, "Minimum-size View allocation changed");
             checkMonochrome(pixel);
-            resize(view, 360, 320);
+            resize(view, 960, 480);
             checkBars(render(view), pane(view, MEMBERS), packet(true));
+        });
+
+        run("party row taps select exact members and cancel on stale, drag, palm, focus or resize", () -> {
+            LiveMapView view=view(packet(true),960,480);
+            final List<PartyState.Member> selected=new ArrayList<>(); final int[] mapTaps={0};
+            view.setListener(new LiveMapView.Listener(){
+                @Override public void onAreaChanged(AreaIdentity area){}
+                @Override public void onTileTapped(AreaIdentity area,int x,int y){mapTaps[0]++;}
+                @Override public void onPartyMemberTapped(PartyState.Member member){selected.add(member);}
+            });
+            PartyPaneLayout p=pane(view,MEMBERS); float x=p.partyLeft+p.partyWidth/2f,y=p.rowTop(2)+p.rowHeight/2;
+            pointer(view,MotionEvent.ACTION_DOWN,0,new int[]{7},x,y);
+            pointer(view,MotionEvent.ACTION_UP,0,new int[]{7},x,y);
+            check(selected.size()==1 && selected.get(0).name.equals(NAMES[2]),"Nonzero pointer ID selected wrong member");
+            pointer(view,MotionEvent.ACTION_DOWN,0,new int[]{7},x,y);
+            byte[] reordered=packet(true); swap(reordered,0,2);view.showPartySample(reordered);
+            pointer(view,MotionEvent.ACTION_UP,0,new int[]{7},x,y);
+            check(selected.size()==1,"Reordered party completed a stale row tap");
+            tap(view,x,y);check(selected.size()==2 && selected.get(1).name.equals(NAMES[0]),"Fresh reordered row has wrong details");
+            int expected=selected.size();
+            pointer(view,MotionEvent.ACTION_DOWN,0,new int[]{7},x,y);
+            pointer(view,MotionEvent.ACTION_UP,MotionEvent.FLAG_CANCELED,new int[]{7},x,y);
+            check(selected.size()==expected,"FLAG_CANCELED pointer UP opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);event(view,MotionEvent.ACTION_MOVE,x+100*density,y);
+            event(view,MotionEvent.ACTION_MOVE,x,y);event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"Drag out and back opened details");
+            pointer(view,MotionEvent.ACTION_DOWN,0,new int[]{7},x,y);
+            pointer(view,MotionEvent.ACTION_POINTER_DOWN|(1<<MotionEvent.ACTION_POINTER_INDEX_SHIFT),0,new int[]{7,12},x,y);
+            pointer(view,MotionEvent.ACTION_POINTER_UP|(1<<MotionEvent.ACTION_POINTER_INDEX_SHIFT),0,new int[]{7,12},x,y);
+            pointer(view,MotionEvent.ACTION_UP,0,new int[]{7},x,y);
+            check(selected.size()==expected,"Additional pointer/palm opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);event(view,MotionEvent.ACTION_CANCEL,x,y);event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"ACTION_CANCEL opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);view.onWindowFocusChanged(false);event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"Window focus loss opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);
+            visibilityCallback(view,View.GONE);visibilityCallback(view,View.VISIBLE);
+            event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"Visibility callback opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);resize(view,360,320);resize(view,960,480);event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"Resize out and back opened details");
+            event(view,MotionEvent.ACTION_DOWN,x,y);view.showPartySample(null);event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"Unavailable party opened details");
+            check(mapTaps[0]==0,"Party gesture leaked into map-note creation");
+        });
+
+        run("named accessibility detail actions stay available when collapsed and reject stale IDs", () -> {
+            LiveMapView view=view(packet(true),360,320); final List<String> selected=new ArrayList<>();
+            view.setListener(new LiveMapView.Listener(){
+                @Override public void onAreaChanged(AreaIdentity area){}
+                @Override public void onTileTapped(AreaIdentity area,int x,int y){}
+                @Override public void onPartyMemberTapped(PartyState.Member member){selected.add(member.name);}
+            });
+            // Directly verifies our explicit custom-action projection. Detached framework
+            // attachment/selected-node behavior is not inferred from this software probe.
+            AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();
+            view.onInitializeAccessibilityNodeInfo(info);
+            List<AccessibilityNodeInfo.AccessibilityAction> actions=info.getActionList();
+            check(actions.size()==MEMBERS,"Expected one named action per member");
+            int action=actions.get(2).getId();
+            check(actions.get(2).getLabel().toString().contains(NAMES[2]),"Missing member label on accessible action");
+            check(view.performAccessibilityAction(action,null) && selected.equals(Collections.singletonList(NAMES[2])),
+                    "Collapsed sidebar lost accessible details");
+            byte[] changed=packet(true);swap(changed,0,2);view.showPartySample(changed);
+            check(!view.performAccessibilityAction(action,null) && selected.size()==1,"Stale accessibility action selected reordered member");
+            info.recycle();view.showPartySample(null);info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+            check(info.getActionList().isEmpty(),"Unavailable party retained stale detail actions");info.recycle();
+            check(!view.isFocusable(),"Details stole physical-key focus from the guest");
+        });
+
+        run("all 18 verified classes have distinct original monochrome symbols and unknown stays honest", () -> {
+            byte[] sample=packet(true);LiveMapView view=view(sample,960,480);Set<Long> glyphs=new HashSet<>();
+            for(int kind=-1;kind<18;kind++) {
+                sample[8+19]=(byte)kind;view.showPartySample(sample);Bitmap image=render(view);
+                PartyPaneLayout p=pane(view,MEMBERS);float top=p.rowTop(0)+(p.rowHeight-48*density)/2;
+                long hash=1125899906842597L;int dark=0;
+                for(int y=(int)(top+7*density);y<top+37*density;y++)
+                    for(int x=(int)(p.partyLeft+8*density);x<p.partyLeft+38*density;x++) {
+                        int pixel=image.getPixel(x,y);hash=31*hash+pixel;if(Color.red(pixel)<128)dark++;
+                    }
+                check(dark>10,"Blank class glyph "+kind);check(glyphs.add(hash),"Duplicate class glyph "+kind);
+                checkMonochrome(image);image.recycle();BITMAPS.remove(image);
+            }
+            byte[] legacy=packet(true);legacy[3]='1';for(int i=0;i<MEMBERS;i++){legacy[8+i*20+18]=0;legacy[8+i*20+19]=0;}
+            view.showPartySample(legacy);checkDescription(view,legacy);checkBars(render(view),pane(view,MEMBERS),legacy);
+            check(view.getContentDescription().toString().contains("AC unavailable; Class unavailable"),"Legacy data invented new metadata");
+        });
+
+        run("joining and leaving change row targets together with names, bars and details", () -> {
+            byte[] smaller=packet(true);smaller[4]=5;Arrays.fill(smaller,8+5*20,smaller.length,(byte)0);
+            LiveMapView view=view(smaller,960,480);checkBars(render(view),pane(view,5),smaller);
+            check(!view.getContentDescription().toString().contains(NAMES[5]),"Departed member remained accessible");
+            view.showPartySample(packet(true));checkBars(render(view),pane(view,6),packet(true));
+            checkDescription(view,packet(true));
+            byte[] maximum=packet(true);maximum[24]=(byte)255;maximum[25]=(byte)255;maximum[26]=(byte)-127;
+            view.showPartySample(maximum);checkBars(render(view),pane(view,6),maximum);
         });
 
         System.out.println("PASS " + passed + " party-pane actual Android View/software-Canvas checks; "
@@ -199,12 +299,14 @@ public final class PartyPaneRenderCheck {
 
     private static byte[] packet(boolean mixed) {
         byte[] sample = new byte[PartyState.PACKET_SIZE];
-        sample[0]='P'; sample[1]='R'; sample[2]='P'; sample[3]='1'; sample[4]=MEMBERS;
+        sample[0]='P'; sample[1]='R'; sample[2]='P'; sample[3]='2'; sample[4]=MEMBERS;
         for (int i=0; i<MEMBERS; i++) {
             int at = 8 + i * PartyState.ROW_SIZE, maximum = 20 + i * 10;
             for (int c=0; c<NAMES[i].length(); c++) sample[at+c] = (byte) NAMES[i].charAt(c);
             sample[at+16] = (byte) (!mixed || i%3==0 ? maximum : i%3==1 ? maximum/2 : 0);
             sample[at+17] = (byte) maximum;
+            sample[at+18] = (byte) new int[]{0,-1,60,-127,1,3}[i];
+            sample[at+19] = (byte) i;
         }
         check(PartyState.parse(sample) != null, "Broken synthetic health fixture");
         return sample;
@@ -252,16 +354,15 @@ public final class PartyPaneRenderCheck {
     private static void checkBars(Bitmap bitmap, PartyPaneLayout pane, byte[] packet) {
         PartyState party = PartyState.parse(packet);
         check(party != null, "Expected a valid party fixture");
-        float rowHeight = (pane.partyHeight - 22 * density) / pane.rows;
-        float columnWidth = pane.partyWidth / (float) pane.columns;
-        Paint metrics = new Paint(Paint.ANTI_ALIAS_FLAG); metrics.setTextSize(12 * density);
+        float rowHeight = pane.rowHeight;
+        Paint metrics = new Paint(Paint.ANTI_ALIAS_FLAG); metrics.setTextSize(11 * density);
         check(rowHeight >= 25 * density, "Fixture needs room for labels and bar interiors");
         for (int i=0; i<party.members.size(); i++) {
             PartyState.Member member = party.members.get(i);
-            float left = pane.partyLeft + (i % pane.columns) * columnWidth + 10 * density;
-            float right = pane.partyLeft + (i % pane.columns + 1) * columnWidth - 10 * density;
-            float rowTop = pane.partyTop + 22 * density + (i / pane.columns) * rowHeight;
-            int y = (int) (rowTop + 20 * density);
+            float left = pane.partyLeft + 44 * density;
+            float right = pane.partyLeft + pane.partyWidth - 10 * density;
+            float rowTop = pane.rowTop(i)+(rowHeight-48*density)/2;
+            int y = (int) (rowTop + 37 * density);
             int start = (int) Math.ceil(left + 2 * density), end = (int) Math.floor(right - 2 * density);
             check(start >= 0 && end < bitmap.getWidth() && y < bitmap.getHeight() && end > start,
                     "Health bar is outside its View allocation: " + member.name);
@@ -271,21 +372,28 @@ public final class PartyPaneRenderCheck {
             check(Math.abs(painted - member.healthFraction()) < .035f,
                     member.name + " expected bar " + member.healthFraction() + ", painted " + painted);
             int labelInk = 0;
-            for (int yy=(int)rowTop; yy<rowTop+14*density; yy++)
+            for (int yy=(int)rowTop; yy<rowTop+16*density; yy++)
                 for (int x=start; x<=end; x++) if (Color.red(bitmap.getPixel(x,yy)) < 128) labelInk++;
             check(labelInk > 12, "Name/current-max label is missing for " + member.name);
-            String hp = member.currentHp + "/" + member.maxHp;
-            int hpStart = Math.max(start, (int) Math.floor(right - metrics.measureText(hp))), hpInk = 0;
-            for (int yy=(int)rowTop; yy<rowTop+14*density; yy++)
-                for (int x=hpStart; x<right; x++) if (Color.red(bitmap.getPixel(x,yy)) < 128) hpInk++;
+            String hp = "HP " + member.currentHp + "/" + member.maxHp;
+            String ac = "AC " + (member.armorClass==null ? "—" : member.armorClass);
+            int hpEnd = (int)Math.ceil(left+metrics.measureText(hp)), hpInk = 0, acInk=0;
+            int acStart = (int)Math.floor(right-metrics.measureText(ac));
+            check(hpEnd+2*density < acStart,"HP and AC labels collide: "+hp+" / "+ac);
+            for (int yy=(int)(rowTop+16*density); yy<rowTop+30*density; yy++) {
+                for (int x=start; x<hpEnd; x++) if (Color.red(bitmap.getPixel(x,yy)) < 128) hpInk++;
+                for (int x=acStart; x<right; x++) if (Color.red(bitmap.getPixel(x,yy)) < 128) acInk++;
+            }
             check(hpInk > 8, "The visible current/max number region is blank for " + member.name);
+            check(acInk > 8,"The visible AC region is blank for "+member.name);
         }
     }
 
     private static void checkDescription(LiveMapView view, byte[] packet) {
         String description = view.getContentDescription().toString(); int previous = -1;
         for (PartyState.Member member : PartyState.parse(packet).members) {
-            String expected = member.name + ": " + member.currentHp + " of " + member.maxHp + " HP.";
+            String expected = member.name + ": " + member.currentHp + " of " + member.maxHp + " HP; AC "
+                    +(member.armorClass==null ? "unavailable" : member.armorClass)+"; "+member.classLabel()+".";
             int at = description.indexOf(expected);
             check(at > previous, "Missing or reordered accessible current/max health: " + expected);
             previous = at;
@@ -297,8 +405,10 @@ public final class PartyPaneRenderCheck {
         MapViewport map = new MapViewport(pane.mapWidth, pane.mapHeight, density);
         check(map.cell >= 3, "Test map should remain usable beside/before the party strip");
         int previous = tapped[1];
-        tap(view, pane.partyLeft + pane.partyWidth / 2f, pane.partyTop + pane.partyHeight / 2f);
-        check(tapped[1] == previous, "Party-strip tap was interpreted as a map flag");
+        if(pane.rows>0) {
+            tap(view, pane.partyLeft + pane.partyWidth / 2f, pane.rowTop(0)+pane.rowHeight/2);
+            check(tapped[1] == previous, "Party-strip tap was interpreted as a map flag");
+        }
         tap(view, map.left + 4.5f * map.cell, map.top + 3.5f * map.cell);
         check(tapped[1] == previous + 1 && tapped[0] == 3*16+4,
                 "Resized map hit-testing disagrees with the rendered tile");
@@ -312,6 +422,37 @@ public final class PartyPaneRenderCheck {
         long now=SystemClock.uptimeMillis(); MotionEvent event=MotionEvent.obtain(now,now,action,x,y,0);
         try { check(view.onTouchEvent(event), "Synthetic companion-pane touch escaped the View"); }
         finally { event.recycle(); }
+    }
+
+    private static void swap(byte[] packet,int first,int second) {
+        byte[] row=Arrays.copyOfRange(packet,8+first*20,8+(first+1)*20);
+        System.arraycopy(packet,8+second*20,packet,8+first*20,20);System.arraycopy(row,0,packet,8+second*20,20);
+    }
+
+    private static void visibilityCallback(LiveMapView view,int visibility) {
+        view.setVisibility(visibility);
+        // Detached View.setVisibility does not dispatch onVisibilityChanged on
+        // API30: AOSP View.setFlags guards that dispatch with mAttachInfo!=null.
+        // Invoke our actual callback explicitly, like the focus-loss check above.
+        // This proves callback cancellation, not attached hierarchy dispatch;
+        // root's real Map/Info switching check covers the latter. No fake attach.
+        // https://android.googlesource.com/platform/frameworks/base/+/ed841cb/core/java/android/view/View.java
+        try {
+            java.lang.reflect.Method callback=LiveMapView.class.getDeclaredMethod("onVisibilityChanged",View.class,int.class);
+            callback.setAccessible(true);callback.invoke(view,view,visibility);
+        } catch(ReflectiveOperationException failure) { throw new AssertionError("Cannot exercise visibility callback",failure); }
+    }
+
+    private static void pointer(LiveMapView view,int action,int flags,int[] ids,float x,float y) {
+        MotionEvent.PointerProperties[] properties=new MotionEvent.PointerProperties[ids.length];
+        MotionEvent.PointerCoords[] coords=new MotionEvent.PointerCoords[ids.length];
+        for(int i=0;i<ids.length;i++) {
+            properties[i]=new MotionEvent.PointerProperties();properties[i].id=ids[i];properties[i].toolType=MotionEvent.TOOL_TYPE_FINGER;
+            coords[i]=new MotionEvent.PointerCoords();coords[i].x=x+i*10;coords[i].y=y;coords[i].pressure=1;coords[i].size=1;
+        }
+        long now=SystemClock.uptimeMillis();MotionEvent event=MotionEvent.obtain(now,now,action,ids.length,properties,coords,
+                0,0,1,1,0,0,android.view.InputDevice.SOURCE_TOUCHSCREEN,flags);
+        try{check(view.onTouchEvent(event),"Multipointer touch escaped the companion View");}finally{event.recycle();}
     }
 
     private static int[] pixels(Bitmap bitmap) {

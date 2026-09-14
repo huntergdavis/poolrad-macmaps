@@ -1,8 +1,27 @@
-# Read-only party health
+# Read-only party details
 
 Scope: the supplied **Macintosh Pool of Radiance v1.1**. Read the guest's
-ordered party names and current/maximum HP; do not change stats, automate
-combat, guess mana, or treat a party member as a tactical map position.
+ordered party names, current/maximum HP, armor class and class identifiers;
+do not change stats, automate combat, guess mana, or treat a party member as a
+tactical map position.
+
+## Using the party panel
+
+On **Map**, a roomy window shows the map on the left and party rows on the
+right. Each row has a name, an original monochrome class symbol, current/max
+HP, a dark health bar and the game's displayed armor class. Multiclass marks
+combine their component symbols; they are not extracted guest portraits.
+
+Tap a row for its full name, class, health and AC in the same upper companion
+rectangle. The details explicitly describe a **snapshot when opened**: close
+and reopen to refresh. Unknown details remain unavailable, and zero HP alone
+does not imply death. Nothing in this panel edits the character.
+
+When the window is too narrow/short, or large text would crowd its rows, the
+sidebar collapses and the map regains the full upper pane. Guest and keyboard
+space never depend on party size. Named accessibility detail actions remain
+available on the map; stale actions or touches cannot open a different member
+after a health sample, party reorder, resize or cancellation.
 
 ## What is proved
 
@@ -20,6 +39,9 @@ as fixed addresses by the implementation.
 | Current HP | Record + `0x12b`, unsigned byte | Guest HP formatter zero-extends this byte before decimal formatting; healing changes this field. |
 | Maximum HP | Record + `0x32`, unsigned byte | Healing clamps current HP to this byte; level-up increases this byte and preserves the previous missing-HP difference. |
 | Party slot / monster group | Record + `0xc9` | CODE 2 `+0x2f52..0x305c` assigns unique party slots 0–7. CODE 5 starts monster groups at 8 and appends them to the same list. |
+| Displayed armor class | `60 − unsigned(record[0x11d])` | CODE 3 `+0x0858..0x08b6`, called by the party row through A5 `+0x49a`, formats the sign and absolute difference from 60. |
+| Character class | Record + `0x2f` | CODE 3 `+0x3a72..0x3ad0` indexes the Mac's own class-name table at A5 `−0x5e82`. |
+| Logical character size | 302 bytes (`0x12e`) | CODE 7 `+0x1ebc` requests this allocation; `+0x1ee6` bounds the record-clearing loop by the same size. |
 
 The append routine builds eight occupancy slots at `0x671714`, accepts slot
 numbers 0–7 at `0x671746`, and stops at eight at `0x6717a2`. The reader therefore
@@ -65,9 +87,14 @@ status fields have not been decoded by this slice.
 `POOLRAD_PARTY.h` reuses the existing `POOLRAD.h` app-name, A5, map-handle,
 geometry/bootstrap and coordinate bounds checks. It resolves the current head
 and every movable handle afresh, masks the established 24-bit address format,
-and checks each address before dereferencing. Observed character blocks have
-an eight-byte heap header with low-24-bit size 312, leaving **304 record bytes**.
-This exact block size is required. Handle or record cycles/aliases, bad member
+and checks each address before dereferencing. The supported 24-bit Mac heap has
+an eight-byte header. Its low 24 bits give the **physical** allocation size;
+the low nibble of its tag gives unused tail padding. Require a relocatable
+block with an exact **302-byte logical record**, four-byte-aligned physical
+size, and the entire physical allocation within captured RAM. The tag's
+reserved bits must remain zero for this narrow profile. The formula is
+`physical = 302 + padding + 8`, not a hardcoded physical size of 312.
+Handle or record cycles/aliases, bad member
 names, invalid pointers, truncated records, an empty party, duplicate member
 slots or an oversized list make the whole sample unavailable.
 
@@ -75,30 +102,88 @@ HP is accepted only when `1 <= max <= 255` and `0 <= current <= max`. Zero
 current is valid; it is not labeled dead. An unexplained above-maximum value
 is rejected rather than silently clamped or assigned speculative meaning.
 
-`poolrad_party_probe(ram, size, out)` writes a **168-byte PRP1 packet**:
+`poolrad_party_probe(ram, size, out)` writes a **168-byte PRP2 packet**:
 
 ```text
-0..3       PRP1
+0..3       PRP2
 4          member count (1..8)
 5..7       zero
 8..167     eight rows of 20 bytes:
              0..15   name, Macintosh Roman, NUL-terminated and zero-padded
              16      current HP, unsigned
              17      maximum HP, unsigned
-             18..19  zero
+             18      signed AC (two's complement), or 0x80 = unavailable
+             19      Mac class ID 0..17, or 0xff = unavailable
            unused rows are entirely zero
 ```
 
 The caller supplies a separate 168-byte output buffer. Failure returns zero
-and clears it; success returns one. Only names, order and health leave this
-reader—no heap pointers, raw character records or unrelated RAM.
+and clears it; success returns one. Only names, order, health, AC and class IDs
+leave this reader—no heap pointers, raw character records or unrelated RAM.
+
+The AC byte represents `−127..60`. This is a **transport range**, not an
+invented tabletop limit: the Mac reads an unsigned source byte and displays
+60 minus that value. Source values 188–255 would need AC `−128..−195`; they
+are honestly unavailable in this compact packet, never wrapped or clamped.
+Unknown AC or class does not discard otherwise valid names/health.
 
 `PartyState.parse(byte[])` returns null for unavailable/invalid packets, or an
 immutable state with public `members`. Each member exposes `name`, `currentHp`,
-`maxHp` and `healthFraction()`. Strict packet length, version, reserved-byte,
+`maxHp`, `healthFraction()`, nullable `armorClass`, `characterClass` (`−1` when
+unknown) and `classLabel()`. Strict packet length, version, reserved-byte,
 padding and HP checks reject malformed/native-version mismatches. Names use
 Macintosh Roman, not UTF-8 or Latin-1. `sameDisplay` supports change-only redraws;
-the state owns a defensive packet copy.
+the state owns a defensive packet copy. Old PRP1 packets remain readable;
+their two reserved zero bytes mean **unknown AC/class**, not AC 0 or Cleric.
+
+### Verified Mac class identifiers
+
+These are the actual 18 entries of the game's own label table, independently
+read from the private Macintosh executable/capture. They are not a claim that
+every listed class is offered by this game's character-creation menu. Values
+outside this table become unavailable rather than indexing unrelated data.
+
+| ID | Label | ID | Label |
+| --- | --- | --- | --- |
+| 0 | Cleric | 9 | Cleric/Fighter/Magic-User |
+| 1 | Druid | 10 | Cleric/Ranger |
+| 2 | Fighter | 11 | Cleric/Magic-User |
+| 3 | Paladin | 12 | Cleric/Thief |
+| 4 | Ranger | 13 | Fighter/Magic-User |
+| 5 | Magic-User | 14 | Fighter/Thief |
+| 6 | Thief | 15 | Fighter/Magic-User/Thief |
+| 7 | Monk | 16 | Magic-User/Thief |
+| 8 | Cleric/Fighter | 17 | Monster |
+
+The original sample party yields class IDs `2, 13, 11, 14, 13, 0`, and AC
+`0, −1, 1, 1, 0, 3`. The AC values match the game's Information window in the
+existing `scratch/party-live-initial.png` and fresh-start screenshot. The Mac
+field at `0x11d` is **not** the DOS-derived candidate offset `0xa9`.
+
+### Fresh SampleParty health failure and correction (2026-09-14)
+
+The reproduced 0.9.0 failure is not a duplicate slot, empty party or bad HP.
+Both unchanged fresh captures (`scratch/p1-fresh-party-1.ram` and `-2.ram`)
+have the supported application/A5, slots 0–5 and all six expected HP pairs.
+Arax's record has header tag `0x86` and physical size 316; older accepted
+captures have tag `0x82` and size 312. Both are the game's same logical
+302-byte allocation: `316 − 6 − 8 = 312 − 2 − 8 = 302`.
+
+The old reader confused physical allocation size with logical record size
+and rejected the entire party when one handle had different allocator padding.
+The corrected reader checks the documented size correction and actual game
+allocation size instead. It still rejects wrong logical sizes, unsupported
+headers, truncated physical allocations, bad slots/pointers and loops.
+No slot rule or HP rule was loosened. Allocator padding is never exported.
+
+This follows Apple's [Memory Manager, pp. 2-22–2-23](https://dev.os9.ca/techpubs/mac/pdf/Memory/Memory_Manager.pdf),
+which explains alignment and small-fragment padding. The game's CODE 7
+allocation/clear loop independently establishes the required logical size.
+Both fresh snapshots now decode all six correct HP/AC/class rows in the native
+replay, alongside the older intro/tour/combat captures. The actual rebuilt
+0.10.0 APK also passes fresh-SampleParty display, Lara's negative-AC/multiclass
+details and keyboard/tab restoration; [live evidence](LOCAL_TESTING.md#p1-compact-party-acceptance-0100-2026-09-14).
+No physical-tablet check is claimed here.
 
 The emulator must sample on its core thread, not while another thread mutates
 guest RAM. The UI must discard health on unavailable samples, pause/shutdown or
@@ -113,15 +198,20 @@ This reader is **not** a new general exploration/combat/wilderness detector.
   profile/bootstrap, pointer/record bounds, loops, duplicate records, bad heap
   size/names/health, and zeroed output on rejection.
 - The character-boundary test retains all valid map/A5 fields while truncating
-  exactly the final record byte; it rejects the short input and accepts the
-  exact record end. Synthetic fixtures contain no original game records.
+  the logical record or its physical allocation/padding. It accepts the exact
+  complete allocation end, including the fresh-start 316-byte form. Synthetic
+  fixtures contain no original game records. Every header-correction nibble,
+  unsupported block-tag group, all 256 AC/class source-byte values, and unknown
+  detail preservation are checked under address/undefined sanitizers.
 - Private `phlan-15-1-west-intro.ram` and `phlan-11-2-south-tour.ram` each decode
   the same ordered party: Arax the Bold 12/12, Lara Spellsword 8/8, Tanarakis 7/7,
   Hogarth 10/10, Shara the Grey 9/9, Zarram 9/9. Their exported PRP1 packets match
-  byte-for-byte. `startup.ram` is rejected with no party packet emitted.
-- **11 Java tests pass** in an isolated JUnit run: strict validation, immutable snapshots, one/eight-member
+  byte-for-byte in the original PRP1 check; current PRP2 replays also match.
+  `startup.ram` is rejected with no party packet emitted.
+- **20 Java tests pass** in an isolated JUnit run: strict validation, immutable snapshots, one/eight-member
   bounds, reorder/join/leave changes, health changes, zero and unsigned HP,
-  MacRoman names, padding and future/invalid packet rejection.
+  MacRoman names, padding and future/invalid packet rejection, PRP1 compatibility,
+  all 18 verified class labels, signed AC and independent unknown details.
 - The real native intro/tour packets also pass the Java decoder and compare
   equal; its empty startup output decodes as unavailable.
 - **Combat regression (2026-09-14):** unchanged private capture
@@ -233,8 +323,8 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined \
 scratch/test-party-probe
 ```
 
-An optional argument replays a private RAM file: binary PRP1 goes to stdout,
-readable HP to stderr; exit status 2 means unavailable. Keep captures and
+An optional argument replays a private RAM file: binary PRP2 goes to stdout,
+readable HP/AC/class IDs to stderr; exit status 2 means unavailable. Keep captures and
 generated packets in ignored `scratch/`. Java coverage is `PartyStateTest`
 under the normal Android `testMacIIDebugUnitTest` task.
 

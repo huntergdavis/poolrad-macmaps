@@ -34,6 +34,8 @@ static void fixture(uint32_t a5, uint32_t handles, uint32_t records, unsigned co
         ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 10 + i;
         ram[record + POOLRAD_PARTY_MAX_HP_OFFSET] = 10 + i;
         ram[record + POOLRAD_PARTY_SLOT_OFFSET] = i % POOLRAD_PARTY_MAX_MEMBERS;
+        ram[record + POOLRAD_PARTY_AC_OFFSET] = 60 + i;
+        ram[record + POOLRAD_PARTY_CLASS_OFFSET] = i % (POOLRAD_PARTY_LAST_CLASS + 1);
         put32(record + POOLRAD_PARTY_NEXT_OFFSET, i + 1 < count ? member_handle(i + 1) : 0);
     }
 }
@@ -57,14 +59,51 @@ static void combat_fixture(unsigned members, unsigned combatants) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP1", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP2", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
         assert(output[row + 16] == 10 + i && output[row + 17] == 10 + i);
-        assert(output[row + 18] == 0 && output[row + 19] == 0);
+        assert(output[row + 18] == (unsigned char) (0 - i) && output[row + 19] == i);
     }
     for (unsigned i = 8 + 6 * POOLRAD_PARTY_ROW_SIZE; i < sizeof(output); i++) assert(output[i] == 0);
+
+    // Same logical record under every representable size correction for this
+    // four-byte-aligned MacII heap; no game data is copied into these fixtures.
+    for (unsigned correction = 0; correction < 16; correction++) {
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        unsigned physical = POOLRAD_PARTY_RECORD_SIZE + 8 + correction;
+        put32(member_record(0) - 8, ((0x80u | correction) << 24) | physical);
+        if ((physical & 3) == 0) {
+            assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 10);
+            // Contents of allocator padding must not affect names/stats.
+            memset(ram + member_record(0) + POOLRAD_PARTY_RECORD_SIZE, 0xa5, correction);
+            assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 10);
+        } else unavailable();
+    }
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    put32(member_record(0) - 8, 0x8600013c); // Fresh SampleParty's valid allocation shape.
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 6);
+    put32(member_record(0) - 8, 0x8200013c); unavailable(); // Physical growth without correction.
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    put32(member_record(0) - 8, 0x86000138); unavailable(); // Correction exceeds logical record.
+    for (unsigned tag = 0; tag < 16; tag++) {
+        if (tag == 8) continue;
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        put32(member_record(0) - 8, (tag << 28) | 0x02000138);
+        unavailable(); // Free/nonrelocatable/unsupported-reserved header flags.
+    }
+
+    // Exercise every source-byte value: actual Mac encoding, not tabletop caps.
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned value = 0; value <= 255; value++) {
+        ram[member_record(0) + POOLRAD_PARTY_AC_OFFSET] = value;
+        ram[member_record(0) + POOLRAD_PARTY_CLASS_OFFSET] = value;
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(output[26] == (value <= 187 ? (unsigned char) (60 - value) : POOLRAD_PARTY_UNKNOWN_AC));
+        assert(output[27] == (value <= 17 ? value : POOLRAD_PARTY_UNKNOWN_CLASS));
+        assert(output[24] == 10 && output[25] == 10); // Unknown details retain valid HP.
+    }
 
     fixture(0xf000, 0x2400, 0x4800, 8); // All bases relocate; no fixed capture address is used.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 8);
@@ -134,10 +173,15 @@ static void tests(void) {
     for (size_t size = 0; size < 0x930; size++) assert(!poolrad_party_probe(ram, size, output));
     assert(!poolrad_party_probe(ram, member_record(0) + POOLRAD_PARTY_RECORD_SIZE - 1, output));
     fixture(0xe000, 0x2000, 0xfe00, 1);
-    // This truncated capture still contains every map/A5/head field. Only the
-    // final character byte is missing, exercising the character-specific bound.
+    // All map/A5/head fields remain present. Require the logical record AND
+    // its complete physical allocation, without reading allocator padding.
     assert(!poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE - 1, output));
-    assert(poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE, output));
+    assert(!poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE, output));
+    assert(!poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE + 1, output));
+    assert(poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE + 2, output));
+    put32(member_record(0) - 8, 0x8600013c);
+    assert(!poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE + 5, output));
+    assert(poolrad_party_probe(ram, 0xfe00 + POOLRAD_PARTY_RECORD_SIZE + 6, output));
     ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 200;
     ram[member_record(0) + POOLRAD_PARTY_MAX_HP_OFFSET] = 255;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 200 && output[25] == 255);
@@ -163,7 +207,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, 1-8 members, combat filtering, health and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, 1-8 members, combat filtering, health, AC/class ranges and failure clearing passed.");
 }
 
 static int replay(const char *path) {
@@ -184,7 +228,11 @@ static int replay(const char *path) {
     if (!found) { fprintf(stderr, "Party unavailable in %s\n", path); return 2; }
     for (unsigned i = 0; i < output[4]; i++) {
         const unsigned char *row = output + 8 + i * POOLRAD_PARTY_ROW_SIZE;
-        fprintf(stderr, "%u. %s: %u/%u HP\n", i + 1, row, row[16], row[17]);
+        fprintf(stderr, "%u. %s: %u/%u HP; ", i + 1, row, row[16], row[17]);
+        if (row[18] == POOLRAD_PARTY_UNKNOWN_AC) fputs("AC unknown; ", stderr);
+        else fprintf(stderr, "AC %d; ", row[18] < 128 ? row[18] : (int) row[18] - 256);
+        if (row[19] == POOLRAD_PARTY_UNKNOWN_CLASS) fputs("class unknown\n", stderr);
+        else fprintf(stderr, "class %u\n", row[19]);
     }
     return fwrite(output, 1, sizeof(output), stdout) == sizeof(output) ? 0 : 1;
 }

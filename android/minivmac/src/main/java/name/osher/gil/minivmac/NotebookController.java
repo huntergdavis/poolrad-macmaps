@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.PoolRadState;
+import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.NotebookStore;
@@ -101,6 +102,12 @@ public final class NotebookController implements LiveMapView.Listener {
     }
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
+
+    @Override public void onPartyMemberTapped(PartyState.Member member) {
+        if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
+        opening = true;
+        picker = PartyDetailsDialog.show(activity, member, () -> opening = false);
+    }
 
     private void refreshFlags() {
         int request = ++generation; flagsReady = false; flags = Collections.emptyMap();
