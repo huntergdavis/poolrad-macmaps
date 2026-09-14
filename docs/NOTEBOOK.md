@@ -25,9 +25,12 @@ fixed-aspect paper keeps handwriting in proportion when the window changes size.
 An interrupted, unfinished stroke is cancelled rather than joined to the next one.
 Closing a note commits finished strokes, not an interrupted gesture.
 
-**Pen-friendly controls:** optional remembered **Pen only**, two-finger zoom/pan,
-one-finger movement in pen-only mode, and **Fit page**. A nearby finger tap can
-open a large flag-choice list without accidentally creating another note.
+**Compact controls:** the title, save status, drawing tools, **Fit page** and
+**Close & save** share one row, leaving the rest of the pane for your sketch.
+The middle tool strip scrolls on narrow screens; Close stays visible. A pen or
+one finger draws; two fingers zoom/pan. The old Pen only preference is no longer
+applied. A nearby finger tap can open a large flag-choice list without
+accidentally creating another note.
 [Controls, input behavior and the remaining tablet check](PEN_NOTES.md).
 
 ## Separate campaigns
@@ -63,8 +66,9 @@ exceeding a limit rejects the unfinished stroke with visible feedback.
 
 **Updates retain notes; uninstalling or clearing app data removes them.** Use
 **Notebooks → Back up Notebook N…** to save a complete `.prnb` file outside the
-app. **Restore backup…** never overwrites an existing campaign. A flag page's
-**Save PNG** exports a fitted readable image. [Backup/restore guide](NOTEBOOK_BACKUPS.md).
+app. **Restore backup…** never overwrites an existing campaign. Save PNG has
+been removed from the flag editor to keep its controls compact; previously
+exported images remain readable. [Backup/restore guide](NOTEBOOK_BACKUPS.md).
 Keep a separate copy of irreplaceable notes; no Android cloud backup is used.
 
 Version 2 adds symbols and a wide composite page; version-1 handwriting moves

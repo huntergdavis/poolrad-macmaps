@@ -84,6 +84,23 @@ the lower-priority queue.
   e-ink/stylus and full tactical/wilderness presentation remain open.
   [Guide](EXPLORATION.md) · [evidence](LOCAL_TESTING.md).
 
+- [ ] **F11 — Restore the guided tutorial map and footprints (P0 regression).**
+  Rolf's scripted tour must show the party's real local position, including
+  stops and movement before normal player control begins. Record observed
+  visited squares and genuine adjacent guided steps; do not turn a script jump,
+  load or combat position into an invented connecting route. The 0.12.0
+  settled-input guard hides the tour and needs a verified guided-movement path.
+- [x] **F12 — Give flag notes their drawing space back (P0).** Remove the
+  Pen only checkbox and per-note Save PNG action. Put smaller drawing controls
+  and Fit page alongside the title where space allows, with a compact narrow
+  layout. Reclaim roughly twice the current sketch height while retaining
+  map-plus-whitespace ink, symbols, eraser, undo/redo and autosave above the game.
+  **Delivered for 0.13.0:** the actual Android flag window has a 450-pixel
+  sketch height instead of 213 at 1200×1600. One title/tool row, fixed Close
+  & save, no Pen only or Save PNG; drawing, autosave, exact undo/redo, Fit and
+  close/reopen pass with the old ink preserved. Five Android layout/input
+  checks cover narrow screens and larger text. Physical pen/e-ink is untested.
+
 - [x] **F1 — Browse spells, no search.** Remove spell text search and its keypad.
   Keep the small class/level lists. Future equipment references should browse
   their finite lists too, without a search UI.

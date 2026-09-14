@@ -19,6 +19,15 @@ public final class UpperHalfReferenceDialog {
     public static AlertDialog show(Activity activity, String title, View content, Runnable onDismiss) {
         AlertDialog dialog = new AlertDialog.Builder(activity).setTitle(title)
                 .setView(content).setNegativeButton("Close", null).create();
+        return present(activity, dialog, onDismiss);
+    }
+
+    /** The flag editor supplies its own single-row title/tools/Close control. */
+    public static AlertDialog showEditor(Activity activity, View content, Runnable onDismiss) {
+        return present(activity, new AlertDialog.Builder(activity).setView(content).create(), onDismiss);
+    }
+
+    private static AlertDialog present(Activity activity, AlertDialog dialog, Runnable onDismiss) {
         CompanionDialogBounds.Binding[] binding = new CompanionDialogBounds.Binding[1];
         LifecycleEventObserver lifecycle = (owner, event) -> {
             if (event == Lifecycle.Event.ON_DESTROY) dialog.dismiss();

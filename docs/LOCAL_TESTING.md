@@ -62,6 +62,36 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## F12 compact flag editor (0.13.0, 2026-09-14)
+
+Reused the existing composite InkSheetView, normalized strokes, ordered
+autosave queue and upper-companion dialog bounds. Only the editor's chrome
+and controls changed; its old pen-only preference is no longer consulted.
+Historical `deja` recall timed out; the repository's prior note evidence was
+used instead. The original game below remains unchanged and undimmed.
+
+Public and personal APK builds and 339 Java tests passed on the first combined
+0.13.0 candidate. On the isolated API30 `emulator-5584` at 1200×1600/density200,
+the actual app dialog occupies y110..630. Its old sketch was y334..547 (213px);
+the compact editor is y175..625 (450px), with title/status and all controls
+sharing the row above. Close & save never scrolls away. Pen only and Save PNG
+are absent. `scratch/m2-note-before.png` and `scratch/m2-note-after.png` show
+the real before/after; these are not physical tablet screenshots.
+
+A finger-drawn temporary stroke autosaved; Undo restored the original ink hash
+`4f54c36f19a4de315c33bebd1b6c0a72850ee5501cb5b24a094fec26a0919d10`.
+Redo restored the identical added-stroke record; another Undo restored the
+original again. Fit, Close & save and reopen kept that exact note and displayed
+the map-left/writing-right composition in `scratch/m2-note-reopened.png`.
+The guest remained at the training-school tutorial stop, 5,2 E. No game save
+was overwritten, and no existing handwriting was left changed.
+
+Five actual detached Android View/input checks in `tools/NoteEditorLayoutCheck.java`
+pass: doubled allocation, preserved page aspect, narrow scrolling tools with
+fixed Close, larger text, normalized ink across resize/Fit, finger drawing and
+canceled input. Measured pane1200×520/header60/sheet1190×450/paper1160×435.
+These checks are not physical stylus, palm rejection or e-ink acceptance.
+
 ## F10 exploration memory (0.12.0, 2026-09-14)
 
 Reused the proven native identity/allocator work from [M1](AREA_IDENTITY.md),

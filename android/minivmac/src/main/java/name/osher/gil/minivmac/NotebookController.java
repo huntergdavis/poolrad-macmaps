@@ -11,7 +11,6 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -40,7 +39,6 @@ import name.osher.gil.minivmac.notebook.ExplorationTrail;
 /** User-owned notes only. This class has no reference to the emulator Core. */
 public final class NotebookController implements LiveMapView.Listener {
     private static final String ACTIVE = "poolrad_notebook_id";
-    private static final String PEN_ONLY = "poolrad_notes_pen_only";
     private static final String VISITED_ONLY = "poolrad_visited_only";
     private static final String FOOTPRINTS = "poolrad_footprints";
     // One ordered queue also lets an old Activity finish its saves before a new one reads them.
@@ -449,8 +447,7 @@ public final class NotebookController implements LiveMapView.Listener {
         boolean closing, deleting;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, symbol, delete, fit, export;
-        CheckBox penOnly;
+        Button pen, eraser, undo, redo, symbol, delete, fit, close;
         AlertDialog dialog;
     }
 
@@ -459,46 +456,26 @@ public final class NotebookController implements LiveMapView.Listener {
         Session current = new Session(); session = current;
         current.book = book; current.area = target; current.x = x; current.y = y;
         current.snapshot = pinned; current.symbols = new HashMap<>(symbols); current.icon = symbols.get(y * 16 + x);
-        LinearLayout content = column();
-        LinearLayout tools = new LinearLayout(activity);
-        current.pen = tool(tools, "Pen"); current.eraser = tool(tools, "Eraser");
-        current.undo = tool(tools, "Undo"); current.redo = tool(tools, "Redo");
-        current.symbol = tool(tools, "Symbol");
-        current.delete = tool(tools, "Delete…"); current.delete.setContentDescription("Delete flag and linked handwritten note");
-        current.export = tool(tools, "Save PNG");
-        HorizontalScrollView toolScroll = new HorizontalScrollView(activity);
-        toolScroll.setHorizontalScrollBarEnabled(true); toolScroll.addView(tools);
-        content.addView(toolScroll);
-        LinearLayout inputTools = new LinearLayout(activity);
-        current.penOnly = new CheckBox(activity); current.penOnly.setText("Pen only");
-        current.penOnly.setTextColor(Color.BLACK);
-        current.penOnly.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
-        current.penOnly.setMinHeight(dp(48)); current.penOnly.setFocusable(false);
-        current.penOnly.setChecked(prefs.getBoolean(PEN_ONLY, false));
-        inputTools.addView(current.penOnly, new LinearLayout.LayoutParams(-2, dp(48)));
-        current.fit = tool(inputTools, "Fit page"); content.addView(inputTools);
-        TextView hint = text("Pinch to zoom; two fingers move the page. Pen only: one finger moves, without drawing.");
-        hint.setTextSize(12); content.addView(hint);
-        current.status = text("Saved locally · " + book.label()); current.status.setTextSize(12);
-        current.status.setAccessibilityLiveRegion(View.ACCESSIBILITY_LIVE_REGION_POLITE);
-        content.addView(current.status);
-        current.sheet = new InkSheetView(activity);
+        NoteEditorLayout content = new NoteEditorLayout(activity, x + ", " + y + " · " + target.label());
+        current.pen = content.pen; current.eraser = content.eraser;
+        current.undo = content.undo; current.redo = content.redo;
+        current.symbol = content.symbol; current.delete = content.delete;
+        current.fit = content.fit; current.close = content.close;
+        current.delete.setContentDescription("Delete flag and linked handwritten note");
+        current.status = content.status; current.status.setText("Saved locally · " + book.label());
+        current.sheet = content.sheet;
         current.sheet.setMap(pinned, symbols, x, y); current.sheet.setNote(note);
-        current.sheet.setPenOnly(current.penOnly.isChecked());
-        content.addView(current.sheet, new LinearLayout.LayoutParams(-1, 0, 1));
-        current.dialog = UpperHalfReferenceDialog.show(activity,
-                target.label() + " · tile " + x + ", " + y, content, () -> {
+        current.dialog = UpperHalfReferenceDialog.showEditor(activity, content, () -> {
                     current.sheet.cancelActiveStroke();
                     if (session == current) session = null;
                 });
-        current.dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setText("Close & save");
         // Never let platform/predictive Back dismiss an unsaved sheet. The explicit
         // Close action (and key Back where delivered) finishes the save first.
         current.dialog.setCancelable(false);
         current.dialog.getOnBackPressedDispatcher().addCallback(current.dialog, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { save(current, true); }
         });
-        current.dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setOnClickListener(v -> save(current, true));
+        current.close.setOnClickListener(v -> save(current, true));
         current.dialog.setOnKeyListener((dialog, code, event) -> {
             if (code != KeyEvent.KEYCODE_BACK && code != KeyEvent.KEYCODE_ESCAPE) return false;
             if (event.getAction() == KeyEvent.ACTION_UP) save(current, true);
@@ -517,27 +494,9 @@ public final class NotebookController implements LiveMapView.Listener {
         current.redo.setOnClickListener(v -> current.sheet.redo());
         current.symbol.setOnClickListener(v -> chooseSymbol(current));
         current.delete.setOnClickListener(v -> confirmDelete(current));
-        current.penOnly.setOnCheckedChangeListener((button, checked) -> {
-            current.sheet.setPenOnly(checked);
-            prefs.edit().putBoolean(PEN_ONLY, checked).apply();
-        });
         current.fit.setOnClickListener(v -> current.sheet.fitPage());
-        current.export.setOnClickListener(v -> {
-            current.sheet.cancelActiveStroke();
-            InkNote ink = current.sheet.getNote();
-            Map<Integer, NoteIcon> symbolsAtExport = new HashMap<>(current.symbols);
-            transfers.exportPage(() -> NotePageImage.render(activity, ink, current.snapshot,
-                    symbolsAtExport, current.x, current.y, current.book.label()));
-        });
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
         updateTools(current);
-    }
-
-    private Button tool(LinearLayout row, String name) {
-        Button button = new Button(activity); button.setText(name); button.setAllCaps(false);
-        button.setMinWidth(0); button.setMinimumWidth(0); button.setTextSize(12);
-        button.setPadding(dp(3), 0, dp(3), 0);
-        row.addView(button, new LinearLayout.LayoutParams(dp(72), dp(48))); return button;
     }
 
     private void updateTools(Session current) {
@@ -545,12 +504,11 @@ public final class NotebookController implements LiveMapView.Listener {
         current.sheet.setEnabled(enabled);
         current.pen.setEnabled(enabled); current.eraser.setEnabled(enabled); current.delete.setEnabled(enabled);
         current.symbol.setEnabled(enabled);
-        current.fit.setEnabled(enabled); current.penOnly.setEnabled(enabled);
-        current.export.setEnabled(enabled);
+        current.fit.setEnabled(enabled);
         current.symbol.setText(current.icon.label());
         current.symbol.setContentDescription("Change map symbol. Current: " + current.icon.label());
         current.undo.setEnabled(enabled && current.sheet.canUndo()); current.redo.setEnabled(enabled && current.sheet.canRedo());
-        current.dialog.getButton(AlertDialog.BUTTON_NEGATIVE).setEnabled(enabled);
+        current.close.setEnabled(enabled);
     }
 
     private void save(Session current, boolean close) {

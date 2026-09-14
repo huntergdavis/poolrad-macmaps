@@ -44,17 +44,12 @@ Malformed, incomplete, corrupt, unsupported or oversized backups are rejected
 before they become visible. A full backup is limited to 64 MiB; individual page
 limits remain unchanged. This is a notebook backup, not an emulator save state.
 
-## Save a readable picture
+## Pictures and editable notes
 
-Open a flag page and tap **Save PNG** in its tool row (scroll the row if needed).
-The image has a notebook/area/tile heading and the whole fitted map-and-writing
-sheet at 1600×768, regardless of the editor's current zoom or pan. Map and symbols
-remain protected from ink erasing. It uses the page's pinned map snapshot, not
-a later live area. Save through Android's file picker as above.
-
-**PNG is for reading, printing or sharing; it cannot restore editable notes.**
-Use `.prnb` for that. The application’s note/management controls stay in the upper
-half; Android owns its full-screen document picker.
+The compact flag editor no longer has a Save PNG button. Previously exported
+PNGs remain readable pictures, but **cannot restore editable notes**. Use `.prnb`
+to protect flags and handwriting. The application's note/management controls
+stay above the game; Android owns its full-screen backup document picker.
 
 ## Remove a notebook deliberately
 
