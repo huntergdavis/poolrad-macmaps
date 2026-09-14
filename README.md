@@ -53,6 +53,10 @@ supports Android 5.0+ and includes the Mac II emulator.
 **Bring your own ROM, Mac system disk, and Macintosh game.** None are included.
 [Step-by-step setup and troubleshooting →](docs/INSTALL.md)
 
+**One disk, automatic startup:** [combine your own System 7 and game/save
+disks](docs/PERSONAL_BOOT.md). The private builder preserves both file forks
+and original disks; a normal Mac startup alias launches the game.
+
 ## Project
 
 [Backlog](docs/BACKLOG.md) · [Build/test details](docs/LOCAL_TESTING.md) ·

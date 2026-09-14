@@ -110,7 +110,32 @@ This reader is **not** a new general exploration/combat/wilderness detector.
 - The real native intro/tour packets also pass the Java decoder and compare
   equal; its empty startup output decodes as unavailable.
 
-**Not established here:** actual damage/healing or party reorder through normal
+### Bounded live integration check (2026-09-13)
+
+On the local Android API 30 emulator, with the integrated 149-test APK, the
+original sample party and the right-hand health pane showed the same six names
+and current HP: Arax the Bold 12/12, Lara Spellsword 8/8, Tanarakis 7/7,
+Hogarth 10/10, Shara the Grey 9/9, and Zarram 9/9. All six bars were full.
+The normal Rolf tour moved from New Phlan `15,1 W` to `0,4 W`; the map followed
+the guest while names and full-health values remained stable.
+
+The original game's supported order controls are **Encamp → Alter → Order**.
+Selecting Zarram through that interface visibly highlighted the last member
+and displayed “Zarram has been selected.” The companion pane still showed all
+six members starting with Arax, not a truncated list beginning at the selected
+member. This is a live check of the head-versus-selected-member distinction.
+
+An attempted Place operation did **not** produce a changed order in either the
+guest or companion pane, including after leaving Order. Consequently it is not
+a successful reorder acceptance test. The approximately eight-minute check
+ended without reaching actual damage or healing. No stats, RAM, notes, or saved
+games were edited; only normal guest controls were used, with no save operation.
+
+Private evidence: `scratch/party-live-initial.png`, `party-tour-gate.png`,
+`party-order-selected.png`, and `party-order-exited.png`. These screenshots are
+local emulator evidence, not physical-tablet acceptance.
+
+**Still not established:** actual damage/healing or a changed party order through normal
 guest controls, all encounters/NPC variants/modes, physical e-ink readability,
 or stylus/device acceptance. The full-health captures and synthetic changes do
 not substitute for those live acceptance checks. UI acceptance is recorded by

@@ -26,7 +26,8 @@ The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
    is unavailable or you have already started typing, use **PoolRad → Code wheel
    lookup**, select the runes/path, then **Enter code** as the manual fallback.
    Load/create your party normally; the map appears when supported area state
-   is available. Automatic game launch is still on the backlog.
+   is available. For automatic launch from one combined disk, use the optional
+   [personal boot-disk builder](PERSONAL_BOOT.md).
 
 The tested configuration is the Mac II flavor with a 256 KiB Mac II ROM and
 the game application named `Pool of Radiance v1.1`. The mapper currently relies

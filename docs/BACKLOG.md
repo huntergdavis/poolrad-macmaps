@@ -31,10 +31,11 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done — 0.5.0 | Browse-only spells and 59-entry offline equipment browser/comparison |
 | Working — 0.5.0 | Automatic code-wheel entry accepted by original game; additional prompt/reload coverage open |
 | Working — 0.5.0 | Read-only current/max party health beside the map; broader live health acceptance open |
+| Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, broader party-health acceptance,
-single-disk startup, notebook export/import, physical pen polish, or wallpaper
+bundled personal APK, notebook export/import, physical pen polish, or wallpaper
 controls. Separate area-wide drawing was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -71,8 +72,9 @@ the lower-priority queue.
   answer. Keep the manual offline helper available when recognition is unknown.
   **Implemented; acceptance in progress:** original game accepted automatic
   six-letter entry and Return on the rebuilt candidate. A live scheduling bug
-  was fixed and regression-tested. Second distinct automatic prompt and
-  exit/reload acceptance remain open; [evidence](WHEEL_MEMORY.md).
+  was fixed and regression-tested. The independent F9 cold boot also completed
+  automatic entry. Distinct-answer and same-process quit/relaunch checks remain
+  open; [evidence](WHEEL_MEMORY.md).
 - [x] **F5 — Remove Capture RAM from the everyday menu.** Diagnostics belong in
   developer tooling, not the normal PoolRad actions.
   **Delivered 0.5.0:** verified the actual eight-action PoolRad menu without it.
@@ -90,6 +92,9 @@ the lower-priority queue.
   **Implemented; acceptance in progress:** six actual sample-party names and
   current/max values display beside the map. Executable evidence and synthetic
   damage/healing/order tests pass; remaining live checks are in [PARTY.md](PARTY.md).
+  A bounded normal-game tour and last-member selection also preserve all six
+  rows. Actual changed order, damage and healing remain unverified; no marathon
+  playthrough or hardware acceptance is being substituted for those checks.
 - [x] **F8 — Weapons & armor reference browser (REF3 promoted).** Original-game
   equipment lists with damage, protection, cost, weight and restrictions; compact
   categories, offline, upper-half only, and no search field. Verify the supplied
@@ -98,13 +103,18 @@ the lower-priority queue.
   **Delivered 0.5.0:** 59 offline entries; actual weapon/armor browsing and
   banded-mail/chain-mail detail comparison verified in the emulator. Nine tests
   pass; 58 Mac table rows independently checked. [Provenance](EQUIPMENT_REFERENCE.md).
-- [ ] **F9 — One boot disk, automatic game launch (P0).** Build one bootable HFS
+- [x] **F9 — One boot disk, automatic game launch (P0).** Build one bootable HFS
   image containing the user's Mac system and Pool of Radiance, preserving all
   data/resource forks and the blessed System Folder. Configure a real guest
   startup item/alias, not timed clicks. Work only on new copies; retain originals,
   imported saves and a bypass/recovery path. Verify cold boot reaches the game
   from this single mounted disk. This promotes the combined-disk/auto-launch
   subset of B1/A1; public asset redistribution remains separately gated.
+  **Delivered:** a catalog-preserving 32 MiB private disk cold-boots from one
+  `disk1.dsk`, launches the original game automatically, accepts automatic wheel
+  entry and loads the sample party with its live map/health. The separate
+  `--no-startup` disk boots to Finder. Thirteen helper tests pass; original
+  source hashes and all game/save forks are preserved. [Guide](PERSONAL_BOOT.md).
 
 ## Handwritten cartographer (P0, after the must-fixes)
 
@@ -195,9 +205,11 @@ are gates for the affected feature, not a second giant framework project.
   guest desktop utility/settings; make changes only to the personal boot-disk
   copy and keep a recoverable previous setting. A menu control may need a small
   guest-side mechanism; do not fake it by painting over game windows.
-- [ ] **A1 — Launch the game on startup.** Existing disk automount is already
+- [x] **A1 — Launch the game on startup.** Existing disk automount is already
   present. Add a guest startup alias or similarly small reliable launch path;
   avoid blind timed clicks. Keep a bypass/recovery path to the normal desktop.
+  **Delivered through F9:** standard System 7 Startup Items alias plus a tested
+  desktop-only recovery build. Public APKs still require the user's own files.
 - [ ] **M1 — Reliable area identity and names.** Resolve and validate a stable
   identifier across transitions and reloads; label areas meaningfully. This is
   the N1 persistence prerequisite as well as a map usability improvement.

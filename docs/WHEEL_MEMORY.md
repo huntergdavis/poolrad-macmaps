@@ -78,9 +78,12 @@ new key to be discarded. The production `observeIfReleased` gate now prevents
 that state advance; a regression test exercises held-key readbacks after every
 letter and before Return. The successful acceptance above used this correction.
 
-This is **one complete automatic prompt acceptance**, plus the separate manual
-`SAVIOR` validation described above, not proof of two distinct automatic prompts.
-A second distinct prompt/relaunch remains to be checked separately. Other game
+An independent single-disk cold boot on emulator 5582 also completed six letters
+and Return automatically at 23:12, followed by a successful sample-party load;
+see [the boot evidence](PERSONAL_BOOT.md). These are two automatic startup
+instances, plus the separate manual `SAVIOR` validation. The answer indices were
+not recorded for both successful runs, so distinct-answer coverage and a
+same-process quit/relaunch remain unverified. Other game
 versions, physical e-ink hardware, and all possible device timing conditions are
 not validated by these checks. RAM captures, extracted executable bytes, ROMs,
 disks, and diagnostic screenshots remain private.

@@ -101,6 +101,10 @@ party loads, but this is not proof that every encounter/item file is healthy.
   12/12, 8/8, 7/7, 10/10, 9/9, 9/9. Further live damage/healing/reorder checks
   remain in [PARTY.md](PARTY.md), not inferred from full-health screenshots.
 - No physical e-ink, stylus, real-device or full-game-mode acceptance is claimed.
+- Published `v0.5.0` at commit `ec873f0`. An anonymous GitHub download matches
+  the tested universal APK byte-for-byte; SHA-256 is
+  `1ee7606613074028180d85bbca54a281eb723c065bd31fc005758e0f40373010`.
+  The existing prototype signing certificate is unchanged.
 
 ## 0.4.0 handwritten cartographer acceptance (2026-09-13)
 
