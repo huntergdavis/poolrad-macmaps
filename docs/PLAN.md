@@ -47,7 +47,7 @@ Android's signing/update rules are documented
  |                             tiny game-state reader   |
  |                             area / x / y / facing     |
  |                                      |              |
- | Imported local GEO files ----------> B&W map panel   |
+| Loaded map geometry in RAM --------> B&W map panel   |
  +------------------------------------------------------+
  No root. No server. No network memory API. No cloud.
 ```
@@ -56,10 +56,10 @@ Use the existing native emulator and Android view system. Prefer one custom
 Android Canvas view over adding a browser framework or separate companion app.
 Do not rewrite the emulator core, game, CPU, or disk subsystem.
 
-Import the user's extracted GEO files once through an Android file picker;
-keep the private map cache in app storage. Initial preparation can happen on
-this workstation. Do not build a StuffIt or HFS implementation just to avoid
-a one-time personal setup step. Never ship the original game maps in the APK.
+Implementation simplification: the game exposes its loaded geometry through
+an A5-relative handle. Read that small block along with the position; a separate
+GEO import/cache is unnecessary. The existing DAX reader remains useful for
+local validation. Never ship the original game maps in the APK.
 
 ## Tablet layout — agreed direction
 
@@ -133,13 +133,18 @@ original inputs untouched. An extraction error in `ITEM2.DAX` must be checked
 before declaring the complete game installation healthy; it did not prevent
 the separate GEO-format validation.
 
-### 1. Prove live position — the main uncertainty
+### 1. Prove live position — first-area checks passed
 
-Implementation update: the fork builds for all four configured Android ABIs,
-the debug snapshot request has captured 8 MiB RAM from the running game, and
-the sample party loads. Map 0 geometry and one changing adjacent X/Y candidate
-have been found. They are not yet a validated live tracker. See the labeled
-observations and remaining checks in [LOCAL_TESTING.md](LOCAL_TESTING.md).
+Implementation update: the fork now draws the current area above the Mac,
+using a 1,200-byte native sample from the game's A5-relative globals and loaded
+geometry handle. The first live New Phlan pane has been observed after a cold
+boot/sample-party load. Startup's empty geometry is rejected. This remains a
+single-version prototype; the exact checked movement/state coverage is recorded
+in [LOCAL_TESTING.md](LOCAL_TESTING.md).
+
+The New Phlan gate now passes: cold boot/load, scripted movement, manual turn,
+successful step, blocked step without drift, and Android background/resume.
+Next validation is an area transition and explicit combat/wilderness context.
 
 1. Build the matching Android flavor from the pinned source. Make development
    builds independent of the upstream maintainer's `release.properties` and
@@ -169,16 +174,17 @@ The next proof is **one working area**, not a large speculative framework.
 ### 2. Deliver the first useful map
 
 - [x] Port only the small DAX/GEO reader, preserving MIT attribution.
-- Draw monochrome walls, door marks, map name, and a distinct direction arrow.
+- [x] Draw monochrome walls, door marks, and a distinct direction arrow.
+- [ ] Resolve a reliable area ID/name; the pane currently says “Area map.”
 - Verify the actual wall/door interpretation against the game's area view or
   observed routes. Nonzero wall types can include more than solid masonry;
   don't label secret or locked doors without validating the flags.
-- Implement the agreed vertical stack: map above the Mac display, optional
+- [x] Implement the agreed vertical stack: map above the Mac display, optional
   virtual keyboard below. Preserve aspect ratios and input behavior, and
   provide one map-collapse control for constrained space.
 - First release shows the full local-area layout; exploration-only reveal and
   persistent notes are optional later, not prerequisites for a useful map.
-- After initial detection, sample only the needed state, initially at a modest
+- [x] After initial detection, sample only the needed state, initially at a modest
   rate such as 4 Hz while active. Coalesce changes; repaint only when the map,
   party position, facing, layout, or tracking status changes. No blinking,
   animation, shadows, or continual full-screen map redraw.
@@ -230,7 +236,15 @@ CI soaks or benchmark infrastructure for this personal tool.
 
 ## What is genuinely uncertain
 
-Map decoding is now evidenced; live party-state discovery is not. We have not
-built an APK, booted the game here, identified coordinates, or checked a live
-marker. Do not promise a calendar delivery date before milestone 1. Build and
-report one concrete working slice at a time.
+Boot, game load, map decoding, and a live first-area pane are evidenced. Broader
+state recognition and the physical tablet remain unfinished. Keep the next
+work focused on real walks, transitions, and explicit unsupported-state handling;
+do not substitute a large framework or test matrix for those checks.
+
+## Requested follow-up: personal startup shortcut
+
+Existing `disk1.dsk` / `disk2.dsk` automount already works. After the live map,
+configure a guest startup alias or similarly small personal launch path so the
+game opens automatically. Keep the user's ROM/game disks private; do not bundle
+them in the source repository or a distributable APK. This shortcut is not yet
+implemented, and should not depend on blind fixed-delay mouse clicks.

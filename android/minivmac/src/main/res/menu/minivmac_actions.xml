@@ -34,6 +34,9 @@
         android:title="@string/poolrad_menu"
         minivmac:showAsAction="always">
         <menu>
+            <item android:id="@+id/action_live_map"
+                android:title="Show live map"
+                android:checkable="true" />
             <item android:id="@+id/action_code_wheel"
                 android:title="@string/code_wheel_title" />
             <item android:id="@+id/action_capture_ram"

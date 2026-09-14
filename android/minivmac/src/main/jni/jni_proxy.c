@@ -74,10 +74,12 @@ static IsPausedType isPausedPtr = NULL;
 static SetSpeedType setSpeedPtr = NULL;
 static GetSpeedType getSpeedPtr = NULL;
 static RequestRamSnapshotType requestRamSnapshotPtr = NULL;
+static RequestRamSnapshotType requestMapSamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
 void unloadCurrentVariant() {
     requestRamSnapshotPtr = NULL;
+    requestMapSamplePtr = NULL;
     if (variantHandle) {
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -165,10 +167,12 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     setSpeedPtr = (SetSpeedType)dlsym(variantHandle, "setSpeed");
     getSpeedPtr = (GetSpeedType)dlsym(variantHandle, "getSpeed");
     requestRamSnapshotPtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestRamSnapshot");
+    requestMapSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMapSample");
 
     const char* error = dlerror();
     if (error != NULL) {
         requestRamSnapshotPtr = NULL;
+        requestMapSamplePtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -227,6 +231,11 @@ JNIEXPORT jboolean JNICALL Java_name_osher_gil_minivmac_Core_init (JNIEnv * env,
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestRamSnapshotNative(JNIEnv *env, jclass cls) {
     return requestRamSnapshotPtr ? requestRamSnapshotPtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestMapSampleNative(JNIEnv *env, jclass cls) {
+    return requestMapSamplePtr ? requestMapSamplePtr() : JNI_FALSE;
 }
 
 /*

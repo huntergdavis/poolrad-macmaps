@@ -24,6 +24,7 @@
 #ifdef WantOSGLUJNI
 
 #include <stdatomic.h>
+#include "POOLRAD.h"
 
 IMPORTFUNC ui3p GetRamForSnapshot(ui5b *size);
 
@@ -51,6 +52,8 @@ jmethodID jMySoundInit, jMySoundUnInit, jPlaySound, jMySoundStart, jMySoundStop;
 jmethodID jGetClipboardText, jSetClipboardText;
 jmethodID jRamSnapshot;
 LOCALVAR atomic_int WantRamSnapshot = 0;
+jmethodID jMapSample;
+LOCALVAR atomic_int WantMapSample = 0;
 jfieldID sInitOk;
 jobject mCore;
 
@@ -1226,6 +1229,29 @@ LOCALPROC DeliverRamSnapshot(void)
     if (snapshot != NULL) (*jEnv)->DeleteLocalRef(jEnv, snapshot);
 }
 
+GLOBALFUNC jboolean requestMapSample(void)
+{
+    return atomic_exchange(&WantMapSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+LOCALPROC DeliverMapSample(void)
+{
+    if (atomic_exchange(&WantMapSample, 0) == 0) return;
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    unsigned char data[POOLRAD_PROBE_SIZE];
+    jbyteArray sample = NULL;
+    if (poolrad_probe(ram, size, data)) {
+        sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_PROBE_SIZE);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_PROBE_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    }
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jMapSample, sample);
+    if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
+}
+
 GLOBALOSGLUPROC DoneWithDrawingForTick(void)
 {
 #if EnableFSMouseMotion
@@ -1253,6 +1279,7 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     }
 
     DeliverRamSnapshot();
+    DeliverMapSample();
 
     if (CurSpeedStopped) {
         DoneWithDrawingForTick();
@@ -1306,6 +1333,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 
     ForceMacOff = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
+    atomic_store(&WantMapSample, 0);
 
     mCore = (*env)->NewGlobalRef(env, core);
     // get java method IDs
@@ -1326,6 +1354,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jGetClipboardText = (*env)->GetMethodID(env, this, "getClipboardText", "()Ljava/lang/String;");
     jSetClipboardText = (*env)->GetMethodID(env, this, "setClipboardText", "(Ljava/lang/String;)V");
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
+    jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
 
     // initialize fields
     jfieldID sDiskPath, sDiskFile, sNumInsertedDisks;

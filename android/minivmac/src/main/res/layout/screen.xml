@@ -1,10 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<name.osher.gil.minivmac.MapStackLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:orientation="vertical"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="#000000">
+
+    <name.osher.gil.minivmac.LiveMapView
+        android:id="@+id/live_map"
+        android:layout_width="match_parent"
+        android:layout_height="0dp" />
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -34,8 +39,6 @@
             android:src="@drawable/ic_fullscreen"
             android:contentDescription="@string/toggle_system_ui"
             android:visibility="gone" />
-    </FrameLayout>
-
     <!-- Restart button -->
     <RelativeLayout
         android:id="@+id/restart_layout"
@@ -51,6 +54,7 @@
             android:textAllCaps="false"
             android:layout_centerInParent="true" />
     </RelativeLayout>
+    </FrameLayout>
 
     <!-- Keyboard -->
     <android.inputmethodservice.KeyboardView
@@ -61,4 +65,4 @@
         android:focusable="true"
         android:focusableInTouchMode="true"
         android:visibility="gone" />
-</LinearLayout>
+</name.osher.gil.minivmac.MapStackLayout>

@@ -172,8 +172,9 @@ Android revision:
 Inference: a separate map view above the existing game container fits this
 architecture. It will require deliberate height allocation and touch/layout
 verification, not just painting into the display's current blank margins.
-The map and game must remain independently sized and interactive. This is a
-design update only; no Android layout patch or tablet-fit test has been made.
+The map and game remain independently sized. The Android layout is now
+implemented and checked at 1200×1600, keyboard open/closed. Physical e-ink
+readability and refresh behavior remain a device check.
 
 ## 4. Why not simply attach to the Play Store app?
 
@@ -201,9 +202,13 @@ work. Keep it as a fallback if a personal Android build proves unacceptable.
 [PROVEN]  Android fork builds; copied Mac II setup boots the game and sample party
 [PROVEN]  read-only 8 MiB snapshots from the running guest
 [PROVEN]  native PoolRad menu and cached offline code-wheel lookup
-[FOUND]   map geometry and X/Y candidates in two known-position captures
-[TODO]    locate and validate active map + x/y + facing + context
-[TODO]    display and device-test the live B&W map
+[PROVEN]  A5-relative position/map probe reproduces two labeled RAM captures
+[PROVEN]  live B&W New Phlan pane above the Mac after loading the sample party
+[PROVEN]  keyboard below both panes; empty startup geometry rejected
+[PROVEN]  live tour positions/facing match guest; map hide/show and resume work
+[PROVEN]  manual turn, forward step, and blocked step match the guest readout
+[TODO]    area transitions and non-exploration context
+[TODO]    physical e-ink tablet check and personal startup shortcut
 ```
 
 `deja "Pool Radiance Mini vMac automap"` and
@@ -212,6 +217,13 @@ The reuse here is from the cited source repositories, not recovered past-agent
 implementation. The Android build/game-boot and snapshot claims now have local
 test evidence. No claim of a completed automapper or full game-archive integrity
 is made.
+
+The live pane reuses the existing attributed GEO decoder. A separate map import
+was dropped: the game holds the current four geometry planes behind a movable
+Mac handle, reachable from CurrentA5. The read-only probe copies 1,200 bytes at
+a safe emulation tick, not the whole RAM image. Profile offsets, synthetic
+bounds/relocation tests, and the exact local evidence are documented in
+[LOCAL_TESTING.md](LOCAL_TESTING.md#native-profile-and-update-path).
 
 ## 6. Code-wheel addition
 

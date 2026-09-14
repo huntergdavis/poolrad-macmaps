@@ -30,6 +30,17 @@ public class Core {
 	private OnDiskEventListener mOnDiskEventListener;
 	private OnAlertListener mOnAlertListener;
 	private RamSnapshotListener mRamSnapshotListener;
+	private volatile MapSampleListener mMapSampleListener;
+
+	public interface MapSampleListener { void onSample(byte[] sample); }
+	public void setMapSampleListener(MapSampleListener listener) { mMapSampleListener = listener; }
+	public boolean requestMapSample() { return initOk && requestMapSampleNative(); }
+	private static native boolean requestMapSampleNative();
+	@SuppressWarnings("unused") // Called on the emulation thread through JNI.
+	public void onMapSample(byte[] sample) {
+		MapSampleListener listener = mMapSampleListener;
+		if (listener != null) listener.onSample(sample);
+	}
 
 	public interface RamSnapshotListener { void onSnapshot(byte[] ram); }
 

@@ -88,13 +88,40 @@ public class EmulatorFragment extends Fragment
     private ClipboardManager mClipboardManager;
     private MenuProvider mMenuProvider;
 
-    private Core mCore;
+    private volatile Core mCore;
     private Handler mUIHandler;
     private final AtomicBoolean mSnapshotBusy = new AtomicBoolean();
     private File mSnapshotDirectory;
     private Runnable mCodeEntry;
     private Core mCodeEntryCore;
     private int mCodeEntryKey = -1;
+    private LiveMapView mLiveMap;
+    private MapStackLayout mMapStack;
+    private boolean mMapPolling;
+    private volatile int mMapGeneration;
+    private final Runnable mMapPoll = new Runnable() {
+        @Override public void run() {
+            if (!mMapPolling || mLiveMap == null || mLiveMap.getVisibility() != View.VISIBLE) return;
+            Core target = mCore;
+            if (target != null && target.isReady()) target.requestMapSample();
+            else mLiveMap.showSample(null);
+            mUIHandler.postDelayed(this, 250);
+        }
+    };
+
+    private void startMapPolling() {
+        stopMapPolling();
+        if (isResumed() && mLiveMap != null && mLiveMap.getVisibility() == View.VISIBLE) {
+            mMapPolling = true;
+            mUIHandler.post(mMapPoll);
+        }
+    }
+
+    private void stopMapPolling() {
+        mMapPolling = false;
+        mMapGeneration++;
+        if (mUIHandler != null) mUIHandler.removeCallbacks(mMapPoll);
+    }
 
     @Override
     public void onCreate(@Nullable Bundle savedInstanceState) {
@@ -114,6 +141,10 @@ public class EmulatorFragment extends Fragment
         restartButton.setOnClickListener(v -> initEmulator());
         mKeyboardView = root.findViewById(R.id.keyboard);
         mUIHandler = new Handler(getMainLooper());
+        mMapStack = (MapStackLayout) root;
+        mLiveMap = root.findViewById(R.id.live_map);
+        mLiveMap.setVisibility(PreferenceManager.getDefaultSharedPreferences(requireContext())
+                .getBoolean("poolrad_show_map", true) ? View.VISIBLE : View.GONE);
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
         mClipboardManager = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -141,6 +172,7 @@ public class EmulatorFragment extends Fragment
 
             @Override
             public void onPrepareMenu(@NonNull Menu menu) {
+                menu.findItem(R.id.action_live_map).setChecked(mLiveMap.getVisibility() == View.VISIBLE);
                 menu.findItem(R.id.action_capture_ram).setVisible(BuildConfig.DEBUG)
                         .setEnabled(mCore != null && !mSnapshotBusy.get());
                 // Populate disk group
@@ -204,7 +236,16 @@ public class EmulatorFragment extends Fragment
                 }
 
                 // Other actions
-                if (menuItem.getItemId() == R.id.action_code_wheel) {
+                if (menuItem.getItemId() == R.id.action_live_map) {
+                    boolean show = mLiveMap.getVisibility() != View.VISIBLE;
+                    mLiveMap.setVisibility(show ? View.VISIBLE : View.GONE);
+                    mLiveMap.showSample(null);
+                    PreferenceManager.getDefaultSharedPreferences(requireContext()).edit()
+                            .putBoolean("poolrad_show_map", show).apply();
+                    menuItem.setChecked(show);
+                    startMapPolling();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_code_wheel) {
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
                     return true;
@@ -239,6 +280,10 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public void onDestroyView() {
+        stopMapPolling();
+        if (mCore != null) mCore.setMapSampleListener(null);
+        mLiveMap = null;
+        mMapStack = null;
         cancelCodeEntry();
         super.onDestroyView();
         MenuHost menuHost = requireActivity();
@@ -307,9 +352,18 @@ public class EmulatorFragment extends Fragment
         Thread emulation = new Thread(() -> {
             mCore = new Core();
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
+            final Core mapCore = mCore;
+            mCore.setMapSampleListener(sample -> {
+                final int generation = mMapGeneration;
+                mUIHandler.post(() -> {
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && mLiveMap != null)
+                        mLiveMap.showSample(sample);
+                });
+            });
 
             mCore.setOnInitScreenListener((screenWidth, screenHeight) -> mUIHandler.post(() -> {
                 mScreenView.setTargetScreenSize(screenWidth, screenHeight);
+                if (mMapStack != null) mMapStack.setGuestSize(screenWidth, screenHeight);
             }));
 
             mScreenView.setOnMouseEventListener(new ScreenView.OnMouseEventListener() {
@@ -648,6 +702,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public void onPause () {
+        stopMapPolling();
         cancelCodeEntry();
         if (mCore != null) {
             mCore.pauseEmulation();
@@ -663,6 +718,7 @@ public class EmulatorFragment extends Fragment
     @Override
     public void onResume() {
         super.onResume();
+        startMapPolling();
 
         if (mCore != null) {
             mCore.resumeEmulation();

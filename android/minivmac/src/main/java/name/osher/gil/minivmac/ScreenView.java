@@ -18,6 +18,7 @@ public class ScreenView extends View {
 	private Paint mScreenPaint;
 	private Rect mSrcRect, mDstRect;
 	private boolean mScaled, mScroll;
+	private boolean mTouchDown;
 	private OnMouseEventListener mListener;
 	
 	private void init() {
@@ -106,12 +107,24 @@ public class ScreenView extends View {
 
 	@Override
 	public boolean onTouchEvent (@NonNull MotionEvent event) {
+		// A gesture that starts on the Mac must release its mouse even outside the resized pane.
+		if (mListener != null && mTouchDown &&
+				(event.getActionMasked() == MotionEvent.ACTION_UP || event.getActionMasked() == MotionEvent.ACTION_CANCEL)) {
+			mTouchDown = false;
+			if (mDstRect.contains((int) event.getX(), (int) event.getY())) {
+				int[] coords = translateMouseCoords((int) event.getX(), (int) event.getY());
+				mListener.onMousePosition(coords[0], coords[1]);
+			}
+			mListener.onMouseClick(false);
+			return true;
+		}
 		if (mListener != null &&
 				mDstRect.contains((int) event.getX(), (int) event.getY())) {
 			int[] macCoords;
 			macCoords = translateMouseCoords((int) event.getX(), (int) event.getY());
 			switch (event.getAction()) {
 				case MotionEvent.ACTION_DOWN:
+					mTouchDown = true;
 					mListener.onMousePosition(macCoords[0], macCoords[1]);
 					mListener.onMouseClick(true);
 					return true;
