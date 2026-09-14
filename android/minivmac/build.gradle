@@ -7,7 +7,7 @@ android {
     ndkVersion '27.0.12077973'
 
     defaultConfig {
-        versionCode 63
+        versionCode 64
 
         minSdkVersion 21
         targetSdkVersion 34
@@ -27,7 +27,7 @@ android {
         macPlus {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.plus'
-            versionName '0.2.0'
+            versionName '0.2.1'
 
             externalNativeBuild {
                 ndkBuild {
@@ -39,7 +39,7 @@ android {
         macII {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.ii'
-            versionName '0.2.0'
+            versionName '0.2.1'
 
             externalNativeBuild {
                 ndkBuild {
@@ -68,7 +68,31 @@ android {
         buildConfig true
     }
     namespace 'name.osher.gil.minivmac'
+    // Personal reference artwork is packaged locally, not redistributed in Git.
+    sourceSets.main.assets.srcDir 'private-assets'
 }
+
+tasks.register('verifyRuneArtwork') {
+    def artwork = file('private-assets/codewheel')
+    inputs.dir artwork
+    doLast {
+        ['esp', 'det'].each { ring ->
+            (1..36).each { id ->
+                def image = new File(artwork, String.format('%s%02d.gif', ring, id))
+                if (!image.isFile()) throw new GradleException("Missing personal rune artwork: ${image}. See docs/LOCAL_TESTING.md.")
+                byte[] data = image.bytes
+                if (data.length < 10 || data.length > 32768 ||
+                        !(new String(data, 0, 6, 'US-ASCII') in ['GIF87a', 'GIF89a']))
+                    throw new GradleException("Invalid rune GIF: ${image}")
+                int width = (data[6] & 255) | ((data[7] & 255) << 8)
+                int height = (data[8] & 255) | ((data[9] & 255) << 8)
+                if (width < 1 || width > 256 || height < 1 || height > 256)
+                    throw new GradleException("Invalid rune dimensions: ${image}")
+            }
+        }
+    }
+}
+tasks.named('preBuild').configure { dependsOn 'verifyRuneArtwork' }
 
 dependencies {
     testImplementation 'junit:junit:4.13.2'

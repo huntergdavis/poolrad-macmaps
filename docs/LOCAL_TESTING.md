@@ -3,6 +3,15 @@
 ## Build
 
 Use JDK 17, Android SDK 34, build-tools 34.0.0, and NDK 27.0.12077973.
+The personal build also needs the 72 reference GIFs in
+`android/minivmac/private-assets/codewheel/`: `esp01.gif`–`esp36.gif` and
+`det01.gif`–`det36.gif`, retaining the numbering from
+`https://dkennedy.io/por-code-wheel/img/`. This ignored folder is an Android asset
+source, not the app's cache. The local files were recovered unchanged from our
+previously downloaded emulator reference images. A fresh checkout needs these
+private build inputs supplied separately. `verifyRuneArtwork` fails a build
+with missing, oversized, or invalid-header/dimension images.
+
 From `android/`:
 
 ```sh
@@ -64,14 +73,45 @@ prompt or identify its runes automatically. Closing the lookup sends nothing.
 App pause cancels a pending entry and releases any held helper key.
 
 Rune numbering matches the reading order of the linked reference. Its 72
-illustrations are an opt-in HTTPS download from `dkennedy.io`, cached privately.
-No game state is sent. If unavailable, the numbered lookup still works; partial
-downloads resume on retry. The arithmetic and answer table never need a network.
+illustrations are now bundled in the personal APK and read directly from assets.
+No download button, network call, or existing app cache is needed, including on
+first launch. Previous private caches can remain unused; they are not consulted.
+The lookup, both rune grids, and path selector occupy only the upper half of
+the usable screen. The game remains undimmed below. Rune grids and lookup
+content scroll on smaller windows; Close/Cancel/Enter stay in the action row.
+Rotation resizes open panels, and closing or cancelling sends no game input.
+
+After building, run `node tools/check-wheel-apk.mjs` from the repository root
+to check that all 72 images in the universal APK match the private originals,
+and that no ROMs, disks, or game data were packaged with them.
+
 The linked table spells one entry `80ASIS` (with a zero); we preserve it instead
 of silently changing the requested reference. That particular answer remains
 unverified in-game. A leading wheel alignment digit is omitted when typing.
 
 ## Live area-map prototype
+
+### Code-wheel 0.2.1 acceptance (2026-09-13)
+
+- Built all four Mac II ABI APKs and universal APK; 24 Java tests pass.
+- `node tools/check-wheel-apk.mjs`: all 72 GIFs match the local originals
+  byte-for-byte (9,574 bytes total). No ROM/disk/game archive was bundled.
+- Upgraded the test emulator to versionCode 64 / versionName 0.2.1, with Wi-Fi
+  and mobile data disabled. Moved the old `files/codewheel` aside to
+  `files/codewheel-legacy-backup`, preserving it; no active cache exists.
+- Both 36-rune grids render, and 21/14/dashes still gives `WYVERN`.
+- At 1200×1600, lookup/rune/path windows stop at y=780, above midpoint y=800;
+  the guest is not dimmed. Verified again at 1600×1200 after rotation, including
+  scrolling to rune 36 and accessible Cancel. Selections survive rotation.
+- Against the actual Mac prompt, both runes and the path remain visible beneath
+  the picker: `scratch/wheel-real-prompt-grid.png`. Selected 12/6/dashes →
+  `FRIEND` and used Enter code, which sends the word and Return. The prompt
+  closed back to the game's menus, without a rejection prompt.
+- Screenshots: `wheel-top-half-offline.png`, `wheel-outer-bundled.png`,
+  `wheel-inner-bundled.png`, `wheel-path-top-half.png`,
+  `wheel-landscape-grid-scrolled.png`, and `wheel-real-prompt-answer.png`.
+
+## Live area-map behavior
 
 The map appears above the Mac display by default. **PoolRad → Show live map**
 toggles it and stores the choice locally. Opening the virtual keyboard reserves

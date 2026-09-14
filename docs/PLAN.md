@@ -214,7 +214,8 @@ desktop screenshots cannot establish refresh behavior or ghosting.
 
 - [x] One top-level **PoolRad** menu groups our helpers; debug capture lives here.
 - [x] Native rune/path picker and offline lookup follow the supplied reference.
-- [x] Optional rune-image download is cached privately, not bundled in the APK.
+- [x] All 72 rune images bundled in the personal APK; no runtime download/cache requirement.
+- [x] Lookup and rune/path pickers use the upper half without dimming the game.
 - [x] **Enter code** types the answer **and presses Return**, per the user.
 - [x] Check all 3,888 input combinations for bounded outputs; verify known answers.
 - [x] Android emulator check: cached glyphs and a known answer work with networking disabled.

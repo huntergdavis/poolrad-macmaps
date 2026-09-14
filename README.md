@@ -18,9 +18,9 @@ game remake. A **PoolRad** toolbar menu groups the game-specific helpers.
 - Samples a small read-only packet four times a second while visible; redraws
   only when map/position changes. No blinking arrow or network connection.
 - **PoolRad → Code wheel lookup:** select both runes and a path, then **Enter
-  code** types the answer and presses Return. The lookup runs offline. Optional
-  rune illustrations download once into private storage and work offline after
-  that; no game data is uploaded.
+  code** types the answer and presses Return. All 72 rune illustrations are
+  bundled in the personal APK: no download or cache setup. The lookup and
+  pickers stay in the top half without dimming the game below.
 - Read-only guest RAM capture works in debug builds, under the same menu.
 - The map reader validates all 29 supplied maps, with bounds-checked decoding.
 - First-area prototype, not complete game coverage: area names, transitions,
@@ -42,4 +42,6 @@ The emulator source retains its GPLv2 license. The DAX/GEO reader credits
 [Gold Box Explorer](https://github.com/bsimser/Gold-Box-Explorer), with its MIT
 notice in `licenses/`. Code-wheel arithmetic/table reference:
 [Dave Kennedy / Andrew Schultz](https://dkennedy.io/por-code-wheel/wwm.html).
-The reference's images are not redistributed with this source or APK.
+The reference's images are private build inputs, bundled only in the personal
+APK, not redistributed in this source tree. See the build notes before sharing
+an APK publicly.

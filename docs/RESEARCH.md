@@ -201,7 +201,7 @@ work. Keep it as a fallback if a personal Android build proves unacceptable.
 [PROVEN]  29 map records decode to the expected size
 [PROVEN]  Android fork builds; copied Mac II setup boots the game and sample party
 [PROVEN]  read-only 8 MiB snapshots from the running guest
-[PROVEN]  native PoolRad menu and cached offline code-wheel lookup
+[PROVEN]  native PoolRad menu and offline code-wheel lookup
 [PROVEN]  A5-relative position/map probe reproduces two labeled RAM captures
 [PROVEN]  live B&W New Phlan pane above the Mac after loading the sample party
 [PROVEN]  keyboard below both panes; empty startup geometry rejected
@@ -238,8 +238,12 @@ selected 21/14/dashes and submitted `WYVERN` plus Return successfully with the
 test emulator's Wi-Fi and mobile data disabled.
 
 The reference repository has no published license granting image redistribution.
-Rune illustrations therefore download only on explicit request to private app
-storage from the linked reference, rather than being included in the APK/repo.
+At the user's request, the personal 0.2.1 APK now bundles the 72 illustrations
+recovered from the existing private cache. The artwork stays in an ignored
+`private-assets/codewheel/` build-input folder, not the source repository; this
+does not claim an open-source license for those images. Public redistribution
+of the artwork/APK is outside this personal-build arrangement. Runtime lookup
+has no download/cache code and reads only packaged assets.
 
 Test-game preparation uses MacBinary **II** (including the header CRC), as
 required by the installed `hcopy` utility, preserving the game's resource fork.
