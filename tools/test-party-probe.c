@@ -46,6 +46,23 @@ static void unavailable(void) {
     for (unsigned i = 0; i < sizeof(output); i++) assert(output[i] == 0);
 }
 
+static void effects_fixture(unsigned count) {
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    put32(member_record(0) + POOLRAD_PARTY_EFFECT_HEAD_OFFSET, count ? 0x5000 : 0);
+    for (unsigned i = 0; i < count; i++) {
+        uint32_t node = 0x8000 + i * 32;
+        put32(0x5000 + i * 4, node); put32(node - 8, 0x82000014);
+        ram[node] = i ? 31 : 55;
+        put32(node + 6, i + 1 < count ? 0x5000 + (i + 1) * 4 : 0);
+    }
+}
+
+static void effects_unknown(void) {
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(output[24] == 10 && output[25] == 10);
+    assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == POOLRAD_PARTY_UNKNOWN_EFFECTS);
+}
+
 static void combat_fixture(unsigned members, unsigned combatants) {
     /* Keep the largest fixture clear of A5 globals and the geometry block. */
     fixture(0x6000, 0x2000, 0x8000, members + combatants);
@@ -59,7 +76,7 @@ static void combat_fixture(unsigned members, unsigned combatants) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP2", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP3", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -103,6 +120,38 @@ static void tests(void) {
         assert(output[26] == (value <= 187 ? (unsigned char) (60 - value) : POOLRAD_PARTY_UNKNOWN_AC));
         assert(output[27] == (value <= 17 ? value : POOLRAD_PARTY_UNKNOWN_CLASS));
         assert(output[24] == 10 && output[25] == 10); // Unknown details retain valid HP.
+    }
+
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    for (unsigned value = 0; value <= 255; value++) {
+        ram[member_record(0) + POOLRAD_PARTY_CONDITION_OFFSET] = value;
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(output[POOLRAD_PARTY_BASE_SIZE] == (value <= 8 ? value : 255));
+        assert(output[24] == 10); // Status is independent of current health.
+    }
+    effects_fixture(1);
+    for (unsigned id = 0; id <= 255; id++) {
+        ram[0x8000] = id;
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == (id == 55 ? 1 : id == 31 || id == 51 || id == 52 || id == 53 ? 2 : 0));
+    }
+    effects_fixture(2);
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == 3);
+    effects_fixture(64);
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == 3);
+    effects_fixture(65); effects_unknown();
+    effects_fixture(2); put32(0x8026, 0x5000); effects_unknown(); // Handle cycle.
+    effects_fixture(2); put32(0x5004, 0x8000); effects_unknown(); // Record alias.
+    effects_fixture(2); put32(0x5004, 0xffff); effects_unknown(); // Bounded bad pointer.
+    effects_fixture(2); put32(0x8026, 0xffffff); effects_unknown(); // No partial poison claim.
+    effects_fixture(1); put32(0x7ff8, 0x82000018); effects_unknown(); // Wrong logical allocation.
+    for (unsigned pad = 0; pad < 16; pad++) {
+        effects_fixture(1);
+        put32(0x7ff8, ((0x80u | pad) << 24) | (18 + pad));
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == ((18 + pad) % 4 ? 255 : 1));
     }
 
     fixture(0xf000, 0x2400, 0x4800, 8); // All bases relocate; no fixed capture address is used.
@@ -207,7 +256,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, 1-8 members, combat filtering, health, AC/class ranges and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects and failure clearing passed.");
 }
 
 static int replay(const char *path) {
@@ -231,8 +280,9 @@ static int replay(const char *path) {
         fprintf(stderr, "%u. %s: %u/%u HP; ", i + 1, row, row[16], row[17]);
         if (row[18] == POOLRAD_PARTY_UNKNOWN_AC) fputs("AC unknown; ", stderr);
         else fprintf(stderr, "AC %d; ", row[18] < 128 ? row[18] : (int) row[18] - 256);
-        if (row[19] == POOLRAD_PARTY_UNKNOWN_CLASS) fputs("class unknown\n", stderr);
-        else fprintf(stderr, "class %u\n", row[19]);
+        if (row[19] == POOLRAD_PARTY_UNKNOWN_CLASS) fputs("class unknown; ", stderr);
+        else fprintf(stderr, "class %u; ", row[19]);
+        fprintf(stderr,"condition %u; tracked effects %u\n", output[POOLRAD_PARTY_BASE_SIZE + i * 2], output[POOLRAD_PARTY_BASE_SIZE + i * 2 + 1]);
     }
     return fwrite(output, 1, sizeof(output), stdout) == sizeof(output) ? 0 : 1;
 }

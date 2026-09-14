@@ -47,13 +47,16 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.13.0 | Compact flag-editor title/tool row and 2.1× sketch height; Pen only and per-note Save PNG removed |
 | Done — 0.13.1 | Source-checked wall-first symbols remove phantom doors; two doorway appearances and blocked walls spot-checked in the original game |
 | Done — 0.14.0 | Offline illustrated journal/proclamation/tavern lookup, private book import, recent numbers and per-notebook bookmarks |
+| Done — 0.15.0 | Verified party condition badges, poison/helpless effects and condition text on tap |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: dedicated tactical/wilderness maps, party conditions/equipment,
-automatic journal detection, journal/map-note linking, a dedicated Notes index,
-or the remaining rotation/keyboard hardware checks. Separate area-wide drawing
+Not done: dedicated tactical/wilderness maps, party equipment, training and
+spell readiness, automatic journal detection, journal/map-note linking, a
+dedicated Notes index, or the remaining rotation/keyboard hardware checks.
+Party conditions ship in 0.15.0; equipment and the other character panels
+do not. Separate area-wide drawing
 was replaced by the shipped flag pages.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
@@ -485,8 +488,21 @@ These enrich the original game without changing its rules. Every live field
 still needs Macintosh-specific discovery and verification. See the linked
 research for sources and portability limits.
 
-- [ ] **R1 — Party condition badges.** Clear injured/unconscious/dying/dead and
+- [x] **R1 — Party condition badges.** Clear injured/unconscious/dying/dead and
   relevant effect symbols; text on tap, not a rainbow of tiny indicators.
+  **Delivered 0.15.0:** one dark badge takes over the existing class-icon slot
+  only when the character needs it; the ordinary class symbol returns otherwise.
+  Condition comes from the Macintosh character record's own status byte and its
+  nine-entry name table, never inferred from zero HP, and the bounded effect
+  chain contributes only the original game's poison and aggregate Helpless
+  states. An unreadable chain says unavailable, not "no effects". The 184-byte
+  PRP3 packet keeps old PRP1/PRP2 readable with conditions explicitly
+  unavailable. 363 Java tests, 22 Android View checks, the rebuilt native probe
+  suite and 81 Python helper tests pass; real captures replay as Okay with no
+  tracked effects. Live on emulator-5584 the six sample characters keep their
+  class symbols and Arax's details read "Condition: Okay". No character was
+  played into a rare condition and physical tablet acceptance is untested.
+  [Badges and Mac evidence](PARTY_CONDITIONS.md) · [checks](LOCAL_TESTING.md).
 - [ ] **R2 — Training readiness.** Small XP progress and a training reminder;
   respect class/race limits and normal training, not automatic level-ups.
 - [ ] **R3 — Spell readiness.** Prepared-versus-spent spell uses and optional

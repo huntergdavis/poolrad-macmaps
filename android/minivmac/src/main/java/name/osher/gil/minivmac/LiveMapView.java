@@ -108,7 +108,8 @@ public final class LiveMapView extends View {
         if (party != null) for (PartyState.Member member : party.members)
             health.append(' ').append(member.name).append(": ").append(member.currentHp).append(" of ").append(member.maxHp)
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
-                    .append("; ").append(member.classLabel()).append('.');
+                    .append("; ").append(member.classLabel())
+                    .append("; ").append(member.conditionSummary()).append('.');
         setContentDescription(status + (positionAvailable
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
@@ -226,7 +227,7 @@ public final class LiveMapView extends View {
         if (listener != null) for (int i = 0; i < partyActions.size(); i++) {
             PartyState.Member member = partyActions.valueAt(i);
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partyActions.keyAt(i),
-                    "Details for " + member.name + ", " + member.classLabel()));
+                    "Details for " + member.name + ", " + member.classLabel() + ", " + member.conditionSummary()));
         }
     }
 
@@ -344,7 +345,8 @@ public final class LiveMapView extends View {
             PartyState.Member member=party.members.get(i);
             float left=p.partyLeft+44*unit, right=p.partyLeft+p.partyWidth-10*unit;
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
-            drawClassSymbol(canvas, member, p.partyLeft+9*unit, top+8*unit, 27*unit);
+            if (member.badge().isEmpty()) drawClassSymbol(canvas, member, p.partyLeft+9*unit, top+8*unit, 27*unit);
+            else drawConditionBadge(canvas,member.badge(),p.partyLeft+9*unit,top+8*unit,27*unit);
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK); ink.setTextSize(13*unit);
             float available=Math.max(0,right-left);
             int chars=ink.breakText(member.name,true,available,null);
@@ -364,7 +366,18 @@ public final class LiveMapView extends View {
         canvas.restore();
     }
 
-    /** Original monochrome class marks; unknown classes remain a neutral question mark. */
+    /** One high-contrast condition mark in the existing class-icon slot; details explain it. */
+    private void drawConditionBadge(Canvas canvas, String badge, float left, float top, float size) {
+        ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.FILL);
+        canvas.drawRoundRect(left,top,left+size,top+size,size*.12f,size*.12f,ink);
+        ink.setColor(Color.WHITE); ink.setTextAlign(Paint.Align.CENTER);
+        ink.setTextSize(size*.72f);
+        float baseline=top+size/2-(ink.ascent()+ink.descent())/2;
+        canvas.drawText(badge,left+size/2,baseline,ink);
+        ink.setColor(Color.BLACK); ink.setTextAlign(Paint.Align.LEFT);
+    }
+
+    /** Class marks return automatically when the condition needs no badge. */
     private void drawClassSymbol(Canvas canvas, PartyState.Member member, float left, float top, float size) {
         ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(Math.max(density, size*.055f));
         ink.setColor(Color.BLACK); ink.setStrokeCap(Paint.Cap.ROUND); ink.setStrokeJoin(Paint.Join.ROUND);

@@ -1,6 +1,6 @@
 /* Read-only Macintosh Pool of Radiance v1.1 party details.
  * Independent disassembly and capture evidence: docs/PARTY.md.
- * Only party order, names, health and verified AC/class identifiers leave the core.
+ * Only party order, names, health and verified display identifiers leave the core.
  */
 #ifndef POOLRAD_PARTY_PROBE_H
 #define POOLRAD_PARTY_PROBE_H
@@ -11,7 +11,8 @@
 #define POOLRAD_PARTY_MAX_COMBATANTS 63
 #define POOLRAD_PARTY_MAX_LINKS (POOLRAD_PARTY_MAX_MEMBERS + POOLRAD_PARTY_MAX_COMBATANTS)
 #define POOLRAD_PARTY_ROW_SIZE 20
-#define POOLRAD_PARTY_SIZE (8 + POOLRAD_PARTY_MAX_MEMBERS * POOLRAD_PARTY_ROW_SIZE)
+#define POOLRAD_PARTY_BASE_SIZE (8 + POOLRAD_PARTY_MAX_MEMBERS * POOLRAD_PARTY_ROW_SIZE)
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_BASE_SIZE + 2 * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -24,8 +25,49 @@
 #define POOLRAD_PARTY_UNKNOWN_AC 0x80
 #define POOLRAD_PARTY_UNKNOWN_CLASS 0xff
 #define POOLRAD_PARTY_LAST_CLASS 17
+#define POOLRAD_PARTY_CONDITION_OFFSET 0x118
+#define POOLRAD_PARTY_EFFECT_HEAD_OFFSET 0x82
+#define POOLRAD_PARTY_UNKNOWN_CONDITION 0xff
+#define POOLRAD_PARTY_UNKNOWN_EFFECTS 0xff
+#define POOLRAD_PARTY_POISONED 1
+#define POOLRAD_PARTY_HELPLESS 2
+#define POOLRAD_PARTY_EFFECT_LIMIT 64
 
-/* PRP2: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
+/* CODE3 +0x2406 looks up an effect ID at node+0, following node+6 handles.
+ * CODE11 +0x0ea2 allocates 10-byte nodes. As with characters, verify logical
+ * size including heap padding. Incomplete lists return unknown, not partial flags.
+ * Poison: CODE4 +0x7488 queries ID55 before Neutralize Poison.
+ * Helpless: CODE3 +0x0b3e queries IDs51,52,53,31 in the original table.
+ */
+static unsigned char poolrad_party_effects(const unsigned char *ram, size_t size, uint32_t record) {
+    uint32_t handle = poolrad_u32(ram + record + POOLRAD_PARTY_EFFECT_HEAD_OFFSET) & 0x00ffffff;
+    uint32_t handles[POOLRAD_PARTY_EFFECT_LIMIT], records[POOLRAD_PARTY_EFFECT_LIMIT];
+    unsigned count = 0, flags = 0;
+    while (handle != 0) {
+        uint32_t node, header, physical;
+        if (count == POOLRAD_PARTY_EFFECT_LIMIT || handle < 0x1000 || (handle & 1)
+                || !poolrad_range(handle, 4, size)) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
+        node = poolrad_u32(ram + handle) & 0x00ffffff;
+        if (node < 0x1000 || (node & 1) || !poolrad_range(node, 10, size)) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
+        header = poolrad_u32(ram + node - 8); physical = header & 0x00ffffff;
+        if ((header & 0xf0000000) != 0x80000000
+                || physical != 18 + ((header >> 24) & 15) || (physical & 3)
+                || !poolrad_range(node - 8, physical, size)) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
+        for (unsigned i = 0; i < count; i++)
+            if (handles[i] == handle || records[i] == node) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
+        handles[count] = handle; records[count++] = node;
+        unsigned id = ram[node];
+        if (id == 55) flags |= POOLRAD_PARTY_POISONED;
+        if (id == 31 || id == 51 || id == 52 || id == 53) flags |= POOLRAD_PARTY_HELPLESS;
+        handle = poolrad_u32(ram + node + 6) & 0x00ffffff;
+    }
+    return (unsigned char) flags;
+}
+
+/* PRP3: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
+ * After the unchanged 168-byte base: eight (condition, tracked effects) pairs.
+ * Condition is the Mac table ID0..8 or 0xff. Effects: poison=1, helpless=2,
+ * or 0xff=unavailable; other effects are not interpreted. Unused pairs are zero.
  * AC is signed two's complement -127..60; 0x80 means unavailable. The Mac's
  * formatter displays 60 minus an unsigned byte; values below -127 cannot be
  * represented here and remain unknown, not clamped to a guessed rules range.
@@ -115,10 +157,13 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
                 : POOLRAD_PARTY_UNKNOWN_AC;
         row[19] = ram[record + POOLRAD_PARTY_CLASS_OFFSET] <= POOLRAD_PARTY_LAST_CLASS
                 ? ram[record + POOLRAD_PARTY_CLASS_OFFSET] : POOLRAD_PARTY_UNKNOWN_CLASS;
+        packet[POOLRAD_PARTY_BASE_SIZE + count * 2] = ram[record + POOLRAD_PARTY_CONDITION_OFFSET] <= 8
+                ? ram[record + POOLRAD_PARTY_CONDITION_OFFSET] : POOLRAD_PARTY_UNKNOWN_CONDITION;
+        packet[POOLRAD_PARTY_BASE_SIZE + count * 2 + 1] = poolrad_party_effects(ram, size, record);
         count++;
     }
     if (count == 0) return 0;
-    memcpy(packet, "PRP2", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP3", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

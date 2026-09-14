@@ -21,9 +21,12 @@ public final class PartyDetailsDialog {
         column.setBackgroundColor(Color.WHITE);
         line(activity, column, member.classLabel(), 18);
         line(activity, column, "Health: " + member.currentHp + " / " + member.maxHp + " HP", 18);
+        line(activity, column, "Condition: " + member.conditionLabel() + (member.injured() ? " · injured" : ""), 18);
+        line(activity, column, member.effectsLabel(), 18);
+        if (!member.badge().isEmpty()) line(activity, column, "Badge " + member.badge() + " = " + member.badgeMeaning(), 14);
         line(activity, column, "Armor class: " + (member.armorClass == null ? "Unavailable" : member.armorClass), 18);
         line(activity, column, "Lower armor class is better. These are the original game's values, not editable stats.", 14);
-        line(activity, column, "Snapshot when opened. Close and tap the row again to refresh. Zero HP alone does not identify a character's condition.", 14);
+        line(activity, column, "Snapshot when opened. Close and tap the row again to refresh. Conditions come from the game, not a guess from zero HP. Only poison and helplessness effects are tracked; other spell effects are not listed.", 14);
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
         scroll.addView(column);

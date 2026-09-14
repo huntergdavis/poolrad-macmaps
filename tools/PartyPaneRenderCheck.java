@@ -305,6 +305,62 @@ public final class PartyPaneRenderCheck {
             check(view.getContentDescription().toString().contains("AC unavailable; Class unavailable"),"Legacy data invented new metadata");
         });
 
+        run("condition and effect badges are distinct, monochrome and confined to the class-icon slot", () -> {
+            byte[] healthy=conditionPacket(); LiveMapView view=view(healthy,960,480);
+            Bitmap before=render(view); PartyPaneLayout p=pane(view,MEMBERS);
+            float top=p.rowTop(0)+(p.rowHeight-48*density)/2;
+            int left=(int)(p.partyLeft+8*density), right=(int)Math.ceil(p.partyLeft+37*density);
+            int above=(int)(top+7*density), below=(int)Math.ceil(top+36*density);
+            int[][] conditions={{4,0},{5,0},{6,0},{7,0},{2,0},{3,0},{1,0},{0,1},{0,2},{255,255}};
+            Set<Long> badges=new HashSet<>();
+            for(int[] state:conditions) {
+                byte[] sample=healthy.clone();sample[168]=(byte)state[0];sample[169]=(byte)state[1];
+                view.showPartySample(sample);Bitmap after=render(view);long hash=1;int dark=0;
+                for(int y=0;y<after.getHeight();y++) for(int x=0;x<after.getWidth();x++) {
+                    int pixel=after.getPixel(x,y);
+                    if(x>=left&&x<right&&y>=above&&y<below) {
+                        hash=hash*31+pixel;if(Color.red(pixel)<128)dark++;
+                    } else check(pixel==before.getPixel(x,y),"Condition altered map, names, HP bars or another row");
+                }
+                check(dark>50&&badges.add(hash),"Missing or indistinguishable condition badge");
+                checkMonochrome(after);checkBars(after,p,sample);
+                String summary=PartyState.parse(sample).members.get(0).conditionSummary();
+                check(view.getContentDescription().toString().contains(summary),"Condition text was not accessible");
+                after.recycle();BITMAPS.remove(after);
+            }
+            byte[] injured=healthy.clone();injured[24]--;
+            view.showPartySample(injured);checkBars(render(view),p,injured);
+            check(view.getContentDescription().toString().contains("injured"),"HP injury has no text explanation");
+            view.showPartySample(healthy);equal(before,render(view),"Recovery did not restore the original class symbol");
+            resize(view,360,320);view.showPartySample(injured);
+            equal(render(view(null,360,320)),render(view),"Conditions broke the narrow-pane collapse");
+            check(view.getContentDescription().toString().contains("injured"),"Collapsed conditions lost accessible details");
+        });
+
+        run("condition-only updates cancel stale party presses and accessible actions", () -> {
+            byte[] sample=conditionPacket();LiveMapView view=view(sample,960,480);
+            final List<PartyState.Member> selected=new ArrayList<>();
+            view.setListener(new LiveMapView.Listener(){
+                @Override public void onAreaChanged(AreaIdentity area){}
+                @Override public void onTileTapped(AreaIdentity area,int x,int y){throw new AssertionError("Party tap became a flag");}
+                @Override public void onPartyMemberTapped(PartyState.Member member){selected.add(member);}
+            });
+            PartyPaneLayout p=pane(view,MEMBERS);float x=p.partyLeft+p.partyWidth/2f,y=p.rowTop(0)+p.rowHeight/2;
+            AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+            int oldAction=info.getActionList().get(0).getId();info.recycle();
+            event(view,MotionEvent.ACTION_DOWN,x,y);sample[168]=4;sample[169]=3;view.showPartySample(sample);
+            event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.isEmpty()&&!view.performAccessibilityAction(oldAction,null),"A stale gesture exposed old conditions");
+            info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+            AccessibilityNodeInfo.AccessibilityAction action=info.getActionList().get(0);
+            check(action.getLabel().toString().contains("Unconscious")&&action.getLabel().toString().contains("Poisoned"),
+                    "New detail action omits actual conditions/effects");
+            check(view.performAccessibilityAction(action.getId(),null)&&selected.size()==1
+                    &&selected.get(0).condition==4&&selected.get(0).trackedEffects==3,"Detail action supplied stale state");
+            info.recycle();view.showPartySample(null);
+            equal(render(view(null,960,480)),render(view),"Missing party retained old condition badges");
+        });
+
         run("joining and leaving change row targets together with names, bars and details", () -> {
             byte[] smaller=packet(true);smaller[4]=5;Arrays.fill(smaller,8+5*20,smaller.length,(byte)0);
             LiveMapView view=view(smaller,960,480);checkBars(render(view),pane(view,5),smaller);
@@ -661,6 +717,11 @@ public final class PartyPaneRenderCheck {
         }
     }
 
+    private static byte[] conditionPacket() {
+        byte[] sample=Arrays.copyOf(packet(false),PartyState.CONDITION_PACKET_SIZE);
+        sample[3]='3';return sample;
+    }
+
     private static MapMode[] statusModes() {
         return new MapMode[]{MapMode.COMBAT, MapMode.CAMP, MapMode.WILDERNESS, MapMode.LOADING, MapMode.UPDATING};
     }
@@ -861,7 +922,8 @@ public final class PartyPaneRenderCheck {
         String description = view.getContentDescription().toString(); int previous = -1;
         for (PartyState.Member member : PartyState.parse(packet).members) {
             String expected = member.name + ": " + member.currentHp + " of " + member.maxHp + " HP; AC "
-                    +(member.armorClass==null ? "unavailable" : member.armorClass)+"; "+member.classLabel()+".";
+                    +(member.armorClass==null ? "unavailable" : member.armorClass)+"; "+member.classLabel()
+                    +"; "+member.conditionSummary()+".";
             int at = description.indexOf(expected);
             check(at > previous, "Missing or reordered accessible current/max health: " + expected);
             previous = at;

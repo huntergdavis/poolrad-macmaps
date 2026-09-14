@@ -1,7 +1,7 @@
 # Read-only party details
 
 Scope: the supplied **Macintosh Pool of Radiance v1.1**. Read the guest's
-ordered party names, current/maximum HP, armor class and class identifiers;
+ordered party names, current/maximum HP, armor class, class and condition identifiers;
 do not change stats, automate combat, guess mana, or treat a party member as a
 tactical map position.
 
@@ -12,7 +12,12 @@ right. Each row has a name, an original monochrome class symbol, current/max
 HP, a dark health bar and the game's displayed armor class. Multiclass marks
 combine their component symbols; they are not extracted guest portraits.
 
-Tap a row for its full name, class, health and AC in the same upper companion
+From 0.15.0, a single dark [condition badge](PARTY_CONDITIONS.md) temporarily
+replaces the class symbol for injury, unconsciousness, dying/dead, poison and
+other verified statuses. Tap for the exact combination. Unknown effects are
+not presented as absent; only poison and helplessness are tracked.
+
+Tap a row for its full name, class, health, AC and conditions in the same upper companion
 rectangle. The details explicitly describe a **snapshot when opened**: close
 and reopen to refresh. Unknown details remain unavailable, and zero HP alone
 does not imply death. Nothing in this panel edits the character.
@@ -79,8 +84,8 @@ the A5 `+0x3a2` jump-table entry) clears `d0`, loads the current-HP byte into it
 and passes that zero-extended value to `%d`. The healing/style branches also
 use unsigned comparisons. A separate decrement path at `0x69e224`–`0x69e234`
 only subtracts while current HP is positive. Do not interpret values 128–255
-as negative HP based on tabletop rules. Death, unconsciousness and other
-status fields have not been decoded by this slice.
+as negative HP based on tabletop rules. Death and unconsciousness now come
+from a separate verified field, not HP: see [condition evidence](PARTY_CONDITIONS.md).
 
 ## Reader and display packet
 
@@ -102,10 +107,10 @@ HP is accepted only when `1 <= max <= 255` and `0 <= current <= max`. Zero
 current is valid; it is not labeled dead. An unexplained above-maximum value
 is rejected rather than silently clamped or assigned speculative meaning.
 
-`poolrad_party_probe(ram, size, out)` writes a **168-byte PRP2 packet**:
+`poolrad_party_probe(ram, size, out)` writes a **184-byte PRP3 packet**:
 
 ```text
-0..3       PRP2
+0..3       PRP3
 4          member count (1..8)
 5..7       zero
 8..167     eight rows of 20 bytes:
@@ -115,10 +120,14 @@ is rejected rather than silently clamped or assigned speculative meaning.
              18      signed AC (two's complement), or 0x80 = unavailable
              19      Mac class ID 0..17, or 0xff = unavailable
            unused rows are entirely zero
+168..183   eight (condition, tracked effects) byte pairs in the same order
+             condition: 0..8 or 0xff unavailable
+             effects: bit0 poison, bit1 helpless; 0xff unavailable
+           unused pairs are zero
 ```
 
-The caller supplies a separate 168-byte output buffer. Failure returns zero
-and clears it; success returns one. Only names, order, health, AC and class IDs
+The caller supplies a separate 184-byte output buffer. Failure returns zero
+and clears it; success returns one. Only names, order, health and verified display fields
 leave this reader—no heap pointers, raw character records or unrelated RAM.
 
 The AC byte represents `−127..60`. This is a **transport range**, not an
@@ -130,10 +139,12 @@ Unknown AC or class does not discard otherwise valid names/health.
 `PartyState.parse(byte[])` returns null for unavailable/invalid packets, or an
 immutable state with public `members`. Each member exposes `name`, `currentHp`,
 `maxHp`, `healthFraction()`, nullable `armorClass`, `characterClass` (`−1` when
-unknown) and `classLabel()`. Strict packet length, version, reserved-byte,
+unknown), `classLabel()`, `condition`, `trackedEffects` and readable condition/badge
+helpers. Strict packet length, version, reserved-byte,
 padding and HP checks reject malformed/native-version mismatches. Names use
 Macintosh Roman, not UTF-8 or Latin-1. `sameDisplay` supports change-only redraws;
-the state owns a defensive packet copy. Old PRP1 packets remain readable;
+the state owns a defensive packet copy. Old 168-byte PRP1/PRP2 packets remain
+readable with conditions/effects unavailable. For PRP1,
 their two reserved zero bytes mean **unknown AC/class**, not AC 0 or Cleric.
 
 ### Verified Mac class identifiers
@@ -323,9 +334,9 @@ cc -std=c11 -Wall -Wextra -Werror -fsanitize=address,undefined \
 scratch/test-party-probe
 ```
 
-An optional argument replays a private RAM file: binary PRP2 goes to stdout,
-readable HP/AC/class IDs to stderr; exit status 2 means unavailable. Keep captures and
-generated packets in ignored `scratch/`. Java coverage is `PartyStateTest`
+An optional argument replays a private RAM file: binary PRP3 goes to stdout,
+readable HP/AC/class/condition/effect IDs to stderr; exit status 2 means unavailable. Keep captures and
+generated packets in ignored `scratch/`. Java coverage is `PartyStateTest` and `PartyConditionTest`
 under the normal Android `testMacIIDebugUnitTest` task.
 
 ## Provenance

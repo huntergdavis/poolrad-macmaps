@@ -1,5 +1,66 @@
 # Local Android prototype
 
+## R1 — party condition badges (2026-09-14, v0.15.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.15.0.apk`, SHA-256
+`b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`, versionCode 81.
+Badge meanings, the Macintosh v1.1 offsets they come from and the PRP3 packet
+are in [PARTY_CONDITIONS.md](PARTY_CONDITIONS.md).
+
+Automated suites, all rerun for this pass:
+
+- Native `tools/test-party-probe.c` built with `-Wall -Wextra` passes: all 256
+  condition bytes, all 256 effect IDs, combined effects, handle cycles, aliased
+  records, out-of-range pointers, every allocator padding remainder, the 64-node
+  limit and its 65-node rejection, and failure clearing.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **363 tests,
+  zero failures/errors/skips** (355 before; `PartyConditionTest` adds eight).
+- **22 detached Android View/software-Canvas checks** pass on emulator-5584,
+  including the two new ones: distinct monochrome badges confined to the
+  existing class-icon slot with map, names, HP bars and other rows unchanged;
+  and condition-only updates cancelling stale party presses and accessibility
+  action IDs.
+- Python helpers pass **81 tests** (archive 21, personal boot 14, package 16,
+  pinned fetch 25, journal 5).
+- `check-wheel-apk.mjs` passes: 72 bundled runes unchanged, no ROM, disk, game
+  archive or journal payload. `apksigner verify` succeeds on the same debug key.
+
+Private RAM replay through the rebuilt probe, read-only:
+
+- `p1-fresh-party-*`, `phlan-15-1-west-intro`, `phlan-11-2-south-tour`,
+  `f10-camp`, `f10-walking`, `m1-*` and `f7-combat-active-2` all decode the six
+  correct characters with unchanged HP/AC/class, condition `0` (Okay) and no
+  tracked effects.
+- `f7-combat-active-1`, `f7-combat-active-3` and `f7-combat-ready-20260914`
+  report the party unavailable. The pre-change probe rebuilt from the previous
+  commit rejects exactly the same three captures, so this is the existing
+  application-profile guard, not a regression, and no condition is invented for
+  a rejected sample.
+
+Live on isolated `poolrad-package-test`, emulator-5584, API 30, 1200×1600:
+
+- The running 0.14.0 guest was quit normally through the game's own dialog,
+  then **Special → Shut Down** in the Finder. `/proc/<app-pid>/fd` independently
+  showed no remaining `.dsk` handle before the in-place APK update.
+- 0.15.0 installed over 0.14.0 with `adb install -r`; no app data was cleared
+  and no disk was replaced. The guest cold-booted, auto-launched the game and
+  the automatic code wheel was accepted without manual entry.
+- `PoolRadSave/SampleParty` was loaded. The user's `m1gate` campaign save was
+  listed but deliberately not opened, and nothing was saved during this pass.
+- All six sample characters retain their **ordinary class symbols**, because
+  every member is Okay and at full HP: `scratch/r1-live-sidebar.png`. This is
+  the live proof that no badge appears when none is warranted.
+- Tapping Arax the Bold shows `Condition: Okay` and `No poison or helplessness
+  detected` above the unchanged AC line: `scratch/r1-live-details.png`. The
+  guest's own Information window lists the same six names, AC and HP.
+
+Not claimed: no character was played into an injured, unconscious, dying, dead,
+petrified, poisoned or helpless state during this pass, so the non-empty badges
+are covered by the native decoder, Java and View suites rather than by live
+gameplay. Physical e-ink/stylus acceptance of the badges is untested; the
+user's earlier handwritten-notes acceptance stands separately. Only
+emulator-5584 was used; 5580 was not touched. No GitHub Actions workflow exists.
+
 ## REF5 — offline adventure journal (2026-09-14, v0.14.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.14.0.apk`, SHA-256

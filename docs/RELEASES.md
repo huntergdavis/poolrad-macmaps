@@ -1,5 +1,19 @@
 # Releases
 
+## 0.15.0 — Know how your party is holding up
+
+[Release notes](releases/0.15.0.md): one verified condition badge per character
+in the existing class-icon slot, poison and helplessness from the original
+effect chain, and the exact wording on tap. Unconsciousness, dying and death
+come from the game's own status field, never guessed from zero HP.
+
+## 0.14.0 — Your adventure journal, within reach
+
+[Release notes](releases/0.14.0.md): an offline illustrated reader for 58
+journal entries, 18 proclamations and 23 tavern tales, a one-time private book
+import, recent lookups and per-notebook bookmarks. The public APK carries the
+reader only; journal content is never bundled.
+
 ## 0.13.1 — Walls where walls belong
 
 [Release notes](releases/0.13.1.md): match the original Mac wall-first rule,
