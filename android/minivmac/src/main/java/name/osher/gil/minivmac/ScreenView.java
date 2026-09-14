@@ -14,6 +14,7 @@ import android.view.*;
 
 public class ScreenView extends View {
 	private Bitmap mScreenBits = null;
+	private boolean mHasScreenFrame;
 	private int mTargetScreenWidth = 0, mTargetScreenHeight = 0;
 	private Paint mScreenPaint;
 	private Rect mSrcRect, mDstRect;
@@ -49,6 +50,7 @@ public class ScreenView extends View {
 	}
 
 	public void setTargetScreenSize(int width, int height) {
+		mHasScreenFrame = false;
 		mTargetScreenWidth = width;
 		mTargetScreenHeight = height;
 		mScreenBits = Bitmap.createBitmap(mTargetScreenWidth, mTargetScreenHeight, Bitmap.Config.RGB_565);
@@ -72,8 +74,14 @@ public class ScreenView extends View {
 		int width = right - left;
 		int height = bottom - top;
 		mScreenBits.setPixels(update, 0, width, left, top, width, height);
+		mHasScreenFrame = true;
 		this.invalidate(translateScreenXCoord(left), translateScreenYCoord(top),
 				translateScreenXCoord(right), translateScreenYCoord(bottom));
+	}
+
+	/** UI-thread readiness check for capturing the real rendered guest bitmap. */
+	public boolean hasScreenFrame() {
+		return mHasScreenFrame && mScreenBits != null;
 	}
 
 	private int translateScreenXCoord(int x) {

@@ -1,12 +1,18 @@
 #!/usr/bin/env node
 // Local test helper. Only operates on the explicitly selected emulator, never a physical tablet.
 import { execFileSync } from 'node:child_process';
+import { setTimeout as delay } from 'node:timers/promises';
 const [serial, action, label] = process.argv.slice(2);
 if (!/^emulator-\d+$/.test(serial ?? '') || !['list', 'tap'].includes(action))
   throw new Error('Usage: node tools/android-ui.mjs emulator-5580 list|tap [exact text or description]');
 const adb = (...args) => execFileSync(process.env.ADB ?? 'adb', ['-s', serial, ...args], { encoding: 'utf8', timeout: 20000 });
 const decode = s => s.replace(/&#10;/g, '\n').replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-const output = adb('shell', 'uiautomator', 'dump', '/data/local/tmp/poolrad-ui.xml');
+let output = '';
+for (let attempt = 0; attempt < 3; attempt++) {
+  output = adb('shell', 'uiautomator', 'dump', '/data/local/tmp/poolrad-ui.xml');
+  if (output.includes('dumped to:')) break;
+  if (attempt < 2) await delay(350);
+}
 if (!output.includes('dumped to:')) throw new Error('No fresh UI hierarchy. Try again after the transition.');
 const xml = adb('exec-out', 'cat', '/data/local/tmp/poolrad-ui.xml');
 const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map(([tag]) => Object.fromEntries([...tag.matchAll(/([\w-]+)="([^"]*)"/g)].map(([, k, v]) => [k, decode(v)])));

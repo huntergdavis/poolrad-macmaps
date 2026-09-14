@@ -249,6 +249,18 @@ public class EmulatorFragment extends Fragment
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_screenshot) {
+                    ((MiniVMac) requireActivity()).captureScreenshot();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_levels_reference) {
+                    LevelsReferenceDialog.show(requireActivity());
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_spells_reference) {
+                    SpellReferenceDialog.show(requireActivity());
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_money_reference) {
+                    MoneyReferenceDialog.show(requireActivity());
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_capture_ram) {
                     captureRam();
                     return true;

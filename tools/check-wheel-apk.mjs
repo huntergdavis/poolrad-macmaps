@@ -23,4 +23,4 @@ for (const name of expected) {
     total += bundled.length;
 }
 assert.ok(!entries.some(name => /\.(rom|dsk|dax|ram|sit|probe)$/i.test(name)), 'Private game inputs must not be bundled');
-console.log(`PASS: all 72 rune GIFs are bundled unchanged (${total} bytes); no ROMs, disks, or game data.`);
+console.log(`PASS: all 72 rune GIFs are bundled unchanged (${total} bytes); no ROMs, disks, or game archives.`);

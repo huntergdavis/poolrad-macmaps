@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="screenshot_title">Screenshot</string>
+    <string name="screenshot_ready">The map, game, and visible keyboard are captured in one PNG.</string>
+    <string name="screenshot_save">Save PNG…</string>
+    <string name="screenshot_share">Share PNG…</string>
+    <string name="screenshot_saved">Screenshot saved.</string>
+    <string name="screenshot_busy">Finishing the current screenshot…</string>
+    <string name="screenshot_guest_not_ready">Wait for the Mac display to appear, then try Screenshot again.</string>
+    <string name="screenshot_failed">Could not capture the screenshot. Try again.</string>
+    <string name="screenshot_save_failed">Could not save the screenshot. Check the destination and try again.</string>
+    <string name="screenshot_share_failed">Could not open Android sharing. Try Save PNG instead.</string>
+    <string name="screenshot_missing">The temporary screenshot is no longer available. Take another screenshot.</string>
+</resources>

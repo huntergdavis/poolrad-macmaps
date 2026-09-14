@@ -1,13 +1,15 @@
 # Install PoolRad Mac Maps
 
-This is an Android APK, not a website. The public repository currently provides
-source, not a prebuilt public APK download. Build it below, or use a trusted
-personal build. No ROM, Mac system disk, game disk, or save is supplied.
+This is an Android APK, not a website. Download the
+[0.3.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.3.0)
+or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
+The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
-1. **Get the APK onto the tablet.** Copy
-   `minivmac-macII-universal-debug.apk` to Downloads using USB, or browse your
+1. **Get the APK onto the tablet.** Download
+   [`poolrad-macmaps-0.3.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.3.0/poolrad-macmaps-0.3.0.apk)
+   directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
    file manager. You can disable that permission afterward. Updates signed with
@@ -32,6 +34,15 @@ The Mac Plus flavor needs its own matching ROM and has not been runtime-tested.
 The **keyboard icon** opens the keyboard beneath the game.
 **PoolRad → Show live map** toggles the map. Rune lookup and its pickers stay
 in the upper half without dimming the game.
+
+**PoolRad → Screenshot** captures the current map, game, and visible keyboard.
+Choose **Save PNG…** to keep it in Downloads or another location, or **Share
+PNG…** to open Android's share chooser. Menus and system bars are not part of
+the picture. Unsaved captures are temporary; use Save for pictures you want to keep.
+
+**Levels & skills**, **Spells**, and **Money conversion** are offline PoolRad
+menu tools. Their own touch controls stay above the game; they never edit your
+characters. Sources and any unverified Macintosh-specific values are identified.
 
 ### If something doesn't work
 
@@ -72,7 +83,10 @@ Your APK is here:
 android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk
 ```
 
-Keep the same signing key for future updates. The current build is debug-signed;
-public release signing/distribution is not configured. For local testing,
+Keep the same signing key for future updates. The public prototype is debug-signed
+with the same key as the earlier personal builds; dedicated production release
+signing is not configured. Your own source build normally uses a different key,
+so it cannot update over the downloadable APK without resolving that difference.
+For local testing,
 private game-disk preparation, and exact validation coverage, see
 [LOCAL_TESTING.md](LOCAL_TESTING.md).

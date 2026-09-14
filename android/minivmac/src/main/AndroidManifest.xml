@@ -35,6 +35,16 @@
             android:label="@string/disk_manager_title"/>
 
         <provider
+            android:name=".ScreenshotProvider"
+            android:authorities="${applicationId}.screenshots"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/screenshot_paths" />
+        </provider>
+
+        <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.provider"
             android:exported="false"

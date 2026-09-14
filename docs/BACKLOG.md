@@ -22,11 +22,13 @@ e-ink/stylus acceptance remains a separate check, not inferred from that report.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 24 Java tests plus native reader checks |
+| Done | 29 GEO records decoded; 50 Java tests plus native reader checks |
+| Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
+| Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done | Sideload/update build and documented SMB transfer route |
 
 Not done: comprehensive area/mode recognition, party RAM fields, note storage,
-or screenshots/wallpaper controls. Do not confuse a working first-area map
+or wallpaper controls. Do not confuse a working first-area map
 with full-game tracking coverage. No numerical completion percentage is useful
 while scope is expanding.
 
@@ -65,11 +67,22 @@ No OCR, handwriting-to-text service, or cloud dependency.
 Suggested order after N1–N4: S1, P1, the REF panels, W1, A1. Correctness checks below are gates
 for the affected feature, not a second giant framework project.
 
-- [ ] **S1 — PoolRad → Screenshot.** Save one PNG of the full app composition:
+- [ ] **UI1 — Companion tabs.** Keep the Mac display and keyboard in place;
+  switch only the upper companion pane. Start with working Map and Info tabs
+  (Info groups the reference tools); add Journal and Notes when those workflows
+  exist. Keep Screenshot/settings in the menu. Preserve map visibility and
+  selected-tab state; use actual companion bounds for in-pane tools. No empty
+  placeholder tabs. See [the implementation design](TABS.md).
+
+- [x] **S1 — PoolRad → Screenshot.** Save one PNG of the full app composition:
   map, party sidebar when present, and the real guest display (plus keyboard if
   open). Include drawn marks/flags, dismiss the menu before capture, and offer
   Android save/share. Capture a coherent frame; avoid blank guest surfaces.
   No upload or request for broad screen-recording access just to capture our app.
+  **Delivered 0.3.0:** guest/map captures at 15,1 W and 11,2 S, keyboard capture,
+  byte-identical Android Save output, cancelled picker and successful subsequent
+  capture, and the Android image/png share chooser verified in the emulator.
+  No external recipient was selected. System bars/separate dialogs are excluded.
 - [ ] **P1 — Map left, compact party right.** Use the currently spare horizontal
   space in the upper pane; leave the Mac display underneath. Name, monochrome
   face/class icon, AC, and current/max HP with a small high-contrast bar. Tap a
@@ -119,20 +132,30 @@ upper panel too; do not pop a system keyboard over the game for numeric lookup.
 Validate/reference the original game's data rather than substitute modern D&D
 rules. Make provenance visible and include concise explanations in our own words.
 
-- [ ] **REF1 — Levels & skills.** Browse class/level and skill progression:
+- [x] **REF1 — Levels & skills.** Browse class/level and skill progression:
   XP thresholds, applicable thief abilities, and relevant race/class caps.
   Include related combat/saving-throw values where the original game supports
   them. This is a table viewer, not a leveling or character-editing command.
-- [ ] **REF2 — Spells.** Filter by class, level, and name; show effect, range,
+  **Delivered 0.3.0:** all 29 XP rows match the supplied Mac tables; supplemental
+  DOS-derived combat/skill numbers are labeled. Emulator class/level/race-tab
+  checks pass; [provenance](LEVEL_REFERENCE.md).
+- [x] **REF2 — Spells.** Filter by class, level, and name; show effect, range,
   duration, targeting, and when a spell is usable. Static reference first;
   linking the party's actual prepared spells is the later R3 enhancement.
+  **Delivered 0.3.0:** 54 chart entries plus a flagged rulebook-only entry;
+  original-source disagreements remain visible. Class/level/name filtering,
+  details, internal keypad and portrait/landscape bounds checked in the emulator;
+  [provenance](SPELL_REFERENCE.md).
 - [ ] **REF3 — Weapons & armor.** Browse/compare damage, protection, cost,
   weight, and equipment restrictions supported by this game. Clearly separate
   base equipment values from a character's current bonuses or effects.
-- [ ] **REF4 — Money conversion.** Enter an amount/denomination and see its
+- [x] **REF4 — Money conversion.** Enter an amount/denomination and see its
   equivalent in copper, silver, electrum, gold, and platinum, using the verified
   original-game exchange table. Handle mixed coin totals and exact remainders;
   keep gems/jewelry appraisal separate. Calculator only: no changes to the purse.
+  **Delivered 0.3.0:** mixed coin inputs and exact remainders, including the
+  emulator check 5 gp + 1 cp = 1,001 cp. Own keypad stays above the game;
+  [Mac-table provenance](MONEY_REFERENCE.md).
 - [ ] **REF5 — Adventure journal lookup.** Enter the number the game gives,
   open that entry immediately, and keep recent numbers/bookmarks for fast
   reopening. Support the correct entry type (journal/proclamation/tavern tale),

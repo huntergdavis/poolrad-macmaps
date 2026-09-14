@@ -20,7 +20,8 @@ Set `JAVA_HOME` and `ANDROID_HOME` to the local installations if necessary.
 Normal builds produce debug-signed APKs in
 `android/minivmac/build/outputs/apk/macII/debug/`, including ARM64 and universal
 variants. Debug signing is suitable for this prototype; keep the same personal
-key for future updates. Release signing is not configured.
+key for future updates. The public prototype APK uses that same debug key;
+dedicated production signing is not configured.
 
 For faster **local x86_64 emulator testing**, add
 `-Pandroid.injected.build.abi=x86_64`. That IDE-style build instead writes to
@@ -60,6 +61,42 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 **Known input issue:** `unar` reported an extraction error for
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
+
+## 0.3.0 companion tools acceptance (2026-09-13)
+
+- Built the normal Mac II universal APK and all four ABI variants. All **50 Java
+  tests** pass (24 existing + 4 screenshot + 9 level + 7 spell + 6 money tests).
+  The small native probe suite also passes with address/undefined sanitizers.
+- APK inspection: versionCode 65, versionName 0.3.0, app label **Pool of
+  Radiance**, ARM64/ARMv7/x86/x86_64. All 72 rune GIFs match the checked-in assets;
+  no ROM, disk, save, RAM dump, or game archive is packaged.
+- Upgraded the API 30 local Android emulator without uninstalling. Existing ROM
+  and disk imports remain. Network stayed disabled. The actual code prompt
+  13/21/dash-two-dots → JUNGLE was accepted through the helper's Enter + Return.
+- Levels: Fighter overview, Thief level 2 and race-limit tab verified; all 29
+  XP thresholds independently match the supplied Mac appendix. Supplemental
+  DOS-based combat/saves/skills remain visibly qualified, not claimed as live
+  Macintosh character readings.
+- Spells: All → Magic-user, level 1, internal alphabet keypad → `sleep` gives
+  one entry. Opened its range/duration/target/use details. Android reports
+  `mInputShown=false`. Portrait and 1600×1200 landscape panel/Close bounds remain
+  above the midpoint, without dimming the guest; long details scroll.
+- Money: entered 5 gp + 1 cp in the real panel. It displays 1,001 cp,
+  100 sp + 1 cp, 10 ep + 1 cp, 5 gp + 1 cp, and 1 pp + 1 cp exactly.
+- Screenshot: used the actual menu action at New Phlan 15,1 W and 11,2 S. Its
+  1200×1420 PNGs contain real map + guest pixels, no menu/system bars, and the
+  keyboard when open. Android Save to Downloads produced byte-identical output
+  (SHA-256 `318568f4626d0368a82759349445f6c67d5a43084675f10ed154173ce13291f3`
+  for the first capture). Cancelled another Save picker and successfully took
+  another screenshot afterward. Android's ChooserActivity opened with image/png
+  content; no recipient was selected and nothing was transmitted. No screenshot
+  errors were logged. These app-generated tutorial PNGs are the README images.
+- Screenshot cache filename/restore/copy/expiry logic has focused tests and an
+  independent code review. Active Save-picker state is serialized; actual
+  process-death recovery was not separately forced in this acceptance run.
+- Physical tablet, stylus, e-ink refresh, and broad game-area acceptance are
+  still untested here. Handwritten notes and the new companion-tab design are
+  not implemented by this release; see the authoritative backlog.
 
 ## Code wheel
 

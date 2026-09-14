@@ -16,7 +16,7 @@ not a port of its code or an official game release.
   <img src="docs/images/phlan-temple-tour.png" width="360" alt="The Phlan tutorial reaches the Temple of Tyr; the map tracks the party's new position and facing">
 </p>
 
-*Actual Android-emulator captures during the opening tour, not mockups or
+*Captured with the app's Screenshot action during the opening tour, not mockups or
 physical e-ink screenshots. Game artwork belongs to its respective owners.*
 
 ## What works
@@ -25,6 +25,8 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Map above the Mac display; optional keyboard below; no blinking marker.
 - Offline illustrated code wheel that enters the answer and presses Return.
 - Upper-half lookup panels that leave the game visible and undimmed.
+- Offline spells, class/skill progression, and exact mixed-coin conversion.
+- Save or share a PNG of the map, game, and optional keyboard together.
 - A separate app installation: keep your existing Mini vMac setup.
 
 **Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
@@ -33,10 +35,11 @@ validation. Handwritten map notes are next, not implemented yet.
 
 ## Install
 
-This is an **Android app, not a browser game**. Source is public; a public
-prebuilt APK download is not available yet.
+This is an **Android app, not a browser game**. The
+[0.3.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.3.0)
+supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Build the APK](docs/INSTALL.md#build-an-apk-from-source), then copy it to your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.3.0/poolrad-macmaps-0.3.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
@@ -47,7 +50,7 @@ prebuilt APK download is not available yet.
 ## Project
 
 [Backlog](docs/BACKLOG.md) · [Build/test details](docs/LOCAL_TESTING.md) ·
-[Research](docs/RESEARCH.md)
+[Research](docs/RESEARCH.md) · [Companion-tab plan](docs/TABS.md)
 
 Built on [Mini vMac for Android](android/UPSTREAM.md) (GPLv2), with DAX/GEO
 format work credited to [Gold Box Explorer](licenses/GoldBoxExplorer-MIT.txt)

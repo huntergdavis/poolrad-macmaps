@@ -25,6 +25,7 @@ public class MiniVMac extends AppCompatActivity
 	private static final String TAG = "minivmac.MiniVMac";
 
 	private Fragment _currentFragment;
+	private ScreenshotController screenshotController;
 
 	private boolean mUIVisible = true;
 	private GestureDetector mGestureDetector;
@@ -32,6 +33,7 @@ public class MiniVMac extends AppCompatActivity
 	@Override
 	protected void onCreate(Bundle savedInstanceState) {
 		super.onCreate(savedInstanceState);
+		screenshotController = new ScreenshotController(this, savedInstanceState);
 
 		mGestureDetector = new GestureDetector(this, new MiniVMac.SingleTapGestureListener());
 
@@ -50,6 +52,22 @@ public class MiniVMac extends AppCompatActivity
 			// Else, start the emulator
 			showEmulator();
 		}
+	}
+
+	public void captureScreenshot() {
+		screenshotController.captureAfterMenuDismissed();
+	}
+
+	@Override
+	protected void onSaveInstanceState(@NonNull Bundle outState) {
+		screenshotController.onSaveInstanceState(outState);
+		super.onSaveInstanceState(outState);
+	}
+
+	@Override
+	protected void onDestroy() {
+		screenshotController.onDestroy();
+		super.onDestroy();
 	}
 
 	private void showWelcome() {
