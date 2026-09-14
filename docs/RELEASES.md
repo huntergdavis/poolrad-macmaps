@@ -1,5 +1,12 @@
 # Releases
 
+## 0.13.1 — Walls where walls belong
+
+[Release notes](releases/0.13.1.md): match the original Mac wall-first rule,
+remove phantom door outlines from open edges, and keep doorway symbols neutral
+across live, fog and handwritten-note maps. User-confirmed e-ink stylus and
+two-finger zoom/scroll acceptance is now recorded separately from emulator tests.
+
 ## 0.13.0 — Follow the tour, spread out your notes
 
 [Release notes](releases/0.13.0.md): restored tutorial tracking, guided-step

@@ -58,6 +58,8 @@ public final class ExplorationRenderCheck {
             run("manual symbols and party markers retain their opaque foreground pixels",ExplorationRenderCheck::markers);
             run("small maps, clipping, translation and scale preserve canvas ownership",ExplorationRenderCheck::bounds);
             run("original note geometry remains unchanged after live exploration rendering",ExplorationRenderCheck::legacyGeometry);
+            run("door bits without wall surfaces never create phantom edges",ExplorationRenderCheck::noPhantomDoors);
+            run("all real doorway states use the same neutral symbol",ExplorationRenderCheck::neutralDoors);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
     }
@@ -141,6 +143,30 @@ public final class ExplorationRenderCheck {
         check(changes(first,second)>60,"No footprint inside the known walled tile");
         int x=PAD+(DEST%16)*CELL+CELL/2,y=PAD+(DEST/16)*CELL;
         check(feet.getPixel(x,y)==Color.WHITE,"Visited door opening was closed by trail artwork");
+    }
+
+    private static void noPhantomDoors() {
+        byte[] geometry=new byte[1024];Arrays.fill(geometry,768,1024,(byte)0xff);
+        GeoMap blank=map(new byte[1024]),bitsOnly=map(geometry);
+        ExplorationTrail trail=arriving(DEST+16,DEST);
+        for(boolean fog:new boolean[]{false,true})
+            equal(render(blank,trail,fog,true),render(bitsOnly,trail,fog,true),"Phantom door from unused bits");
+        Bitmap plain=bitmap(SIZE,SIZE,Color.WHITE),actual=bitmap(SIZE,SIZE,Color.WHITE);
+        ART.drawGeometry(new Canvas(plain),blank,PAD,PAD,CELL,1);
+        ART.drawGeometry(new Canvas(actual),bitsOnly,PAD,PAD,CELL,1);
+        equal(plain,actual,"Flag-note map invented a doorway from unused bits");
+    }
+
+    private static void neutralDoors() {
+        byte[] geometry=new byte[1024];geometry[DEST]=0x35;geometry[256+DEST]=0x7a;
+        ExplorationTrail trail=ExplorationTrail.empty().record(DEST,-1);
+        Bitmap baseline=null;
+        for(int state=1;state<=3;state++) {
+            geometry[768+DEST]=(byte)(state*85);
+            Bitmap actual=render(map(geometry),trail,true,false);
+            if(baseline==null)baseline=actual;
+            else equal(baseline,actual,"Door state advertised an unverified lock/secret/passability claim");
+        }
     }
 
     private static void markers() {

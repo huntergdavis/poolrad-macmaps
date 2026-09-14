@@ -40,7 +40,7 @@ public final class MapArtwork {
         for (int y = 0; y < GeoMap.WIDTH; y++) for (int x = 0; x < GeoMap.WIDTH; x++) {
             if(visible!=null && !visible.visible(y*GeoMap.WIDTH+x)) continue;
             for (int direction = 0; direction < 4; direction++) {
-                if (map.wall(x, y, direction) == 0 && map.door(x, y, direction) == 0) continue;
+                if (map.edgeKind(x, y, direction) == GeoMap.EdgeKind.OPEN) continue;
                 float x1 = left + x * cell, y1 = top + y * cell;
                 float x2 = x1, y2 = y1;
                 if (direction == 0 || direction == 2) {
@@ -59,7 +59,7 @@ public final class MapArtwork {
         for (int y = 0; y < GeoMap.WIDTH; y++) for (int x = 0; x < GeoMap.WIDTH; x++) {
             if(visible!=null && !visible.visible(y*GeoMap.WIDTH+x)) continue;
             for (int direction = 0; direction < 4; direction++) {
-                if (map.door(x, y, direction) == 0) continue;
+                if (map.edgeKind(x, y, direction) != GeoMap.EdgeKind.DOORWAY) continue;
                 float cx = left + (x + .5f) * cell, cy = top + (y + .5f) * cell;
                 float dx = (direction == 1 ? .5f : direction == 3 ? -.5f : 0) * cell;
                 float dy = (direction == 2 ? .5f : direction == 0 ? -.5f : 0) * cell;

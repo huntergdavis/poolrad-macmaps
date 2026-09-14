@@ -24,6 +24,10 @@ they are your annotations, not automatically discovered game events. Flag-note
 pages keep their existing full-map drawing background. Turn fog off to return
 to the original atlas view without erasing any history.
 
+Door outlines are neutral, not promises of passability or automatic secret-door
+labels. Empty edges do not acquire false walls from unused door bits.
+[Wall and doorway symbols](MAP_EDGES.md).
+
 ## What is and is not recorded
 
 Travel direction comes from a real change in tile coordinates, **not facing**.
@@ -89,5 +93,7 @@ Uninstalling or clearing Android app data deletes local exploration too.
 [Notebook backup guide](NOTEBOOK_BACKUPS.md).
 
 The software checks use synthetic data and an isolated Android emulator.
-Physical e-ink readability, stylus behavior and vendor refresh handling remain
-untested; this feature does not close those hardware acceptance items.
+On 2026-09-14 the user confirmed stylus drawing, two-finger zoom/scroll and
+the overall e-ink presentation on their tablet. Detailed rotation, keyboard
+and vendor-specific behavior remain unreported; this is user feedback, not an
+agent-performed physical test. [Acceptance scope](PEN_NOTES.md).

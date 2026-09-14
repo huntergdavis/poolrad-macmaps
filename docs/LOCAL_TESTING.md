@@ -62,6 +62,63 @@ data fork and a 327,595-byte resource fork; losing that fork makes it unlaunchab
 `PoolRad2/ITEM2.DAX`. All eight GEO files decode; the game boots and its sample
 party loads, but this is not proof that every encounter/item file is healthy.
 
+## M4 wall and doorway symbols (0.13.1, 2026-09-14)
+
+Reused [the existing Mac memory proof](MAP_MEMORY.md), immutable GeoMap data
+and shared MapArtwork renderer. A bounded `deja` recall timed out. Inspecting
+the original v1.1 CODE 6 accessor and CODE 4 movement dispatch established the
+wall-first rule and the reason to keep door states neutral; exact offsets and
+limits are in [MAP_EDGES.md](MAP_EDGES.md). No Mac memory or game rules changed.
+
+Final public and personal universal APK builds pass with **346 Java tests,
+zero failures/errors**. Ten detached Android software-Canvas checks pass on
+isolated API30 `emulator-5584`, including no-surface door bits, full/fog/note
+maps, feet/foreground layering and identical neutral states 1/2/3. The private
+29-map audit finds 88 directional no-surface edges with nonzero door bits.
+That audit is not live exploration of every map. The public-APK check confirms
+all 72 rune GIFs and rejects ROMs/disks/game archives/personal payloads; APK
+signature verification passes. Native reader code was not changed this turn.
+
+Using the existing 0.13.0 app and unchanged `m1gate` game save, ordinary Android
+number keys (4/6 turn, 8 forward) exercised these original-game behaviors:
+
+| Facing edge | Surface / door bits | Actual result |
+| --- | --- | --- |
+| New Phlan 0,4 south | 4 / 0 | Ivy-covered wall; forward remains 0,4 S |
+| New Phlan 0,4 east | 0 / 0 | Open street; forward reaches 1,4 E |
+| New Phlan 1,4 south | 5 / 1 | Wooden door in ivy; forward reaches 1,5 S |
+| New Phlan 1,4 north | 13 / 1 | Ornate temple door; forward reaches 1,3 N and the original priestess conversation |
+
+Map coordinates/facing matched the guest on each captured settled frame.
+Coverage grew from ten to twelve visited squares, with real feet on the route;
+the old 11,2 flag stayed present. No game save was overwritten or healing bought.
+Initial Android keypad/DPAD attempts did not move the guest and are **not**
+counted as blocked-wall evidence; the documented ordinary number keys worked.
+Private captures are `scratch/m4-wall-facing.png`, `m4-wall-blocked.png`,
+`m4-street-crossed.png`, `m4-door-facing.png`, `m4-door-crossed.png`,
+`m4-second-door-facing.png` and `m4-second-door-crossed.png`.
+
+The old app supplies original-game behavior evidence; the newly compiled
+production renderer and final build supply the changed-symbol regression checks.
+After normal game Quit and Mac Shut Down, installing the final 0.13.1 public
+APK in place preserved the writable disk, tile11,2 ink and both New Phlan/Slums
+exploration records byte-for-byte. The installed package reports versionCode79;
+both new APKs retain the preceding release's signing certificate. Comparison
+records are `scratch/m4-upgrade-before.sha256` and `m4-upgrade-after.sha256`.
+The installed release cold-boots and automatically launches the original game.
+Normal File → Load of the retained `m1gate` save restores New Phlan 0,4 E,
+all twelve walked squares, the existing flag, and all six matching HP/AC rows
+(`scratch/m4-final-live-map.png`). This is the actual final app window, not
+only the detached Canvas harness.
+Reopening tile11,2 in the installed release shows the complete map-left page,
+the original two-stroke ink and the retained 450-pixel sketch height
+(`scratch/m4-final-note.png`). No drawing or note deletion was needed.
+There is no claim of a played-through lock/secret mutation or every one of the
+88 corrected edges. Physical e-ink stylus/two-finger acceptance was reported by
+the user separately on this date; it is not an agent-run test. Detailed hardware
+checks remain under Q1. A startup Android System UI ANR was dismissed with Wait
+before game acceptance; no app crash was observed on this route.
+
 ## F11/M2 tutorial tracking and honest map modes (0.13.0, 2026-09-14)
 
 Reused the original-code evidence and bounded reader in [MAP_MEMORY.md](MAP_MEMORY.md),

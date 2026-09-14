@@ -52,6 +52,11 @@ preserves the other pairs, and sets the selected pair to `1`. Both address only
 fourth plane from **identity**, not a claim that every changed door value is a
 valid game action or that we have decoded secret/locked/passable door semantics.
 
+M4 separately verifies the wall-first directional accessor and movement dispatch:
+door bits without a wall surface do not create a doorway. All nonzero door
+states on real surfaces retain neutral outlines, not lock/secret labels.
+[Map-symbol evidence](MAP_EDGES.md). Raw geometry and identity remain unchanged.
+
 PRM2 requires the reported GEO number **and an exact SHA-256 of all first 768
 bytes** to match the same catalog record. Those prefixes are unique across all
 29 privately supplied records. A changed wall/event byte, an unknown record,

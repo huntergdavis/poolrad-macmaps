@@ -24,7 +24,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done | Offline code wheel, rune/path selection, answer plus Return |
 | Done | All 72 rune pictures checked into the source and bundled in APK; no artwork download/cache |
 | Done — 0.2.1 | Lookup and every picker constrained to upper half; no game dimming |
-| Done | 29 GEO records decoded; 340 Java tests plus three native reader suites |
+| Done | 29 GEO records decoded; 346 Java tests plus three existing native reader suites |
 | Done — 0.3.0 | Offline levels/skills, spells, and exact mixed-coin reference panels |
 | Done — 0.3.0 | Map/game/keyboard PNG capture with Android Save and Share |
 | Done — 0.4.0 | Flag-linked handwritten notes, ink tools/autosave, and separate campaign notebooks |
@@ -45,6 +45,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.12.0 | Walked tiles, optional visited-only fog, directional feet and recent return directions per notebook/area; backed up with notes |
 | Done — 0.13.0 | Guided tutorial positions/footprints restored; explicit camp/combat/loading/wilderness reference states |
 | Done — 0.13.0 | Compact flag-editor title/tool row and 2.1× sketch height; Pen only and per-note Save PNG removed |
+| Done — 0.13.1 | Source-checked wall-first symbols remove phantom doors; two doorway appearances and blocked walls spot-checked in the original game |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
@@ -381,9 +382,19 @@ are gates for the affected feature, not a second giant framework project.
   tile 11,2 handwriting reopens byte-identically, never appearing in the Slums.
   This is the bounded two-area acceptance route, not all-area/combat/wilderness
   coverage or physical e-ink testing. [Evidence](LOCAL_TESTING.md).
-- [ ] **M4 — Wall and door semantics.** Spot-check distinct wall/door types in
+- [x] **M4 — Wall and door semantics.** Spot-check distinct wall/door types in
   the Mac game. Until validated, keep neutral door outlines rather than claiming
   a symbol is a secret, locked, or passable door.
+  **Delivered 0.13.1:** original Mac accessors require a wall surface before
+  door bits count. The shared live/fog/note renderer now ignores unused bits
+  on open edges; 88 directional edges across the 29 private maps have them.
+  All nonzero door states on real surfaces retain neutral outlines, with no
+  lock/secret/passability claim. Actual New Phlan ivy-wall blocking, open-street
+  movement and two differently drawn doorway crossings match the game and map;
+  the temple crossing triggers its original conversation. 346 Java tests and
+  ten focused Android Canvas checks pass. This is a bounded spot check, not
+  all-area gameplay or live lock/secret-state mutation coverage.
+  [Symbols and source evidence](MAP_EDGES.md) · [local checks](LOCAL_TESTING.md).
 - [ ] **Q1 — Physical e-ink pass.** Keyboard open/closed, rotation, readable
   game scaling, touch alignment, screen refresh/ghosting, and stylus behavior.
   Offer a manual redraw if useful; no mandatory continuous flashing refresh.
