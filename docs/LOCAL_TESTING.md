@@ -89,8 +89,6 @@ The linked table spells one entry `80ASIS` (with a zero); we preserve it instead
 of silently changing the requested reference. That particular answer remains
 unverified in-game. A leading wheel alignment digit is omitted when typing.
 
-## Live area-map prototype
-
 ### Code-wheel 0.2.1 acceptance (2026-09-13)
 
 - Built all four Mac II ABI APKs and universal APK; 24 Java tests pass.
@@ -111,7 +109,7 @@ unverified in-game. A leading wheel alignment digit is omitted when typing.
   `wheel-inner-bundled.png`, `wheel-path-top-half.png`,
   `wheel-landscape-grid-scrolled.png`, and `wheel-real-prompt-answer.png`.
 
-## Live area-map behavior
+## Live area-map prototype
 
 The map appears above the Mac display by default. **PoolRad → Show live map**
 toggles it and stores the choice locally. Opening the virtual keyboard reserves

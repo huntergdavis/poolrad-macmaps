@@ -3,6 +3,11 @@
 Research date: 2026-09-13. Updated with the first Android implementation;
 [LOCAL_TESTING.md](LOCAL_TESTING.md) records commands and current evidence.
 
+The later notes/party/reference-panel research is in
+[FEATURE_RESEARCH.md](FEATURE_RESEARCH.md); the complete current queue is
+[BACKLOG.md](BACKLOG.md). The user now reports the app works well on the tablet;
+specific stylus/e-ink and broader-area checks remain to be recorded.
+
 ## 1. The DOS companion the user remembers
 
 **Gold Box Companion (GBC)** supplies automapping with a party marker and notes,

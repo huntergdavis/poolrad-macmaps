@@ -26,6 +26,8 @@ game remake. A **PoolRad** toolbar menu groups the game-specific helpers.
 - First-area prototype, not complete game coverage: area names, transitions,
   combat/wilderness detection, and physical e-ink behavior still need validation.
 
+- [Full prioritized backlog — handwriting is next](docs/BACKLOG.md)
+- [Feature research and the new tablet layout](docs/FEATURE_RESEARCH.md)
 - [Implementation plan and scope](docs/PLAN.md)
 - [Research, sources, and local test findings](docs/RESEARCH.md)
 - [Build, local testing, and current limitations](docs/LOCAL_TESTING.md)

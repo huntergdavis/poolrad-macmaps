@@ -2,6 +2,12 @@
 
 Written 2026-09-13. Research and local evidence: [RESEARCH.md](RESEARCH.md).
 
+**Current priorities:** [BACKLOG.md](BACKLOG.md) is the authoritative feature
+queue. The user has expanded the original map-only scope to handwritten notes,
+screenshots, a read-only party strip, guest desktop appearance, and five offline
+reference panels. Handwritten map flags/notes are next after the 0.2.1 rune fixes.
+The architecture below still applies; milestones also retain historical context.
+
 ## The outcome
 
 Play the existing black-and-white Macintosh Pool of Radiance on the Android
@@ -47,7 +53,7 @@ Android's signing/update rules are documented
  |                             tiny game-state reader   |
  |                             area / x / y / facing     |
  |                                      |              |
-| Loaded map geometry in RAM --------> B&W map panel   |
+ | Loaded map geometry in RAM --------> B&W map panel    |
  +------------------------------------------------------+
  No root. No server. No network memory API. No cloud.
 ```
@@ -92,7 +98,8 @@ the game; closing it returns space to the layout. No pane covers another.
 - Keep map cells square. Fit the full 16-by-16 area within the available map
   pane, centered rather than stretched to fill a wide strip.
 - Use a small area-name heading, high-contrast walls/doors, and a non-blinking
-  direction arrow. No added character stats or other helper panels.
+  direction arrow. The newly requested optional party strip uses spare width
+  to the right of a left-aligned map; details stay behind a row tap.
 - Keep the map position stable while walking; no automatic scrolling or
   animated recentering for these small full-area maps.
 - Retain the existing keyboard toggle and add one map-collapse control. On a
@@ -110,7 +117,8 @@ the Mac's resolution or keyboard implementation. See the pinned
 
 Actual pane heights remain a device test, not a claim based on guessed tablet
 dimensions. Verify keyboard open/closed, system insets, and rotation on the
-user's tablet. Side-by-side layouts are deferred, not another V1 feature.
+user's tablet. The approved map-left/party-right arrangement is within the upper
+pane, not a replacement of the map-above-game layout.
 
 ## Milestones, in order
 
@@ -182,8 +190,8 @@ The next proof is **one working area**, not a large speculative framework.
 - [x] Implement the agreed vertical stack: map above the Mac display, optional
   virtual keyboard below. Preserve aspect ratios and input behavior, and
   provide one map-collapse control for constrained space.
-- First release shows the full local-area layout; exploration-only reveal and
-  persistent notes are optional later, not prerequisites for a useful map.
+- First release shows the full local-area layout. Persistent handwritten notes
+  are now the next feature; exploration-only reveal remains optional later.
 - [x] After initial detection, sample only the needed state, initially at a modest
   rate such as 4 Hz while active. Coalesce changes; repaint only when the map,
   party position, facing, layout, or tracking status changes. No blinking,
@@ -229,18 +237,23 @@ tracked capability, not silently included in a claim of complete mapping.
 
 ## Deliberate limits
 
-No LLM, cheats, character sheet, combat helper, cloud accounts, telemetry,
-multi-game plug-in system, OCR pipeline, public RAM server, or all-device matrix.
+No LLM, cheats, character editing, cloud accounts, telemetry, multi-game plug-in
+system, OCR pipeline, public RAM server, or all-device matrix. Read-only party
+information and offline reference tables are now in scope. User-owned ink,
+screenshots, and explicit guest desktop preferences are local writes, not
+permission to manipulate game stats or saves. An additional tactical map is
+optional later; it is not required for the next slice.
 Testing should be short and meaningful: parser boundary tests, saved-state
 reader fixtures, an Android build, and a real-device smoke test. No marathon
 CI soaks or benchmark infrastructure for this personal tool.
 
 ## What is genuinely uncertain
 
-Boot, game load, map decoding, and a live first-area pane are evidenced. Broader
-state recognition and the physical tablet remain unfinished. Keep the next
-work focused on real walks, transitions, and explicit unsupported-state handling;
-do not substitute a large framework or test matrix for those checks.
+Boot, game load, map decoding, and a live first-area pane are evidenced. The
+user reports the app works well on the tablet. Broader state recognition and
+specific physical e-ink/stylus checks remain unfinished. Validate area identity
+and transitions as part of the upcoming persistent-notes work; do not substitute
+a large framework or test matrix for those checks.
 
 ## Requested follow-up: personal startup shortcut
 
