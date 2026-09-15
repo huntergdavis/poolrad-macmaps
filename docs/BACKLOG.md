@@ -726,6 +726,22 @@ research for sources and portability limits.
 - [ ] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14**,
   so the "only if the pane plus conditions are insufficient" condition is
   settled: build it. A distinct read-only view; no automatic combat or spoilers.
+  **Research started 2026-09-15; the roster is reachable, the grid is not yet.**
+  The combatant list needs no new work — it is the party list with monsters
+  appended, and the existing reader walks it (six members plus ten `ORC`
+  records in one live battle). Ruled out: the 302-byte record does **not**
+  carry tactical position. Ten orcs on ten different squares are byte-identical
+  except for the chain handle at `+0x110` and their own handle at `+0x114`, so
+  the grid and the combatants' places on it are a separate structure.
+  Established the cheap repeatable battle for this work — the **council guard**
+  inside the City Hall, not a tavern brawl, which spawns waves faster than
+  quick combat clears them.
+  **Blocked on one experiment:** the Mac build does not move a combatant with
+  the number keys that move the party outdoors, so a clean one-square
+  before/after RAM diff has not been obtained and **no offsets are claimed**.
+  Settle how combat movement input is taken — most likely a mouse click on the
+  destination square — then repeat the capture pair with a visibly confirmed
+  move. [Research notes](COMBAT_MEMORY.md).
 - **L3 — Automatic rune/prompt recognition: promoted to P0 F4.** The user now
   requests hands-off solving from verified memory. Unknown reads still must
   never submit guesses. Track completion above, not twice.
