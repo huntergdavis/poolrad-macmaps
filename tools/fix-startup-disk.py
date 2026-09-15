@@ -22,6 +22,8 @@ from macresources import Resource, make_file
 from mac_alias import Alias, VolumeInfo, TargetInfo
 
 STARTUP_PARENT = ":System Folder:Startup Items:"
+EXTENSIONS = ":System Folder:Extensions:"
+DISABLED_FOLDER = "Disabled Extensions"
 ALIAS_NAME = "Pool of Radiance"
 APP_TYPE, APP_CREATOR = b"APPL", b"prad"
 # Eight rows of an 8x8 bit pattern, one bit per pixel, 1 is black.
@@ -68,6 +70,34 @@ def startup_entries(volume):
         raise ValueError("Expected exactly one %s/%s application in Startup Items, found %d"
                          % (APP_TYPE.decode(), APP_CREATOR.decode(), len(apps)))
     return names, apps[0]
+
+
+def disable_extensions(image, names):
+    """Park startup extensions in a visible root folder, reversibly.
+
+    The supplied disk carries Tim Maroney's 1987 "Backdrop", whose whole job is
+    painting the desktop from a stored picture. It runs at startup and covers
+    whatever the System's own PAT /ppat 16 say, so setting a desktop pattern
+    while it is installed is a race. Parking it leaves the pattern in charge;
+    dragging it back into Extensions restores the old behaviour.
+    """
+    if not names:
+        return []
+    parked = []
+    hfs("hmount", image)
+    try:
+        existing = {line.strip() for line in hfs("hls", "-1", ":").splitlines()}
+        if DISABLED_FOLDER not in existing:
+            hfs("hmkdir", ":" + DISABLED_FOLDER)
+        present = {line.strip() for line in hfs("hls", "-1", EXTENSIONS).splitlines()}
+        for name in names:
+            if name not in present:
+                raise ValueError("No extension named %r to disable" % name)
+            hfs("hrename", EXTENSIONS + name, ":" + DISABLED_FOLDER + ":")
+            parked.append(name)
+    finally:
+        hfs("humount")
+    return parked
 
 
 def move_in_place(image, names, folder_name):
@@ -225,6 +255,8 @@ def main():
                         help="root folder to hold the moved game")
     parser.add_argument("--desktop", choices=sorted(PATTERNS), default=None,
                         help="also set the desktop pattern")
+    parser.add_argument("--disable", action="append", default=[], metavar="EXTENSION",
+                        help="park a startup extension in :Disabled Extensions (repeatable)")
     args = parser.parse_args()
 
     raw, volume = read_volume(args.source)
@@ -241,6 +273,9 @@ def main():
     write_alias(args.destination, macbinary(ALIAS_NAME, b"adrp", application.creator,
                                             0x8000, b"", blob,
                                             application.crdate, application.crdate))
+    parked = disable_extensions(args.destination, args.disable)
+    for name in parked:
+        print("disabled extension %r -> :%s" % (name, DISABLED_FOLDER))
     if args.desktop:
         changed = patch_pattern(args.destination, args.desktop)
         print("desktop pattern -> %s (%d image bytes changed)" % (args.desktop, changed))
@@ -252,6 +287,11 @@ def main():
         raise ValueError("The System data fork changed; it must not")
     if not args.desktop and before_system.rsrc != after_system.rsrc:
         raise ValueError("The System resource fork changed without a pattern request")
+    for name in parked:
+        if name in after[("System Folder", "Extensions")]:
+            raise ValueError("Extension %r is still loaded at startup" % name)
+        if name not in after[(DISABLED_FOLDER,)]:
+            raise ValueError("Extension %r was lost rather than parked" % name)
     remaining = after[("System Folder", "Startup Items")]
     if list(remaining.keys()) != [ALIAS_NAME]:
         raise ValueError("Startup Items holds %r" % list(remaining.keys()))
