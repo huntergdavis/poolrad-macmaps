@@ -699,11 +699,22 @@ research for sources and portability limits.
   entries** and **proclamations** have still not been observed, so neither is
   recognised. The city-hall lead was ruled out earlier (the Council Clerk's
   commissions cite nothing), and the tavern run above only produces tales.
+  **Searched again 2026-09-14 and the remaining two are gated, not merely
+  unfound.** The clerk's whole commission list was stepped through to its end
+  and cites nothing; Junior Councilman Cadorna at 6,5 is blocked by the council
+  guard (`YOUR PRESENCE IS NOT AUTHORIZED`), and Bishop Braccio at 10,5 by the
+  temple guards (`THE BISHOP IS NOT RECEIVING VISITORS AT THIS TIME`). Both are
+  story-gated, so in the opening state the civilized district cites tavern
+  tales and nothing else.
   **Unblocked by one screenshot, or the exact wording, of the game citing a
-  journal entry and one citing a proclamation.** Driving the guest is
-  scriptable and the corrected recipe — number keys, not arrow keys; the
-  Continue button; open-edge-only route planning from the live GEO geometry —
-  is in the doc.
+  journal entry and one citing a proclamation** — from a campaign that has
+  actually progressed. Hunter's own `m1gate` save would do and is deliberately
+  never opened here; the alternative is playing the sample party far enough to
+  be admitted to Cadorna or the Bishop, which is hours of emulated play rather
+  than a scripted walk. Driving the guest is scriptable and the corrected
+  recipe — number keys, not arrow keys; the Continue button; open-edge-only
+  route planning from the live GEO geometry; published map coordinates match
+  the game 0-based — is in the doc.
   [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
   must be respected: a wrong number silently plants a spoiler in the notebook,
   so an uncertain detection must record nothing rather than guess.

@@ -55,6 +55,33 @@ proclamation wordings have still not been seen, and R9 forbids guessing them,
 so nothing may be filed for those two categories until one of each is observed
 the same way.
 
+## Why the other two wordings are hard to reach, 2026-09-14
+
+A second search swept the civilized district's most likely citers and found
+that the opening state of the game simply does not produce them:
+
+| Where | What the game said |
+| --- | --- |
+| City Clerk, 5,5 | The whole commission list, stepped through to `THESE ARE ALL OF THE COMMISSIONS CURRENTLY AVAILABLE.'` — **no citation anywhere in it** |
+| Junior Councilman Cadorna, 6,5 | `YOU ARE INTERCEPTED BY THE COUNCIL GUARD. 'HALT. YOUR PRESENCE IS NOT AUTHORIZED. LEAVE. DO YOU LEAVE?'` |
+| Bishop Braccio, Temple of Tyr, 10,5 | `THE TEMPLE GUARDS INFORM YOU THAT THE BISHOP IS NOT RECEIVING VISITORS AT THIS TIME. WHAT DO YOU DO?` (Leave / Force your way past) |
+
+So the two story NPCs most likely to cite a journal entry are **both gated
+behind story progress** that a freshly loaded `SampleParty` has not made. In
+the opening state, the civilized district cites tavern tales and nothing else.
+
+**What would unblock the remaining two categories:** one screenshot from a
+campaign that has actually progressed — Hunter's own `m1gate` save would do,
+and is deliberately never opened here — or playing this sample party far enough
+to be admitted to Cadorna or the Bishop, which is hours of emulated play rather
+than a scripted walk.
+
+Route planning note for whoever resumes: the published civilized-district map
+matches the game's own coordinates **exactly, 0-based**. Verified against the
+guest at five points: starting point 0,4; City Hall entrance 4,4; City Clerk
+5,5; the gambling tavern 10,8; west gate to the Slums at x = -1. Cadorna is
+6,5 and Bishop Braccio 10,5 on that same grid.
+
 ## Why it was blocked until now
 
 R9 needs to notice when the game cites a journal entry, proclamation or tavern
