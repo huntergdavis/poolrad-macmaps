@@ -50,10 +50,41 @@ a bare decimal number and **no** parentheses, no `#`, and no `SEE`. The next
 message was `A DRUNKEN BRAWL BREAKS OUT. YOU ARE CAUGHT IN THE MIDDLE`, then
 combat, so the tale citation is a normal Message-window string like any other.
 
-**Only the tavern-tale wording is verified.** The journal-entry and
-proclamation wordings have still not been seen, and R9 forbids guessing them,
-so nothing may be filed for those two categories until one of each is observed
-the same way.
+## The proclamation wording, observed 2026-09-15
+
+Hunter supplied a screenshot of his own play, and it was then **reproduced
+here** exactly: standing at New Phlan **3,4 E**, outside the City Hall, the
+game prints on arrival
+
+```
+PROCLAMATIONS ARE POSTED ON THE WALLS, IN YOUR JOURNAL YOU NOTE
+PROCLAMATIONS LXIV, LXXVIII, CIX, AND LIX.
+```
+
+`scratch/r9-proclamations-live.png`. So proclamations are cited **in Roman
+numerals, as a list**, inside the sentence `IN YOUR JOURNAL YOU NOTE
+PROCLAMATIONS …`. All four — 64, 78, 109 and 59 — are in the supported
+journal's eighteen.
+
+Note that this fires **on entering the square**, not on Look or Search; an
+earlier sweep stood on 3,4 and missed it by pressing Look afterwards, which
+clears the window.
+
+## The journal-entry wording, from another port
+
+Hunter found a screenshot of a different port of the same game showing
+
+```
+...THERE IS A PASSAGE OF INTEREST WHICH YOU COPY AS ENTRY 19 IN YOUR JOURNAL.
+```
+
+That is **not the supported Macintosh v1.1 build**, so it is weaker evidence
+than the other two and is recorded as such. It is still worth matching, because
+the anchor puts the number between `ENTRY` and `IN YOUR JOURNAL`: if the
+Macintosh build words it differently the pattern simply never fires, and the
+failure is silence rather than a wrong number. **One Mac-side sighting would
+confirm it.** The likely place is Mendor's Library, which is where that
+screenshot was taken.
 
 ## Why the other two wordings are hard to reach, 2026-09-14
 

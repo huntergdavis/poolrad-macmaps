@@ -1,5 +1,10 @@
 # Releases
 
+## 0.26.0 — Proclamations and entries join the list too
+
+[Release notes](releases/0.26.0.md): the encountered list now also collects
+proclamations, cited in Roman numerals, and journal entries.
+
 ## 0.25.0 — See the whole battle at once
 
 [Release notes](releases/0.25.0.md): a read-only tactical overview of every

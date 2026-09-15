@@ -1,5 +1,49 @@
 # Local Android prototype
 
+## R9 completed — proclamations and journal entries (2026-09-15, v0.26.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.26.0.apk`, SHA-256
+`08b336a1b4cd19ec930be9d839ae244233676d450387ab4f4f360542ca8d4836`, versionCode 92.
+
+The two missing wordings came from the user. The proclamation one was then
+**reproduced here from scratch**, which is what makes it a live result rather
+than a transcription:
+
+- Booted 0.26.0, loaded `PoolRadSave/SampleParty`, ran the tour to its end at
+  0,4, and walked the three steps to **3,4 E** outside the City Hall.
+- On arrival the game printed `PROCLAMATIONS ARE POSTED ON THE WALLS, IN YOUR
+  JOURNAL YOU NOTE PROCLAMATIONS LXIV, LXXVIII, CIX, AND LIX.`
+  (`scratch/r9-proclamations-live.png`). It fires **on entering the square**;
+  an earlier sweep stood on 3,4 and missed it by pressing Look, which clears
+  the window.
+- Info → Journal then listed **Proclamation 64, 78, 109 and 59**, in the order
+  the game printed them, beside the **Tavern tale 18** that has now survived two
+  reinstalls, and the player's own separate bookmark
+  (`scratch/r9-encountered-proclamations.png`,
+  `scratch/r9-encountered-proclamations-2.png`).
+
+Automated suites:
+
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **425 tests,
+  zero failures/errors/skips**; `JournalCitationTest` grows to eighteen cases,
+  including every one of the eighteen proclamation numerals round-tripping
+  through its canonical Roman spelling, a numeral the journal does not define
+  being skipped inside an otherwise good list, a non-canonical spelling being
+  refused, and a dozen plausible-but-unobserved wordings that must not match.
+- All four native probe suites pass unchanged.
+- `check-wheel-apk.mjs` passes and `apksigner verify` succeeds on the same key.
+
+Not claimed: the **journal-entry** wording is matched from a screenshot of a
+different port of the game, not of the supported Macintosh build, so that third
+of the feature is shipped unconfirmed here. Its anchor puts the number between
+`ENTRY` and `IN YOUR JOURNAL`, so a wording mismatch produces silence rather
+than a wrong number; one Mac-side sighting, most likely in Mendor's Library,
+would settle it. Emulator-5584 only; the user's `m1gate` save was never opened.
+
+**E-ink, as reported by the user:** Hunter does all of his own testing on his
+e-ink tablet and reported on 2026-09-15 that e-ink is working great. That is his
+report, recorded as such; no e-ink, stylus or tablet testing is performed here.
+
 ## L2 — the tactical combat overview (2026-09-15, v0.25.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.25.0.apk`, SHA-256

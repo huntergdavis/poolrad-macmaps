@@ -667,87 +667,54 @@ research for sources and portability limits.
   automatic safety copy held `ba177721…`, and the restored disk cold-booted with
   the campaign intact. 385 Java tests and 8 companion View checks pass.
   [Guide and limits](CHECKPOINTS.md) · [evidence](LOCAL_TESTING.md).
-- [ ] **R9 — Encountered journal entries, automatically (formerly L6).
-  PROMOTED TO P0 by the user 2026-09-14.** Detect
-  journal entries, proclamations and tavern tales actually shown by the running
-  game; add them to the active notebook's persistent, deduplicated Journal list.
-  Tap to read the matching locally supplied entry through REF5, including its
-  illustrations. Keep categories distinct, do not guess uncertain numbers, and
-  never import future script references as if the player had encountered them.
-  User priority: the manual reader shipped in REF5; the user has now raised this
-  automatic collection to **P0**. Local only.
-  **Unblocked and one third delivered in 0.24.0; two categories still open.**
-  Following the user's bar hint, the party was driven in-game to the gambling
-  tavern of civilized New Phlan (map tile 10,8) and the game printed, in its
-  own Message window, the wording that had been missing:
-  `YOU OVERHEAR TAVERN TALE 15` — a plain sentence with a bare number, no
-  parentheses, no `#`, no `SEE`. `scratch/r9-tavern-tale-15.png`.
-  **Shipped 0.24.0:** the Message-window reader is now in the app as a native
-  `PRT1` packet on the existing 250 ms poll; `JournalCitation` recognises that
-  one verified wording and nothing else; a recognised reference joins the
-  selected notebook's **Encountered in play** list once, is tappable straight
-  into the REF5 reader, and rides along in that notebook's backup. A truncated
-  or unreadable sample records nothing, and a number the supplied journal does
-  not define is dropped rather than invented.
-  **Live proof:** on a second visit the game printed
-  `YOU OVERHEAR TAVERN TALE 18` and Info → Journal showed
-  *Encountered in play · Tavern tale 18* in the same frame
-  (`scratch/r9-encountered-live.png`) — a different number from the first
-  sighting, so it is being read rather than remembered. 408 Java tests and all
-  three native probe suites pass.
-  **Still open, and why this item is not ticked:** the wordings for **journal
-  entries** and **proclamations** have still not been observed, so neither is
-  recognised. The city-hall lead was ruled out earlier (the Council Clerk's
-  commissions cite nothing), and the tavern run above only produces tales.
-  **Searched again 2026-09-14 and the remaining two are gated, not merely
-  unfound.** The clerk's whole commission list was stepped through to its end
-  and cites nothing; Junior Councilman Cadorna at 6,5 is blocked by the council
-  guard (`YOUR PRESENCE IS NOT AUTHORIZED`), and Bishop Braccio at 10,5 by the
-  temple guards (`THE BISHOP IS NOT RECEIVING VISITORS AT THIS TIME`). Both are
-  story-gated, so in the opening state the civilized district cites tavern
-  tales and nothing else.
-  **The Slums was swept 2026-09-15 and cites nothing either.** It is the one
-  district a fresh party can reach — one step west of where the tour ends — and
-  crossing it end to end produced no citation, only wandering monsters. Three
-  scripting corrections for that district (doorway-permissive routing, the
-  Combat/Wait/Flee/Advance prompt and how to detect it, and that the published
-  Slums map's coordinates do **not** match the game's, unlike New Phlan's) are
-  in the doc. The cheap in-game leads are now exhausted.
-  **Unblocked by one screenshot, or the exact wording, of the game citing a
-  journal entry and one citing a proclamation** — from a campaign that has
-  actually progressed. Hunter's own `m1gate` save would do and is deliberately
-  never opened here; the alternative is playing the sample party far enough to
-  be admitted to Cadorna or the Bishop, which is hours of emulated play rather
-  than a scripted walk. Driving the guest is scriptable and the corrected
-  recipe — number keys, not arrow keys; the Continue button; open-edge-only
-  route planning from the live GEO geometry; published map coordinates match
-  the game 0-based — is in the doc.
-  [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
-  must be respected: a wrong number silently plants a spoiler in the notebook,
-  so an uncertain detection must record nothing rather than guess.
+- [x] **R9 — Encountered journal entries, automatically (formerly L6).
+  PROMOTED TO P0 by the user 2026-09-14. Delivered 0.24.0 and completed
+  0.26.0.** Detect journal entries, proclamations and tavern tales actually
+  shown by the running game; add them to the active notebook's persistent,
+  deduplicated Journal list. Tap to read the matching locally supplied entry
+  through REF5, including its illustrations. Keep categories distinct, do not
+  guess uncertain numbers, and never import future script references as if the
+  player had encountered them. Local only.
+  **Delivered 0.24.0:** the Message-window reader as a native `PRT1` packet on
+  the existing 250 ms poll, the `Encountered in play` list in the notebook, and
+  the tavern-tale wording `YOU OVERHEAR TAVERN TALE <n>`.
+  **Completed 0.26.0**, from wordings the user supplied and, for the
+  proclamations, reproduced here:
+  - **Proclamations** — `IN YOUR JOURNAL YOU NOTE PROCLAMATIONS LXIV, LXXVIII,
+    CIX, AND LIX`, a Roman-numeral list. Matched against the canonical
+    spellings of exactly the eighteen the journal defines, so an unknown
+    numeral is skipped rather than parsed into some other number.
+  - **Journal entries** — `...ENTRY <n> IN YOUR JOURNAL`.
+  **Live proof:** standing at New Phlan 3,4 the game printed the proclamation
+  sentence and the notebook recorded **Proclamation 64, 78, 109 and 59**, in the
+  order printed, beside the Tavern tale 18 that survived two reinstalls
+  (`scratch/r9-proclamations-live.png`, `scratch/r9-encountered-proclamations.png`).
+  Tavern tales were proven live in 0.24.0 with a different number at a different
+  tavern. 425 Java tests and four native probe suites pass.
+  **The one honest gap, recorded rather than glossed:** the journal-entry
+  wording comes from a screenshot of a **different port**, not of the supported
+  Macintosh build, so that third of the feature is shipped but unconfirmed
+  here. Its anchor puts the number between `ENTRY` and `IN YOUR JOURNAL`, so a
+  wording mismatch means silence, never a wrong number. One Mac-side sighting —
+  Mendor's Library is the likely place — would confirm it.
+  [Reader and evidence](MESSAGE_MEMORY.md) · [what the player sees](JOURNAL.md).
 
 ## P3 — later / optional
 
-- [ ] **L1 — Separate wilderness map. Confirmed wanted by the user
-  2026-09-14.** Only after its own structure/location is validated; do not stretch the existing 16×16 area renderer to impersonate it.
-  **Validation started 2026-09-15; blocked on reaching the wilderness.**
-  Ruled out: it is **not** one of the 29 GEO records — those are all local
-  16×16 areas, including the outlying sites the wilderness leads to — so there
-  is no existing geometry to reuse, which is why the warning above stands.
-  Established from the original code: CODE 5 selects three outdoor sectors at
-  `+0x3036`, `+0x3044` and `+0x306a`, each writing presentation `2`, `3` or `4`
-  with engine `3`, against the local path at `+0x2ff0` writing presentation `1`
-  with engine `4`; the sector is chosen by a switch on the script id at
-  `-0x192b(a5)`; and the outdoor paths read the **same 2,048-byte state block**
-  at `-0x5eb2(a5)` the local map already uses, testing `+0x366` and `+0x344`.
-  Also confirmed: **none of the twenty-three captures is in outdoor mode**, so
-  the wilderness has still never been observed.
-  **Blocked:** the party's outdoor position needs the same confirmed-step
-  capture pair that solved L2, and a fresh `SampleParty` cannot reach the
-  wilderness — it lies past the districts it can walk to, and the NPCs who
-  would send it there are story-gated. A saved game already outdoors, or a
-  session played far enough to travel, unblocks it; the tooling is written and
-  proven. [Research notes](WILDERNESS_MEMORY.md).
+- **L1 — Separate wilderness map: CUT by the user 2026-09-15.** The game
+  already draws its own overworld map out there, so a companion copy would be
+  double-mapping for no gain — the same judgement that cut R7, L4 and L5. Do
+  not build. The validation done before the cut is kept as a record, because it
+  is the honest answer to "what is the wilderness" and would be needed if this
+  ever comes back: it is **not** one of the 29 GEO records (those are all local
+  16×16 areas, including the outlying sites the wilderness leads to); CODE 5
+  selects three outdoor sectors at `+0x3036`, `+0x3044` and `+0x306a`, each
+  writing presentation `2`, `3` or `4` with engine `3`, chosen by a switch on
+  the script id at `-0x192b(a5)`; and those paths read the same 2,048-byte
+  state block at `-0x5eb2(a5)` the local map uses. The companion still names
+  Wilderness mode correctly and refuses to present a stale local map as an
+  outdoor one, which is all it should do. [Research notes](WILDERNESS_MEMORY.md).
+
 - [x] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14.
   Delivered 0.25.0.** A distinct read-only view; no automatic combat or spoilers.
   **Delivered 0.25.0:** while a battle runs, the companion draws one mark per

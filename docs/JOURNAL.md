@@ -26,11 +26,18 @@ recorded once; re-reading the same message does not list it twice. The list
 belongs to the notebook and is included in its backup.
 
 **What counts as the game naming a reference is deliberately narrow.** The app
-matches only wording that has been observed in the running game, which today
-means the tavern's `YOU OVERHEAR TAVERN TALE <number>`. The phrasings the game
-uses for journal entries and proclamations have not been observed yet, so they
-are **not** recognised and must still be looked up by hand — a guessed pattern
-would file a wrong number, and a wrong number in this game is a spoiler.
+matches only wording that has actually been seen in a running game:
+
+- **Tavern tales** — `YOU OVERHEAR TAVERN TALE <number>`.
+- **Proclamations** — `IN YOUR JOURNAL YOU NOTE PROCLAMATIONS LXIV, LXXVIII,
+  CIX, AND LIX`, a list in Roman numerals. Only the eighteen numerals the
+  supported journal defines are recognised, so a numeral it does not know is
+  skipped rather than guessed at.
+- **Journal entries** — `...ENTRY <number> IN YOUR JOURNAL`. This one is
+  matched from a screenshot of a *different port* of the game, not of the
+  supported Macintosh version, so it may not fire at all here. If the wording
+  differs, nothing is recorded — the pattern cannot produce a wrong number.
+
 Anything the reader cannot read cleanly, or a number the imported book does not
 define, records nothing at all. [How the text is read](MESSAGE_MEMORY.md).
 

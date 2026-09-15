@@ -1,9 +1,10 @@
 # The outdoor view in memory — research notes
 
-**Status: research only. L1 is not implemented.** The backlog gates L1 on
-validating the wilderness's own structure and location first, and explicitly
-forbids stretching the 16×16 area renderer to impersonate it. This records what
-is now established, what is ruled out, and the one thing still missing.
+**Status: L1 was CUT by the user on 2026-09-15** — the game already draws its
+own overworld map out there, so a companion copy would be double-mapping for no
+gain. This is kept as the record of what the wilderness actually is, because it
+is the honest answer to that question and would be the starting point if the
+item ever comes back.
 
 ## The wilderness has still never been observed
 
@@ -54,9 +55,7 @@ Neither can be found the way the tactical grid was, because that method needs a
 before/after capture pair around one confirmed step — and the party has to be
 in the wilderness to take that step.
 
-**What would unblock it:** a campaign that has left the city. A fresh
-`SampleParty` cannot: the wilderness lies beyond the districts it can reach,
-and the two story NPCs who would send it there are gated (see
-[MESSAGE_MEMORY.md](MESSAGE_MEMORY.md)). Either a saved game already outdoors,
-or a session played far enough to travel, would make the same capture-pair
-method work immediately — the tooling for it is already written and proven.
+It is moot now that the item is cut. Were it ever revived, it would need a
+campaign that has left the city — a fresh `SampleParty` cannot get there — and
+then the same confirmed-step capture pair that solved the tactical grid; the
+tooling for that is written and proven.
