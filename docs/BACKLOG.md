@@ -671,7 +671,12 @@ research for sources and portability limits.
   a citation, because all of them are from the opening tour. Guessing a pattern
   would file wrong entries into the notebook, which this item explicitly
   forbids. **Unblocked by one screenshot, or the exact wording, of the game
-  citing a journal entry.** [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
+  citing a journal entry.** Followed up on the user's hint 2026-09-14 by driving
+  the party in-game to the city hall: the Council Clerk's commissions cite no
+  entry, so that lead is ruled out, and no tavern was reachable from the
+  tutorial start. Driving the guest is scriptable; the transcript and the
+  keyboard coordinates are in the doc.
+  [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
   must be respected: a wrong number silently plants a spoiler in the notebook,
   so an uncertain detection must record nothing rather than guess.
 
