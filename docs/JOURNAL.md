@@ -38,38 +38,37 @@ matches only wording that has actually been seen in a running game:
   supported Macintosh version, so it may not fire at all here. If the wording
   differs, nothing is recorded — the pattern cannot produce a wrong number.
 
-Anything the reader cannot read cleanly, or a number the imported book does not
+Anything the reader cannot read cleanly, or a number the journal does not
 define, records nothing at all. [How the text is read](MESSAGE_MEMORY.md).
 
-## Import your own journal once
+## The journal is included
 
-The public APK contains the reader, **not the copyrighted journal content**.
-The user's supplied Macintosh game archive includes two CEM8 documents with
-text and PICT resource forks. On the development machine, convert those files
-into a private reference book:
+The journal ships inside the app, as
+`assets/journal/adventurers-journal.prjr`: all 58 journal entries, 18
+proclamations, 23 tavern tales and the 14 original illustrations. There is
+nothing to import and nothing to prepare — open **Info → Journal** and read.
+
+Pool of Radiance is a 1989 game for a machine discontinued in the 1990s, long
+abandoned commercially, and the journal is the part of it a player cannot
+reasonably do without: the game prints bare reference numbers and expects a
+printed book at your elbow. Hunter's call, 2026-09-15.
+
+`tools/prepare-journal.py` is kept because it is how that book is built from
+the original Macintosh CEM8 documents, and how it would be rebuilt if the
+source or the format changed:
 
 ```sh
-# Existing personal-boot venv provides macresources. ImageMagick (magick) must
-# also be installed. Use the fork-preserving extraction, including .rsrc files.
 scratch/personal-boot-venv/bin/python tools/prepare-journal.py \
-  'scratch/q2-archive.Ih4moF/verified-extraction/Pool Of Radiance' \
-  scratch/NEW-poolrad-journal.prjr
+  'scratch/extracted/Pool Of Radiance' \
+  android/minivmac/src/main/assets/journal/adventurers-journal.prjr
 ```
 
-Copy the resulting `.prjr` file to the tablet (the same SMB/file-manager route
-as the APK works). In **Info → Journal → Import journal book**, select it.
-It is validated and copied into private app storage, so later reading needs
-neither the original path nor a network connection. Cancel leaves the old book
-alone; a damaged import does not replace it. Replacing a reference book does
-not replace the game's disks or the notebook's lookup history.
+`tools/check-wheel-apk.mjs` verifies the bundled book on every release: exactly
+one `.prjr`, at that path, byte-identical to the one in the tree. ROMs, disks
+and DAX archives are still refused.
 
-For this workstation, `scratch/poolrad-journal-0.14.0.prjr` has been prepared:
-99 references and 14 original illustrations. It is private and
-ignored by Git. No source download, text generation, OCR service, or emulator
-memory access is involved.
-
-**Backups:** retain the `.prjr` file for reimport — the reference book itself is
-never copied into a notebook backup. From 0.16.0 the lookup history, bookmarks,
+**Backups:** the reference book is not copied into a notebook backup, and does
+not need to be — it arrives with the app. From 0.16.0 the lookup history, bookmarks,
 your own checked tasks and your flag links live inside the selected notebook and
 **are** included in its [backup and restore](NOTEBOOK_BACKUPS.md). Any history
 0.14.0 left in app preferences is moved into the notebook once, the first time

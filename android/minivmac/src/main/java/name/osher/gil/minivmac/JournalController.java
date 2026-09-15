@@ -2,13 +2,9 @@ package name.osher.gil.minivmac;
 
 import android.content.*;
 import android.graphics.*;
-import android.net.Uri;
 import android.os.*;
-import android.util.AtomicFile;
 import android.view.View;
 import android.widget.*;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import java.io.*;
@@ -34,9 +30,9 @@ public final class JournalController {
     private Notebooks notebooks;
     private final AppCompatActivity activity;
     private final Context context;
-    private final AtomicFile file;
+    /** The journal ships with the app; there is nothing for the player to import. */
+    public static final String BUNDLED_BOOK = "journal/adventurers-journal.prjr";
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final ActivityResultLauncher<String[]> importer;
     private JournalBook book;
     private boolean destroyed, busy;
     private AlertDialog home, picker, entry;
@@ -45,12 +41,6 @@ public final class JournalController {
     // Register unconditionally alongside the existing Activity-owned pickers.
     public JournalController(AppCompatActivity activity) {
         this.activity = activity; context = activity.getApplicationContext();
-        file = new AtomicFile(new File(context.getFilesDir(), "journal.prjr"));
-        importer = activity.registerForActivityResult(new ActivityResultContracts.OpenDocument() {
-            @Override public Intent createIntent(Context context, String[] types) {
-                return super.createIntent(context, types).putExtra(Intent.EXTRA_LOCAL_ONLY, true);
-            }
-        }, this::importResult);
     }
     /** Set by the fragment-owned notebook controller; cleared when it goes away. */
     public void setNotebooks(Notebooks value) { notebooks = value; }
@@ -65,51 +55,16 @@ public final class JournalController {
         busy = true;
         NotebookController.IO.execute(() -> {
             JournalBook loaded = null; String problem = null;
-            try (InputStream in = file.openRead()) { loaded = JournalBook.read(JournalBook.readBytes(in)); }
-            catch (FileNotFoundException missing) { /* First use, not an error. */ }
-            catch (IOException | RuntimeException failure) { problem = "Reference file could not be read: " + failure.getMessage(); }
+            try (InputStream in = context.getAssets().open(BUNDLED_BOOK)) {
+                loaded = JournalBook.read(JournalBook.readBytes(in));
+            } catch (IOException | RuntimeException failure) {
+                problem = "The bundled journal could not be read: " + failure.getMessage();
+            }
             final JournalBook ready = loaded; final String error = problem;
             main.post(() -> {
                 busy = false; if (destroyed || activity.isFinishing()) return;
                 book = ready;
                 openHome(error);
-            });
-        });
-    }
-
-    private void importBook() {
-        if (busy || destroyed) return;
-        if (home != null) home.dismiss();
-        try { importer.launch(new String[]{"*/*"}); }
-        catch (RuntimeException failure) { toast("Android could not open the local document picker."); }
-    }
-    private void importResult(Uri uri) {
-        if (uri == null) { toast("Journal import cancelled; existing book unchanged."); return; }
-        busy = true;
-        NotebookController.IO.execute(() -> {
-            String error = null;
-            try (InputStream in = context.getContentResolver().openInputStream(uri)) {
-                byte[] bytes = JournalBook.readBytes(in);
-                JournalBook candidate = JournalBook.read(bytes);
-                // Verify actual PNG decodability before publishing; header bounds
-                // were already checked by the pure-Java book parser.
-                for (JournalBook.Key key : candidate.keys()) for (JournalBook.Block block : candidate.entry(key)) {
-                    if (!block.isImage()) continue;
-                    byte[] png = block.image(); Bitmap image = BitmapFactory.decodeByteArray(png, 0, png.length);
-                    if (image == null) throw new IOException("Unreadable journal illustration");
-                    image.recycle();
-                }
-                FileOutputStream out = null;
-                try { out = file.startWrite(); out.write(bytes); out.flush(); out.getFD().sync(); file.finishWrite(out); }
-                catch (IOException | RuntimeException | OutOfMemoryError failure) {
-                    if (out != null) file.failWrite(out); throw failure;
-                }
-            } catch (IOException | RuntimeException | OutOfMemoryError failure) { error = failure.getMessage(); if (error == null) error = "Insufficient memory or invalid file"; }
-            final String problem = error;
-            main.post(() -> {
-                busy = false;
-                toast(problem == null ? "Journal imported: 99 references, available offline." : "Journal import failed; previous book retained. " + problem);
-                if (!destroyed && !activity.isFinishing()) show();
             });
         });
     }
@@ -147,8 +102,7 @@ public final class JournalController {
         LinearLayout content = column();
         if (error != null) text(content,error,15);
         if (book == null) {
-            text(content,"Import your private .prjr journal book once. Text and illustrations then work entirely offline.",17);
-            text(content,"Prepare it from your supplied Macintosh journal documents with tools/prepare-journal.py. No game files are downloaded or included in the public APK.",14);
+            text(content,"The journal could not be opened. Reinstalling the app restores it; nothing you have written is affected.",17);
         } else {
             text(content,"Look up any number yourself. References the game cites in its own words are collected below automatically.",14);
             button(content,"Look up a number",this::lookup);
@@ -159,10 +113,9 @@ public final class JournalController {
                 entryButtons(content,"Bookmarked tasks",history.bookmarks(),history);
                 entryButtons(content,"Recent lookups",history.recent(),history);
             }
-            text(content,book.source + " · 58 journal entries · 18 proclamations · 23 tavern tales",12);
+            text(content,"Included with the app · 58 journal entries · 18 proclamations · 23 tavern tales",12);
         }
-        button(content,book == null ? "Import journal book" : "Replace reference book…",this::importBook);
-        text(content,"Encountered references are the ones the running game named in front of you, in the order it named them; the app only recognises wordings that have been observed in the game, so anything it is not sure about is left out rather than guessed. Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. Importing a reference book never changes a game save.",12);
+        text(content,"Encountered references are the ones the running game named in front of you, in the order it named them; the app only recognises wordings that have been observed in the game, so anything it is not sure about is left out rather than guessed. Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. The journal is read-only and never touches a game save.",12);
         home = UpperHalfReferenceDialog.show(activity,"Adventure journal",scroll(content));
     }
     private void entryButtons(LinearLayout parent, String title, List<JournalBook.Key> keys, JournalHistory history) {

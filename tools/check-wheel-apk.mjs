@@ -22,6 +22,17 @@ for (const name of expected) {
     assert.ok(bundled.readUInt16LE(8) > 0 && bundled.readUInt16LE(8) <= 256);
     total += bundled.length;
 }
-assert.ok(!entries.some(name => /\.(rom|dsk|dax|ram|sit|probe|prjr)$/i.test(name)), 'Private game inputs and journal books must not be bundled');
+assert.ok(!entries.some(name => /\.(rom|dsk|dax|ram|sit|probe)$/i.test(name)), 'Private game inputs must not be bundled');
 assert.ok(!entries.some(name => name.startsWith('assets/personal/')), 'Personal-package payload/metadata must not enter public APKs');
-console.log(`PASS: all 72 rune GIFs are bundled unchanged (${total} bytes); no ROMs, disks, or game archives.`);
+
+// The adventurer's journal now ships with the app, so it is checked rather than
+// forbidden: exactly one book, at the expected path, byte-identical to source.
+const books = entries.filter(name => /\.prjr$/i.test(name));
+assert.deepEqual(books, ['assets/journal/adventurers-journal.prjr'], 'Unexpected journal books in the APK');
+const journal = execFileSync('unzip', ['-p', apk, books[0]]);
+assert.deepEqual(journal, readFileSync(`${root}android/minivmac/src/main/assets/journal/adventurers-journal.prjr`),
+    'The bundled journal differs from the one in the tree');
+assert.deepEqual(journal.toString('ascii', 0, 4), 'PRJR', 'The bundled journal is not a .prjr book');
+assert.ok(journal.length > 1024 && journal.length <= 4 * 1024 * 1024, 'Implausible journal size');
+console.log(`PASS: all 72 rune GIFs are bundled unchanged (${total} bytes); the journal is bundled `
+    + `(${journal.length} bytes); no ROMs, disks, or game archives.`);

@@ -1,5 +1,11 @@
 # Releases
 
+## 0.27.0 — The party always shows, and the journal comes with it
+
+[Release notes](releases/0.27.0.md): the party moves under the map rather than
+vanishing on high-density screens, and the adventurer's journal ships with the
+app.
+
 ## 0.26.0 — Proclamations and entries join the list too
 
 [Release notes](releases/0.26.0.md): the encountered list now also collects

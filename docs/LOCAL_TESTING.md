@@ -1,5 +1,46 @@
 # Local Android prototype
 
+## 0.27.0 — the party strip and the bundled journal (2026-09-15)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.27.0.apk`, SHA-256
+`55af96f6834e9e596a29336757757facc4849d6ed81083312ad0dfdd02f33060`, versionCode 93.
+
+**The party pane disappearing on the tablet was reproduced without the tablet.**
+Simulating `PartyPaneLayout` across densities showed that at 2.625 and above a
+1440px pane has no side-by-side arrangement at *any* height: the 280dp map floor
+plus two 150dp columns exceed the width. A 292 PPI panel reports exactly that.
+The previous column-shrinking fix could not have helped, because the problem is
+width that does not exist rather than a column that is too wide.
+
+The party now falls back to a strip under the map. Verified by **rendering on
+the device at 320, 420 and 480 dpi**, not only by assertion: at 480 dpi eight
+members draw as a 4×2 strip with readable names, hit points and bars, and at
+320 dpi the ordinary sidebar is untouched. 428 Java tests pass, including a
+sweep of every density, pane height and party size from 1 to 8 that previously
+produced nothing at all.
+
+**The journal now ships in the APK** at `assets/journal/adventurers-journal.prjr`
+(200,819 bytes): 58 entries, 18 proclamations, 23 tavern tales, 14
+illustrations. `JournalController` reads it from assets; the document picker,
+the import/replace buttons and the private `journal.prjr` copy are gone.
+
+`check-wheel-apk.mjs` previously *forbade* `.prjr` in the APK. That rule was
+there because the journal was treated as private, and the user reversed that on
+2026-09-15. The gate now verifies the book instead of banning it: exactly one
+`.prjr`, at the expected path, byte-identical to the tree, with a plausible
+size. ROMs, disks, DAX archives and personal-package payloads are still refused.
+
+Verified live by clearing app data outright — a fresh install — and opening
+Info → Journal: the reader came up with no import step and reported
+"58 journal entries · 18 proclamations · 23 tavern tales".
+
+An honest note on that check: `pm clear` also wiped the emulator's ROM, disks
+and notebooks, which was careless. The ROM was restored from `scratch/input`,
+the campaign disk from the backup taken earlier that day, and its preferences
+rewritten by hand. Nothing of the user's was lost — the campaign disk had been
+copied off before any of this work began — but a targeted delete of
+`files/journal.prjr` would have proved the same thing.
+
 ## R9 completed — proclamations and journal entries (2026-09-15, v0.26.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.26.0.apk`, SHA-256

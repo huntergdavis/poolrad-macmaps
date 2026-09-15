@@ -36,8 +36,9 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Automatic code-wheel entry for verified prompts; illustrated offline fallback.
 - Map/Info tabs; lookup panels fit above the game, even with the keyboard open.
 - Offline spells, weapons/armor, class progression, and mixed-coin conversion.
+- The complete adventurer's journal built in: entries, proclamations, tavern tales and original illustrations, offline.
 - Journal entries, proclamations and tavern tales the game names out loud join the notebook's encountered list, tappable straight into the reader.
-- Offline journal lookup with original illustrations, recent numbers and per-notebook bookmarks; import your own reference book once.
+- The complete adventurer's journal built in: entries, proclamations, tavern tales and original illustrations, offline.
 - Link a journal reference to a flag you placed, and check off your own tasks; both ride along in the notebook backup.
 - Per-level spell readiness in character details: what is castable now, what still needs rest.
 - Readied weapon and armor, movement and carried weight, all under the game's own names.
@@ -60,10 +61,10 @@ zoom/scroll; rotation and keyboard layout remain unreported.
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.26.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.26.0)
+[0.27.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.27.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.26.0/poolrad-macmaps-0.26.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.27.0/poolrad-macmaps-0.27.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
@@ -71,10 +72,10 @@ supports Android 5.0+ and includes the Mac II emulator.
 **Bring your own ROM, Mac system disk, and Macintosh game.** None are in the public APK.
 [Step-by-step setup and troubleshooting →](docs/INSTALL.md)
 
-**Read the journal:** [prepare your private reference book](docs/JOURNAL.md),
-then choose **Info → Journal → Import journal book**. Includes all 99 numbered
-references and 14 original illustrations from the supported Mac documents.
-Journal content is not included in the public APK; automatic detection is still planned.
+**Read the journal:** it is [included with the app](docs/JOURNAL.md) — all 58
+journal entries, 18 proclamations, 23 tavern tales and the 14 original
+illustrations. Nothing to import. Open **Info → Journal**, or let the game's own
+citations collect themselves as you play.
 
 **Keep your notes:** [export a notebook backup](docs/NOTEBOOK_BACKUPS.md) before
 uninstalling or clearing app data. Updates install over the existing app.
