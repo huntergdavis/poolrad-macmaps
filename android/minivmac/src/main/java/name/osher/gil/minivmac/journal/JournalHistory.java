@@ -7,13 +7,17 @@ import java.util.*;
 
 /**
  * Manual lookups, player-chosen bookmarks, player-checked tasks and
- * player-created flag links. Nothing here is read from the running game, so a
- * bookmark is never a claim that the party encountered that reference, and a
- * checked task is never a claim that the original quest is complete.
+ * player-created flag links, plus the references the running game has actually
+ * cited in front of the player. A bookmark is still never a claim that the
+ * party encountered that reference, and a checked task is never a claim that
+ * the original quest is complete; the encountered list is the one part read
+ * from the game, and it records only what the game printed.
  * Belongs to one notebook and travels with that notebook's backup.
  */
 public final class JournalHistory {
     public static final int MAX_RECENT = 20, MAX_BOOKMARKS = 99;
+    /** The supported journal defines 99 references in total; none can repeat. */
+    public static final int MAX_ENCOUNTERED = 99;
     public static final int MAX_LINKS = 256, MAX_LINKS_PER_ENTRY = 8;
     /** Envelope payload ceiling; see the field bounds enforced below. */
     public static final int MAX_BYTES = 12288;
@@ -40,6 +44,8 @@ public final class JournalHistory {
 
     private final List<JournalBook.Key> recent = new ArrayList<>(), bookmarks = new ArrayList<>();
     private final Set<JournalBook.Key> done = new HashSet<>();
+    /** Insertion-ordered: the player sees them in the order the game cited them. */
+    private final Set<JournalBook.Key> encountered = new LinkedHashSet<>();
     private final Map<JournalBook.Key, List<Flag>> links = new LinkedHashMap<>();
 
     public JournalHistory() { }
@@ -114,9 +120,26 @@ public final class JournalHistory {
         return changed;
     }
 
+    /**
+     * Records a reference the running game cited. Returns true only the first
+     * time, so a message the player re-reads does not announce itself twice.
+     * Never called with a guessed number: see {@link JournalCitation}.
+     */
+    public boolean encounter(JournalBook.Key key) {
+        if (key == null) throw new IllegalArgumentException("Missing encountered reference");
+        if (encountered.contains(key)) return false;
+        if (encountered.size() >= MAX_ENCOUNTERED) return false;
+        encountered.add(key);
+        return true;
+    }
+    public boolean encountered(JournalBook.Key key) { return encountered.contains(key); }
+    public List<JournalBook.Key> encountered() { return Collections.unmodifiableList(new ArrayList<>(encountered)); }
+
     public List<JournalBook.Key> recent() { return Collections.unmodifiableList(recent); }
     public List<JournalBook.Key> bookmarks() { return Collections.unmodifiableList(bookmarks); }
-    public boolean isEmpty() { return recent.isEmpty() && bookmarks.isEmpty() && links.isEmpty(); }
+    public boolean isEmpty() {
+        return recent.isEmpty() && bookmarks.isEmpty() && links.isEmpty() && encountered.isEmpty();
+    }
 
     private static String encode(List<JournalBook.Key> keys) {
         StringBuilder out = new StringBuilder();
@@ -166,6 +189,16 @@ public final class JournalHistory {
                 throw new IOException("Duplicate or oversized journal flag link");
             existing.add(flag);
         }
+        // Optional since 0.24.0: a notebook written before the encountered list
+        // simply ends here, and must keep loading rather than being rejected.
+        int encounteredCount = in.read();
+        if (encounteredCount >= 0) {
+            if (encounteredCount > MAX_ENCOUNTERED) throw new IOException("Too many encountered references");
+            for (int i = 0; i < encounteredCount; i++) {
+                JournalBook.Key key = key(in);
+                if (!result.encountered.add(key)) throw new IOException("Duplicate encountered reference");
+            }
+        }
         if (in.read() != -1) throw new IOException("Trailing journal history data");
         return result;
     }
@@ -182,5 +215,7 @@ public final class JournalHistory {
                 out.writeByte(flag.x); out.writeByte(flag.y);
             }
         }
+        out.writeByte(encountered.size());
+        for (JournalBook.Key key : encountered) writeKey(out, key);
     }
 }

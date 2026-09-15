@@ -77,6 +77,7 @@ static RequestRamSnapshotType requestRamSnapshotPtr = NULL;
 static RequestRamSnapshotType requestMapSamplePtr = NULL;
 static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
+static RequestRamSnapshotType requestMessageSamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
 void unloadCurrentVariant() {
@@ -84,6 +85,7 @@ void unloadCurrentVariant() {
     requestMapSamplePtr = NULL;
     requestWheelSamplePtr = NULL;
     requestPartySamplePtr = NULL;
+    requestMessageSamplePtr = NULL;
     if (variantHandle) {
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -174,6 +176,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     requestMapSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMapSample");
     requestWheelSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestWheelSample");
     requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
+    requestMessageSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMessageSample");
 
     const char* error = dlerror();
     if (error != NULL) {
@@ -181,6 +184,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         requestMapSamplePtr = NULL;
         requestWheelSamplePtr = NULL;
         requestPartySamplePtr = NULL;
+        requestMessageSamplePtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -254,6 +258,11 @@ Java_name_osher_gil_minivmac_Core_requestWheelSampleNative(JNIEnv *env, jclass c
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestPartySampleNative(JNIEnv *env, jclass cls) {
     return requestPartySamplePtr ? requestPartySamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestMessageSampleNative(JNIEnv *env, jclass cls) {
+    return requestMessageSamplePtr ? requestMessageSamplePtr() : JNI_FALSE;
 }
 
 /*

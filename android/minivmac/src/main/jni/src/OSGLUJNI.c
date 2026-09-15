@@ -27,6 +27,7 @@
 #include "POOLRAD.h"
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
+#include "POOLRAD_MESSAGE.h"
 
 IMPORTFUNC ui3p GetRamForSnapshot(ui5b *size);
 IMPORTFUNC ui5r PoolRadGetAddressRegister(ui3r index);
@@ -62,6 +63,9 @@ jmethodID jWheelSample;
 LOCALVAR atomic_int WantWheelSample = 0;
 jmethodID jPartySample;
 LOCALVAR atomic_int WantPartySample = 0;
+
+jmethodID jMessageSample;
+LOCALVAR atomic_int WantMessageSample = 0;
 jfieldID sInitOk;
 jobject mCore;
 
@@ -1306,6 +1310,32 @@ LOCALPROC DeliverPartySample(void)
     if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
 }
 
+GLOBALFUNC jboolean requestMessageSample(void)
+{
+    return atomic_exchange(&WantMessageSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+/* The text the game is displaying in its own Message window. Read-only, and
+ * delivered even when unreadable so Java never mistakes silence for an empty
+ * message. See POOLRAD_MESSAGE.h and docs/MESSAGE_MEMORY.md. */
+LOCALPROC DeliverMessageSample(void)
+{
+    if (atomic_exchange(&WantMessageSample, 0) == 0) return;
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    unsigned char data[POOLRAD_MESSAGE_SIZE];
+    jbyteArray sample = NULL;
+    if (poolrad_message_probe(ram, size, data)) {
+        sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_MESSAGE_SIZE);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_MESSAGE_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    }
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jMessageSample, sample);
+    if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
+}
+
 GLOBALOSGLUPROC DoneWithDrawingForTick(void)
 {
 #if EnableFSMouseMotion
@@ -1342,6 +1372,7 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     DeliverMapSample();
     DeliverWheelSample();
     DeliverPartySample();
+    DeliverMessageSample();
 
     if (CurSpeedStopped) {
         DoneWithDrawingForTick();
@@ -1399,6 +1430,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     poolrad_walk_reset(&MapWalkTracker);
     atomic_store(&WantWheelSample, 0);
     atomic_store(&WantPartySample, 0);
+    atomic_store(&WantMessageSample, 0);
 
     mCore = (*env)->NewGlobalRef(env, core);
     // get java method IDs
@@ -1422,6 +1454,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");
+    jMessageSample = (*env)->GetMethodID(env, this, "onMessageSample", "([B)V");
 
     // initialize fields
     jfieldID sDiskPath, sDiskFile, sNumInsertedDisks;

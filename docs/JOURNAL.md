@@ -14,9 +14,25 @@ the local keypad, and Read. No system keyboard covers the Mac display.
   are separate for each selected campaign notebook and survive app restarts.
 - Only explicitly requested references open; no next-entry/read-ahead carousel.
 
-This is **manual lookup**, not automatic detection of references shown by the
-game. Automatic encountered references remain backlog R9. A viewed entry is
-not proof the party encountered it, and tavern tales need not be true.
+A viewed entry is not proof the party encountered it, and tavern tales need not
+be true.
+
+## Encountered in play
+
+When the running game names one of its own numbered references out loud, that
+reference joins the selected notebook's **Encountered in play** list, in the
+order the game named it, and is tappable straight into the reader. It is
+recorded once; re-reading the same message does not list it twice. The list
+belongs to the notebook and is included in its backup.
+
+**What counts as the game naming a reference is deliberately narrow.** The app
+matches only wording that has been observed in the running game, which today
+means the tavern's `YOU OVERHEAR TAVERN TALE <number>`. The phrasings the game
+uses for journal entries and proclamations have not been observed yet, so they
+are **not** recognised and must still be looked up by hand — a guessed pattern
+would file a wrong number, and a wrong number in this game is a spoiler.
+Anything the reader cannot read cleanly, or a number the imported book does not
+define, records nothing at all. [How the text is read](MESSAGE_MEMORY.md).
 
 ## Import your own journal once
 

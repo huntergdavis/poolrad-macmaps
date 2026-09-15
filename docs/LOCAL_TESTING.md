@@ -1,5 +1,98 @@
 # Local Android prototype
 
+## R9 part one — references the game cites (2026-09-14, v0.24.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.24.0.apk`, SHA-256
+`96c8185f5cbd57ac5c426bde16b48a11e31115469ffa3afae800d1b163bbc1ca`, versionCode 90.
+
+**The blocking observation was made in play.** Following the user's bar hint,
+the party was driven from the tutorial start to the gambling tavern of
+civilized New Phlan and declined `DOES ANYONE WANT TO GAMBLE?`. The game then
+printed, in its own Message window, the wording that had been missing for two
+attempts:
+
+```
+YOU OVERHEAR TAVERN TALE 15
+```
+
+`scratch/r9-tavern-tale-15.png`. The next message was
+`A DRUNKEN BRAWL BREAKS OUT. YOU ARE CAUGHT IN THE MIDDLE` and combat began.
+
+Getting there needed two corrections to the earlier driving recipe, both of
+which had silently defeated the previous attempt:
+
+- **The party walks on the number keys, not the arrow keys** — `4` left, `6`
+  right, `8` forward on the Mac keyboard's symbol page. The arrow keys do not
+  turn the party at all.
+- **Every location message must be acknowledged.** The game replaces its
+  six-button action row with a single **Continue** button and ignores movement
+  until it is clicked, which looks exactly like keys not arriving.
+- Routes were computed, not guessed: the live probe packet already carries the
+  16×16 GEO geometry, so `GeoMap.edgeKind` gives a breadth-first path over
+  **OPEN edges only**. Doorways must be excluded; they are building entrances
+  and the game stops the party at them. The tavern is the doorway at tile
+  **10,8**, entered south from 10,7, which matches the published civilized-
+  district map's 1-based `[11,9]` — the same 1-based offset that puts its City
+  Hall `[5,5]` at the clerk encounter the guest actually shows at 5,5.
+
+Automated suites:
+
+- Native `tools/test-message-probe.c` with `-Wall -Wextra -Werror` and
+  ASan/UBSan passes: TERec decoding through all four indirections at relocated
+  addresses, all 256 byte values in the text (only printable ASCII, CR and tab
+  are accepted, and one bad byte rejects the whole sample), the exact ceiling
+  and one byte past it, six malformed pointers at each of four indirections, a
+  length running off the end of RAM, another application frontmost, and a
+  byte-for-byte check that guest RAM is never written.
+- `tools/test-map-probe.c` and `tools/test-party-probe.c` still pass unchanged.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **408 tests,
+  zero failures/errors/skips**. `GameMessageTest`, `JournalCitationTest` and
+  five new `JournalHistoryTest` cases add twenty.
+- `check-wheel-apk.mjs` passes: 72 bundled runes unchanged, no ROM, disk or
+  game archive. `apksigner verify` succeeds on the same debug key.
+- One older assertion had to change and is worth noting: `JournalHistoryTest`
+  required *every* truncation of a stored record to be rejected, but dropping
+  the final byte now leaves exactly a pre-0.24.0 record with no encountered
+  list, which must keep loading. That one case is now explicit, with the rest
+  of the loop unchanged.
+
+Decoded against real captures, using the production native reader and the
+production Java parser:
+
+- `poolrad_message_probe` over two private RAM captures returns exactly the
+  text the corresponding screenshots show, to the character.
+- Feeding that native packet to `GameMessage.parse` and `JournalCitation.read`
+  yields the text and **no** citation for Rolf's farewell, which is correct:
+  that sentence cites nothing.
+
+Live on emulator-5584, API 30, 1200×1600, with `PoolRadSave/SampleParty`:
+
+- The 0.24.0 build was installed, the guest cold-booted and its startup alias
+  launched the game once. The boot showed the Macintosh's improper-shutdown
+  notice, which is honest and expected: the previous session was stuck in an
+  endless tavern brawl with the menu bar disabled, so the guest was stopped with
+  the emulator's own **Force Power Off** rather than a Finder shut down. Nothing
+  had been saved in that session, and the notice cleared with one OK.
+- The party was walked back to the tavern door at 10,7 and stepped south. On
+  declining the gamble the game printed `YOU OVERHEAR TAVERN TALE 18`
+  (`scratch/r9-tavern-tale-18.png`) — a different tale from the first run,
+  which is the point: the number is read, not remembered.
+- **Info → Journal then showed "Encountered in play · Tavern tale 18"** while
+  the game's own Message window still read that sentence:
+  `scratch/r9-encountered-live.png`. That is the whole feature working in the
+  running app, not a harness.
+- A RAM snapshot taken at that same moment, run through the production native
+  reader and then the production `GameMessage`/`JournalCitation` classes on the
+  host, decodes `YOU OVERHEAR TAVERN TALE 18` and yields exactly one citation,
+  `Tavern tale 18`, which `JournalHistory.encounter` accepts once.
+
+Not claimed: **only the tavern-tale wording is recognised.** The journal-entry
+and proclamation wordings have still not been observed, so R9 stays open and
+neither category is detected; nothing is guessed for them. No physical e-ink,
+stylus or tablet acceptance of the new list was performed. Only emulator-5584
+was used. The user's `m1gate` campaign save was listed in the load dialog but
+deliberately not opened, and nothing was saved to the guest during this pass.
+
 ## R6 search-mode indicator (2026-09-14, v0.23.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.23.0.apk`, SHA-256

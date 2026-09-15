@@ -676,20 +676,34 @@ research for sources and portability limits.
   never import future script references as if the player had encountered them.
   User priority: the manual reader shipped in REF5; the user has now raised this
   automatic collection to **P0**. Local only.
-  **Attempted 2026-09-14; blocked on one missing observation.** The enabler is
-  built and verified: the game's Message text is readable at `A5-0x6178` →
-  `TERec` → `hText`, and it decodes exactly right against all fifteen private
-  captures. What is missing is **the phrasing the game uses to cite an entry**.
-  It appears nowhere in STRS0, nowhere in any other resource of the game
-  application, and nowhere in the RLE-decoded DAX files; and no capture contains
-  a citation, because all of them are from the opening tour. Guessing a pattern
-  would file wrong entries into the notebook, which this item explicitly
-  forbids. **Unblocked by one screenshot, or the exact wording, of the game
-  citing a journal entry.** Followed up on the user's hint 2026-09-14 by driving
-  the party in-game to the city hall: the Council Clerk's commissions cite no
-  entry, so that lead is ruled out, and no tavern was reachable from the
-  tutorial start. Driving the guest is scriptable; the transcript and the
-  keyboard coordinates are in the doc.
+  **Unblocked and one third delivered in 0.24.0; two categories still open.**
+  Following the user's bar hint, the party was driven in-game to the gambling
+  tavern of civilized New Phlan (map tile 10,8) and the game printed, in its
+  own Message window, the wording that had been missing:
+  `YOU OVERHEAR TAVERN TALE 15` — a plain sentence with a bare number, no
+  parentheses, no `#`, no `SEE`. `scratch/r9-tavern-tale-15.png`.
+  **Shipped 0.24.0:** the Message-window reader is now in the app as a native
+  `PRT1` packet on the existing 250 ms poll; `JournalCitation` recognises that
+  one verified wording and nothing else; a recognised reference joins the
+  selected notebook's **Encountered in play** list once, is tappable straight
+  into the REF5 reader, and rides along in that notebook's backup. A truncated
+  or unreadable sample records nothing, and a number the supplied journal does
+  not define is dropped rather than invented.
+  **Live proof:** on a second visit the game printed
+  `YOU OVERHEAR TAVERN TALE 18` and Info → Journal showed
+  *Encountered in play · Tavern tale 18* in the same frame
+  (`scratch/r9-encountered-live.png`) — a different number from the first
+  sighting, so it is being read rather than remembered. 408 Java tests and all
+  three native probe suites pass.
+  **Still open, and why this item is not ticked:** the wordings for **journal
+  entries** and **proclamations** have still not been observed, so neither is
+  recognised. The city-hall lead was ruled out earlier (the Council Clerk's
+  commissions cite nothing), and the tavern run above only produces tales.
+  **Unblocked by one screenshot, or the exact wording, of the game citing a
+  journal entry and one citing a proclamation.** Driving the guest is
+  scriptable and the corrected recipe — number keys, not arrow keys; the
+  Continue button; open-edge-only route planning from the live GEO geometry —
+  is in the doc.
   [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
   must be respected: a wrong number silently plants a spoiler in the notebook,
   so an uncertain detection must record nothing rather than guess.

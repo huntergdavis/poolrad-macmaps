@@ -37,6 +37,7 @@ public class Core {
 	private volatile MapSampleListener mMapSampleListener;
 	private volatile MapSampleListener mWheelSampleListener;
 	private volatile MapSampleListener mPartySampleListener;
+	private volatile MapSampleListener mMessageSampleListener;
 
 	public void setPartySampleListener(MapSampleListener listener) { mPartySampleListener = listener; }
 	public boolean requestPartySample() { return initOk && requestPartySampleNative(); }
@@ -44,6 +45,15 @@ public class Core {
 	@SuppressWarnings("unused") // Read-only compact sample delivered on emulation thread.
 	public void onPartySample(byte[] sample) {
 		MapSampleListener listener = mPartySampleListener;
+		if (listener != null) listener.onSample(sample);
+	}
+
+	public void setMessageSampleListener(MapSampleListener listener) { mMessageSampleListener = listener; }
+	public boolean requestMessageSample() { return initOk && requestMessageSampleNative(); }
+	private static native boolean requestMessageSampleNative();
+	@SuppressWarnings("unused") // Read-only Message-window text delivered on emulation thread.
+	public void onMessageSample(byte[] sample) {
+		MapSampleListener listener = mMessageSampleListener;
 		if (listener != null) listener.onSample(sample);
 	}
 

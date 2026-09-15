@@ -1,5 +1,11 @@
 # Releases
 
+## 0.24.0 — The journal list fills itself in
+
+[Release notes](releases/0.24.0.md): references the running game names out loud
+join the notebook's encountered list. Only wording observed in the game is
+recognised; nothing uncertain is recorded.
+
 ## 0.23.0 — The map says when you are searching
 
 [Release notes](releases/0.23.0.md): the header appends an `S` while the game's

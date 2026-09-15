@@ -22,6 +22,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -34,6 +35,7 @@ import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.journal.JournalBook;
+import name.osher.gil.minivmac.journal.JournalCitation;
 import name.osher.gil.minivmac.journal.JournalHistory;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
@@ -175,6 +177,26 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             try { store.saveJournal(id, payload); }
             catch (IOException | RuntimeException failure) { report("Journal history could not be saved", failure); }
         });
+    }
+
+    /**
+     * The running game has printed something. Any reference it cites in its own
+     * words joins this notebook's encountered list, once. Nothing is guessed:
+     * see {@link name.osher.gil.minivmac.journal.JournalCitation}, which matches
+     * only wordings observed in the game.
+     */
+    public void onGameMessage(byte[] sample) {
+        if (disposed || journal == null) return;
+        java.util.Set<JournalBook.Key> cited =
+                JournalCitation.read(name.osher.gil.minivmac.journal.GameMessage.parse(sample));
+        if (cited.isEmpty()) return;
+        List<String> added = new ArrayList<>();
+        for (JournalBook.Key key : cited) if (journal.encounter(key)) added.add(key.label());
+        if (added.isEmpty()) return;
+        persistJournal();
+        toast(added.size() == 1
+                ? added.get(0) + " noted in this notebook's journal list"
+                : added.size() + " references noted in this notebook's journal list");
     }
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }

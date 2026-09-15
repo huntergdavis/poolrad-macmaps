@@ -150,18 +150,19 @@ public final class JournalController {
             text(content,"Import your private .prjr journal book once. Text and illustrations then work entirely offline.",17);
             text(content,"Prepare it from your supplied Macintosh journal documents with tools/prepare-journal.py. No game files are downloaded or included in the public APK.",14);
         } else {
-            text(content,"Read only the number the game gives you. Lookups are manual, not automatic encounter detection.",14);
+            text(content,"Look up any number yourself. References the game cites in its own words are collected below automatically.",14);
             button(content,"Look up a number",this::lookup);
             JournalHistory history = history();
             if (history == null) text(content,"Journal history is unavailable for this notebook, so lookups are not being remembered. Existing history has not been replaced.",14);
             else {
+                entryButtons(content,"Encountered in play",history.encountered(),history);
                 entryButtons(content,"Bookmarked tasks",history.bookmarks(),history);
                 entryButtons(content,"Recent lookups",history.recent(),history);
             }
             text(content,book.source + " · 58 journal entries · 18 proclamations · 23 tavern tales",12);
         }
         button(content,book == null ? "Import journal book" : "Replace reference book…",this::importBook);
-        text(content,"Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. Importing a reference book never changes a game save.",12);
+        text(content,"Encountered references are the ones the running game named in front of you, in the order it named them; the app only recognises wordings that have been observed in the game, so anything it is not sure about is left out rather than guessed. Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. Importing a reference book never changes a game save.",12);
         home = UpperHalfReferenceDialog.show(activity,"Adventure journal",scroll(content));
     }
     private void entryButtons(LinearLayout parent, String title, List<JournalBook.Key> keys, JournalHistory history) {

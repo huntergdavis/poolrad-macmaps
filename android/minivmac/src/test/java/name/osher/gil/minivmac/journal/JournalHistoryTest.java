@@ -9,7 +9,11 @@ import java.io.IOException;
 import java.util.Arrays;
 import static org.junit.Assert.*;
 
-/** Player-made history only; nothing here is detected from the running game. */
+/**
+ * Player-made history, plus the one part that is read from the running game:
+ * the references it cited in its own words. Even there, nothing here invents a
+ * number; the citations come from {@link JournalCitation}.
+ */
 public class JournalHistoryTest {
     private static final String AREA = "por-mac-v11-geo-0", OTHER = "por-mac-v11-geo-32";
     private JournalBook.Key key(int kind, int number) { return new JournalBook.Key(kind, number); }
@@ -136,7 +140,13 @@ public class JournalHistoryTest {
         byte[] good = encode(history);
         assertNotNull(decode(good));
 
+        // Every truncation is rejected but one: dropping the final byte leaves
+        // exactly a pre-0.24.0 record, which has no encountered list and must
+        // keep loading. See aNotebookWrittenBeforeEncounteredListsStillLoads.
+        int legacyLength = good.length - 1;
+        assertEquals("the dropped byte is the empty encountered count", 0, good[legacyLength]);
         for (int cut = 0; cut < good.length; cut++) {
+            if (cut == legacyLength) { assertNotNull(decode(Arrays.copyOf(good, cut))); continue; }
             try { decode(Arrays.copyOf(good, cut)); fail("truncation at " + cut + " accepted"); }
             catch (IOException expected) { }
         }
@@ -153,5 +163,83 @@ public class JournalHistoryTest {
         try { decode(tooManyRecent); fail("oversized recent list accepted"); } catch (IOException expected) { }
         byte[] badChecked = new byte[]{0, 1, 0, 1, 2, 0, 0};
         try { decode(badChecked); fail("non-boolean checked flag accepted"); } catch (IOException expected) { }
+    }
+
+    @Test public void encounteredReferencesSurviveTheRoundTripInTheOrderTheGameCitedThem() throws Exception {
+        JournalHistory history = new JournalHistory();
+        assertTrue(history.isEmpty());
+        assertTrue(history.encounter(key(2, 15)));
+        assertTrue(history.encounter(key(2, 3)));
+        assertFalse("A repeated citation must not be listed twice", history.encounter(key(2, 15)));
+        assertFalse(history.isEmpty());
+        assertTrue(history.encountered(key(2, 15)));
+        assertFalse(history.encountered(key(2, 4)));
+
+        JournalHistory copy = roundTrip(history);
+        assertEquals(Arrays.asList(key(2, 15), key(2, 3)), copy.encountered());
+        assertTrue(copy.encountered(key(2, 3)));
+        assertFalse(copy.encountered(key(0, 3)));
+    }
+
+    @Test public void anEncounterIsNotABookmarkAndDoesNotBecomeOne() throws Exception {
+        JournalHistory history = new JournalHistory();
+        history.encounter(key(2, 15));
+        assertFalse(history.bookmarked(key(2, 15)));
+        assertTrue(history.recent().isEmpty());
+        assertTrue(history.bookmarks().isEmpty());
+
+        // The player may still bookmark it themselves; the two lists stay separate.
+        history.toggle(key(2, 15));
+        assertTrue(history.bookmarked(key(2, 15)));
+        assertTrue(history.encountered(key(2, 15)));
+        JournalHistory copy = roundTrip(history);
+        assertTrue(copy.bookmarked(key(2, 15)));
+        assertTrue(copy.encountered(key(2, 15)));
+    }
+
+    @Test public void theEncounteredListIsBoundedAndNeverThrowsAtTheCeiling() {
+        JournalHistory history = new JournalHistory();
+        int added = 0;
+        for (int number = 1; number <= 58; number++) if (history.encounter(key(0, number))) added++;
+        for (int number = 1; number <= 23; number++) if (history.encounter(key(2, number))) added++;
+        for (int number : JournalBook.PROCLAMATIONS) if (history.encounter(key(1, number))) added++;
+        assertEquals("The whole book fits exactly", JournalHistory.MAX_ENCOUNTERED, added);
+        assertEquals(JournalHistory.MAX_ENCOUNTERED, history.encountered().size());
+    }
+
+    @Test public void aNotebookWrittenBeforeEncounteredListsStillLoads() throws Exception {
+        // A pre-0.24.0 record simply ends after the flag links.
+        JournalHistory history = new JournalHistory();
+        history.opened(key(0, 7)); history.toggle(key(2, 3));
+        byte[] full = encode(history);
+        byte[] legacy = Arrays.copyOf(full, full.length - 1); // drop the encountered count
+        JournalHistory loaded = decode(legacy);
+        assertEquals(Arrays.asList(key(0, 7)), loaded.recent());
+        assertEquals(Arrays.asList(key(2, 3)), loaded.bookmarks());
+        assertTrue(loaded.encountered().isEmpty());
+    }
+
+    @Test public void adamagedEncounteredSectionIsRejectedRatherThanPartlyLoaded() throws Exception {
+        JournalHistory history = new JournalHistory();
+        history.encounter(key(2, 15));
+        byte[] good = encode(history);
+        byte[] truncated = Arrays.copyOf(good, good.length - 1);
+        try { decode(truncated); fail("A cut-off encountered reference was accepted"); }
+        catch (IOException expected) { }
+
+        byte[] duplicate = Arrays.copyOf(good, good.length + 2);
+        duplicate[good.length - 2] = 2; // count becomes 2 entries
+        duplicate[good.length - 3] = 2;
+        // Rebuild explicitly: count 2, then the same key twice.
+        byte[] rebuilt = Arrays.copyOf(good, good.length + 2);
+        rebuilt[good.length - 3] = 2;
+        rebuilt[good.length - 2] = 2; rebuilt[good.length - 1] = 15;
+        rebuilt[good.length] = 2; rebuilt[good.length + 1] = 15;
+        try { decode(rebuilt); fail("A duplicate encountered reference was accepted"); }
+        catch (IOException expected) { }
+
+        byte[] trailing = Arrays.copyOf(good, good.length + 1);
+        try { decode(trailing); fail("Trailing bytes were accepted"); }
+        catch (IOException expected) { }
     }
 }
