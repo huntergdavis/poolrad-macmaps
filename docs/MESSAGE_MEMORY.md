@@ -58,5 +58,37 @@ entries into the notebook, which is worse than the feature's absence.
 reader above already supplies the text to match against, and the remaining work
 is a bounded parser plus the per-notebook deduplicated list.
 
+## In-game search, 2026-09-14
+
+Driving the guest is scriptable and works. Arrow keys live on the Mac
+keyboard's symbol page (`123`): up `(839,1376)`, left `(719,1438)`, down
+`(839,1438)`, right `(959,1438)`. Stepping the party and hashing only the
+Message window band of each screenshot makes it cheap to find the frames where
+the text actually changes, which is how the run below was done.
+
+The user suggested bars and the city hall. Following the city hall lead:
+
+| Where | What the game said |
+| --- | --- |
+| 3,4 E | `YOU ARE OUTSIDE THE CITY HALL. THE CITY CLERK WAITS INSIDE TO AWARD COMMISSIONS` |
+| 4,6 S | `YOU ARE INTERCEPTED BY THE COUNCIL GUARD. 'HALT. YOUR PRESENCE IS NOT AUTHORIZED. LEAVE.' DO YOU LEAVE?` |
+| 5,5 E | `AT YOUR ENTRY, THE COUNCIL CLERK BEGINS LOOKING THROUGH A STACK OF PAPERS…` |
+| 5,5 E | `SOKAL KEEP ON THORN ISLAND MUST BE CLEARED.'` and the rest of the commission list |
+| 5,5 E | `'THESE ARE ALL OF THE COMMISSIONS CURRENTLY AVAILABLE` |
+
+**The Council Clerk's commissions cite no journal entry.** That lead is ruled
+out. A tavern was not reached: the civilized New Phlan streets around the city
+hall loop back on themselves, and Pool of Radiance keeps its rumour-telling
+taverns in the uncivilized districts, which is a much longer trip from the
+tutorial start.
+
+Also ruled out: the displayed text is **not** stored in plain form anywhere in
+the supplied game files. Searching all 114 extracted files for a sentence the
+game had just displayed — `MONSTER-CRAWLING SLUMS`, read live out of the TERec
+above — finds nothing, raw or RLE-decoded, and only the documentation files
+contain the word `PHLAN` at all. So the encounter text is encoded in a form this
+project has not decoded, and the citation phrasing cannot be recovered offline
+from the data either.
+
 Until then, note that the manual reader shipped in REF5 already covers looking
 entries up; what is missing is only the automatic collection.
