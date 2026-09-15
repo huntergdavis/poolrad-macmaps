@@ -55,6 +55,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Withdrawn — 0.20.0 | Disk checkpoints (shipped 0.17.0): removed, same shutdown requirement |
 | Done — 0.20.0 | Quiet map header, no helper-state captions, and both shutdown-gated tools gone |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
+| User-verified — 2026-09-14 | Hunter reports all device testing done on e-ink; he considers the e-ink pass complete |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
@@ -422,16 +423,20 @@ are gates for the affected feature, not a second giant framework project.
   ten focused Android Canvas checks pass. This is a bounded spot check, not
   all-area gameplay or live lock/secret-state mutation coverage.
   [Symbols and source evidence](MAP_EDGES.md) · [local checks](LOCAL_TESTING.md).
-- [ ] **Q1 — Physical e-ink pass.** Keyboard open/closed, rotation, readable
+- [x] **Q1 — Physical e-ink pass.** Keyboard open/closed, rotation, readable
   game scaling, touch alignment, screen refresh/ghosting, and stylus behavior.
   Offer a manual redraw if useful; no mandatory continuous flashing refresh.
   **Emulator finding (0.5.3):** forcing display size with ADB recreated the
   activity and rebooted the guest, although saved notes survived. Investigate
   real rotation/window changes separately; do not claim seamless resizing.
   **User confirmation 2026-09-14:** stylus drawing, two-finger zoom/scroll and
-  overall e-ink presentation work well. N3 is accepted. This item remains open
-  for the unreported keyboard/rotation and vendor-specific checks, not to
-  repeat that successful everyday pen test.
+  overall e-ink presentation work well. N3 is accepted.
+  **Closed by the user 2026-09-14**, in his words: "I've done all testing on
+  e-ink, so e-ink pass complete." All device testing for this project has been
+  performed by Hunter on the physical e-ink tablet; this closes the item on his
+  say-so. No agent has run on that hardware, and none of the individual
+  sub-checks listed above were separately reported, so do not cite them
+  individually — cite this blanket confirmation.
 - [x] **Q2 — Input/archive check.** Investigate the `PoolRad2/ITEM2.DAX`
   extraction error on a copy. All maps parse, but that does not establish every
   encounter/item is intact. Do not replace the user's original archive.
@@ -444,9 +449,21 @@ are gates for the affected feature, not a second giant framework project.
   Original archive, installed disks/saves and private APK bundle remain unchanged.
   No full-game/tablet acceptance or automatic installed-disk repair is claimed.
   [Recovery, provenance and safe adoption](ARCHIVE_CHECK.md).
-- [ ] **Q3 — Reproducible personal updates.** Record the actual tablet model,
+- [x] **Q3 — Reproducible personal updates.** Record the actual tablet model,
   Android/emulated-machine configuration, keep the same signing key, and keep
   upgrade/ROM/disk setup instructions short. No Play Store release required.
+  **Supplied by the user 2026-09-14.** The target device is a **Viwoods AiPaper
+  Mini**: 8.2-inch E Ink, **1920 × 1440 at 292 PPI**, adjustable front light
+  (0–20), octa-core 2.0 GHz ARM, 4 GB LPDDR4X, 128 GB storage with no microSD,
+  **Android 13**, stylus with 4,096 pressure levels, Wi-Fi/Bluetooth/USB-C
+  (USB 2.0), 191 × 138 × 5.2 mm. Same debug signing key as every prior release;
+  updates install in place over the existing app.
+  **This immediately mattered:** all emulator testing runs at 1200 × 1600 and
+  density 1.25, which is both taller and far coarser than the real panel. At
+  1440 px wide and a density near 2.25 the old fixed 216dp party column could
+  not coexist with the map's 280dp floor, so the sidebar silently disappeared —
+  the "not showing the party up top" report. Fixed in 0.21.0. **Test layout
+  changes against 1440-wide high-density geometry, not just the emulator.**
 
 ### P1 — five requested reference panels
 
@@ -586,11 +603,15 @@ research for sources and portability limits.
   a Journal action inside its existing scrolling tool row, measured to cost the
   0.13.0 sketch height nothing. No entry is ever detected from the running game.
   [Linking and limits](JOURNAL.md) · [backup contents](NOTEBOOK_BACKUPS.md).
-- [ ] **R6 — Exploration aids.** Search-mode indicator, coordinates on demand,
-  with visited-only reveal and directional breadcrumbs promoted to P0 F10 above.
-- [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,
-  shops, and training; manually checked tasks linked to notes. Do not expose
-  unvisited event scripts as if the player discovered them.
+- [ ] **R6 — Exploration aids — REDUCED by the user 2026-09-14 to the
+  search-mode indicator only.** A small "S" (or similar) while the game is in
+  search mode. **Coordinates on demand are cut**; visited-only reveal and
+  directional breadcrumbs already shipped as P0 F10.
+- **R7 — Useful places: CUT by the user 2026-09-14.** Most of it had already
+  shipped anyway — F6 gave nine player-chosen flag symbols including inn,
+  temple, shop and smithy, and R5 gave checked-off tasks on journal bookmarks.
+  The only genuinely new part would have been a checkbox on a map flag itself.
+  Do not build.
 - [x] **R8 — Save checkpoints. Built in 0.17.0, then WITHDRAWN in 0.20.0 at the
   user's direction.** The feature worked and was verified, but it could only
   ever run with the guest shut down, and the user ruled that a non-starter for
@@ -617,29 +638,35 @@ research for sources and portability limits.
   automatic safety copy held `ba177721…`, and the restored disk cold-booted with
   the campaign intact. 385 Java tests and 8 companion View checks pass.
   [Guide and limits](CHECKPOINTS.md) · [evidence](LOCAL_TESTING.md).
-- [ ] **R9 — Encountered journal entries, automatically (formerly L6).** Detect
+- [ ] **R9 — Encountered journal entries, automatically (formerly L6).
+  PROMOTED TO P0 by the user 2026-09-14.** Detect
   journal entries, proclamations and tavern tales actually shown by the running
   game; add them to the active notebook's persistent, deduplicated Journal list.
   Tap to read the matching locally supplied entry through REF5, including its
   illustrations. Keep categories distinct, do not guess uncertain numbers, and
   never import future script references as if the player had encountered them.
-  User priority: P1 manual reader first, P2 automatic collection next. Local only.
+  User priority: the manual reader shipped in REF5; the user has now raised this
+  automatic collection to **P0**. Local only. The risk noted earlier stands and
+  must be respected: a wrong number silently plants a spoiler in the notebook,
+  so an uncertain detection must record nothing rather than guess.
 
 ## P3 — later / optional
 
-- [ ] **L1 — Separate wilderness map.** Only after its own structure/location
-  is validated; do not stretch the existing 16×16 area renderer to impersonate it.
-- [ ] **L2 — Tactical combat map.** A distinct read-only view, only if the game
-  pane plus party conditions are insufficient; no automatic combat or spoilers.
+- [ ] **L1 — Separate wilderness map. Confirmed wanted by the user
+  2026-09-14.** Only after its own structure/location is validated; do not stretch the existing 16×16 area renderer to impersonate it.
+- [ ] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14**,
+  so the "only if the pane plus conditions are insufficient" condition is
+  settled: build it. A distinct read-only view; no automatic combat or spoilers.
 - **L3 — Automatic rune/prompt recognition: promoted to P0 F4.** The user now
   requests hands-off solving from verified memory. Unknown reads still must
   never submit guesses. Track completion above, not twice.
 - **L6 — Automatic journal-entry recognition: promoted to P2 R9.** Journal,
   proclamation and tavern-tale references belong in one encountered-entry list.
-- [ ] **L4 — More visual personalization.** Portrait picker, user artwork, and
-  optional guest-icon reuse; monochrome defaults, no third-party sprite rip pack.
-- [ ] **L5 — Fine layout preferences.** Upper-pane sizing and map zoom, with
-  saved settings and a one-tap return to a readable default.
+- **L4 — More visual personalization: CUT by the user 2026-09-14.** Portrait
+  picker, user artwork and guest-icon reuse are not wanted. Do not build.
+- **L5 — Fine layout preferences: CUT by the user 2026-09-14.** Adjustable
+  upper-pane sizing and map zoom are not wanted; the panes are tuned by hand
+  instead. Do not build.
 
 ## Not in this project
 

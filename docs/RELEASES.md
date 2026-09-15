@@ -1,5 +1,11 @@
 # Releases
 
+## 0.21.0 — The party comes back on a real tablet
+
+[Release notes](releases/0.21.0.md): the party sidebar no longer vanishes on a
+1440-wide high-density panel; the column narrows instead of the strip being
+dropped.
+
 ## 0.20.0 — Quieter, and smaller
 
 [Release notes](releases/0.20.0.md): a map header that no longer flashes between

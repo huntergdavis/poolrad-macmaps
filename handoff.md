@@ -202,9 +202,10 @@ Everything below remains ignored; do not publish it.
   SHA-256 `a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
   Copy this separately to the tablet and import under Info → Journal. The older
   `scratch/poolrad-journal.prjr` was a test draft; use the versioned file instead.
-- Public universal APK: `scratch/poolrad-macmaps-0.19.0.apk`;
-  SHA-256 `c307965d034f7e1ced0b4223241edb77ef9a045b70a365e9d0edfb5583f1f262`.
-  Earlier builds remain for comparison: 0.18.0
+- Public universal APK: `scratch/poolrad-macmaps-0.20.0.apk`;
+  SHA-256 `23d27ae23bb5dc49832a50587312c9b47212914a6c6b234d35afea34baae77fd`.
+  Earlier builds remain for comparison: 0.19.0
+  `c307965d034f7e1ced0b4223241edb77ef9a045b70a365e9d0edfb5583f1f262`, 0.18.0
   `fe396d9ae192fd67155bbfdb0e84cba755941ea7f5a45ee3dd8bda07ade19f94`, 0.17.0
   `b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`, 0.16.0
   `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`, 0.15.0

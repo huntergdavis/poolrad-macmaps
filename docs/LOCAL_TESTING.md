@@ -1,6 +1,63 @@
 # Local Android prototype
 
+## 0.21.0 — the party sidebar on Hunter's actual tablet (2026-09-14)
+
+**The target device is a Viwoods AiPaper Mini: 8.2-inch E Ink, 1920 × 1440 at
+292 PPI, Android 13, 4 GB RAM, stylus with 4,096 pressure levels.** Every
+emulator check in this document runs at 1200 × 1600 and density 1.25, which is
+both taller and much coarser. That gap hid a real defect.
+
+At 1440 px wide and a density near 2.25, the sidebar's fixed 216dp column plus
+the map's 280dp floor need more width than the panel has, so `PartyPaneLayout`
+fell through to its collapse branch and **the whole party sidebar disappeared
+from four members upward** — the user's "not showing the party up top" report.
+Two columns did not help, because the failure is width, not height.
+
+Fixed by letting the column shrink from 216dp toward 150dp before giving up, and
+capping the sidebar at 55% of the pane. Computed across densities 2.0 and 2.25
+and pane heights 530–720, all eight party sizes now keep a sidebar, every row
+stays at or above 48dp, every column at or above 150dp, and the map keeps its
+280dp floor. The full-width column is still used whenever it fits, so the
+emulator geometry is unchanged.
+
+`PartyPaneLayoutTest` gains that sweep plus a check that the wide column is
+retained when there is room. `exactReadableThresholdIsSupported` was rewritten:
+one pixel under the old hard cutoff no longer hides the sidebar, it shrinks the
+column by a pixel; a column that would fall under 150dp is still refused.
+
+**Verify layout work against 1440-wide, high-density geometry, not just the
+emulator.** The emulator cannot reproduce this class of bug.
+
+## Repairing the combined boot disk
+
+`tools/fix-startup-disk.py` moves a game out of `System Folder:Startup Items`
+into a root folder and leaves one alias behind, optionally rewriting the desktop
+pattern at the same time. Run against the user's `minivmacandpools.dsk`:
+
+- All 108 files moved with identical type, creator and fork hashes; the System
+  data fork and the Finder are untouched; only 55 bytes of the System resource
+  fork changed, being the `PAT ` 16 and `ppat` 16 desktop pattern payloads.
+- Startup Items ends holding exactly one `adrp/prad` alias whose encoded target
+  CNIDs are verified against the written catalog.
+- Output `scratch/minivmacandpools-fixed.dsk`, SHA-256
+  `dea3f55d7d7476878d45fbb1cdb0f0f074105a0de7a26056389b384121f00577`.
+
+**Booted on emulator-5584 and it no longer opens the whole folder** — that part
+of the repair works. It then stopped with the Mac's own *"Not enough memory is
+available while using General Controls"*. That is a property of this disk's
+System Folder, which carries 34 extensions and MacTCP; the System and Finder
+files are byte-identical to the user's original, so the repair did not cause it.
+**This disk is not yet usable end to end**; it needs a lighter System Folder.
+
+The campaign disk was copied out first (SHA-256 `6887199e…`), the fixed image
+swapped in, and the original restored afterwards with its hash re-verified
+byte-for-byte. That backup was taken by hand, because 0.20.0 removed the
+checkpoint feature that used to do it.
+
 ## 0.20.0 — quiet header, no helper captions, two tools removed (2026-09-14)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.20.0.apk`, SHA-256
+`23d27ae23bb5dc49832a50587312c9b47212914a6c6b234d35afea34baae77fd`, versionCode 86.
 
 User-reported, then fixed:
 

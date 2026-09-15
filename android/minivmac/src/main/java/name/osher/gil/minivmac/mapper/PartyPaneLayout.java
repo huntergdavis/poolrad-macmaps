@@ -16,32 +16,44 @@ public final class PartyPaneLayout {
         if (Float.isNaN(fontScale) || Float.isInfinite(fontScale) || fontScale <= 0)
             throw new IllegalArgumentException("Invalid companion font scale");
         float scale = Math.max(1, fontScale);
-        int column = (int) Math.ceil(216 * density * scale);
+        int preferred = (int) Math.ceil(216 * density * scale);
+        int narrowest = (int) Math.ceil(150 * density * scale);
         float header = 24 * density * scale, minimumRow = 48 * density * scale;
+        float mapFloor = 280 * density;
         members = count;
 
         /*
-         * A party can reach eight with NPCs, which no longer fits one column on
-         * a tablet-height pane. Rather than drop the whole sidebar and leave the
-         * player with no party information at exactly the point they have the
-         * most to track, fall back to two columns and take the extra width from
-         * the map, which keeps every row as wide and as tall as a short party's.
+         * Two things the old fixed layout got wrong, both of which ended with
+         * the player seeing no party at all.
+         *
+         * A party reaches eight with NPCs, which will not fit one column on a
+         * tablet-height pane, so fall back to two columns rather than dropping
+         * the sidebar at exactly the point there is most to track.
+         *
+         * And the column was a fixed 216dp, which quietly hid the whole sidebar
+         * on a high-density screen that is not very wide: Hunter's 1440px panel
+         * at density 2.25 cannot seat 280dp of map plus 216dp of party, so even
+         * six members showed nothing. Shrink the column toward 150dp before
+         * giving up, and never let the sidebar take more than 55% of the pane.
          */
-        int wanted = 0, perColumn = 0;
+        int wanted = 0, perColumn = 0, chosen = 0;
         for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
             int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
             if (count == 0 || rowsPerColumn == 0) break;
-            if (width < 280 * density + column * tryColumns) continue;
             if (height < header + rowsPerColumn * minimumRow) continue;
-            wanted = tryColumns; perColumn = rowsPerColumn;
+            int room = (int) Math.min(width - mapFloor, width * 0.55f);
+            if (room <= 0) continue;
+            int columnWidth = Math.min(preferred, room / tryColumns);
+            if (columnWidth < narrowest) continue;
+            wanted = tryColumns; perColumn = rowsPerColumn; chosen = columnWidth;
         }
 
         if (wanted == 0) {
             mapWidth=width;mapHeight=height;partyLeft=partyTop=partyWidth=partyHeight=columns=rows=0;
             headerHeight=rowHeight=columnWidth=0;
         } else {
-            columns=wanted;rows=perColumn;columnWidth=column;
-            partyWidth=column*wanted;partyHeight=height;
+            columns=wanted;rows=perColumn;columnWidth=chosen;
+            partyWidth=chosen*wanted;partyHeight=height;
             mapWidth=width-partyWidth;mapHeight=height;partyLeft=mapWidth;partyTop=0;
             headerHeight=header;
             rowHeight=Math.min(64*density*scale, (height-header)/perColumn);

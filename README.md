@@ -55,10 +55,10 @@ e-ink tablet; rotation, keyboard layout and vendor-specific pen checks remain op
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.20.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.20.0)
+[0.21.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.21.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.20.0/poolrad-macmaps-0.20.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.21.0/poolrad-macmaps-0.21.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
