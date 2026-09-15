@@ -706,6 +706,13 @@ research for sources and portability limits.
   temple guards (`THE BISHOP IS NOT RECEIVING VISITORS AT THIS TIME`). Both are
   story-gated, so in the opening state the civilized district cites tavern
   tales and nothing else.
+  **The Slums was swept 2026-09-15 and cites nothing either.** It is the one
+  district a fresh party can reach — one step west of where the tour ends — and
+  crossing it end to end produced no citation, only wandering monsters. Three
+  scripting corrections for that district (doorway-permissive routing, the
+  Combat/Wait/Flee/Advance prompt and how to detect it, and that the published
+  Slums map's coordinates do **not** match the game's, unlike New Phlan's) are
+  in the doc. The cheap in-game leads are now exhausted.
   **Unblocked by one screenshot, or the exact wording, of the game citing a
   journal entry and one citing a proclamation** — from a campaign that has
   actually progressed. Hunter's own `m1gate` save would do and is deliberately

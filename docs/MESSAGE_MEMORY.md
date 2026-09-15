@@ -76,6 +76,40 @@ and is deliberately never opened here — or playing this sample party far enoug
 to be admitted to Cadorna or the Bishop, which is hours of emulated play rather
 than a scripted walk.
 
+## The Slums, swept 2026-09-15
+
+The Slums is the one district a freshly loaded `SampleParty` can reach: it is a
+single step west from 0,4, where Rolf's tour ends. It was crossed end to end
+looking for a citation and **produced none**. Its arrival text —
+`YOU HAVE ENTERED THE MONSTER-CRAWLING SLUMS OF PHLAN...` — cites nothing, and
+nothing else on the crossing did either.
+
+Four corrections for anyone scripting that district:
+
+- **Route planning must allow doorways there.** In New Phlan the streets are
+  open edges and doorways are building entrances that stop the party. In the
+  Slums the streets themselves run through doorway gaps, so an open-edges-only
+  route finds almost nothing: from the gate at 15,4 it can reach exactly one
+  other square.
+- **Wandering monsters interrupt constantly.** The prompt replaces the action
+  row with Combat / Wait / Flee / Advance, and a driver that only clicks
+  Continue stalls there looking exactly like one whose keys are not arriving.
+  It is detectable without OCR: the prompt's **Combat** button sits where the
+  ordinary row has only the gap before **Area**, so counting dark pixels in
+  x 205..265 of the button row separates them cleanly. The research driver now
+  flees automatically on that signal and crossed the district on the first try.
+- **Fleeing scatters the party** to a distant square, so the route has to be
+  recomputed after every flight rather than resumed.
+- **The published 18×18 Slums map does not share the game's coordinates.**
+  New Phlan's matched the game exactly and 0-based, which is what made those
+  routes reliable; the Slums map's do not, so its landmark coordinates cannot
+  be used for targeting. Its fortune teller at `[3,5]` is not at the game's
+  3,5 — walking there, and then using the game's own Look and Search, produced
+  nothing at all.
+
+Incidentally re-confirmed on that square: with search mode on the companion
+header reads `3, 5 S S` — position, facing, and R6's search marker.
+
 Route planning note for whoever resumes: the published civilized-district map
 matches the game's own coordinates **exactly, 0-based**. Verified against the
 guest at five points: starting point 0,4; City Hall entrance 4,4; City Clerk
