@@ -1,33 +1,39 @@
 #!/usr/bin/env python3
-"""Repair a combined boot+game HFS disk whose game sits inside Startup Items.
+"""Move a game out of System Folder:Startup Items and leave one alias behind.
 
-System 7 opens *every* item in System Folder:Startup Items at startup. A disk
-built by dropping the whole game folder in there therefore opens the journals,
-the rule books and the data folders at boot instead of just launching the game,
-and the Mac's own text editor then refuses the oversized TEXT files.
+System 7 opens every item in Startup Items at login, so a combined boot+game
+disk that keeps the whole game folder there opens all of it. This moves the
+game to a root folder and leaves a single alias, so startup launches the game
+and nothing else. It can also set the desktop pattern at the same time.
 
-This moves those items into a folder at the volume root and leaves a single
-alias behind, which is the layout tools/prepare-personal-boot.py produces. It
-optionally rewrites the desktop pattern at the same time, because doing it here
-costs a rebuild rather than a guest shutdown.
-
-Reads the source read-only and always writes a new file; never modifies input.
+**Everything is done in place.** An earlier version of this tool rebuilt the
+whole HFS volume with machfs and the result failed at startup with the Mac's
+own "Not enough memory is available while using General Controls" -- the same
+failure docs/PERSONAL_BOOT.md had already recorded for machfs-reconstructed
+images, on a disk whose System file was byte-identical either way. Moving the
+catalog entries with hfsutils instead changes roughly two kilobytes of a
+twenty-five megabyte image and boots cleanly. Do not reintroduce a full-volume
+writer here; see docs/LOCAL_TESTING.md for the three-way boot comparison.
 """
-import argparse, binascii, datetime, hashlib, os, struct, subprocess, sys, tempfile
+import argparse, binascii, datetime, hashlib, os, shutil, struct, subprocess, sys
 
 import machfs
 from macresources import Resource, make_file
 from mac_alias import Alias, VolumeInfo, TargetInfo
 
-STARTUP_PARENT = ("System Folder", "Startup Items")
-SYSTEM = ("System Folder", "System")
+STARTUP_PARENT = ":System Folder:Startup Items:"
 ALIAS_NAME = "Pool of Radiance"
 APP_TYPE, APP_CREATOR = b"APPL", b"prad"
-# Recovered from the withdrawn DesktopDisk: eight rows of an 8x8 bit pattern.
+# Eight rows of an 8x8 bit pattern, one bit per pixel, 1 is black.
+# "bricks" is the standard offset course: a mortar row every four rows with the
+# vertical joints staggered by half a brick. "stone" is the name an earlier
+# version gave those identical bits and is kept so old commands still work.
+BRICKS = bytes([0xff, 0x80, 0x80, 0x80, 0xff, 0x08, 0x08, 0x08])
 PATTERNS = {
     "white": bytes(8),
     "mist": bytes([0x88, 0, 0x22, 0, 0x88, 0, 0x22, 0]),
-    "stone": bytes([0xff, 0x80, 0x80, 0x80, 0xff, 0x08, 0x08, 0x08]),
+    "bricks": BRICKS,
+    "stone": BRICKS,
 }
 
 
@@ -35,7 +41,13 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def load_volume(raw):
+def hfs(*args):
+    return subprocess.check_output([a if isinstance(a, str) else a for a in args],
+                                   stderr=subprocess.STDOUT).decode("mac_roman")
+
+
+def read_volume(path):
+    raw = open(path, "rb").read()
     if len(raw) < 4096 or len(raw) % 512 or raw[1024:1026] != b"BD":
         raise ValueError("Expected a complete raw HFS image")
     volume = machfs.Volume()
@@ -44,31 +56,93 @@ def load_volume(raw):
     if not 1 <= length <= 27:
         raise ValueError("Invalid HFS volume name")
     volume.name = raw[1024 + 37:1024 + 37 + length].decode("mac_roman")
-    return volume
+    return raw, volume
 
 
-def find_application(folder):
-    found = [name for name, obj in folder.items()
-             if isinstance(obj, machfs.File) and obj.type == APP_TYPE and obj.creator == APP_CREATOR]
-    if len(found) != 1:
+def startup_entries(volume):
+    folder = volume[("System Folder", "Startup Items")]
+    names = list(folder.keys())
+    apps = [n for n, o in folder.items()
+            if isinstance(o, machfs.File) and o.type == APP_TYPE and o.creator == APP_CREATOR]
+    if len(apps) != 1:
         raise ValueError("Expected exactly one %s/%s application in Startup Items, found %d"
-                         % (APP_TYPE.decode(), APP_CREATOR.decode(), len(found)))
-    return found[0]
+                         % (APP_TYPE.decode(), APP_CREATOR.decode(), len(apps)))
+    return names, apps[0]
 
 
-def colour_pattern(current, bits):
-    """Reproduces the withdrawn DesktopDisk.colorPattern byte-for-byte."""
-    if len(current) != 182:
-        raise ValueError("Unsupported System desktop pixel-pattern size")
-    result = bytearray(current)
-    result[20:28] = bits
-    for y in range(8):
-        for x in range(0, 8, 2):
-            row = bits[y]
-            result[78 + y * 4 + x // 2] = ((row >> (7 - x)) & 1) * 16 + ((row >> (6 - x)) & 1)
-    result[120:126] = b"\xff" * 6   # Palette 0: white.
-    result[128:134] = b"\0" * 6     # Palette 1: black.
-    return bytes(result)
+def move_in_place(image, names, folder_name):
+    """hfsutils edits the catalog; the rest of the volume is left untouched."""
+    hfs("hmount", image)
+    try:
+        hfs("hmkdir", ":" + folder_name)
+        for name in names:
+            hfs("hrename", STARTUP_PARENT + name, ":" + folder_name + ":")
+        remaining = [line for line in hfs("hls", "-1", STARTUP_PARENT).splitlines() if line.strip()]
+        if remaining:
+            raise ValueError("Startup Items still holds: %s" % ", ".join(remaining))
+    finally:
+        hfs("humount")
+
+
+def catalog_ids(image, folder_name, app_name):
+    hfs("hmount", image)
+    try:
+        folder_cnid = int(hfs("hls", "-id", ":" + folder_name).split()[0])
+        app_cnid = int(hfs("hls", "-id", ":" + folder_name + ":" + app_name).split()[0])
+    finally:
+        hfs("humount")
+    return folder_cnid, app_cnid
+
+
+def alias_resource(volume, folder_name, app_name, folder_cnid, app_cnid):
+    epoch = datetime.datetime(1904, 1, 1, tzinfo=datetime.timezone.utc)
+    application = volume[(folder_name, app_name)]
+    alias = Alias(version=2,
+        volume=VolumeInfo(volume.name, epoch + datetime.timedelta(seconds=volume.crdate),
+                          b"BD", 5, 0, b"\0\0"),
+        target=TargetInfo(0, app_name, folder_cnid, app_cnid,
+                          epoch + datetime.timedelta(seconds=application.crdate),
+                          application.creator, application.type, folder_name=folder_name,
+                          cnid_path=[folder_cnid],
+                          carbon_path=(volume.name + ":" + folder_name + ":" + app_name).encode("mac_roman")))
+    encoded = alias.to_bytes()
+    decoded = Alias.from_bytes(encoded)
+    if decoded.target.cnid != app_cnid or decoded.target.folder_cnid != folder_cnid:
+        raise ValueError("Startup alias catalog identity failed verification")
+    return bytes(make_file([Resource(b"alis", 0, data=encoded)])), application
+
+
+def macbinary(name, type_, creator, flags, data, rsrc, crdate, mddate):
+    """MacBinary II, so hcopy carries both forks and the Finder alias bit."""
+    encoded = name.encode("mac_roman")
+    if not 1 <= len(encoded) <= 63:
+        raise ValueError("Unsupported alias name length")
+    header = bytearray(128)
+    header[1] = len(encoded)
+    header[2:2 + len(encoded)] = encoded
+    header[65:69] = type_
+    header[69:73] = creator
+    header[73] = (flags >> 8) & 0xff
+    header[101] = flags & 0xff
+    struct.pack_into(">II", header, 83, len(data), len(rsrc))
+    struct.pack_into(">II", header, 91, crdate, mddate)
+    header[122] = header[123] = 129
+    struct.pack_into(">H", header, 124, binascii.crc_hqx(bytes(header[:124]), 0))
+    pad = lambda blob: blob + bytes(-len(blob) % 128)
+    return bytes(header) + pad(data) + pad(rsrc)
+
+
+def write_alias(image, blob):
+    path = os.path.join(os.path.dirname(os.path.abspath(image)), "_alias.bin")
+    open(path, "wb").write(blob)
+    try:
+        hfs("hmount", image)
+        try:
+            hfs("hcopy", "-m", path, STARTUP_PARENT)
+        finally:
+            hfs("humount")
+    finally:
+        os.unlink(path)
 
 
 def resource_offsets(fork):
@@ -93,67 +167,53 @@ def resource_offsets(fork):
     return found
 
 
-def apply_pattern(volume, style):
-    system = volume[SYSTEM]
-    fork = bytearray(system.rsrc)
+def colour_pattern(current, bits):
+    """The 'ppat' pixel image and its two-entry palette, left the same size."""
+    if len(current) != 182:
+        raise ValueError("Unsupported System desktop pixel-pattern size")
+    result = bytearray(current)
+    result[20:28] = bits
+    for y in range(8):
+        for x in range(0, 8, 2):
+            row = bits[y]
+            result[78 + y * 4 + x // 2] = ((row >> (7 - x)) & 1) * 16 + ((row >> (6 - x)) & 1)
+    result[120:126] = b"\xff" * 6   # Palette 0: white.
+    result[128:134] = b"\0" * 6     # Palette 1: black.
+    return bytes(result)
+
+
+def locate(raw, fork, start, size, label):
+    """Find a resource payload's absolute offset by its surrounding bytes."""
+    margin = 48
+    lo, hi = max(0, start - margin), min(len(fork), start + size + margin)
+    window = bytes(fork[lo:hi])
+    first = raw.find(window)
+    if first < 0 or raw.find(window, first + 1) >= 0:
+        raise ValueError("Could not uniquely locate %s inside the image" % label)
+    return first + (start - lo)
+
+
+def patch_pattern(image, style):
+    """Rewrite only the desktop-pattern bytes where they already sit."""
+    raw, volume = read_volume(image)
+    fork = volume[("System Folder", "System")].rsrc
     offsets = resource_offsets(fork)
     bits = PATTERNS[style]
     for key, expected in ((b"PAT ", 8), (b"ppat", 182)):
         if (key, 16) not in offsets:
             raise ValueError("System is missing %s resource 16" % key.decode())
-        start, size = offsets[(key, 16)]
-        if size != expected:
-            raise ValueError("Unsupported %s resource size %d" % (key.decode(), size))
+        if offsets[(key, 16)][1] != expected:
+            raise ValueError("Unsupported %s resource size" % key.decode())
     pat_at, _ = offsets[(b"PAT ", 16)]
     ppat_at, _ = offsets[(b"ppat", 16)]
-    before = bytes(fork)
-    fork[pat_at:pat_at + 8] = bits
-    fork[ppat_at:ppat_at + 182] = colour_pattern(bytes(before[ppat_at:ppat_at + 182]), bits)
-    changed = sum(1 for a, b in zip(before, fork) if a != b)
-    if len(fork) != len(system.rsrc):
-        raise ValueError("Desktop patch changed the resource fork length")
-    system.rsrc = bytes(fork)
+    pat_abs = locate(raw, fork, pat_at, 8, "PAT  16")
+    ppat_abs = locate(raw, fork, ppat_at, 182, "ppat 16")
+    patched = bytearray(raw)
+    patched[pat_abs:pat_abs + 8] = bits
+    patched[ppat_abs:ppat_abs + 182] = colour_pattern(bytes(fork[ppat_at:ppat_at + 182]), bits)
+    changed = sum(1 for a, b in zip(raw, patched) if a != b)
+    open(image, "wb").write(bytes(patched))
     return changed
-
-
-def build_alias(volume, raw_after_move, app_path, folder_name):
-    """CNIDs only exist once written, so query the staged image with hfsutils."""
-    with tempfile.NamedTemporaryFile(suffix=".dsk", delete=False) as staged:
-        staged.write(raw_after_move)
-        staged_name = staged.name
-    try:
-        def hfs(*args):
-            return subprocess.check_output(args, stderr=subprocess.STDOUT)
-        hfs(b"hmount", staged_name.encode())
-        try:
-            folder_cnid = int(hfs(b"hls", b"-id", (":" + folder_name).encode("mac_roman")).split()[0])
-            app_cnid = int(hfs(b"hls", b"-id",
-                               (":" + folder_name + ":" + app_path).encode("mac_roman")).split()[0])
-        finally:
-            hfs(b"humount")
-    finally:
-        os.unlink(staged_name)
-
-    epoch = datetime.datetime(1904, 1, 1, tzinfo=datetime.timezone.utc)
-    application = volume[(folder_name, app_path)]
-    alias = Alias(version=2,
-        volume=VolumeInfo(volume.name, epoch + datetime.timedelta(seconds=volume.crdate),
-                          b"BD", 5, 0, b"\0\0"),
-        target=TargetInfo(0, app_path, folder_cnid, app_cnid,
-                          epoch + datetime.timedelta(seconds=application.crdate),
-                          application.creator, application.type, folder_name=folder_name,
-                          cnid_path=[folder_cnid],
-                          carbon_path=(volume.name + ":" + folder_name + ":" + app_path).encode("mac_roman")))
-    encoded = alias.to_bytes()
-    decoded = Alias.from_bytes(encoded)
-    if decoded.target.cnid != app_cnid or decoded.target.folder_cnid != folder_cnid:
-        raise ValueError("Startup alias catalog identity failed verification")
-    node = machfs.File()
-    node.type, node.creator = b"adrp", application.creator
-    node.flags = 0x8000  # Finder alias bit.
-    node.rsrc = bytes(make_file([Resource(b"alis", 0, data=encoded)]))
-    node.crdate = node.mddate = application.crdate
-    return node
 
 
 def main():
@@ -162,53 +222,53 @@ def main():
     parser.add_argument("source")
     parser.add_argument("destination")
     parser.add_argument("--folder", default="Pool Of Radiance",
-                        help="root folder the game moves into")
+                        help="root folder to hold the moved game")
     parser.add_argument("--desktop", choices=sorted(PATTERNS), default=None,
-                        help="also rewrite the desktop pattern")
+                        help="also set the desktop pattern")
     args = parser.parse_args()
 
-    if os.path.exists(args.destination):
-        raise SystemExit("Refusing to overwrite an existing destination: " + args.destination)
-    with open(args.source, "rb") as handle:
-        raw = handle.read()
+    raw, volume = read_volume(args.source)
     print("source %s  %d bytes  sha256 %s" % (args.source, len(raw), digest(raw)))
-
-    volume = load_volume(raw)
-    startup = volume[STARTUP_PARENT]
-    if not isinstance(startup, machfs.Folder):
-        raise SystemExit("System Folder:Startup Items is not a folder")
-    names = sorted(startup.keys())
-    if not names:
-        raise SystemExit("Startup Items is already empty; nothing to repair")
-    app = find_application(startup)
+    names, app_name = startup_entries(volume)
     print("moving %d Startup Items entries into :%s  (application %r)"
-          % (len(names), args.folder, app))
-    if args.folder in volume:
-        raise SystemExit("Volume already has a root :%s" % args.folder)
+          % (len(names), args.folder, app_name))
 
-    moved = machfs.Folder()
-    for name in names:
-        moved[name] = startup.pop(name)
-    volume[args.folder] = moved
-    if len(startup):
-        raise SystemExit("Startup Items did not empty")
-
-    staged = volume.write(len(raw), align=512, desktopdb=False, bootable=True)
-    alias = build_alias(volume, staged, app, args.folder)
-    volume[STARTUP_PARENT + (ALIAS_NAME,)] = alias
-
+    shutil.copyfile(args.source, args.destination)
+    move_in_place(args.destination, names, args.folder)
+    folder_cnid, app_cnid = catalog_ids(args.destination, args.folder, app_name)
+    _, moved = read_volume(args.destination)
+    blob, application = alias_resource(moved, args.folder, app_name, folder_cnid, app_cnid)
+    write_alias(args.destination, macbinary(ALIAS_NAME, b"adrp", application.creator,
+                                            0x8000, b"", blob,
+                                            application.crdate, application.crdate))
     if args.desktop:
-        changed = apply_pattern(volume, args.desktop)
-        print("desktop pattern -> %s (%d System resource bytes changed)" % (args.desktop, changed))
+        changed = patch_pattern(args.destination, args.desktop)
+        print("desktop pattern -> %s (%d image bytes changed)" % (args.desktop, changed))
 
-    out = volume.write(len(raw), align=512, desktopdb=False, bootable=True)
-    if len(out) != len(raw):
-        raise SystemExit("Rebuilt image changed size")
-    with open(args.destination, "wb") as handle:
-        handle.write(out)
-    print("wrote %s  %d bytes  sha256 %s" % (args.destination, len(out), digest(out)))
+    after_raw, after = read_volume(args.destination)
+    before_system = volume[("System Folder", "System")]
+    after_system = after[("System Folder", "System")]
+    if before_system.data != after_system.data:
+        raise ValueError("The System data fork changed; it must not")
+    if not args.desktop and before_system.rsrc != after_system.rsrc:
+        raise ValueError("The System resource fork changed without a pattern request")
+    remaining = after[("System Folder", "Startup Items")]
+    if list(remaining.keys()) != [ALIAS_NAME]:
+        raise ValueError("Startup Items holds %r" % list(remaining.keys()))
+    alias_node = remaining[ALIAS_NAME]
+    if alias_node.type != b"adrp" or not alias_node.flags & 0x8000:
+        raise ValueError("The startup alias is not marked as an alias")
+    for name in names:
+        original, carried = volume[("System Folder", "Startup Items", name)], after[(args.folder, name)]
+        if isinstance(original, machfs.File):
+            if (original.data, original.rsrc, original.type, original.creator) != \
+               (carried.data, carried.rsrc, carried.type, carried.creator):
+                raise ValueError("Moved file %r changed" % name)
+    differing = sum(1 for a, b in zip(raw, after_raw) if a != b)
+    print("wrote %s  %d bytes  sha256 %s" % (args.destination, len(after_raw), digest(after_raw)))
+    print("%d of %d image bytes differ from the source" % (differing, len(raw)))
     print("Startup Items now holds exactly one alias: %r" % ALIAS_NAME)
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

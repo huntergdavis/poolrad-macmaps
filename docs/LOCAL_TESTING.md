@@ -352,30 +352,80 @@ emulator.** The emulator cannot reproduce this class of bug.
 ## Repairing the combined boot disk
 
 `tools/fix-startup-disk.py` moves a game out of `System Folder:Startup Items`
-into a root folder and leaves one alias behind, optionally rewriting the desktop
-pattern at the same time. Run against the user's `minivmacandpools.dsk`:
+into a root folder and leaves one alias behind, optionally setting the desktop
+pattern. **Everything is done in place**, for a reason found the hard way.
 
-- All 108 files moved with identical type, creator and fork hashes; the System
-  data fork and the Finder are untouched; only 55 bytes of the System resource
-  fork changed, being the `PAT ` 16 and `ppat` 16 desktop pattern payloads.
-- Startup Items ends holding exactly one `adrp/prad` alias whose encoded target
-  CNIDs are verified against the written catalog.
-- Output `scratch/minivmacandpools-fixed.dsk`, SHA-256
-  `dea3f55d7d7476878d45fbb1cdb0f0f074105a0de7a26056389b384121f00577`.
+### The first attempt was broken, and the diagnosis was wrong twice
 
-**Booted on emulator-5584 and it no longer opens the whole folder** — that part
-of the repair works. It then stopped with the Mac's own *"Not enough memory is
-available while using General Controls"*. That is a property of this disk's
-System Folder, which carries 34 extensions and MacTCP; the System and Finder
-files are byte-identical to the user's original, so the repair did not cause it.
-**This disk is not yet usable end to end**; it needs a lighter System Folder.
+The first version rebuilt the whole HFS volume with `machfs.Volume.write`. Its
+output stopped at startup with the Mac's own *"Not enough memory is available
+while using General Controls"*. That was first written up here as a property of
+this disk's heavy System Folder — 34 extensions and MacTCP — on the grounds
+that "the System and Finder files are byte-identical to the user's original".
+**Both halves of that were wrong.** The comparison had only checked the System
+*data* fork while the *resource* fork had in fact changed, and the conclusion
+was never tested against the obvious control.
 
-The campaign disk was copied out first (SHA-256 `6887199e…`), the fixed image
-swapped in, and the original restored afterwards with its hash re-verified
-byte-for-byte. That backup was taken by hand, because 0.20.0 removed the
-checkpoint feature that used to do it.
+Running the control settles it. Booted on emulator-5584, same app, same ROM:
 
-## 0.20.0 — quiet header, no helper captions, two tools removed (2026-09-14)
+| Image | Result |
+| --- | --- |
+| The user's untouched `minivmacandpools.dsk` | **Boots clean** to the game (and opens all 15 Startup Items — the original bug) |
+| machfs-reconstructed repair, desktop pattern changed | "Not enough memory… General Controls" |
+| machfs-reconstructed repair, **no** pattern change, System byte-identical in both forks | **The same error** |
+| The same move done in place with hfsutils | **Boots clean**, nothing auto-opens |
+
+So it is neither the System Folder nor the desktop pattern: it is the
+full-volume rewrite. [PERSONAL_BOOT.md](PERSONAL_BOOT.md) had already recorded
+that *"earlier experimental machfs-reconstructed images failed in General
+Controls and must not be deployed. That writer path has been removed."* This
+tool had reintroduced exactly that path.
+
+### The in-place tool
+
+`hfsutils` edits the catalog and leaves the rest of the volume alone: `hmkdir`
+and `hrename` move the entries, and the startup alias goes back in as MacBinary
+II through `hcopy -m`, which carries both forks and the Finder alias bit. The
+desktop pattern, when asked for, is patched **where those bytes already sit** —
+the `PAT ` 16 and `ppat` 16 payloads are located by their surrounding bytes and
+overwritten, so no fork is moved or resized.
+
+The tool verifies its own output before it exits: the System data fork must be
+unchanged, the resource fork too unless a pattern was requested, Startup Items
+must hold exactly one `adrp` alias with the Finder alias bit set, and every
+moved file must match its original data, resource, type and creator.
+
+### The delivered disk
+
+Built from the user's own image with `--desktop bricks`:
+
+```sh
+tools/fix-startup-disk.py scratch/minivmacandpools.dsk     scratch/minivmacandpools-bricks.dsk --desktop bricks
+```
+
+- **2,811 of 25,165,824 bytes differ** from the source: the catalog entries, the
+  new alias, and 55 bytes of desktop pattern. The machfs rebuild had rewritten
+  the whole image.
+- Booted on emulator-5584: **no memory error**, the desktop shows the offset
+  brick course, and the startup alias launches **the game and only the game** —
+  none of the journals, rule books or folders that used to open
+  (`scratch/c15-bricks.png` layout captured during the run).
+- The game was then quit through its own dialog and the guest shut down with
+  **Special → Shut Down**, and the image pulled back off the device:
+  `scratch/minivmacandpools-bricks-clean.dsk`, SHA-256
+  `2bba9628e919b2a7…`. Its HFS `drAtrb` bit 8 is set, so the volume is marked
+  cleanly unmounted and the next boot shows no improper-shutdown notice.
+
+The `bricks` pattern is the standard offset course, a mortar row every four rows
+with the vertical joints staggered by half a brick. The earlier `stone` name
+described those identical bits and still works.
+
+Not claimed: this was exercised on emulator-5584 only, with one boot of each
+image; no physical tablet or e-ink testing was performed. The user's campaign
+disk was copied off first (SHA-256 `de417f05…`), every swap was made against
+that copy, and it was restored and re-verified byte-for-byte afterwards.
+
+## 0.20.0 — quiet header## 0.20.0 — quiet header, no helper captions, two tools removed (2026-09-14)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.20.0.apk`, SHA-256
 `23d27ae23bb5dc49832a50587312c9b47212914a6c6b234d35afea34baae77fd`, versionCode 86.
