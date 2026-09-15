@@ -30,9 +30,14 @@ public final class PartyDetailsDialog {
             if (member.restWouldMemorize()) line(activity, column,
                     "Resting in the original game would finish memorizing these.", 14);
         }
+        line(activity, column, member.readiedWeaponLabel(), 18);
+        line(activity, column, member.readiedArmorLabel(), 18);
+        line(activity, column, member.loadLabel(), 18);
+        if (member.slowedToMinimum()) line(activity, column,
+                "Already as slow as the printed rules go; armor and carried weight are limiting this character.", 14);
         line(activity, column, "Armor class: " + (member.armorClass == null ? "Unavailable" : member.armorClass), 18);
         line(activity, column, "Lower armor class is better. These are the original game's values, not editable stats.", 14);
-        line(activity, column, "Snapshot when opened. Close and tap the row again to refresh. Conditions and memorized spells come from the game, not a guess from zero HP. Only poison and helplessness effects are tracked. Spells are counted per level from the game's own memorized list; this app never memorizes, casts or restores anything.", 14);
+        line(activity, column, "Snapshot when opened. Close and tap the row again to refresh. Conditions and memorized spells come from the game, not a guess from zero HP. Only poison and helplessness effects are tracked. Spells are counted per level from the game's own memorized list; this app never memorizes, casts or restores anything. Readied weapon and armor use the game's own item names; nothing here equips, unequips or changes an item, and ammunition is not reported. Movement and carried weight are the game's own numbers, in combat squares and gold-piece weight.", 14);
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
         scroll.addView(column);

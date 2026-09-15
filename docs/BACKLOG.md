@@ -51,12 +51,13 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.16.0 | Journal history inside the notebook and its backup; player-made flag links and checked tasks |
 | Done — 0.17.0 | Verified disk checkpoints with automatic undo copy, taken only while the Mac is shut down |
 | Done — 0.18.0 | Per-level memorized-spell readiness, awaiting-rest counts and a rest reminder in character details |
+| Done — 0.19.0 | Readied weapon/armor names, movement and carried weight; one-line map caption; two-column party for NPC-sized parties |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
 
-Not done: dedicated tactical/wilderness maps, party equipment, training,
-automatic journal detection, a dedicated Notes index, or the remaining
+Not done: dedicated tactical/wilderness maps, training, automatic journal
+detection, a dedicated Notes index, ammunition, or the remaining
 rotation/keyboard hardware checks. Party conditions ship in 0.15.0 and
 journal/map-note linking in 0.16.0; equipment and the other character panels
 do not. Separate area-wide drawing
@@ -70,6 +71,22 @@ while scope is expanding.
 These requests supersede the separate area-wide drawing editor and the old
 optional-only code-wheel recognition policy below. Finish them before expanding
 the lower-priority queue.
+
+- [x] **F13 — Reclaim the caption line and fit an NPC-sized party (P0, user
+  request 2026-09-14).** Drop the standing "North up · N walked · Info: trail
+  options" caption and give the height back to the map. A party can reach eight
+  with NPCs; the sidebar must not vanish when it does.
+  **Delivered 0.19.0:** one caption line instead of two, carrying whichever of
+  the mode explanation, exploration status or tap hint actually says something,
+  with the notebook name always along for the ride. `MapViewport` reserves
+  22dp instead of 38dp, so the map cells genuinely grow. The party sidebar falls
+  back to two columns when one will not fit, taking the width from the map as
+  the user approved, so rows stay exactly as tall and as wide as a short
+  party's. Previously 7 or 8 members silently collapsed the whole sidebar at the
+  tablet's real pane height. Members fill the first column before the second,
+  the empty cell of an odd party is not a tap target, and one column is still
+  preferred whenever it fits. Verified live at six members and by an
+  eight-member Android View check at the real density.
 
 - [x] **F10 — Walked tiles and directional footprints (new P0).** Remember
   the squares actually occupied by this campaign's party on each verified area
@@ -525,9 +542,22 @@ research for sources and portability limits.
   3→2 allowance, and the city watch interrupting the rest returned both to
   empty. A completed rest was never observed, so "ready to cast" rests on the
   decoder tests. [Evidence](SPELL_READINESS.md) · [checks](LOCAL_TESTING.md).
-- [ ] **R4 — Equipment at a glance.** Readied weapon/armor, ammunition if
+- [x] **R4 — Equipment at a glance.** Readied weapon/armor, ammunition if
   verified, and a carrying-load/movement warning; no equipment editing.
-  **Research banked, not implemented (2026-09-14).** The readied items are a
+  **Delivered 0.19.0:** character details show the readied weapon and armor
+  under the game's own names, composed the way the game composes them from its
+  three-part name table, plus movement in combat squares and carried weight,
+  with one warning when the game's own movement has already reached the slowest
+  the printed rules describe. Nothing equips, unequips or changes an item.
+  An empty hand reads "No weapon readied"; unreadable item blocks read
+  "unavailable" and never masquerade as empty. Movement and carried weight are
+  plain record fields, so they survive when the item blocks do not.
+  **Ammunition is deliberately not reported** — the item's own "if verified"
+  condition is unmet, and the details pane says so. 407 Java tests, the rebuilt
+  native probe suite and 23 Android View checks pass. Live, the companion read
+  Weapon: Long Sword / Armor: Banded Mail exactly matching the guest's own
+  character sheet. [Offsets and limits](EQUIPMENT_MEMORY.md).
+  *Earlier research note (superseded):* The readied items are a
   handle array at character record `+0xd8` — slot 0 weapon, slot 2 armor —
   confirmed against the code and against the one capture taken in live combat,
   which decodes the sample party's real kit. Blocked on a **stable name

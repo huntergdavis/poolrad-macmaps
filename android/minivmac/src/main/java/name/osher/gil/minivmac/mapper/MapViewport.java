@@ -9,7 +9,8 @@ public final class MapViewport {
 
     public MapViewport(int width, int height, float density) {
         top = 42 * density;
-        cell = Math.min((width - 48 * density) / 16f, (height - top - 38 * density) / 16f);
+        // One caption line, not two: the reclaimed height goes to the map.
+        cell = Math.min((width - 48 * density) / 16f, (height - top - 22 * density) / 16f);
         left = (width - cell * 16) / 2;
     }
 

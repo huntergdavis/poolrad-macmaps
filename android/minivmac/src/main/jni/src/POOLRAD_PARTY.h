@@ -14,8 +14,12 @@
 #define POOLRAD_PARTY_BASE_SIZE (8 + POOLRAD_PARTY_MAX_MEMBERS * POOLRAD_PARTY_ROW_SIZE)
 #define POOLRAD_PARTY_CONDITION_SIZE (POOLRAD_PARTY_BASE_SIZE + 2 * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_SPELL_STRIDE 8
-#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_CONDITION_SIZE \
+#define POOLRAD_PARTY_SPELL_SIZE (POOLRAD_PARTY_CONDITION_SIZE \
         + POOLRAD_PARTY_SPELL_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
+#define POOLRAD_PARTY_NAME_BYTES 32
+#define POOLRAD_PARTY_EQUIP_STRIDE (1 + 2 * POOLRAD_PARTY_NAME_BYTES + 3)
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_SPELL_SIZE \
+        + POOLRAD_PARTY_EQUIP_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -42,6 +46,24 @@
 #define POOLRAD_PARTY_SPELL_ENTRY 16
 #define POOLRAD_PARTY_SPELL_LEVELS 3
 #define POOLRAD_PARTY_SPELLS_UNAVAILABLE 0xff
+/* CODE3 +0x61aa reads *( *(character) + slot*4 + 0xd8 ); the character sheet at
+ * +0x3c26 and +0x3ca4 gates its "Weapon:" and "Armor:" lines on slots 0 and 2.
+ */
+#define POOLRAD_PARTY_READIED_OFFSET 0xd8
+#define POOLRAD_PARTY_WEAPON_SLOT 0
+#define POOLRAD_PARTY_ARMOR_SLOT 2
+#define POOLRAD_PARTY_ITEM_PART_OFFSET 0x2f
+#define POOLRAD_PARTY_ITEM_SUPPRESS_OFFSET 0x36
+#define POOLRAD_PARTY_ITEM_MIN_SIZE 0x37
+#define POOLRAD_PARTY_ITEM_NAME_TABLE_BACK 0x5db2
+#define POOLRAD_PARTY_ITEM_NAME_ENTRIES 256
+#define POOLRAD_PARTY_ITEM_PART_MAX 40
+#define POOLRAD_PARTY_EQUIP_UNAVAILABLE 0xff
+/* The game's own character sheet prints these two beside Weapon:/Armor:.
+ * Unlike the item handles they are plain record fields and never purge.
+ */
+#define POOLRAD_PARTY_ENCUMBRANCE_OFFSET 0x10e
+#define POOLRAD_PARTY_MOVEMENT_OFFSET 0x12c
 
 /* CODE3 +0x2406 looks up an effect ID at node+0, following node+6 handles.
  * CODE11 +0x0ea2 allocates 10-byte nodes. As with characters, verify logical
@@ -110,8 +132,77 @@ static int poolrad_party_spells(const unsigned char *ram, size_t size, uint32_t 
     return 1;
 }
 
-/* PRP3: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
- * After the unchanged 168-byte base: eight (condition, tracked effects) pairs.
+/* Readied weapon and armor names, composed exactly the way the game composes
+ * them. CODE3 +0x0658..+0x06c2 walks the three name parts at item +0x2f+n from
+ * n=3 down to n=1, skips a zero index, skips a part whose bit (3-n) is set in
+ * the byte at item +0x36, and appends the string whose 4-byte pointer sits at
+ * A5-0x5db2 + index*4. Only the composed base name leaves this reader; the
+ * item record's own leading string is the game's scratch render buffer and is
+ * deliberately never read. Counts, plurals, magic columns and "+N" suffixes
+ * are formatter extras this reader does not reproduce.
+ *
+ * A purged handle, an unreadable part or an over-long name makes this one
+ * character's equipment unavailable; it never reads as "nothing readied".
+ */
+static int poolrad_party_item_name(const unsigned char *ram, size_t size, uint32_t table,
+        uint32_t item, unsigned char *out) {
+    unsigned length = 0, suppress;
+    if (!poolrad_range(item, POOLRAD_PARTY_ITEM_MIN_SIZE, size)) return 0;
+    suppress = ram[item + POOLRAD_PARTY_ITEM_SUPPRESS_OFFSET];
+    for (unsigned n = 3; n >= 1; n--) {
+        uint32_t pointer;
+        unsigned index = ram[item + POOLRAD_PARTY_ITEM_PART_OFFSET + n], part = 0;
+        if (index == 0 || ((suppress >> (3 - n)) & 1)) continue;
+        pointer = poolrad_u32(ram + table + index * 4) & 0x00ffffff;
+        if (pointer < 0x1000 || !poolrad_range(pointer, POOLRAD_PARTY_ITEM_PART_MAX, size)) return 0;
+        while (part < POOLRAD_PARTY_ITEM_PART_MAX && ram[pointer + part] != 0) {
+            unsigned char letter = ram[pointer + part];
+            /* Reference text only: never emit control bytes or raw record data. */
+            if (letter < 0x20 || letter == 0x7f) return 0;
+            part++;
+        }
+        if (part == 0 || part >= POOLRAD_PARTY_ITEM_PART_MAX) return 0;
+        if (length != 0) {
+            if (length + 1 >= POOLRAD_PARTY_NAME_BYTES) return 0;
+            out[length++] = ' ';
+        }
+        if (length + part >= POOLRAD_PARTY_NAME_BYTES) return 0;
+        memcpy(out + length, ram + pointer, part);
+        length += part;
+    }
+    return length != 0;
+}
+
+static int poolrad_party_equipment(const unsigned char *ram, size_t size, uint32_t a5,
+        uint32_t record, unsigned char *out) {
+    static const unsigned slots[2] = {POOLRAD_PARTY_WEAPON_SLOT, POOLRAD_PARTY_ARMOR_SLOT};
+    uint32_t table;
+    if (a5 < POOLRAD_PARTY_ITEM_NAME_TABLE_BACK) return 0;
+    table = a5 - POOLRAD_PARTY_ITEM_NAME_TABLE_BACK;
+    if (!poolrad_range(table, POOLRAD_PARTY_ITEM_NAME_ENTRIES * 4, size)) return 0;
+    out[0] = 0;
+    for (unsigned i = 0; i < 2; i++) {
+        unsigned char *name = out + 1 + i * POOLRAD_PARTY_NAME_BYTES;
+        uint32_t handle = poolrad_u32(ram + record + POOLRAD_PARTY_READIED_OFFSET
+                + slots[i] * 4) & 0x00ffffff;
+        uint32_t item;
+        if (handle == 0) continue; /* Genuinely nothing readied in that slot. */
+        if ((handle & 1) || handle < 0x1000 || !poolrad_range(handle, 4, size)) return 0;
+        item = poolrad_u32(ram + handle) & 0x00ffffff;
+        /* A resident party can still hold purged item blocks; that is unknown,
+         * not an empty hand, so the whole character's equipment is withheld.
+         */
+        if (item == 0 || (item & 1) || item < 0x1000) return 0;
+        if (!poolrad_party_item_name(ram, size, table, item, name)) return 0;
+    }
+    return 1;
+}
+
+/* PRP5: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
+ * After the unchanged 168-byte base: eight (condition, tracked effects) pairs,
+ * then eight 8-byte spell blocks (status, three ready counts, three awaiting
+ * counts, zero), then eight 65-byte equipment blocks: status (0 read, 0xff
+ * unavailable) and two 32-byte NUL-padded names, readied weapon then armor.
  * Condition is the Mac table ID0..8 or 0xff. Effects: poison=1, helpless=2,
  * or 0xff=unavailable; other effects are not interpreted. Unused pairs are zero.
  * AC is signed two's complement -127..60; 0x80 means unavailable. The Mac's
@@ -214,10 +305,25 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
                 for (unsigned i = 1; i < POOLRAD_PARTY_SPELL_STRIDE; i++) spells[i] = 0;
             }
         }
+        {
+            unsigned char *equipment = packet + POOLRAD_PARTY_SPELL_SIZE
+                    + count * POOLRAD_PARTY_EQUIP_STRIDE;
+            if (!poolrad_party_equipment(ram, size, a5, record, equipment)) {
+                equipment[0] = POOLRAD_PARTY_EQUIP_UNAVAILABLE;
+                for (unsigned i = 1; i < POOLRAD_PARTY_EQUIP_STRIDE; i++) equipment[i] = 0;
+            }
+            /* Carried weight and movement are ordinary record fields, readable
+             * even when the item blocks are not resident, so they are filled in
+             * either way and never depend on the item status byte.
+             */
+            equipment[1 + 2 * POOLRAD_PARTY_NAME_BYTES] = ram[record + POOLRAD_PARTY_MOVEMENT_OFFSET];
+            equipment[2 + 2 * POOLRAD_PARTY_NAME_BYTES] = ram[record + POOLRAD_PARTY_ENCUMBRANCE_OFFSET];
+            equipment[3 + 2 * POOLRAD_PARTY_NAME_BYTES] = ram[record + POOLRAD_PARTY_ENCUMBRANCE_OFFSET + 1];
+        }
         count++;
     }
     if (count == 0) return 0;
-    memcpy(packet, "PRP4", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP5", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

@@ -15,6 +15,11 @@ public final class PartyState {
     /** Eight per-member spell blocks follow the condition pairs. */
     public static final int SPELL_STRIDE = 8, SPELL_LEVELS = 3, SPELL_SLOTS = 21;
     public static final int SPELL_PACKET_SIZE = CONDITION_PACKET_SIZE + MAX_MEMBERS * SPELL_STRIDE;
+    /** Eight per-member equipment blocks follow the spell blocks. */
+    public static final int NAME_BYTES = 32, EQUIP_STRIDE = 1 + 2 * NAME_BYTES + 3;
+    /** The slowest the printed rules describe; see EQUIPMENT_REFERENCE.md. */
+    public static final int SLOWEST_MOVEMENT = 3;
+    public static final int EQUIP_PACKET_SIZE = SPELL_PACKET_SIZE + MAX_MEMBERS * EQUIP_STRIDE;
     public static final int POISONED = 1, HELPLESS = 2;
     private static final String[] CONDITION_LABELS = {
             "Okay", "Animated", "Temporarily gone", "Running", "Unconscious",
@@ -48,9 +53,20 @@ public final class PartyState {
          * this member's spell array could not be read; it is never guessed.
          */
         private final int[] ready, awaitingRest;
+        /**
+         * Readied weapon and armor as the game itself names them. Null means the
+         * item blocks could not be read; an empty string means that slot really
+         * is empty. The two are never conflated.
+         */
+        private final String readiedWeapon, readiedArmor;
+        /** Movement in combat squares and carried gp-weight, as the game reports them. */
+        public final int movementSquares, carriedWeight;
         private Member(String name, int currentHp, int maxHp, Integer armorClass, int characterClass,
                        int condition, int trackedEffects, boolean hasConditionSample,
-                       int[] ready, int[] awaitingRest) {
+                       int[] ready, int[] awaitingRest, String readiedWeapon, String readiedArmor,
+                       int movementSquares, int carriedWeight) {
+            this.readiedWeapon = readiedWeapon; this.readiedArmor = readiedArmor;
+            this.movementSquares = movementSquares; this.carriedWeight = carriedWeight;
             this.name = name; this.currentHp = currentHp; this.maxHp = maxHp;
             this.armorClass = armorClass; this.characterClass = characterClass;
             this.condition = condition; this.trackedEffects = trackedEffects;
@@ -125,6 +141,29 @@ public final class PartyState {
             return detail.isEmpty() ? "Nothing waiting on rest" : "Awaiting rest: " + detail;
         }
 
+        public boolean equipmentAvailable() { return readiedWeapon != null; }
+        /** Empty when that hand is genuinely empty; null only when unreadable. */
+        public String readiedWeapon() { return readiedWeapon; }
+        public String readiedArmor() { return readiedArmor; }
+        public String readiedWeaponLabel() {
+            if (readiedWeapon == null) return "Readied equipment unavailable";
+            return readiedWeapon.isEmpty() ? "No weapon readied" : "Weapon: " + readiedWeapon;
+        }
+        public String readiedArmorLabel() {
+            if (readiedArmor == null) return "Readied equipment unavailable";
+            return readiedArmor.isEmpty() ? "No armor readied" : "Armor: " + readiedArmor;
+        }
+
+        public boolean loadAvailable() { return movementSquares >= 0; }
+        /** True only when the game's own movement is already at the printed floor. */
+        public boolean slowedToMinimum() {
+            return movementSquares >= 0 && movementSquares <= SLOWEST_MOVEMENT;
+        }
+        public String loadLabel() {
+            if (movementSquares < 0) return "Movement and carried weight unavailable";
+            return "Movement: " + movementSquares + " squares · carrying " + carriedWeight;
+        }
+
         public String badgeMeaning() {
             switch (badge()) {
                 case "X": return "Dead";
@@ -157,14 +196,34 @@ public final class PartyState {
         return other != null && Arrays.equals(packet, other.packet);
     }
 
+    /**
+     * One NUL-padded reference name. Everything after the terminator must be
+     * zero, and only printable ASCII is accepted, so a malformed block is
+     * rejected rather than shown as a fragment.
+     */
+    private static String itemName(byte[] data, int start) {
+        int length = 0;
+        while (length < NAME_BYTES && data[start + length] != 0) length++;
+        if (length == NAME_BYTES) return null;
+        for (int offset = length; offset < NAME_BYTES; offset++)
+            if (data[start + offset] != 0) return null;
+        for (int offset = 0; offset < length; offset++) {
+            int letter = data[start + offset] & 255;
+            if (letter < 0x20 || letter >= 0x7f) return null;
+        }
+        return new String(data, start, length, Charset.forName("US-ASCII"));
+    }
+
     /** Null means unavailable. A previous packet must not remain labeled live. */
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
-                || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4')) return null;
-        boolean spells = data[3] == '4';
+                || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
+                    && data[3] != '5')) return null;
+        boolean equipment = data[3] == '5';
+        boolean spells = equipment || data[3] == '4';
         boolean conditions = spells || data[3] == '3';
-        if (data.length != (spells ? SPELL_PACKET_SIZE : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
-            return null;
+        if (data.length != (equipment ? EQUIP_PACKET_SIZE : spells ? SPELL_PACKET_SIZE
+                : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE)) return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
         if (count < 1 || count > MAX_MEMBERS || data[5] != 0 || data[6] != 0 || data[7] != 0) return null;
@@ -176,6 +235,8 @@ public final class PartyState {
                 if (conditions && (data[PACKET_SIZE + index * 2] != 0 || data[PACKET_SIZE + index * 2 + 1] != 0)) return null;
                 if (spells) for (int offset = 0; offset < SPELL_STRIDE; offset++)
                     if (data[CONDITION_PACKET_SIZE + index * SPELL_STRIDE + offset] != 0) return null;
+                if (equipment) for (int offset = 0; offset < EQUIP_STRIDE; offset++)
+                    if (data[SPELL_PACKET_SIZE + index * EQUIP_STRIDE + offset] != 0) return null;
                 continue;
             }
             int length = 0;
@@ -239,6 +300,25 @@ public final class PartyState {
                     if (total > SPELL_SLOTS) return null;
                 }
             }
+            String readiedWeapon = null, readiedArmor = null;
+            int movementSquares = -1, carriedWeight = -1;
+            if (equipment) {
+                int block = SPELL_PACKET_SIZE + index * EQUIP_STRIDE;
+                int status = data[block] & 255;
+                if (status != 0 && status != 255) return null;
+                if (status == 255) {
+                    for (int offset = 1; offset < 1 + 2 * NAME_BYTES; offset++)
+                        if (data[block + offset] != 0) return null;
+                } else {
+                    readiedWeapon = itemName(data, block + 1);
+                    readiedArmor = itemName(data, block + 1 + NAME_BYTES);
+                    if (readiedWeapon == null || readiedArmor == null) return null;
+                }
+                // Plain record fields: present whether or not the items resolved.
+                movementSquares = data[block + 1 + 2 * NAME_BYTES] & 255;
+                carriedWeight = ((data[block + 2 + 2 * NAME_BYTES] & 255) << 8)
+                        | (data[block + 3 + 2 * NAME_BYTES] & 255);
+            }
             final String name;
             try {
                 // ASCII names need no optional charset. Accented Mac names are
@@ -246,7 +326,8 @@ public final class PartyState {
                 name = new String(data, start, length, Charset.forName(extended ? "x-MacRoman" : "US-ASCII"));
             } catch (IllegalArgumentException unavailableCharset) { return null; }
             members.add(new Member(name, current, maximum, armorClass, characterClass,
-                    condition, effects, conditions, ready, awaitingRest));
+                    condition, effects, conditions, ready, awaitingRest, readiedWeapon, readiedArmor,
+                    movementSquares, carriedWeight));
         }
         return new PartyState(members, data);
     }

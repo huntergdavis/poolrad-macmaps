@@ -1,5 +1,12 @@
 # Releases
 
+## 0.19.0 — What you are holding, and room to see it
+
+[Release notes](releases/0.19.0.md): readied weapon and armor under the game's
+own names, movement and carried weight, a one-line map caption that gives its
+height back to the map, and a two-column party sidebar so an eight-member NPC
+party no longer loses it entirely.
+
 ## 0.18.0 — Which spells are actually ready
 
 [Release notes](releases/0.18.0.md): per-level memorized-spell readiness,

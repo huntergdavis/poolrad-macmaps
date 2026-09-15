@@ -312,14 +312,14 @@ public final class LiveMapView extends View {
         artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
         ink.setStyle(Paint.Style.FILL);
-        ink.setTextSize(10 * density); ink.setTextAlign(Paint.Align.CENTER);
-        String legend = !positionAvailable ? mode.explanation() : explorationStatus.isEmpty()
-                        ? "North up · " + exploration.visitedCount() + " walked · Info: trail options"
-                        : explorationStatus;
-        canvas.drawText(fitHeaderText(legend, available),
-                pane.mapWidth / 2f, pane.mapHeight - 23 * density, ink);
+        ink.setTextAlign(Paint.Align.CENTER);
+        // One caption line. The old "North up · N walked" reminder is gone; the
+        // slot still carries whichever of these actually tells the player
+        // something, and the notebook name always rides along.
         ink.setTextSize(11 * density);
-        canvas.drawText(fitHeaderText((positionAvailable ? "Tap a tile or symbol · " : "Reference only · ") + notebook, available),
+        String legend = !positionAvailable ? mode.explanation()
+                : !explorationStatus.isEmpty() ? explorationStatus : "Tap a tile or symbol";
+        canvas.drawText(fitHeaderText(legend + " · " + notebook, available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 
@@ -341,12 +341,18 @@ public final class LiveMapView extends View {
         canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft,p.partyTop+p.partyHeight,ink);
         ink.setStyle(Paint.Style.FILL); ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(10*unit);
         canvas.drawText("PARTY · TAP FOR DETAILS",p.partyLeft+10*unit,p.partyTop+16*unit,ink);
-        for (int i=0;i<party.members.size();i++) {
+        for (int i=1;i<p.columns;i++) {
+            float divider=p.partyLeft+i*p.columnWidth;
+            ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(density);
+            canvas.drawLine(divider,p.partyTop+p.headerHeight,divider,p.partyTop+p.partyHeight,ink);
+        }
+        for (int i=0;i<p.visibleMembers();i++) {
             PartyState.Member member=party.members.get(i);
-            float left=p.partyLeft+44*unit, right=p.partyLeft+p.partyWidth-10*unit;
+            float column=p.columnLeft(i);
+            float left=column+44*unit, right=column+p.columnWidth-10*unit;
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
-            if (member.badge().isEmpty()) drawClassSymbol(canvas, member, p.partyLeft+9*unit, top+8*unit, 27*unit);
-            else drawConditionBadge(canvas,member.badge(),p.partyLeft+9*unit,top+8*unit,27*unit);
+            if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
+            else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK); ink.setTextSize(13*unit);
             float available=Math.max(0,right-left);
             int chars=ink.breakText(member.name,true,available,null);

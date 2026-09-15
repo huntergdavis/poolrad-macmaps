@@ -4,6 +4,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "../android/minivmac/src/main/jni/src/POOLRAD_PARTY.h"
 
 static unsigned char ram[65536], output[POOLRAD_PARTY_SIZE];
@@ -78,6 +79,43 @@ static void spells_unavailable(unsigned member) {
     assert(output[24] == 10 && output[25] == 10); /* Health survives missing spells. */
 }
 
+/* Writes one name-part string and points table entry `index` at it. */
+static void name_part(unsigned index, const char *text) {
+    static uint32_t next = 0x9000;
+    uint32_t table = fixture_a5 - POOLRAD_PARTY_ITEM_NAME_TABLE_BACK;
+    size_t n = strlen(text);
+    memcpy(ram + next, text, n + 1);
+    put32(table + index * 4, next);
+    next += (uint32_t) (n + 2);
+}
+/* Readies an item in `slot` for `member`, composed from up to three parts. */
+static uint32_t ready_item(unsigned member, unsigned slot, uint32_t item,
+        unsigned p1, unsigned p2, unsigned p3) {
+    uint32_t handle = 0xb000 + member * 0x20 + slot * 4;
+    put32(member_record(member) + POOLRAD_PARTY_READIED_OFFSET + slot * 4, handle);
+    put32(handle, item);
+    ram[item + POOLRAD_PARTY_ITEM_PART_OFFSET + 1] = (unsigned char) p1;
+    ram[item + POOLRAD_PARTY_ITEM_PART_OFFSET + 2] = (unsigned char) p2;
+    ram[item + POOLRAD_PARTY_ITEM_PART_OFFSET + 3] = (unsigned char) p3;
+    ram[item + POOLRAD_PARTY_ITEM_SUPPRESS_OFFSET] = 0;
+    return item;
+}
+static const unsigned char *equip_of(unsigned member) {
+    return output + POOLRAD_PARTY_SPELL_SIZE + member * POOLRAD_PARTY_EQUIP_STRIDE;
+}
+static void equip_unavailable(unsigned member) {
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(equip_of(member)[0] == POOLRAD_PARTY_EQUIP_UNAVAILABLE);
+    for (unsigned i = 1; i < 1 + 2 * POOLRAD_PARTY_NAME_BYTES; i++) assert(equip_of(member)[i] == 0);
+    assert(output[24] == 10 && output[25] == 10); /* Health survives missing items. */
+}
+static void equip_names(unsigned member, const char *weapon, const char *armor) {
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(equip_of(member)[0] == 0);
+    assert(strcmp((const char *) equip_of(member) + 1, weapon) == 0);
+    assert(strcmp((const char *) equip_of(member) + 1 + POOLRAD_PARTY_NAME_BYTES, armor) == 0);
+}
+
 static void combat_fixture(unsigned members, unsigned combatants) {
     /* Keep the largest fixture clear of A5 globals and the geometry block. */
     fixture(0x6000, 0x2000, 0x8000, members + combatants);
@@ -91,7 +129,7 @@ static void combat_fixture(unsigned members, unsigned combatants) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP4", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP5", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -249,6 +287,106 @@ static void tests(void) {
     assert(fixture_a5 - POOLRAD_PARTY_SPELL_TABLE_BACK
             + 128 * POOLRAD_PARTY_SPELL_ENTRY <= sizeof(ram));
 
+    /* Readied weapon and armor names, composed from the game's own part table. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(36, "Long Sword"); name_part(57, "Banded"); name_part(48, "Mail");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+    ready_item(0, POOLRAD_PARTY_ARMOR_SLOT, 0xa100, 0, 48, 57);
+    /* Parts append from n=3 down to n=1, exactly as CODE3 +0x064e does. */
+    equip_names(0, "Long Sword", "Banded Mail");
+
+    /* An empty slot is genuinely empty, not unavailable. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(12, "Flail");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 12);
+    equip_names(0, "Flail", "");
+
+    /* Every suppression bit hides exactly its own part. */
+    for (unsigned mask = 0; mask < 8; mask++) {
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        name_part(1, "One"); name_part(2, "Two"); name_part(3, "Three");
+        ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 1, 2, 3);
+        ram[0xa000 + POOLRAD_PARTY_ITEM_SUPPRESS_OFFSET] = (unsigned char) mask;
+        char expected[64]; expected[0] = 0;
+        for (unsigned n = 3; n >= 1; n--) {
+            if ((mask >> (3 - n)) & 1) continue;
+            if (expected[0]) strcat(expected, " ");
+            strcat(expected, n == 3 ? "Three" : n == 2 ? "Two" : "One");
+        }
+        if (expected[0] == 0) equip_unavailable(0); /* All parts hidden is unknown. */
+        else equip_names(0, expected, "");
+    }
+
+    /* A purged item block is unavailable, never an empty hand. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(36, "Long Sword");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+    put32(0xb000, 0); equip_unavailable(0);
+
+    /* Odd, low and out-of-range handles and item pointers are all refused. */
+    for (unsigned i = 0; i < 4; i++) {
+        static const uint32_t bad[4] = {0xb001, 0x10, 0xfffffe, 0xffffff};
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        name_part(36, "Long Sword");
+        ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+        put32(member_record(0) + POOLRAD_PARTY_READIED_OFFSET, bad[i]);
+        equip_unavailable(0);
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        name_part(36, "Long Sword");
+        ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+        put32(0xb000, bad[i] == 0xb001 ? 0xa001 : bad[i]);
+        equip_unavailable(0);
+    }
+
+    /* Control bytes inside a name part are refused rather than emitted; a NUL
+     * is simply the terminator and still yields a valid, shorter name.
+     */
+    for (unsigned byte = 0; byte < 0x20; byte++) {
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        name_part(36, "Long Sword");
+        ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+        uint32_t at = poolrad_u32(ram + fixture_a5 - POOLRAD_PARTY_ITEM_NAME_TABLE_BACK + 36 * 4);
+        ram[at + 2] = (unsigned char) byte;
+        if (byte == 0) equip_names(0, "Lo", "");
+        else equip_unavailable(0);
+    }
+    /* A part that is empty at its first byte has no name at all. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(36, "Long Sword");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+    {
+        uint32_t at = poolrad_u32(ram + fixture_a5 - POOLRAD_PARTY_ITEM_NAME_TABLE_BACK + 36 * 4);
+        ram[at] = 0; equip_unavailable(0);
+    }
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(36, "Long Sword");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+    {
+        uint32_t at = poolrad_u32(ram + fixture_a5 - POOLRAD_PARTY_ITEM_NAME_TABLE_BACK + 36 * 4);
+        ram[at] = 0x7f; equip_unavailable(0);
+    }
+
+    /* A name that will not fit the emitted field is unavailable, not truncated. */
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(5, "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 5);
+    equip_unavailable(0);
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    name_part(5, "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234"); /* Exactly 31 fits. */
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 5);
+    equip_names(0, "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234", "");
+
+    /* One unreadable member never blanks another's equipment. */
+    fixture(0xe000, 0x2000, 0x3000, 3);
+    name_part(36, "Long Sword"); name_part(12, "Flail");
+    ready_item(0, POOLRAD_PARTY_WEAPON_SLOT, 0xa000, 0, 0, 36);
+    ready_item(2, POOLRAD_PARTY_WEAPON_SLOT, 0xa200, 0, 0, 12);
+    put32(member_record(1) + POOLRAD_PARTY_READIED_OFFSET, 0xa001); /* Odd handle. */
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(equip_of(0)[0] == 0 && strcmp((const char *) equip_of(0) + 1, "Long Sword") == 0);
+    assert(equip_of(1)[0] == POOLRAD_PARTY_EQUIP_UNAVAILABLE);
+    assert(equip_of(2)[0] == 0 && strcmp((const char *) equip_of(2) + 1, "Flail") == 0);
+
     fixture(0xf000, 0x2400, 0x4800, 8); // All bases relocate; no fixed capture address is used.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 8);
     put32(fixture_a5 - 20898, member_handle(4)); // Selected member is not the list head.
@@ -351,7 +489,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment and failure clearing passed.");
 }
 
 static int replay(const char *path) {
@@ -381,8 +519,18 @@ static int replay(const char *path) {
         {
             const unsigned char *sp = output + POOLRAD_PARTY_CONDITION_SIZE + i * POOLRAD_PARTY_SPELL_STRIDE;
             if (sp[0] == POOLRAD_PARTY_SPELLS_UNAVAILABLE) fputs("spells unavailable\n", stderr);
-            else fprintf(stderr, "ready %u/%u/%u; awaiting rest %u/%u/%u\n",
+            else fprintf(stderr, "ready %u/%u/%u; awaiting rest %u/%u/%u; ",
                     sp[1], sp[2], sp[3], sp[4], sp[5], sp[6]);
+        }
+        {
+            const unsigned char *eq = output + POOLRAD_PARTY_SPELL_SIZE + i * POOLRAD_PARTY_EQUIP_STRIDE;
+            if (eq[0] == POOLRAD_PARTY_EQUIP_UNAVAILABLE) fputs("equipment unavailable; ", stderr);
+            else fprintf(stderr, "weapon '%s'; armor '%s'; ",
+                    eq + 1, eq + 1 + POOLRAD_PARTY_NAME_BYTES);
+            fprintf(stderr, "movement %u; carrying %u\n",
+                    eq[1 + 2 * POOLRAD_PARTY_NAME_BYTES],
+                    (unsigned) ((eq[2 + 2 * POOLRAD_PARTY_NAME_BYTES] << 8)
+                            | eq[3 + 2 * POOLRAD_PARTY_NAME_BYTES]));
         }
     }
     return fwrite(output, 1, sizeof(output), stdout) == sizeof(output) ? 0 : 1;

@@ -1,5 +1,60 @@
 # Local Android prototype
 
+## R4 and F13 — readied equipment, one-line caption, two-column party (2026-09-14, v0.19.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.19.0.apk`, SHA-256
+`c307965d034f7e1ced0b4223241edb77ef9a045b70a365e9d0edfb5583f1f262`, versionCode 85.
+Offsets and limits: [EQUIPMENT_MEMORY.md](EQUIPMENT_MEMORY.md).
+
+Automated suites:
+
+- Native `tools/test-party-probe.c` built with `-Wall -Wextra` passes, now also
+  covering name composition from one, two and three parts, the descending append
+  order, all eight suppression-bit combinations, an empty slot, a purged handle,
+  odd/low/out-of-range handles and item pointers, every control byte inside a
+  name part, an empty part, a maximum-length name and one byte over, and
+  per-member independence.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **407 tests,
+  zero failures/errors/skips** (403 before). `PartyEquipmentTest` adds nine and
+  `PartyPaneLayoutTest` gains the two-column cases.
+- **23 Android View checks** pass on emulator-5584, including a new
+  eight-member check that asserts the sidebar keeps two columns of four, every
+  member is drawn and tappable in its own cell, rows stay at or above the 48dp
+  minimum and the map keeps its 280dp floor.
+- `check-wheel-apk.mjs` passes. Python helpers were not re-run: unchanged.
+
+Private RAM replay, read-only:
+
+- `f7-combat-active-2.ram`, the one capture taken with the item blocks resident,
+  decodes all six members: Long Sword / Dart / Long Bow / Flail with Banded Mail
+  throughout, matching the sample party's real kit.
+- Every other capture reports **equipment unavailable** rather than inventing
+  empty hands, because those item blocks are purged.
+- Movement and carried weight decode in **every** capture, item blocks or not:
+  Arax 988, Lara 624, Hogarth 822, Shara 735, Zarram 658, all moving 9 squares.
+  Tanarakis reads 796 before combat and 781 during it, consistent with darts
+  having left her pack.
+
+Live on isolated `poolrad-package-test`, emulator-5584, after a normal game
+quit, **Special → Shut Down** and a `/proc/<pid>/fd` check showing no `.dsk`:
+
+- Opening the game's own View for Arax shows `Weapon: Long Sword`,
+  `Armor: Banded Mail`, `ENCUMBRANCE: 988`, `MOVEMENT: 9`. The companion's
+  details then read exactly `Weapon: Long Sword` and `Armor: Banded Mail`.
+- Before the game had loaded those item blocks the same pane read
+  **Readied equipment unavailable**, which is the honest state, not an error.
+- The map caption is now the single line `Tap a tile or symbol · Notebook 1`,
+  and the grid is visibly larger: cell pitch grew from about 22.5px to 23.5px at
+  1200×1600, because `MapViewport` reserves 22dp instead of 38dp.
+- Six members still render in one column exactly as before.
+
+Not claimed: the **eight-member two-column layout was checked by the Android
+View harness at the real density, not by playing with NPCs in the party** — the
+sample party has six. Ammunition is not reported at all. No physical e-ink,
+stylus or tablet acceptance was performed; Hunter's 2026-09-14 pen confirmation
+is the only hardware acceptance on record. The user's `m1gate` save was never
+opened, and nothing was saved to the guest.
+
 ## R3 — spell readiness (2026-09-14, v0.18.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.18.0.apk`, SHA-256
@@ -301,6 +356,37 @@ For faster **local x86_64 emulator testing**, add
 The `macPlus` flavor builds separately and requires a matching Plus ROM. The
 supplied 256 KiB Mac II ROM is not a substitute. The tested local app ID is
 `com.hunterdavis.poolradmacmaps.ii`; neither flavor replaces the stock app.
+
+## Combined boot + game test disk
+
+The user supplied **`scratch/minivmacandpools.dsk`** on 2026-09-14: one 24 MiB
+HFS volume that boots and launches the game by itself. Use it as the standard
+emulator test disk.
+
+- Volume name `Mini vMac Boot v2`, 25,165,824 bytes, SHA-256
+  `7ee39cb8ee3d96e190eecf10099811e98e086b85cafc516613617da2983816de`.
+- Valid `LK` boot blocks and an HFS `BD` master directory block.
+- `System Folder:Startup Items` holds the whole game, so it **auto-launches on
+  boot** with no timed clicks: `Pool of Radiance v1.1` (APPL/prad, 327,595-byte
+  resource fork, matching the known-good size), `PoolRad2/3/4`, `PoolRadGen`,
+  `RadiancePrefs`, the Adventurer's Journal parts, the Rule Book sections and
+  `tables`.
+- `PoolRadSave` contains `PoRCharacters` and **`SampleParty`** and no campaign
+  save, so it is a clean baseline rather than someone's playthrough.
+
+**Never mount or modify the supplied file.** Copy it first and work on the copy;
+everything above was read from a copy under the session scratchpad. `hmount`
+opens a volume read/write, and hfsutils shares one current-volume state per
+host user, so run HFS jobs serially and `humount` when finished.
+
+To use it on the emulator, import the copy as an additional disk rather than
+overwriting an existing campaign disk. If it must replace one, take a
+[checkpoint](CHECKPOINTS.md) of the current disk first — that is exactly what
+checkpoints are for, and the restore is verified and undoable.
+
+This disk has **not** yet been booted on the emulator; it has been verified as a
+file only. The existing `personal-package/disks/disk1.dsk` remains the disk the
+recorded live checks actually ran against.
 
 ## Test inputs
 

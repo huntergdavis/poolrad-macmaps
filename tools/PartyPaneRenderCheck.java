@@ -117,8 +117,49 @@ public final class PartyPaneRenderCheck {
             equal(render(view(null,360,320)),render(view),"Collapsed rows left pixels in the map");
             checkDescription(view, sample);
             resize(view,960,200);
-            check(pane(view,MEMBERS).rows==0,"Short wide window must not cram six rows together");
-            equal(render(view(null,960,200)),render(view),"Short pane left clipped party labels");
+            PartyPaneLayout shortPane = pane(view,MEMBERS);
+            if (shortPane.rows == 0) {
+                equal(render(view(null,960,200)),render(view),"Short pane left clipped party labels");
+            } else {
+                // A short pane may use columns instead of collapsing, but it must
+                // never squeeze rows below the readable minimum or overflow.
+                check(shortPane.rowHeight >= 48*density,"Short wide window crammed the rows together");
+                check(shortPane.rows*shortPane.columns >= MEMBERS,"Short pane dropped a member");
+                check(shortPane.headerHeight + shortPane.rows*shortPane.rowHeight
+                        <= shortPane.partyHeight + 0.5f,"Short pane overflowed its own height");
+                check(shortPane.mapWidth >= 280*density,"Short pane starved the map");
+            }
+        });
+
+        run("an eight-member NPC party keeps every row instead of losing the sidebar", () -> {
+            byte[] sample = packet(true);
+            sample[4] = 8;
+            for (int i = MEMBERS; i < 8; i++) {
+                System.arraycopy(sample, 8, sample, 8 + i*20, 20);
+                sample[8 + i*20] = (byte) ('U' + i);
+            }
+            LiveMapView view = view(sample, 960, 352);
+            PartyPaneLayout pane = pane(view, 8);
+            check(pane.rows > 0, "Eight members lost the whole sidebar");
+            check(pane.columns == 2 && pane.rows == 4, "Eight members did not use two columns of four");
+            check(pane.visibleMembers() == 8, "A member was dropped from the layout");
+            check(pane.rowHeight >= 48*density, "Two columns shrank the rows below the minimum");
+            check(pane.mapWidth >= 280*density, "Two columns starved the map");
+
+            // Every member must be drawn, and each must be tappable in its own cell.
+            Bitmap drawn = render(view);
+            for (int i = 0; i < 8; i++) {
+                check(pane.memberAt(pane.columnLeft(i)+2, pane.rowTop(i)+pane.rowHeight/2) == i,
+                        "Member " + i + " is not tappable where it is drawn");
+                int dark = 0;
+                for (int y = (int)pane.rowTop(i); y < (int)(pane.rowTop(i)+pane.rowHeight); y++)
+                    for (int x = (int)pane.columnLeft(i); x < (int)(pane.columnLeft(i)+pane.columnWidth); x++)
+                        if (Color.red(drawn.getPixel(Math.min(x, drawn.getWidth()-1),
+                                Math.min(y, drawn.getHeight()-1))) < 128) dark++;
+                check(dark > 100, "Member " + i + " row rendered blank");
+            }
+            checkMonochrome(drawn);
+            check(view.getContentDescription().toString().contains("HP"), "Eight-member pane lost its accessible text");
         });
 
         run("actual map taps follow the resized viewport and party taps create no flag", () -> {

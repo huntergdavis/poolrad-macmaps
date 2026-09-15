@@ -1,7 +1,7 @@
 # PoolRad Mac Maps — continuation handoff
 
-Updated 2026-09-14. **R3 is complete for v0.18.0**, following R8 (0.17.0),
-R5 (0.16.0) and R1 (0.15.0). See
+Updated 2026-09-14. **R4 and F13 are complete for v0.19.0**, following R3
+(0.18.0), R8 (0.17.0), R5 (0.16.0) and R1 (0.15.0). See
 [docs/SPELL_READINESS.md](docs/SPELL_READINESS.md) for the memorized-spell
 array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
 [docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for backup contents, and
@@ -13,21 +13,21 @@ array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JO
   `git@github.com:huntergdavis/poolrad-macmaps.git`, branch `main`.
 - Read **[docs/BACKLOG.md](docs/BACKLOG.md)** and current Git status/history.
   Do not resume the old Grind/Melt Squad projects from chat history.
-- **Next actionable software item: R4 — equipment at a glance.** Partly
-  researched; read [docs/EQUIPMENT_MEMORY.md](docs/EQUIPMENT_MEMORY.md) first.
-  The readied-item handle array at character `+0xd8` (slot 0 weapon, slot 2
-  armor) is confirmed against the code and against the one capture taken during
-  live combat. **It is blocked on a stable item name:** the item record's
-  leading string is the game's own scratch render buffer and can read back as
-  `" Yes  Shield "` or a bare fragment, so it must not be displayed. Confirm the
-  item type id and resolve it against the game's own `ITEMS` data through the
-  existing `DaxReader` before implementing anything. Then reuse R3's pattern:
-  extend the probe to PRP5 keeping PRP1..4 readable, emit only display fields,
-  surface in character details, no equipment editing. A purged item handle is
-  *unavailable*, never "nothing readied".
-  Order after R4: R2 training, R7 useful places, R9 automatic encountered
-  entries, then P3. R6 is largely absorbed by F10 — reduce it to the search-mode
-  indicator and coordinates on demand, or close it.
+- **Next actionable software item: R2 — training readiness.** Small XP progress
+  and a training reminder; respect class/race limits and normal training, never
+  automatic level-ups. Needs the XP thresholds and the class/race limit tables
+  verified against the Mac executable, not modern D&D. Reuse R3/R4's pattern:
+  find the fields, extend the probe keeping PRP1..5 readable, emit only display
+  values, surface in character details. Arax's sheet shows `EXP: 2134` and
+  `Level: 1`, so the live numbers to check against are easy to read.
+  Order after R2: R7 useful places, R9 automatic encountered entries, then P3.
+  R6 is largely absorbed by F10 — reduce it to the search-mode indicator and
+  coordinates on demand, or close it.
+- **Disassembly works again:** capstone lives in `scratch/wheel-analysis-venv`
+  and `macresources` in `scratch/personal-boot-venv`; a helper needs both on
+  `sys.path`. To find the routine that prints a message, search every `CODE`
+  resource for `4879 0000 XXXX` (`pea.l $XXXX.l`) with that string's STRS0
+  offset. Item and spell tables hang off A5 at fixed negative offsets.
 - All P0 items are checked. Q1/Q3 still need actual tablet model/Android details
   and specific keyboard/rotation/vendor observations, already requested.
   The user HAS accepted stylus drawing, two-finger zoom/scroll and ordinary
@@ -49,6 +49,28 @@ array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JO
   debug build succeeds. No new guest gameplay/device acceptance was performed.
 - Q2 itself was tools-only; REF5 now advances the public app to v0.14.0.
   Existing installed disks, saves and private APK bundle remain unchanged.
+
+## R4 and F13 delivered
+
+- Character details now show the **readied weapon and armor** under the game's
+  own names, plus **movement** (combat squares) and **carried weight**.
+  Ammunition is deliberately absent: its "if verified" condition is unmet.
+- Readied items are handles at character `+0xd8`, slot 0 weapon and slot 2
+  armor. Names are composed from three parts at item `+0x2f+n` walked n=3→1,
+  skipping zero indices and bits set in item `+0x36`, through the pointer table
+  at `A5-0x5db2`. **Never read the item's own leading string** — it is the
+  game's scratch render buffer and can say `" Yes  Shield "`.
+- Movement `+0x12c` and carried weight `+0x10e` are plain record fields and are
+  emitted even when item blocks are purged, which is the common case.
+- **F13 (user request):** one map caption line instead of two, `MapViewport`
+  reserving 22dp instead of 38dp so the grid grows; and the party sidebar falls
+  back to **two columns** when one will not fit, taking width from the map.
+  Before this, 7 or 8 members made the whole sidebar vanish at tablet height.
+- **407 Java tests, the rebuilt native suite and 23 Android View checks pass.**
+- Live: the companion matched the guest's own sheet (Long Sword / Banded Mail);
+  the single caption line and larger grid were confirmed on the running app.
+  **The eight-member two-column layout is harness-verified only** — the sample
+  party has six, so it has not been seen with real NPCs.
 
 ## R3 delivered
 
@@ -180,13 +202,23 @@ Everything below remains ignored; do not publish it.
   SHA-256 `a178f61f3b948a85a408858452db9e5aece330e46adc8b73e0c1fdff2a30f374`.
   Copy this separately to the tablet and import under Info → Journal. The older
   `scratch/poolrad-journal.prjr` was a test draft; use the versioned file instead.
-- Public universal APK: `scratch/poolrad-macmaps-0.18.0.apk`;
-  SHA-256 `fe396d9ae192fd67155bbfdb0e84cba755941ea7f5a45ee3dd8bda07ade19f94`.
-  Earlier builds remain for comparison: 0.17.0
+- Public universal APK: `scratch/poolrad-macmaps-0.19.0.apk`;
+  SHA-256 `c307965d034f7e1ced0b4223241edb77ef9a045b70a365e9d0edfb5583f1f262`.
+  Earlier builds remain for comparison: 0.18.0
+  `fe396d9ae192fd67155bbfdb0e84cba755941ea7f5a45ee3dd8bda07ade19f94`, 0.17.0
   `b9893126176cfe5873102c73eae3fbd5ec212559841327deb0ad10149428286b`, 0.16.0
   `79fc4da52a2c79419329c6a9cdbbe53364c1a484c1978cbf43c96fc9db1d91e0`, 0.15.0
   `b46a9f4f89b847bd178fdc1af36daea7e1d7ff6e2878c904cad5cfdc3d3e394d`, 0.14.0
   `84068d6f6d9eb3703e9d6567bd627546e66ca018f9d8afaab22c57f4f71837e5`.
+- **Combined boot + game test disk, supplied 2026-09-14:**
+  `scratch/minivmacandpools.dsk`, 25,165,824 bytes, SHA-256
+  `7ee39cb8ee3d96e190eecf10099811e98e086b85cafc516613617da2983816de`.
+  Volume `Mini vMac Boot v2`; the whole game sits in `System Folder:Startup
+  Items` so it auto-launches, and `PoolRadSave` holds only `SampleParty` and
+  `PoRCharacters` — a clean baseline, no campaign save. Prefer it for new
+  emulator testing. **Copy before mounting; never mount the supplied file**, and
+  take a checkpoint before letting it replace any existing disk. Verified as a
+  file only; not yet booted.
 - **Never overwrite a current campaign with a fresh sample disk.** A later
   repair needs clean guest shutdown, an exported current disk, untouched backup,
   and only the verified ITEM2 replacement on another copy; verify all saves
