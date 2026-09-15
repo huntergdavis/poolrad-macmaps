@@ -723,6 +723,24 @@ research for sources and portability limits.
 
 - [ ] **L1 — Separate wilderness map. Confirmed wanted by the user
   2026-09-14.** Only after its own structure/location is validated; do not stretch the existing 16×16 area renderer to impersonate it.
+  **Validation started 2026-09-15; blocked on reaching the wilderness.**
+  Ruled out: it is **not** one of the 29 GEO records — those are all local
+  16×16 areas, including the outlying sites the wilderness leads to — so there
+  is no existing geometry to reuse, which is why the warning above stands.
+  Established from the original code: CODE 5 selects three outdoor sectors at
+  `+0x3036`, `+0x3044` and `+0x306a`, each writing presentation `2`, `3` or `4`
+  with engine `3`, against the local path at `+0x2ff0` writing presentation `1`
+  with engine `4`; the sector is chosen by a switch on the script id at
+  `-0x192b(a5)`; and the outdoor paths read the **same 2,048-byte state block**
+  at `-0x5eb2(a5)` the local map already uses, testing `+0x366` and `+0x344`.
+  Also confirmed: **none of the twenty-three captures is in outdoor mode**, so
+  the wilderness has still never been observed.
+  **Blocked:** the party's outdoor position needs the same confirmed-step
+  capture pair that solved L2, and a fresh `SampleParty` cannot reach the
+  wilderness — it lies past the districts it can walk to, and the NPCs who
+  would send it there are story-gated. A saved game already outdoors, or a
+  session played far enough to travel, unblocks it; the tooling is written and
+  proven. [Research notes](WILDERNESS_MEMORY.md).
 - [x] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14.
   Delivered 0.25.0.** A distinct read-only view; no automatic combat or spoilers.
   **Delivered 0.25.0:** while a battle runs, the companion draws one mark per
