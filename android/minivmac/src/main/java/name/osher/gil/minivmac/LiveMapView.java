@@ -276,27 +276,27 @@ public final class LiveMapView extends View {
         ink.setTextSize(14 * density);
         String title = state != null && state.area != null ? state.area.label() : "AREA MAP";
         if (state != null && !positionAvailable) title += " · reference";
-        String status = positionAvailable ? state.positionLabel() : mode.label();
+        /*
+         * One steady word rather than a blinking one. The transient modes churn
+         * between Updating, Loading and Position unavailable several times a
+         * second while the game settles, and the old inverted badge made every
+         * one of those flips flash. The reason is still carried in the
+         * accessibility description and in the "· reference" title suffix.
+         */
+        String status = positionAvailable ? state.positionLabel() : MapMode.UNAVAILABLE.label();
         float available = Math.max(0, pane.mapWidth - 24 * density);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
                 12 * density, 22 * density, ink);
-        if (!positionAvailable && mode != MapMode.UNAVAILABLE) {
-            canvas.drawRect(pane.mapWidth - 16 * density - statusWidth, 6 * density,
-                    pane.mapWidth - 8 * density, 27 * density, ink);
-            ink.setColor(Color.WHITE);
-        }
         ink.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
         ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
         if (state == null) {
-            ink.setTextAlign(Paint.Align.CENTER);
-            ink.setTextSize(13 * density);
-            canvas.drawText(fitHeaderText(mode.explanation(), available), pane.mapWidth / 2f,
-                    Math.max(48 * density, pane.mapHeight / 2f), ink);
+            // No centred explanation: the header already says the position is
+            // unavailable, and the full reason stays in the accessible text.
             return;
         }
         MapViewport viewport = viewport();
@@ -317,9 +317,10 @@ public final class LiveMapView extends View {
         // slot still carries whichever of these actually tells the player
         // something, and the notebook name always rides along.
         ink.setTextSize(11 * density);
-        String legend = !positionAvailable ? mode.explanation()
-                : !explorationStatus.isEmpty() ? explorationStatus : "Tap a tile or symbol";
-        canvas.drawText(fitHeaderText(legend + " · " + notebook, available),
+        // The caption names the notebook and says taps work. Helper state does
+        // not belong here; the header carries availability on its own.
+        canvas.drawText(fitHeaderText(
+                        (positionAvailable ? "Tap a tile or symbol · " : "") + notebook, available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 

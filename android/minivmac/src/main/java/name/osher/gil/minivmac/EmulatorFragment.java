@@ -3,9 +3,6 @@ package name.osher.gil.minivmac;
 import static android.os.Looper.getMainLooper;
 
 import android.app.Dialog;
-import android.graphics.Bitmap;
-import android.graphics.Canvas;
-import android.graphics.Color;
 import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -52,7 +49,6 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.ByteBuffer;
 import java.util.List;
-import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.AutomaticWheel;
 import name.osher.gil.minivmac.mapper.WheelPrompt;
 import name.osher.gil.minivmac.desktop.DiskAccessGate;
@@ -265,54 +261,12 @@ public class EmulatorFragment extends Fragment
                 case JOURNAL: ((MiniVMac) requireActivity()).journal().show(); break;
                 case EQUIPMENT: EquipmentReferenceDialog.show(requireActivity()); break;
                 case MONEY: MoneyReferenceDialog.show(requireActivity()); break;
-                case CHECKPOINTS: DiskCheckpointDialog.show(requireActivity(), checkpointContext()); break;
                 case WHEEL:
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
                     break;
             }
         });
-    }
-
-    /**
-     * Labels and a small picture of the map as the companion last showed it.
-     * This is companion history, not a position decoded out of the copied disk.
-     */
-    private DiskCheckpointDialog.Context checkpointContext() {
-        return new DiskCheckpointDialog.Context() {
-            @Override public String areaLabel() {
-                AreaIdentity area = mLiveMap == null ? null : mLiveMap.displayedArea();
-                return area == null ? null : area.label();
-            }
-            @Override public String notebookLabel() {
-                return mNotebook == null ? null : mNotebook.notebookLabel();
-            }
-            @Override public byte[] thumbnailPng() { return mapThumbnail(); }
-        };
-    }
-
-    private byte[] mapThumbnail() {
-        if (mLiveMap == null || mLiveMap.getWidth() <= 0 || mLiveMap.getHeight() <= 0) return null;
-        float scale = Math.min(1f, 480f / Math.max(mLiveMap.getWidth(), mLiveMap.getHeight()));
-        int width = Math.max(1, Math.round(mLiveMap.getWidth() * scale));
-        int height = Math.max(1, Math.round(mLiveMap.getHeight() * scale));
-        Bitmap bitmap = null;
-        try {
-            bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-            Canvas canvas = new Canvas(bitmap);
-            canvas.drawColor(Color.WHITE);
-            canvas.scale(scale, scale);
-            mLiveMap.draw(canvas);
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            if (!bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)) return null;
-            // A picture is optional; never fail a checkpoint because of one.
-            return out.size() <= name.osher.gil.minivmac.checkpoint.DiskCheckpointStore.MAX_THUMBNAIL_BYTES
-                    ? out.toByteArray() : null;
-        } catch (RuntimeException | OutOfMemoryError unavailable) {
-            return null;
-        } finally {
-            if (bitmap != null) bitmap.recycle();
-        }
     }
 
     @Override
@@ -446,9 +400,6 @@ public class EmulatorFragment extends Fragment
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
                     ((MiniVMac) requireActivity()).captureScreenshot();
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_desktop_appearance) {
-                    openCompanionTool(() -> DesktopAppearanceDialog.show(requireActivity()));
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_keyboard) {
                     toggleKeyboard();

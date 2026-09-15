@@ -65,7 +65,7 @@ public final class CompanionPaneCheck {
             R.id.companion_tool_exploration,
             R.id.companion_tool_journal,
             R.id.companion_tool_levels, R.id.companion_tool_spells, R.id.companion_tool_equipment,
-            R.id.companion_tool_money, R.id.companion_tool_wheel, R.id.companion_tool_checkpoints};
+            R.id.companion_tool_money, R.id.companion_tool_wheel};
 
     public static void main(String[] args) {
         try { checks(args.length == 0 ? "com.hunterdavis.poolradmacmaps.ii" : args[0]); }
@@ -132,7 +132,7 @@ public final class CompanionPaneCheck {
             assertNotFocusable(pane);
         });
 
-        run("All eight real tool buttons deliver distinct enum callbacks, including checkpoints", () -> {
+        run("All seven real tool buttons deliver distinct enum callbacks, and no maintenance action", () -> {
             CompanionPane pane = pane(context, 480, 360);
             pane.setTab(CompanionPane.INFO);
             List<CompanionPane.Tool> tools = new ArrayList<>();
@@ -144,8 +144,7 @@ public final class CompanionPaneCheck {
             }
             check(tools.equals(Arrays.asList(CompanionPane.Tool.EXPLORATION, CompanionPane.Tool.JOURNAL,
                     CompanionPane.Tool.LEVELS, CompanionPane.Tool.SPELLS, CompanionPane.Tool.EQUIPMENT,
-                    CompanionPane.Tool.MONEY, CompanionPane.Tool.WHEEL,
-                    CompanionPane.Tool.CHECKPOINTS)), "Incorrect or duplicate tool routing");
+                    CompanionPane.Tool.MONEY, CompanionPane.Tool.WHEEL)), "Incorrect or duplicate tool routing");
             check(CompanionPane.INFO.equals(pane.selectedTab()), "Tool click changed underlying Info tab");
             pane.setOnToolSelectedListener(null);
             pane.findViewById(TOOL_IDS[0]).performClick();

@@ -213,10 +213,14 @@ Everything below remains ignored; do not publish it.
 - **Combined boot + game test disk, supplied 2026-09-14:**
   `scratch/minivmacandpools.dsk`, 25,165,824 bytes, SHA-256
   `7ee39cb8ee3d96e190eecf10099811e98e086b85cafc516613617da2983816de`.
-  Volume `Mini vMac Boot v2`; the whole game sits in `System Folder:Startup
-  Items` so it auto-launches, and `PoolRadSave` holds only `SampleParty` and
-  `PoRCharacters` — a clean baseline, no campaign save. Prefer it for new
-  emulator testing. **Copy before mounting; never mount the supplied file**, and
+  Volume `Mini vMac Boot v2`; `PoolRadSave` holds only `SampleParty` and
+  `PoRCharacters` — a clean baseline, no campaign save. **But all fifteen game
+  items sit directly in `System Folder:Startup Items`, so System 7 opens every
+  one of them at boot.** That explains the user's reports of the guest opening
+  all the files instead of accepting Continue, the Mac's "longer than 8,000
+  characters" text-editor refusals, and no party appearing. Rebuild it with
+  `tools/prepare-personal-boot.py`, which requires an empty Startup Items and
+  places one alias, before relying on it. **Copy before mounting; never mount the supplied file**, and
   take a checkpoint before letting it replace any existing disk. Verified as a
   file only; not yet booted.
 - **Never overwrite a current campaign with a fresh sample disk.** A later

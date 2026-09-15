@@ -1,5 +1,12 @@
 # A quieter Mac desktop
 
+> **WITHDRAWN in 0.20.0.** Mac desktop appearance has been removed from the app. It could only
+> run with the guest shut down, and the user ruled that a non-starter for
+> everyday use. There is no safe instantaneous version: touching a volume the
+> emulator is actively writing risks a torn image. This page is kept as a
+> record of what was built and why it was dropped, not as a guide to
+> reimplement it.
+
 **PoolRad → Desktop appearance** changes the actual emulated Mac desktop,
 not an Android overlay. Game windows, rules and campaign data are not edited.
 Use your own imported copy of the supported System 7.5.5 boot disk.

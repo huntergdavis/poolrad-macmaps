@@ -1,5 +1,50 @@
 # Local Android prototype
 
+## 0.20.0 — quiet header, no helper captions, two tools removed (2026-09-14)
+
+User-reported, then fixed:
+
+- **The header flashed.** It flipped between *Updating*, *Loading / setup* and
+  *Position unavailable* several times a second while the game settled, and the
+  transient ones drew as inverted white-on-black, so each flip flashed. It now
+  shows one steady *Position unavailable* until a real position arrives.
+- **Helper-state text removed.** The centred "No verified game position is
+  available…" line is gone, and the caption under the map no longer repeats the
+  camp/loading explanation; it shows the notebook name and the tap hint only.
+  `mode.explanation()` is still in the accessibility description, so the reason
+  remains available to a screen reader.
+- **Disk checkpoints and Mac desktop appearance are removed** at the user's
+  direction, because both required a guest shutdown. There is no safe
+  instantaneous version of either: copying or rewriting a volume the emulator is
+  actively writing produces a torn image, which is exactly what `DiskAccessGate`
+  exists to prevent. Deleted: `DiskCheckpointDialog`, `DiskCheckpointStore`,
+  `DesktopAppearanceDialog`, `DesktopAppearanceStore`, `DesktopDisk` and their
+  three test classes. `DiskAccessGate` and `DiskAccessGateTest` stay: `Core` and
+  `FileManager` still use the gate.
+
+**Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass** after the
+removals, and the eight companion View checks confirm the Info list is back to
+seven everyday tools with no maintenance action among them.
+
+The party sidebar was checked against a draw-order concern raised by the user:
+`onDraw` calls `drawParty` **before** `drawMap`, so the early return in the map
+path cannot hide the party. `drawParty` returns early only when there is no
+party sample at all or the pane has no room for a row.
+
+## Not reproduced here
+
+The user reported, from their own tablet, that the guest "keeps opening all the
+files in the folder" instead of letting them press Continue, and that the party
+was not shown. **Neither was reproduced on emulator-5584**, and their screenshot
+was not available on either emulator attached to this machine, so it was not
+examined. The most likely cause of the first is structural rather than a code
+defect: see the combined test disk section below — that image places all fifteen
+game items directly in `System Folder:Startup Items`, and System 7 opens every
+item in Startup Items at boot. A party that never finishes loading would also
+leave the companion with no party to show, which would explain both together.
+This remains a hypothesis until the screenshot or the disk's boot behaviour is
+actually observed.
+
 ## R4 and F13 — readied equipment, one-line caption, two-column party (2026-09-14, v0.19.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.19.0.apk`, SHA-256
@@ -373,6 +418,22 @@ emulator test disk.
   `tables`.
 - `PoolRadSave` contains `PoRCharacters` and **`SampleParty`** and no campaign
   save, so it is a clean baseline rather than someone's playthrough.
+
+**Known problem with this image.** All fifteen game items sit *directly inside*
+`System Folder:Startup Items`. System 7 opens every item in Startup Items at
+boot, so this disk opens the journals, the rule books and the PoolRad data
+folders as well as launching the game. That matches three symptoms the user
+reported from their tablet: the guest "opening all the files in the folder"
+instead of accepting a Continue click, the Mac's own "could not read a text file
+because its text is longer than 8,000 characters" (its text editor refusing the
+oversized journal and rule-book TEXT files it was told to open), and no party in
+the companion, which follows if the game never finishes coming up. That message
+does not exist anywhere in this project's code; it comes from the guest.
+
+`tools/prepare-personal-boot.py` builds the working layout instead: it
+**requires Startup Items to be empty** and places exactly one alias there, with
+the game and its data folders elsewhere on the volume. Rebuilding this image
+that way should stop the boot from opening everything.
 
 **Never mount or modify the supplied file.** Copy it first and work on the copy;
 everything above was read from a copy under the session scratchpad. `hmount`

@@ -37,7 +37,7 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.6.0 | Complete notebook backups/restore, readable PNG pages and confirmed notebook removal |
 | Done — 0.7.0 | Opt-in personal APK, verified first-use import, save-preserving updates; public APK stays BYO-files |
 | Done | Explicit pinned-source private builds, verified offline cache, no checkout downloads or public private-asset uploads |
-| Done — 0.8.0 | Real Mac desktop White/Mist/Stonework previews, safe offline Apply and original-setting restoration |
+| Withdrawn — 0.20.0 | Mac desktop appearance (shipped 0.8.0): removed, it could only work with the guest shut down |
 | Done — 0.9.0 | Map/Info tabs, five offline tools, smaller menu and reference/picker windows fitted above the guest |
 | Done — 0.10.0 | Fresh-save party fix, map-left HP/AC/class sidebar, tap-for-details and small-window collapse |
 | Done — 0.11.0 | 29 named areas, live GEO ID plus immutable-prefix validation, door-stable note keys and bounded map headers |
@@ -52,6 +52,8 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.17.0 | Verified disk checkpoints with automatic undo copy, taken only while the Mac is shut down |
 | Done — 0.18.0 | Per-level memorized-spell readiness, awaiting-rest counts and a rest reminder in character details |
 | Done — 0.19.0 | Readied weapon/armor names, movement and carried weight; one-line map caption; two-column party for NPC-sized parties |
+| Withdrawn — 0.20.0 | Disk checkpoints (shipped 0.17.0): removed, same shutdown requirement |
+| Done — 0.20.0 | Quiet map header, no helper-state captions, and both shutdown-gated tools gone |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
@@ -589,9 +591,17 @@ research for sources and portability limits.
 - [ ] **R7 — Useful places.** Player-created service symbols for inns, temples,
   shops, and training; manually checked tasks linked to notes. Do not expose
   unvisited event scripts as if the player discovered them.
-- [x] **R8 — Save checkpoints.** Explicit backups of writable disk/save copies
-  with a thumbnail and known area label. Quiesce disk writes before copying;
-  never claim an in-flight disk copy is a safe emulator save state.
+- [x] **R8 — Save checkpoints. Built in 0.17.0, then WITHDRAWN in 0.20.0 at the
+  user's direction.** The feature worked and was verified, but it could only
+  ever run with the guest shut down, and the user ruled that a non-starter for
+  everyday use. Copying a disk the emulator is actively writing yields a torn
+  image, so there is no safe instantaneous version; it was removed rather than
+  left as an everyday menu entry that mostly refuses. The store, dialog and
+  their tests are deleted; `DiskAccessGate` stays because the core and file
+  manager still use it. [Original design](CHECKPOINTS.md) is kept as a record.
+  Do not reintroduce this without a way to quiesce the guest that does not
+  require a shutdown.
+  *Original delivery notes:*
   **Delivered 0.17.0:** Info → Save checkpoints copies one writable disk while
   holding the same maintenance lease the desktop tool uses, so saving, restoring
   and deleting are all refused while the emulator holds the disk. Each copy is

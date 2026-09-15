@@ -1,5 +1,11 @@
 # Releases
 
+## 0.20.0 — Quieter, and smaller
+
+[Release notes](releases/0.20.0.md): a map header that no longer flashes between
+transient states, no more helper-state captions, and the removal of both
+shutdown-gated tools, disk checkpoints and desktop appearance.
+
 ## 0.19.0 — What you are holding, and room to see it
 
 [Release notes](releases/0.19.0.md): readied weapon and armor under the game's

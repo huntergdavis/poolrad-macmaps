@@ -1,5 +1,12 @@
 # Save checkpoints
 
+> **WITHDRAWN in 0.20.0.** Disk checkpoints has been removed from the app. It could only
+> run with the guest shut down, and the user ruled that a non-starter for
+> everyday use. There is no safe instantaneous version: touching a volume the
+> emulator is actively writing risks a torn image. This page is kept as a
+> record of what was built and why it was dropped, not as a guide to
+> reimplement it.
+
 **Info → Save checkpoints** keeps explicit, player-requested copies of one
 writable emulator disk. A checkpoint is a complete byte-for-byte copy of the
 disk file, verified by SHA-256 after it is written.

@@ -41,8 +41,6 @@
                 android:title="Notebooks" />
             <item android:id="@+id/action_screenshot"
                 android:title="@string/screenshot_title" />
-            <item android:id="@+id/action_desktop_appearance"
-                android:title="Desktop appearance" />
         </menu>
     </item>
     <item android:id="@+id/action_settings"
