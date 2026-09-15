@@ -78,6 +78,7 @@ static RequestRamSnapshotType requestMapSamplePtr = NULL;
 static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
 static RequestRamSnapshotType requestMessageSamplePtr = NULL;
+static RequestRamSnapshotType requestCombatSamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
 void unloadCurrentVariant() {
@@ -86,6 +87,7 @@ void unloadCurrentVariant() {
     requestWheelSamplePtr = NULL;
     requestPartySamplePtr = NULL;
     requestMessageSamplePtr = NULL;
+    requestCombatSamplePtr = NULL;
     if (variantHandle) {
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -177,6 +179,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     requestWheelSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestWheelSample");
     requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
     requestMessageSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMessageSample");
+    requestCombatSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestCombatSample");
 
     const char* error = dlerror();
     if (error != NULL) {
@@ -185,6 +188,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         requestWheelSamplePtr = NULL;
         requestPartySamplePtr = NULL;
         requestMessageSamplePtr = NULL;
+        requestCombatSamplePtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -263,6 +267,11 @@ Java_name_osher_gil_minivmac_Core_requestPartySampleNative(JNIEnv *env, jclass c
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestMessageSampleNative(JNIEnv *env, jclass cls) {
     return requestMessageSamplePtr ? requestMessageSamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestCombatSampleNative(JNIEnv *env, jclass cls) {
+    return requestCombatSamplePtr ? requestCombatSamplePtr() : JNI_FALSE;
 }
 
 /*

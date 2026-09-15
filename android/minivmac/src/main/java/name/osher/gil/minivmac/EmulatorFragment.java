@@ -168,7 +168,8 @@ public class EmulatorFragment extends Fragment
             if (!mMapPolling || !companionMapActive()) return;
             Core target = mCore;
             if (target != null && target.isReady()) {
-                target.requestMapSample(); target.requestPartySample(); target.requestMessageSample();
+                target.requestMapSample(); target.requestPartySample();
+                target.requestMessageSample(); target.requestCombatSample();
             }
             else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
             mUIHandler.postDelayed(this, 250);
@@ -544,6 +545,13 @@ public class EmulatorFragment extends Fragment
                 mUIHandler.post(() -> {
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
                         mLiveMap.showPartySample(sample);
+                });
+            });
+            mCore.setCombatSampleListener(sample -> {
+                final int generation = mMapGeneration;
+                mUIHandler.post(() -> {
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
+                        mLiveMap.showCombatSample(sample);
                 });
             });
             // References the game cites belong to the notebook, not the map view,

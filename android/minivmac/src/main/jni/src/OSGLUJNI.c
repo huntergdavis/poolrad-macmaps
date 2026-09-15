@@ -28,6 +28,7 @@
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
 #include "POOLRAD_MESSAGE.h"
+#include "POOLRAD_COMBAT.h"
 
 IMPORTFUNC ui3p GetRamForSnapshot(ui5b *size);
 IMPORTFUNC ui5r PoolRadGetAddressRegister(ui3r index);
@@ -66,6 +67,9 @@ LOCALVAR atomic_int WantPartySample = 0;
 
 jmethodID jMessageSample;
 LOCALVAR atomic_int WantMessageSample = 0;
+
+jmethodID jCombatSample;
+LOCALVAR atomic_int WantCombatSample = 0;
 jfieldID sInitOk;
 jobject mCore;
 
@@ -1336,6 +1340,31 @@ LOCALPROC DeliverMessageSample(void)
     if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
 }
 
+GLOBALFUNC jboolean requestCombatSample(void)
+{
+    return atomic_exchange(&WantCombatSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+/* Where the game has placed each combatant on its own tactical grid. Read-only
+ * and roster-checked; see POOLRAD_COMBAT.h and docs/COMBAT_MEMORY.md. */
+LOCALPROC DeliverCombatSample(void)
+{
+    if (atomic_exchange(&WantCombatSample, 0) == 0) return;
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    unsigned char data[POOLRAD_COMBAT_SIZE];
+    jbyteArray sample = NULL;
+    if (poolrad_combat_probe(ram, size, data)) {
+        sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_COMBAT_SIZE);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_COMBAT_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    }
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jCombatSample, sample);
+    if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
+}
+
 GLOBALOSGLUPROC DoneWithDrawingForTick(void)
 {
 #if EnableFSMouseMotion
@@ -1373,6 +1402,7 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     DeliverWheelSample();
     DeliverPartySample();
     DeliverMessageSample();
+    DeliverCombatSample();
 
     if (CurSpeedStopped) {
         DoneWithDrawingForTick();
@@ -1431,6 +1461,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     atomic_store(&WantWheelSample, 0);
     atomic_store(&WantPartySample, 0);
     atomic_store(&WantMessageSample, 0);
+    atomic_store(&WantCombatSample, 0);
 
     mCore = (*env)->NewGlobalRef(env, core);
     // get java method IDs
@@ -1455,6 +1486,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");
     jMessageSample = (*env)->GetMethodID(env, this, "onMessageSample", "([B)V");
+    jCombatSample = (*env)->GetMethodID(env, this, "onCombatSample", "([B)V");
 
     // initialize fields
     jfieldID sDiskPath, sDiskFile, sNumInsertedDisks;

@@ -723,10 +723,28 @@ research for sources and portability limits.
 
 - [ ] **L1 — Separate wilderness map. Confirmed wanted by the user
   2026-09-14.** Only after its own structure/location is validated; do not stretch the existing 16×16 area renderer to impersonate it.
-- [ ] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14**,
-  so the "only if the pane plus conditions are insufficient" condition is
-  settled: build it. A distinct read-only view; no automatic combat or spoilers.
-  **Research started 2026-09-15; the roster is reachable, the grid is not yet.**
+- [x] **L2 — Tactical combat map. Confirmed wanted by the user 2026-09-14.
+  Delivered 0.25.0.** A distinct read-only view; no automatic combat or spoilers.
+  **Delivered 0.25.0:** while a battle runs, the companion draws one mark per
+  combatant on the squares the game itself placed them — the party filled,
+  everyone else hollow — with the occupied area's corners and a plain count in
+  the header. It is reference only: nothing on it can be tapped, it names no
+  monster, reads no initiative and suggests no move, and it clears the moment
+  the battle ends. A packet that does not fully verify draws nothing rather
+  than a half-read battlefield.
+  Read from a four-byte-per-combatant table at `A5-0x46e4` with its count at
+  `A5-0x46e8`, cross-checked against the combat roster so a count that
+  disagrees with the chain is refused.
+  **Live proof:** a real council-guard battle showed `BATTLE · overview`,
+  `25,11 to 36,19`, `6 of yours · 29 others`, with six filled circles against
+  twenty-nine hollow squares in the same arrangement as the game's own Combat
+  View (`scratch/l2-combat-overview-live.png`). 416 Java tests, four native
+  probe suites and 6 detached View checks pass.
+  **Deliberately not included:** no terrain is decoded, so the overview shows
+  where combatants stand and not what they stand on, and the arena's own bounds
+  are unknown, so the pane frames the occupied squares. Those are the natural
+  next additions. [How it is read](COMBAT_MEMORY.md) · [evidence](LOCAL_TESTING.md).
+  *Research notes from the blocked first attempt:*
   The combatant list needs no new work — it is the party list with monsters
   appended, and the existing reader walks it (six members plus ten `ORC`
   records in one live battle). Ruled out: the 302-byte record does **not**

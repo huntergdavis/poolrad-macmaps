@@ -20,6 +20,7 @@ import java.util.Map;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.MapObservation;
+import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
@@ -41,6 +42,8 @@ public final class LiveMapView extends View {
     private PoolRadState state;
     private PartyState party;
     private boolean positionAvailable;
+    /** Set only while the game is in combat; null at every other moment. */
+    private CombatSnapshot combat;
     private MapMode mode = MapMode.UNAVAILABLE;
     private String notebook = "Loading notebook…";
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
@@ -111,6 +114,11 @@ public final class LiveMapView extends View {
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
                     .append("; ").append(member.classLabel())
                     .append("; ").append(member.conditionSummary()).append('.');
+        if (mode == MapMode.COMBAT && combat != null)
+            status = "Battle overview. " + combat.summary()
+                    + ", between " + combat.left + "," + combat.top
+                    + " and " + combat.right + "," + combat.bottom
+                    + ". Reference only; no terrain is shown and nothing here can be tapped.";
         setContentDescription(status + (positionAvailable
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
@@ -128,6 +136,19 @@ public final class LiveMapView extends View {
         setFocusable(false); // Hardware Return/arrows belong to the guest, not this read-only view.
         setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_YES);
         setContentDescription("Area map. Waiting for a supported Pool of Radiance party.");
+    }
+
+    /**
+     * The tactical overview. Kept separate from the area map on purpose: this
+     * is not a place the party can be tapped, walked or noted, it only shows
+     * the squares the game has already drawn on its own Combat View.
+     */
+    public void showCombatSample(byte[] sample) {
+        CombatSnapshot next = mode == MapMode.COMBAT ? CombatSnapshot.parse(sample) : null;
+        boolean had = combat != null;
+        if (next == null && !had) return;
+        combat = next;
+        refreshDescription(); invalidate();
     }
 
     public void showSample(byte[] sample) {
@@ -158,6 +179,7 @@ public final class LiveMapView extends View {
             return;
         }
         mode = nextMode;
+        if (nextMode != MapMode.COMBAT) combat = null; // Never a stale battlefield.
         positionAvailable = available;
         if (next != null) state = next; // Status-only packets retain a reference, not a live map.
         cancelTap(); // A press begun in one mode cannot finish in another.
@@ -277,6 +299,7 @@ public final class LiveMapView extends View {
         ink.setTextSize(14 * density);
         String title = state != null && state.area != null ? state.area.label() : "AREA MAP";
         if (state != null && !positionAvailable) title += " · reference";
+        if (mode == MapMode.COMBAT) title = combat == null ? "BATTLE" : "BATTLE · overview";
         /*
          * One steady word rather than a blinking one. The transient modes churn
          * between Updating, Loading and Position unavailable several times a
@@ -284,7 +307,9 @@ public final class LiveMapView extends View {
          * one of those flips flash. The reason is still carried in the
          * accessibility description and in the "· reference" title suffix.
          */
-        String status = positionAvailable ? state.positionLabelWithSearch() : MapMode.UNAVAILABLE.label();
+        String status = positionAvailable ? state.positionLabelWithSearch()
+                : mode == MapMode.COMBAT && combat != null ? combat.summary()
+                : MapMode.UNAVAILABLE.label();
         float available = Math.max(0, pane.mapWidth - 24 * density);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);
@@ -295,6 +320,7 @@ public final class LiveMapView extends View {
         ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
+        if (mode == MapMode.COMBAT) { drawCombat(canvas, pane, available); return; }
         if (state == null) {
             // No centred explanation: the header already says the position is
             // unavailable, and the full reason stays in the accessible text.
@@ -322,6 +348,56 @@ public final class LiveMapView extends View {
         // not belong here; the header carries availability on its own.
         canvas.drawText(fitHeaderText(
                         (positionAvailable ? "Tap a tile or symbol · " : "") + notebook, available),
+                pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
+    }
+
+    /**
+     * The battle as an overview: one square per combatant, the party filled and
+     * everyone else hollow, on the bounds of the squares actually read. No
+     * terrain is drawn, because none has been decoded, and nothing here is a
+     * suggestion: the original Combat View below remains the place to act.
+     */
+    private void drawCombat(Canvas canvas, PartyPaneLayout pane, float available) {
+        CombatSnapshot battle = combat;
+        ink.setStyle(Paint.Style.FILL);
+        ink.setTextAlign(Paint.Align.CENTER);
+        ink.setTextSize(11 * density);
+        if (battle == null) {
+            canvas.drawText(fitHeaderText(MapMode.COMBAT.explanation(), available),
+                    pane.mapWidth / 2f, pane.mapHeight / 2f, ink);
+            return;
+        }
+        float margin = 26 * density, caption = 22 * density;
+        float usableWidth = pane.mapWidth - 2 * margin;
+        float usableHeight = pane.mapHeight - margin - caption - 10 * density;
+        if (usableWidth <= 0 || usableHeight <= 0) return;
+        float cell = Math.min(usableWidth / battle.width(), usableHeight / battle.height());
+        cell = Math.min(cell, 34 * density);
+        if (cell < 3) return;
+        float gridWidth = cell * battle.width(), gridHeight = cell * battle.height();
+        float left = (pane.mapWidth - gridWidth) / 2f, top = margin + (usableHeight - gridHeight) / 2f;
+
+        ink.setColor(Color.BLACK);
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setStrokeWidth(Math.max(1, density));
+        canvas.drawRect(left, top, left + gridWidth, top + gridHeight, ink);
+        for (CombatSnapshot.Spot spot : battle.spots()) {
+            float cx = left + (spot.x - battle.left + .5f) * cell;
+            float cy = top + (spot.y - battle.top + .5f) * cell;
+            float radius = cell * .32f;
+            ink.setStyle(spot.party ? Paint.Style.FILL : Paint.Style.STROKE);
+            ink.setStrokeWidth(Math.max(1.5f * density, cell * .09f));
+            if (spot.party) canvas.drawCircle(cx, cy, radius, ink);
+            else canvas.drawRect(cx - radius, cy - radius, cx + radius, cy + radius, ink);
+        }
+        ink.setStyle(Paint.Style.FILL);
+        ink.setTextSize(Math.min(11 * density, cell * .8f));
+        canvas.drawText(fitHeaderText(battle.left + "," + battle.top + " to "
+                        + battle.right + "," + battle.bottom, available),
+                pane.mapWidth / 2f, top - 8 * density, ink);
+        ink.setTextSize(11 * density);
+        canvas.drawText(fitHeaderText(
+                        "Filled is yours · reference only, tap the game below to act", available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 

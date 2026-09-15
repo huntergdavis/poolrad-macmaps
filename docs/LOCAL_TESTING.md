@@ -1,5 +1,71 @@
 # Local Android prototype
 
+## L2 — the tactical combat overview (2026-09-15, v0.25.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.25.0.apk`, SHA-256
+`2aa8337fd39cda0958f4472594e0f338fcee98c1add5c7102f904b13ab95a689`, versionCode 91.
+
+Offsets and how they were found: [COMBAT_MEMORY.md](COMBAT_MEMORY.md). The
+short version is that the game keeps one four-byte entry per combatant at
+`A5-0x46e4`, in the same order as the combat roster, with a count at
+`A5-0x46e8` that is zero whenever no battle is running.
+
+**Finding it needed the input question answered first.** The previous pass was
+blocked because the number keys that walk the party outdoors do nothing in
+combat. They are the wrong keys: **in combat the arrow keys move the
+combatant**, the mirror of exploration. With that settled, `Move Left` counting
+down from 9 confirmed each step, and a capture pair either side of one verified
+square gave the position bytes immediately — `x` and `y` adjacent, changing by
+exactly one in the direction moved. A second, orthogonal move separated the two
+axes beyond doubt.
+
+Automated suites:
+
+- Native `tools/test-combat-probe.c` with `-Wall -Wextra -Werror` and
+  ASan/UBSan passes: the whole-battle shape, a count that disagrees with the
+  roster in either direction, every entry's self-index, the flag byte's known
+  values, coordinates at and past the ceiling, a missing end sentinel, four
+  separate ways of breaking the roster chain, the largest roster the reader
+  accepts and one past it, another application frontmost, and a byte-for-byte
+  check that guest RAM is never written.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **416 tests,
+  zero failures/errors/skips**; `CombatSnapshotTest` adds eight.
+- `tools/CombatMapRenderCheck.java`, run detached on emulator-5584 through
+  `app_process`: **6 checks pass** — a battle draws what an empty one does not,
+  party marks use more ink than hollow ones, leaving combat clears the
+  battlefield immediately, a battle sample arriving outside combat is ignored,
+  a malformed packet leaves the ordinary Combat wording rather than a half-drawn
+  grid, and nothing paints the pane's right edge at 380×300.
+- `check-wheel-apk.mjs` passes and `apksigner verify` succeeds on the same key.
+
+Decoded against real captures with the production reader:
+
+- Two different live battles read correctly: the ten-orc fight (16 combatants,
+  six party east and ten orcs clustered west, exactly as its screenshot shows)
+  and the council-guard fight (35 combatants). Camp, walking and the Slums
+  arrival all report unavailable with no squares at all.
+
+Live on emulator-5584, API 30, 1200×1600, with `PoolRadSave/SampleParty`:
+
+- 0.25.0 installed, the guest cold-booted, the party was loaded and walked into
+  the City Hall, and the council guard was refused to start a real battle.
+- The companion header read **`BATTLE · overview`**, **`25,11 to 36,19`** and
+  **`6 of yours · 29 others`**, and the pane drew six filled circles for the
+  party against twenty-nine hollow squares, in the same arrangement as the
+  game's own Combat View directly below it:
+  `scratch/l2-combat-overview-live.png`. The caption read *Filled is yours ·
+  reference only, tap the game below to act*.
+- The party sidebar tracked damage through the same battle, showing the injured
+  badge on the members who had taken hits.
+
+Not claimed: **no terrain is decoded or drawn**, so the overview shows where
+combatants stand and not what they stand on; the grid's own bounds are not
+known either, so the pane frames the squares actually occupied rather than the
+whole arena. Initiative, facing and who is acting are not read. The overview
+was exercised on one encounter type on this emulator; no physical e-ink,
+stylus or tablet acceptance was performed. Only emulator-5584 was used, the
+user's `m1gate` save was never opened, and nothing was saved to the guest.
+
 ## R9 part one — references the game cites (2026-09-14, v0.24.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.24.0.apk`, SHA-256

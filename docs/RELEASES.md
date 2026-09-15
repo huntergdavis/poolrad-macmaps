@@ -1,5 +1,10 @@
 # Releases
 
+## 0.25.0 — See the whole battle at once
+
+[Release notes](releases/0.25.0.md): a read-only tactical overview of every
+combatant's square while a fight is running, party filled and others hollow.
+
 ## 0.24.0 — The journal list fills itself in
 
 [Release notes](releases/0.24.0.md): references the running game names out loud

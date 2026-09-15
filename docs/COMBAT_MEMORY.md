@@ -1,9 +1,26 @@
 # The tactical combat state in memory — research notes
 
-**Status: research only. L2 is not implemented.** This records what has been
-established about the original game's tactical combat, what has been ruled out,
-and the one question that must be answered before the work can continue, so the
-next attempt does not repeat this ground.
+**Status: L2 shipped in 0.25.0 from these findings.** This records how the
+original game's tactical combat is read, what was ruled out on the way, and
+what is still undecoded.
+
+## The table, verified
+
+    A5-0x46e8            count, zero whenever no battle is running
+    A5-0x46e4 + i*4      { i, flag, x, y } for i in 0..count-1
+    A5-0x46e4 + count*4  a sentinel entry whose x and y are both zero
+
+Entry `i` is the `i`-th combatant of the roster chain, so the party members
+come first and the party/other split needs no new field. Each entry states its
+own index, which makes the table self-checking: the reader refuses it if any
+entry disagrees, if the sentinel is missing, or if the count disagrees with the
+chain length. Confirmed on two live battles (sixteen combatants and
+thirty-five) and on camp, walking and an area arrival, where the count is zero.
+
+**The input question is answered: in combat the party moves with the arrow
+keys**, the mirror of exploration, where it moves with the number keys. The
+`Move Left` counter confirms each step, which is what finally made a clean
+one-square before/after diff possible.
 
 ## Verified: the combatant list is already reachable
 
@@ -45,25 +62,30 @@ The cheap, repeatable battle is the **council guard**, not a tavern brawl:
 
 Route planning and the keyboard recipe are in [MESSAGE_MEMORY.md](MESSAGE_MEMORY.md).
 
-## The open question, and why no offsets are claimed yet
+## How the offsets were found
 
-A before/after diff across a single square of movement is the obvious way to
-find the position fields. That experiment has **not** been performed
-successfully, because the Mac version does not appear to move a combatant with
-the number keys that move the party in exploration: with the prompt reading
-`Move/Attack, Move Left = 9`, pressing `6` left the selection where it was, no
-byte anywhere in RAM went from 9 to 8, and the combat view was unchanged apart
-from the flashing selection box.
+Two capture pairs, each around a single square of movement confirmed both on
+screen and by the `Move Left` counter:
 
-A pair of captures was taken around that keypress and shows a compact region
-changing near `0x72a9b3` and across `0x72b5d6..0x72b6fe`. **No offsets are
-claimed from it**, because without a confirmed move the diff cannot be
-distinguished from the enemy's own turn and the game's redraw.
+- one step **north** left a handful of bytes changed by exactly minus one;
+- one step **east** left a different handful changed by exactly plus one.
 
-**What has to happen first:** establish how the Mac build takes combat movement
-input — most likely a mouse click on the destination square rather than a key —
-then repeat the capture pair with a move that is visibly confirmed on screen and
-in the `Move Left` counter. Only then are position offsets worth naming.
+Intersecting them — changed by a step on one axis, untouched by the step on the
+other — left exactly one adjacent pair, `x` then `y`, inside the table above.
+An earlier pair taken around a keypress that did **not** move anything was
+discarded rather than interpreted; without a confirmed move a diff cannot be
+told apart from the enemy's turn and the redraw.
+
+## Still undecoded
+
+- **Terrain.** Nothing in the A5 globals looks like an arena grid: the largest
+  block that appears only during a battle is the position table itself. The
+  terrain is presumably in a heap allocation that has not been located, so the
+  shipped overview draws no walls and says so.
+- **The arena's own bounds.** Coordinates from 18 to 36 and 9 to 19 have been
+  seen, but no width or height field has been identified, so the overview
+  frames the squares that are occupied instead of claiming an arena size.
+- **Initiative, facing, and which combatant is acting.**
 
 ## Scope reminder
 

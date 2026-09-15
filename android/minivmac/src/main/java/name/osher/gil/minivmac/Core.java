@@ -38,6 +38,7 @@ public class Core {
 	private volatile MapSampleListener mWheelSampleListener;
 	private volatile MapSampleListener mPartySampleListener;
 	private volatile MapSampleListener mMessageSampleListener;
+	private volatile MapSampleListener mCombatSampleListener;
 
 	public void setPartySampleListener(MapSampleListener listener) { mPartySampleListener = listener; }
 	public boolean requestPartySample() { return initOk && requestPartySampleNative(); }
@@ -54,6 +55,15 @@ public class Core {
 	@SuppressWarnings("unused") // Read-only Message-window text delivered on emulation thread.
 	public void onMessageSample(byte[] sample) {
 		MapSampleListener listener = mMessageSampleListener;
+		if (listener != null) listener.onSample(sample);
+	}
+
+	public void setCombatSampleListener(MapSampleListener listener) { mCombatSampleListener = listener; }
+	public boolean requestCombatSample() { return initOk && requestCombatSampleNative(); }
+	private static native boolean requestCombatSampleNative();
+	@SuppressWarnings("unused") // Read-only tactical grid delivered on emulation thread.
+	public void onCombatSample(byte[] sample) {
+		MapSampleListener listener = mCombatSampleListener;
 		if (listener != null) listener.onSample(sample);
 	}
 
