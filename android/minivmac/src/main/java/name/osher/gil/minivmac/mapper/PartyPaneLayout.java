@@ -4,6 +4,8 @@ package name.osher.gil.minivmac.mapper;
 public final class PartyPaneLayout {
     public final int mapWidth, mapHeight, partyLeft, partyTop, partyWidth, partyHeight, columns, rows;
     public final float headerHeight, rowHeight, columnWidth;
+    /** Columns narrower than this, in dp, drop the armour-class readout. */
+    public static final float COMPACT_COLUMN = 150;
     private final int members;
 
     public PartyPaneLayout(int width, int height, float density, int count) {
@@ -23,7 +25,7 @@ public final class PartyPaneLayout {
         members = count;
 
         /*
-         * Two things the old fixed layout got wrong, both of which ended with
+         * Three things the old fixed layout got wrong, all of which ended with
          * the player seeing no party at all.
          *
          * A party reaches eight with NPCs, which will not fit one column on a
@@ -35,6 +37,13 @@ public final class PartyPaneLayout {
          * at density 2.25 cannot seat 280dp of map plus 216dp of party, so even
          * six members showed nothing. Shrink the column toward 150dp before
          * giving up, and never let the sidebar take more than 55% of the pane.
+         *
+         * And that still was not enough. At density 2.625 and above, a 1440px
+         * panel has no side-by-side layout at all: 280dp of map floor plus two
+         * 150dp columns simply do not fit the width, at any pane height. A
+         * 292 PPI tablet reports exactly that. So when nothing fits beside the
+         * map, put the party in a strip underneath it instead of hiding it.
+         * Losing some map height beats losing the whole party.
          */
         int wanted = 0, perColumn = 0, chosen = 0;
         for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
@@ -48,7 +57,47 @@ public final class PartyPaneLayout {
             wanted = tryColumns; perColumn = rowsPerColumn; chosen = columnWidth;
         }
 
-        if (wanted == 0) {
+        /*
+         * The strip under the map. Widest columns first, because more columns
+         * means fewer rows and a shorter strip, which leaves the map more room.
+         */
+        // A strip spans the whole pane, so its columns can be tighter than a
+        // sidebar's; below COMPACT_COLUMN the row drops its armour-class
+        // readout to keep the name, health and bar legible.
+        int stripNarrowest = (int) Math.ceil(118 * density * scale);
+        // Whatever happens, the map keeps a quarter of the pane and 64 pixels.
+        float mapKeeps = Math.max(64, height * 0.25f);
+        int stripColumns = 0, stripRows = 0;
+        float stripWidth = 0, stripHeight = 0;
+        if (wanted == 0 && count > 0 && width > 0) {
+            /*
+             * Prefer the shortest strip, so the map keeps the most height; and
+             * among equally short ones prefer the fewest columns, so six
+             * members make three wide pairs rather than four with a gap.
+             */
+            for (int tryColumns = 1; tryColumns <= Math.min(count, (int) (width / stripNarrowest)); tryColumns++) {
+                float each = width / (float) tryColumns;
+                if (each < stripNarrowest) continue;
+                int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
+                if (stripColumns > 0 && rowsPerColumn >= stripRows) continue;
+                float least = header + rowsPerColumn * minimumRow;
+                if (least > height * 0.75f || height - least < mapKeeps) continue;
+                // Grow the rows toward comfortable only while the map can spare it.
+                float roomy = Math.min(height * 0.75f, header + rowsPerColumn * 64 * density * scale);
+                stripColumns = tryColumns; stripRows = rowsPerColumn; stripWidth = each;
+                stripHeight = height - roomy >= mapKeeps ? roomy : least;
+            }
+        }
+
+        if (wanted == 0 && stripColumns > 0) {
+            columns=stripColumns;rows=stripRows;columnWidth=stripWidth;
+            partyWidth=(int) Math.floor(stripColumns * stripWidth);
+            partyHeight=(int) Math.floor(stripHeight);
+            partyLeft=0;partyTop=height-partyHeight;
+            mapWidth=width;mapHeight=height-partyHeight;
+            headerHeight=header;
+            rowHeight=(partyHeight-header)/stripRows;
+        } else if (wanted == 0) {
             mapWidth=width;mapHeight=height;partyLeft=partyTop=partyWidth=partyHeight=columns=rows=0;
             headerHeight=rowHeight=columnWidth=0;
         } else {
@@ -78,6 +127,9 @@ public final class PartyPaneLayout {
     private void requireVisible(int index) {
         if (index < 0 || index >= visibleMembers()) throw new IllegalArgumentException("No such visible party row");
     }
+
+    /** True when the party sits under the map rather than beside it. */
+    public boolean belowMap() { return rows > 0 && partyTop > 0; }
 
     /** Never more members than the pane actually has room to draw. */
     public int visibleMembers() { return Math.min(members, columns * rows); }

@@ -4,9 +4,22 @@ import static org.junit.Assert.*;
 public class PartyPaneLayoutTest {
     @Test public void noPartyUsesWholeMapPane(){PartyPaneLayout p=new PartyPaneLayout(1200,520,1.25f,0);assertEquals(1200,p.mapWidth);assertEquals(520,p.mapHeight);assertEquals(0,p.partyWidth);}
     @Test public void wideScreenUsesRightSideWithoutChangingHeight(){PartyPaneLayout p=new PartyPaneLayout(1200,520,1.25f,8);assertEquals(930,p.mapWidth);assertEquals(270,p.partyWidth);assertEquals(520,p.mapHeight);assertEquals(1,p.columns);assertEquals(8,p.rows);assertEquals(p.mapWidth,p.partyLeft);assertTrue(p.rowHeight>=60);}
-    @Test public void narrowAndShortPanesReturnWholeAllocationToMap(){for(int[] size:new int[][]{{360,700},{1200,100},{1,1},{0,0}}){PartyPaneLayout p=new PartyPaneLayout(size[0],size[1],1,6);assertEquals(size[0],p.mapWidth);assertEquals(size[1],p.mapHeight);assertEquals(0,p.rows);assertEquals(0,p.partyWidth);assertEquals(0,p.visibleMembers());assertEquals(-1,p.memberAt(0,0));}}
+    @Test public void panesWithNoRoomAtAllReturnEverythingToTheMap(){for(int[] size:new int[][]{{1200,100},{1,1},{0,0}}){PartyPaneLayout p=new PartyPaneLayout(size[0],size[1],1,6);assertEquals(size[0],p.mapWidth);assertEquals(size[1],p.mapHeight);assertEquals(0,p.rows);assertEquals(0,p.partyWidth);assertEquals(0,p.visibleMembers());assertEquals(-1,p.memberAt(0,0));assertFalse(p.belowMap());}}
+
+    /** A phone-width pane has no room beside the map, but plenty underneath. */
+    @Test public void aNarrowPaneMovesThePartyUnderTheMapRatherThanDroppingIt(){
+        PartyPaneLayout p=new PartyPaneLayout(360,700,1,6);
+        assertTrue("The party vanished on a narrow pane",p.rows>0);
+        assertTrue(p.belowMap());
+        assertEquals(360,p.mapWidth);
+        assertEquals(0,p.partyLeft);
+        assertEquals(p.mapHeight,p.partyTop);
+        assertEquals(700,p.mapHeight+p.partyHeight);
+        assertTrue("The map kept no room",p.mapHeight>0);
+        assertEquals(6,p.visibleMembers());
+    }
     @Test public void tinyWindowNeverHasNegativeSpace(){PartyPaneLayout p=new PartyPaneLayout(1,1,2,8);assertTrue(p.mapHeight>=0);assertTrue(p.partyHeight>=0);}
-    @Test public void allSupportedCountsStayWithinBounds(){for(int count=1;count<=8;count++)for(int w:new int[]{320,600,1200})for(int h:new int[]{100,400,800}){PartyPaneLayout p=new PartyPaneLayout(w,h,1.25f,count);assertEquals(h,p.mapHeight);assertEquals(w,p.mapWidth+p.partyWidth);if(p.rows>0){assertTrue(p.columns==1||p.columns==2);assertEquals(count,p.visibleMembers());assertEquals((count+p.columns-1)/p.columns,p.rows);assertEquals(p.columns*p.columnWidth,p.partyWidth,0.5f);assertTrue(p.rowHeight>=60);for(int i=0;i<count;i++){assertTrue(p.rowTop(i)+p.rowHeight<=h);assertTrue(p.columnLeft(i)+p.columnWidth<=w+0.5f);}assertTrue(p.mapWidth>=350);}else assertEquals(w,p.mapWidth);}}
+    @Test public void allSupportedCountsStayWithinBounds(){for(int count=1;count<=8;count++)for(int w:new int[]{320,600,1200})for(int h:new int[]{100,400,800}){PartyPaneLayout p=new PartyPaneLayout(w,h,1.25f,count);if(p.belowMap()){assertEquals(w,p.mapWidth);assertEquals(h,p.mapHeight+p.partyHeight);}else{assertEquals(h,p.mapHeight);assertEquals(w,p.mapWidth+p.partyWidth);}if(p.rows>0){assertTrue(p.columns>=1&&p.columns<=8);assertEquals(count,p.visibleMembers());assertEquals((count+p.columns-1)/p.columns,p.rows);assertEquals(p.columns*p.columnWidth,p.partyWidth,0.5f);assertTrue(p.rowHeight>=60);for(int i=0;i<count;i++){assertTrue(p.rowTop(i)+p.rowHeight<=h+0.5f);assertTrue(p.columnLeft(i)+p.columnWidth<=w+0.5f);}if(!p.belowMap())assertTrue(p.mapWidth>=350);}else assertEquals(w,p.mapWidth);}}
 
     /** A party can reach eight with NPCs; the sidebar must not vanish then. */
     @Test public void npcSizedPartiesFallBackToTwoColumnsInsteadOfDisappearing(){
@@ -56,15 +69,20 @@ public class PartyPaneLayoutTest {
         PartyPaneLayout tight=new PartyPaneLayout(495,312,1,6);
         assertEquals(6,tight.rows);assertEquals(215f,tight.columnWidth,0);
         assertEquals(280,tight.mapWidth);
-        // Too short for one column and too narrow for two is still no sidebar.
-        assertEquals(0,new PartyPaneLayout(496,311,1,6).rows);
-        // And a column that would fall under 150 is refused rather than shown.
-        assertEquals(0,new PartyPaneLayout(429,312,1,6).rows);
-        assertEquals(6,new PartyPaneLayout(430,312,1,6).rows);
-        assertEquals(150f,new PartyPaneLayout(430,312,1,6).columnWidth,0);
+        // A pane one pixel too short for the sidebar no longer loses the party:
+        // it moves under the map instead, which is the whole point of the strip.
+        PartyPaneLayout shorter=new PartyPaneLayout(496,311,1,6);
+        assertTrue(shorter.belowMap());assertEquals(6,shorter.visibleMembers());
+        // Likewise a pane too narrow for a 150 column beside the map.
+        PartyPaneLayout thinner=new PartyPaneLayout(429,312,1,6);
+        assertTrue(thinner.belowMap());assertEquals(6,thinner.visibleMembers());
+        // One pixel wider and the sidebar is still preferred over the strip.
+        PartyPaneLayout beside=new PartyPaneLayout(430,312,1,6);
+        assertEquals(6,beside.rows);assertFalse(beside.belowMap());
+        assertEquals(150f,beside.columnWidth,0);
     }
     @Test public void rowHitTestExcludesHeaderMapAndBlankSpace(){PartyPaneLayout p=new PartyPaneLayout(960,700,1,6);assertEquals(1,p.columns);for(int i=0;i<6;i++){assertEquals(i,p.memberAt(p.partyLeft+1,p.rowTop(i)+p.rowHeight/2));assertEquals(i,p.memberAt(p.partyLeft,p.rowTop(i)));}assertEquals(-1,p.memberAt(p.partyLeft-1,p.rowTop(0)));assertEquals(-1,p.memberAt(960,p.rowTop(0)));assertEquals(-1,p.memberAt(p.partyLeft,23));assertEquals(-1,p.memberAt(p.partyLeft,p.rowTop(5)+p.rowHeight));assertEquals(-1,p.memberAt(Float.NaN,Float.NaN));}
-    @Test public void largerFontsReceiveSpaceOrCollapse(){assertEquals(0,new PartyPaneLayout(700,500,1,6,1.8f).rows);PartyPaneLayout p=new PartyPaneLayout(1000,700,1,6,1.8f);assertEquals(6,p.rows);assertTrue(p.rowHeight>=48*1.8f);assertEquals(389,p.partyWidth);}
+    @Test public void largerFontsReceiveSpaceOrCollapse(){assertTrue(new PartyPaneLayout(700,500,1,6,1.8f).belowMap());PartyPaneLayout p=new PartyPaneLayout(1000,700,1,6,1.8f);assertEquals(6,p.rows);assertTrue(p.rowHeight>=48*1.8f);assertEquals(389,p.partyWidth);}
     /**
      * Hunter's Viwoods AiPaper Mini: a 1440-wide panel at roughly density 2.25.
      * The old fixed 216dp column could not sit beside the map's 280dp floor
@@ -99,4 +117,44 @@ public class PartyPaneLayoutTest {
     @Test(expected=IllegalArgumentException.class) public void invalidDensityRejected(){new PartyPaneLayout(1,1,Float.NaN,1);}
     @Test(expected=IllegalArgumentException.class) public void invalidCountRejected(){new PartyPaneLayout(1,1,1,9);}
     @Test(expected=IllegalArgumentException.class) public void invalidFontScaleRejected(){new PartyPaneLayout(1,1,1,1,Float.POSITIVE_INFINITY);}
+
+    /**
+     * The reported bug. A 292 PPI panel reports a high density, and at 2.625 or
+     * more a 1440px pane has no side-by-side layout at all: the 280dp map floor
+     * plus two 150dp columns exceed the width whatever the height. Every one of
+     * these showed no party at all before the strip existed.
+     */
+    @Test public void theHighDensityTabletAlwaysShowsItsPartySomewhere() {
+        for (float density : new float[]{2f, 2.25f, 2.625f, 3f}) {
+            for (int height : new int[]{520, 640, 760, 860}) {
+                for (int count = 1; count <= 8; count++) {
+                    PartyPaneLayout p = new PartyPaneLayout(1440, height, density, count);
+                    String where = "density " + density + " height " + height + " count " + count;
+                    assertTrue("No party at all at " + where, p.rows > 0);
+                    assertEquals("Not every member drawn at " + where, count, p.visibleMembers());
+                    assertTrue("The map was squeezed out at " + where, p.mapHeight > 0 && p.mapWidth > 0);
+                    for (int i = 0; i < count; i++) {
+                        assertTrue(p.rowTop(i) >= p.partyTop + p.headerHeight - 0.5f);
+                        assertTrue(p.rowTop(i) + p.rowHeight <= height + 0.5f);
+                        assertTrue(p.columnLeft(i) + p.columnWidth <= 1440 + 0.5f);
+                        assertEquals(i, p.memberAt(p.columnLeft(i) + 1, p.rowTop(i) + p.rowHeight / 2));
+                    }
+                }
+            }
+        }
+    }
+
+    /** A strip under the map is still tappable, and the map above it is not. */
+    @Test public void theStripUnderTheMapHitTestsLikeTheSidebar() {
+        PartyPaneLayout p = new PartyPaneLayout(1440, 760, 3f, 6);
+        assertTrue(p.belowMap());
+        assertEquals(3, p.columns);
+        assertEquals(2, p.rows);
+        assertEquals(-1, p.memberAt(20, p.partyTop - 1));
+        assertEquals(-1, p.memberAt(20, p.partyTop + p.headerHeight - 1));
+        assertEquals(0, p.memberAt(20, p.partyTop + p.headerHeight + 1));
+        assertEquals(1, p.memberAt(20, p.rowTop(1) + 1));
+        assertEquals(2, p.memberAt(p.columnLeft(2) + 1, p.rowTop(2) + 1));
+        assertEquals(-1, p.memberAt(20, 760));
+    }
 }

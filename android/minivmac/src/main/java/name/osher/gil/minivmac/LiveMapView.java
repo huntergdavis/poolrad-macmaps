@@ -416,7 +416,9 @@ public final class LiveMapView extends View {
         canvas.save(); canvas.clipRect(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop+p.partyHeight);
         float unit = density * textScale;
         ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
-        canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft,p.partyTop+p.partyHeight,ink);
+        // Beside the map the party is fenced off on its left; underneath it, on top.
+        if (p.belowMap()) canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop,ink);
+        else canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft,p.partyTop+p.partyHeight,ink);
         ink.setStyle(Paint.Style.FILL); ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(10*unit);
         canvas.drawText("PARTY · TAP FOR DETAILS",p.partyLeft+10*unit,p.partyTop+16*unit,ink);
         for (int i=1;i<p.columns;i++) {
@@ -437,9 +439,13 @@ public final class LiveMapView extends View {
             String name=chars==member.name.length()?member.name:chars>1?member.name.substring(0,chars-1)+"…":"";
             ink.setTextAlign(Paint.Align.LEFT);canvas.drawText(name,left,top+14*unit,ink);
             ink.setTextSize(11*unit);
-            canvas.drawText("HP "+member.currentHp+"/"+member.maxHp,left,top+28*unit,ink);
-            ink.setTextAlign(Paint.Align.RIGHT);
-            canvas.drawText("AC "+(member.armorClass==null ? "—" : member.armorClass),right,top+28*unit,ink);
+            // A narrow strip cell has no room for both readouts; health wins.
+            boolean compact = p.columnWidth < PartyPaneLayout.COMPACT_COLUMN * unit;
+            canvas.drawText((compact ? "" : "HP ")+member.currentHp+"/"+member.maxHp,left,top+28*unit,ink);
+            if (!compact) {
+                ink.setTextAlign(Paint.Align.RIGHT);
+                canvas.drawText("AC "+(member.armorClass==null ? "—" : member.armorClass),right,top+28*unit,ink);
+            }
             float barTop=top+34*unit,barBottom=top+40*unit;
             ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(density);
             canvas.drawRect(left,barTop,right,barBottom,ink);
