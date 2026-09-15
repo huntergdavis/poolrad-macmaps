@@ -102,6 +102,7 @@ public final class LiveMapView extends View {
         String areaLabel = state == null ? "No local map yet"
                 : state.area == null ? "Unidentified area" : state.area.label();
         String status = positionAvailable ? areaLabel + ". Party at " + state.positionLabel()
+                + (state.searching ? ", searching" : "")
                 : mode.label() + ". " + (state == null ? areaLabel : "Last local map: " + areaLabel)
                     + ". Position unavailable; party arrow hidden. " + mode.explanation();
         StringBuilder health = new StringBuilder();
@@ -283,7 +284,7 @@ public final class LiveMapView extends View {
          * one of those flips flash. The reason is still carried in the
          * accessibility description and in the "· reference" title suffix.
          */
-        String status = positionAvailable ? state.positionLabel() : MapMode.UNAVAILABLE.label();
+        String status = positionAvailable ? state.positionLabelWithSearch() : MapMode.UNAVAILABLE.label();
         float available = Math.max(0, pane.mapWidth - 24 * density);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);

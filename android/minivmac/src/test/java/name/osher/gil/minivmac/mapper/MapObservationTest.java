@@ -183,6 +183,65 @@ public class MapObservationTest {
         assertEquals(MapMode.EXPLORATION,observation.mode);
     }
 
+    /** PRM5 is PRM4 plus one search byte; 255 there means the record was unreadable. */
+    private byte[] local5(int search) {
+        byte[] data=java.util.Arrays.copyOf(local(),1204);
+        data[3]='5'; data[1200]=(byte)search; return data;
+    }
+
+    private byte[] status5(int mode,int engine) {
+        byte[] data=java.util.Arrays.copyOf(status(mode,engine),1204);
+        data[3]='5'; data[1200]=(byte)255; return data;
+    }
+
+    @Test public void theSearchMarkerRidesThroughToTheLiveObservation() {
+        AreaIdentity.Catalog identities=catalog(local());
+        MapObservation searching=MapObservation.parse(local5(1),identities);
+        assertEquals(MapMode.EXPLORATION,searching.mode);
+        assertTrue(searching.state.searching);
+        assertEquals("15, 1 W S",searching.state.positionLabelWithSearch());
+
+        MapObservation walking=MapObservation.parse(local5(0),identities);
+        assertEquals(MapMode.EXPLORATION,walking.mode);
+        assertFalse(walking.state.searching);
+        assertEquals("15, 1 W",walking.state.positionLabelWithSearch());
+
+        // An unreadable record is not a claim that the party stopped searching.
+        MapObservation unknown=MapObservation.parse(local5(255),identities);
+        assertEquals(MapMode.EXPLORATION,unknown.mode);
+        assertFalse(unknown.state.searching);
+        assertEquals("15, 1 W",unknown.state.positionLabelWithSearch());
+    }
+
+    @Test public void prm5StatusOnlyPacketsMustSayTheSearchRecordIsUnavailable() {
+        int[] modes={2,3,4,5,6}, engines={5,2,3,4,4};
+        MapMode[] expected={MapMode.COMBAT,MapMode.CAMP,MapMode.WILDERNESS,MapMode.LOADING,MapMode.UPDATING};
+        for(int i=0;i<modes.length;i++) {
+            MapObservation observation=MapObservation.parse(status5(modes[i],engines[i]));
+            assertEquals(expected[i],observation.mode);
+            assertNull(observation.state);
+            // A cleared byte would read as "not searching" beside no position at all.
+            for(int leaked:new int[]{0,1}) {
+                byte[] data=status5(modes[i],engines[i]); data[1200]=(byte)leaked;
+                unavailable(MapObservation.parse(data));
+            }
+        }
+    }
+
+    @Test public void aPacketLengthMustMatchTheVersionItDeclares() {
+        AreaIdentity.Catalog identities=catalog(local());
+        unavailable(MapObservation.parse(java.util.Arrays.copyOf(local5(1),1200),identities));
+        byte[] short5=local(); short5[3]='5';
+        unavailable(MapObservation.parse(short5,identities));
+        byte[] long4=java.util.Arrays.copyOf(local(),1204);
+        unavailable(MapObservation.parse(long4,identities));
+        for(int length:new int[]{0,1,4,1199,1201,1203,1205}) {
+            byte[] data=java.util.Arrays.copyOf(local5(1),length);
+            if(length>3) { data[0]='P';data[1]='R';data[2]='M';data[3]='5'; }
+            unavailable(MapObservation.parse(data));
+        }
+    }
+
     @Test public void everyModeHasReadableLabelsAndNonMisleadingLoadingExplanation() {
         for(MapMode mode:MapMode.values()) {
             assertFalse(mode.label().trim().isEmpty());assertFalse(mode.explanation().trim().isEmpty());

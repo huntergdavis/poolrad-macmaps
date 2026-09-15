@@ -15,9 +15,12 @@ public final class MapObservation {
 
     // Synthetic catalogs exercise the real parser without distributing game maps.
     static MapObservation parse(byte[] packet, AreaIdentity.Catalog identities) {
-        if (packet == null || packet.length != 1200 || packet[0] != 'P'
-                || packet[1] != 'R' || packet[2] != 'M') return UNAVAILABLE;
-        if (packet[3] == '4') return current(packet, identities);
+        // Length first: a truncated packet must read as unavailable, never throw.
+        if (packet == null || packet.length < 4) return UNAVAILABLE;
+        if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'M') return UNAVAILABLE;
+        // PRM5 appends one search byte to PRM4; every earlier version keeps its size.
+        if (packet.length != (packet[3] == '5' ? 1204 : 1200)) return UNAVAILABLE;
+        if (packet[3] == '4' || packet[3] == '5') return current(packet, identities);
         if (packet[3] != '1' && packet[3] != '2' && packet[3] != '3') return UNAVAILABLE;
         PoolRadState state = PoolRadState.parse(packet, identities);
         if (state == null) return UNAVAILABLE;
@@ -67,7 +70,9 @@ public final class MapObservation {
     private static boolean statusOnly(byte[] packet) {
         if ((packet[34] & 255) != 255 || (packet[35] & 255) != 255) return false;
         for (int at = 40; at < packet.length; at++) {
-            int expected = at >= 130 && at <= 132 ? 255 : 0;
+            // A status-only packet prints no position line, so PRM5's search
+            // byte must say unavailable rather than a cleared "not searching".
+            int expected = at >= 130 && at <= 132 ? 255 : at == 1200 ? 255 : 0;
             if ((packet[at] & 255) != expected) return false;
         }
         return true;

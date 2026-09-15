@@ -1,5 +1,69 @@
 # Local Android prototype
 
+## R6 search-mode indicator (2026-09-14, v0.23.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.23.0.apk`, SHA-256
+`2b065d0a683142458cdab9d6321304377a6fc0a30b23f87394f494783153eebe`, versionCode 89.
+
+R6 was reduced by the user to the search indicator only; coordinates on demand
+were cut. CODE3 `+0x2c52` tests bit 0 of the 16-bit field at
+`*(A5-0x5eae) + 0x594` and appends STRS0 `+0x13de`, `" search"`, to the game's
+own position line. The probe reports that one bit and nothing else, as byte
+1200 of the new 1,204-byte `PRM5` packet, where 255 means the record could not
+be read.
+
+**A regression was found and fixed during this pass.** `MapObservation` still
+rejected any packet that was not exactly 1,200 bytes, so the first `PRM5` build
+installed on the emulator turned the entire map off — the header read *Position
+unavailable* and no geometry drew at all, even though the native probe and
+`PoolRadState` were both correct. `MapObservation` now accepts `PRM5` at 1,204
+bytes and requires byte 1200 to read *unavailable* in a status-only packet,
+because a cleared byte there would claim "not searching" beside no position at
+all. The native probe sets that byte explicitly on the status-only path, where
+the existing bulk `memset` had been clearing it to zero.
+
+Adding a truncated-packet case to the new test also exposed a latent crash:
+both `MapObservation.parse` and `PoolRadState.parse` indexed bytes 0..3 before
+checking the length, so a short packet threw `ArrayIndexOutOfBoundsException`
+instead of reading as unavailable. Both now check the length first.
+
+Automated suites:
+
+- Native `tools/test-map-probe.c` with `-Wall -Wextra -Werror` and
+  ASan/UBSan passes. It now asserts `PRM5` throughout, covers all 256 values of
+  the low byte of the search field (only bit 0 is read, the high byte never is),
+  a missing record, six malformed handles at each of the two indirections, a
+  record that would run past the end of RAM, and that a party searching while
+  the guest is in combat still yields a status-only packet with no position.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **388 tests,
+  zero failures/errors/skips**. `MapObservationTest` adds three.
+- `check-wheel-apk.mjs` passes: 72 bundled runes unchanged, no ROM, disk or
+  game archive. `apksigner verify` succeeds on the same debug key
+  (SHA-256 `39fe2409…`). Python helpers unchanged and not re-run.
+
+Live on emulator-5584, API 30, 1200×1600, with `PoolRadSave/SampleParty`:
+
+- The 0.23.0 guest was quit through the game's own **File → Quit** dialog and
+  then **Special → Shut Down** before `adb install -r`, so the volume was clean;
+  the next cold boot showed **no improper-shutdown notice** and the startup
+  alias launched the game exactly once.
+- After Rolf's tour ended at 0,4 W the companion header read `0, 4 W` while the
+  game's own line read `0,4 W 00:00`.
+- Tapping the game's **Search** button put the game's line at
+  `0,4 W 00:00 search` and the companion header at `0, 4 W S` in the same frame:
+  `scratch/r6-search-live.png`.
+- Tapping **Search** again cleared both together — the game returned to
+  `0,4 W 00:00` and the header to `0, 4 W`: `scratch/r6-search-off.png`.
+- The same session is the live proof that the `MapObservation` fix works: the
+  New Phlan geometry, the coordinate rulers, the facing arrow and the party
+  sidebar all draw again, which the broken build did not do.
+
+Not claimed: the indicator was exercised only in New Phlan on this emulator, no
+search was carried through to a found item, and physical e-ink/stylus acceptance
+of the marker is untested. Only emulator-5584 was used. The user's `m1gate`
+campaign save was listed in the load dialog but deliberately not opened, and
+nothing was saved during this pass.
+
 ## R2 training readiness, and R9 blocked (2026-09-14, v0.22.0)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.22.0.apk`, SHA-256
@@ -424,12 +488,19 @@ Live on isolated `poolrad-package-test`, emulator-5584, API 30, 1200×1600:
   detected` above the unchanged AC line: `scratch/r1-live-details.png`. The
   guest's own Information window lists the same six names, AC and HP.
 
-Not claimed: no character was played into an injured, unconscious, dying, dead,
-petrified, poisoned or helpless state during this pass, so the non-empty badges
-are covered by the native decoder, Java and View suites rather than by live
-gameplay. Physical e-ink/stylus acceptance of the badges is untested; the
-user's earlier handwritten-notes acceptance stands separately. Only
-emulator-5584 was used; 5580 was not touched. No GitHub Actions workflow exists.
+**Injured badge seen live, 2026-09-14 (during the R6 pass).** An accidental
+combat with a council guard left five of the six members below full HP, and the
+sidebar drew the `+` injured badge beside each of them while Zarram, still at
+full health, kept his plain class symbol: `scratch/r1-injured-badges-live.png`.
+That is the first non-empty badge observed in actual play rather than in a
+synthetic packet.
+
+Not claimed: no character was played into an unconscious, dying, dead,
+petrified, poisoned or helpless state, so those badges remain covered by the
+native decoder, Java and View suites rather than by live gameplay. Physical
+e-ink/stylus acceptance of the badges is untested; the user's earlier
+handwritten-notes acceptance stands separately. Only emulator-5584 was used;
+5580 was not touched. No GitHub Actions workflow exists.
 
 ## REF5 — offline adventure journal (2026-09-14, v0.14.0)
 

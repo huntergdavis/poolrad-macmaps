@@ -41,6 +41,7 @@ physical e-ink screenshots. Game artwork belongs to its respective owners.*
 - Per-level spell readiness in character details: what is castable now, what still needs rest.
 - Readied weapon and armor, movement and carried weight, all under the game's own names.
 - Experience and the game's own next-level figures, so you can see who is ready to train.
+- An `S` in the map header whenever the game's own position line says `search`.
 - Party conditions at a glance: one quiet badge for injury, unconsciousness, dying, death, petrification, poison or helplessness, with the exact wording on tap.
 - Save or share a PNG of the map, game, and optional keyboard together.
 - A separate app installation: keep your existing Mini vMac setup.
@@ -56,10 +57,10 @@ e-ink tablet; rotation, keyboard layout and vendor-specific pen checks remain op
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.22.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.22.0)
+[0.23.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.23.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.22.0/poolrad-macmaps-0.22.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.23.0/poolrad-macmaps-0.23.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

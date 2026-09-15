@@ -1,5 +1,6 @@
 package name.osher.gil.minivmac.mapper;
 
+import java.util.Arrays;
 import org.junit.Test;
 import static org.junit.Assert.*;
 
@@ -10,6 +11,84 @@ public class PoolRadStateTest {
         data[130] = 15; data[131] = 1; data[132] = 6;
         data[176] = 0x12; data[432] = 0x34; data[944] = (byte) 0xe4;
         return data;
+    }
+
+    /** A catalog that recognises this fixture's synthetic geometry. */
+    private AreaIdentity.Catalog catalog() {
+        byte[] legacy = sample(); legacy[3] = '1';
+        GeoMap map = PoolRadState.parse(legacy).map;
+        return new AreaIdentity.Catalog(new String[]{"20 " + AreaIdentity.fingerprint(map)},
+                new String[]{"20 " + AreaIdentity.prefixFingerprint(map)});
+    }
+    private PoolRadState parseKnown(byte[] data) { return PoolRadState.parse(data, catalog()); }
+
+    /** PRM5 is the 1200-byte packet plus one search byte at 1200. */
+    private byte[] searchSample(int flag) {
+        byte[] data = new byte[1204];
+        System.arraycopy(sample(), 0, data, 0, 1200);
+        data[3] = '5';
+        data[24] = 1; data[25] = 1; data[26] = 1; data[27] = 4; data[28] = 1;
+        data[32] = 1; data[33] = 1; data[34] = 0; data[35] = 20;
+        data[1200] = (byte) flag;
+        return data;
+    }
+
+    @Test public void theSearchMarkerFollowsTheGamesOwnSearchBit() {
+        PoolRadState off = parseKnown(searchSample(0));
+        assertNotNull(off);
+        assertFalse(off.searching);
+        assertEquals("15, 1 W", off.positionLabelWithSearch());
+
+        PoolRadState on = parseKnown(searchSample(1));
+        assertNotNull(on);
+        assertTrue(on.searching);
+        assertEquals("15, 1 W S", on.positionLabelWithSearch());
+        assertEquals("The plain label never gains the marker", "15, 1 W", on.positionLabel());
+    }
+
+    @Test public void anUnreadableSearchRecordIsNotSearching() {
+        // 255 is the native reader's "could not validate the record" value.
+        PoolRadState unknown = parseKnown(searchSample(255));
+        assertNotNull(unknown);
+        assertFalse("Unavailable must never read as searching", unknown.searching);
+        assertEquals("15, 1 W", unknown.positionLabelWithSearch());
+        for (int value = 2; value < 255; value++) {
+            PoolRadState other = parseKnown(searchSample(value));
+            assertNotNull(other);
+            assertFalse("byte " + value + " read as searching", other.searching);
+        }
+    }
+
+    @Test public void olderPacketsCarryNoSearchByteAndNeverSearch() {
+        for (char version : new char[]{'1', '2', '3', '4'}) {
+            byte[] data = sample();
+            data[3] = (byte) version;
+            if (version != '1') { data[32] = 1; data[33] = 1; data[34] = 0; data[35] = 20; }
+            if (version == '4') {
+                data[24] = 1; data[25] = 1; data[26] = 1; data[27] = 4; data[28] = 1;
+            }
+            PoolRadState state = version == '1' ? PoolRadState.parse(data) : parseKnown(data);
+            assertNotNull("version " + version + " rejected", state);
+            assertFalse(state.searching);
+            assertEquals("15, 1 W", state.positionLabelWithSearch());
+        }
+    }
+
+    @Test public void packetLengthMustMatchItsVersion() {
+        byte[] five = searchSample(1);
+        assertNotNull(parseKnown(five));
+        byte[] shortFive = new byte[1200];
+        System.arraycopy(five, 0, shortFive, 0, 1200);
+        assertNull("PRM5 at the old length accepted", parseKnown(shortFive));
+
+        byte[] longFour = new byte[1204];
+        System.arraycopy(five, 0, longFour, 0, 1204);
+        longFour[3] = '4';
+        assertNull("PRM4 at the new length accepted", parseKnown(longFour));
+
+        // A truncated packet is unreadable, not a crash.
+        for (int length = 0; length < 8; length++)
+            assertNull("length " + length + " accepted", parseKnown(Arrays.copyOf(five, length)));
     }
 
     @Test public void decodesPositionFacingAndFourGeometryPlanes() {

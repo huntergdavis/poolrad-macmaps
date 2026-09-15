@@ -618,10 +618,24 @@ research for sources and portability limits.
   a Journal action inside its existing scrolling tool row, measured to cost the
   0.13.0 sketch height nothing. No entry is ever detected from the running game.
   [Linking and limits](JOURNAL.md) · [backup contents](NOTEBOOK_BACKUPS.md).
-- [ ] **R6 — Exploration aids — REDUCED by the user 2026-09-14 to the
-  search-mode indicator only.** A small "S" (or similar) while the game is in
-  search mode. **Coordinates on demand are cut**; visited-only reveal and
-  directional breadcrumbs already shipped as P0 F10.
+- [x] **R6 — Exploration aids — REDUCED by the user 2026-09-14 to the
+  search-mode indicator only. Delivered 0.23.0.** A small "S" (or similar) while
+  the game is in search mode. **Coordinates on demand are cut**; visited-only
+  reveal and directional breadcrumbs already shipped as P0 F10.
+  **Delivered 0.23.0:** the header reads `0, 4 W S` while the game's own
+  position line reads `" search"`. The probe reports only the bit CODE3
+  `+0x2c52` tests — bit 0 of the 16-bit field at `*(A5-0x5eae) + 0x594` — as
+  byte 1200 of the new 1,204-byte PRM5 packet, with 255 for an unreadable
+  record. Status-only observations carry no marker, and older packets have no
+  search byte at all.
+  **Live proof:** tapping the game's Search button put the guest at
+  `0,4 W 00:00 search` and the companion at `0, 4 W S` in the same frame;
+  tapping again cleared both together. 388 Java tests and the native map-probe
+  suite pass. Two defects were found and fixed in the same pass: `MapObservation`
+  had hard-rejected any packet that was not exactly 1,200 bytes, which turned
+  the whole map off on the first PRM5 build, and both parsers indexed the packet
+  header before checking its length, which threw on a truncated sample.
+  [Header behaviour](MAP_MODES.md) · [evidence](LOCAL_TESTING.md).
 - **R7 — Useful places: CUT by the user 2026-09-14.** Most of it had already
   shipped anyway — F6 gave nine player-chosen flag symbols including inn,
   temple, shop and smithy, and R5 gave checked-off tasks on journal bookmarks.

@@ -1,5 +1,12 @@
 # Releases
 
+## 0.23.0 — The map says when you are searching
+
+[Release notes](releases/0.23.0.md): the header appends an `S` while the game's
+own position line reads `search`, following the exact bit the original tests.
+Also fixes a regression that blanked the area map, and a crash on a truncated
+sample.
+
 ## 0.22.0 — How close they are to training
 
 [Release notes](releases/0.22.0.md): experience and the game's own next-level

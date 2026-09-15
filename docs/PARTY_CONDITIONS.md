@@ -119,7 +119,10 @@ to the existing icon slot, unchanged health bars/map pixels, healthy recovery,
 narrow layout, accessibility labels and cancelled stale taps/actions.
 
 See [LOCAL_TESTING.md](LOCAL_TESTING.md) for the final build and live-emulator
-checks. Synthetic rare conditions are renderer/decoder coverage, **not** a
-claim that every condition was played through in the original game. Physical
+checks. The **injured** badge has since been seen in actual play: an accidental
+council-guard fight on 2026-09-14 left five members below full HP and the
+sidebar drew `+` beside exactly those five. The other conditions remain
+synthetic renderer/decoder coverage, **not** a claim that every condition was
+played through in the original game. Physical
 tablet acceptance of these new badges is still untested; the user's earlier
 notebook stylus/e-ink acceptance remains valid and separate.

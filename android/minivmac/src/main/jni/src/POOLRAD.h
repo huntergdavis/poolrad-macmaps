@@ -9,7 +9,7 @@
 #include <stddef.h>
 #include <string.h>
 
-#define POOLRAD_PROBE_SIZE 1200
+#define POOLRAD_PROBE_SIZE 1204
 #define POOLRAD_GLOBALS_BACK 15168
 #define POOLRAD_GLOBALS_SIZE 128
 #define POOLRAD_GLOBALS_OUT 48
@@ -19,6 +19,14 @@
 #define POOLRAD_MODE_OUT 32
 #define POOLRAD_ID_VALID_OUT 33
 #define POOLRAD_ID_OUT 34
+/* CODE3 +0x2c52 appends STRS0 +0x13de, " search", to the game's own position
+ * line when bit 0 of the 16-bit field at *(A5-0x5eae)+0x594 is set. That bit is
+ * the only thing reported here; the rest of the record is not interpreted.
+ */
+#define POOLRAD_SEARCH_BACK 0x5eae
+#define POOLRAD_SEARCH_FIELD 0x594
+#define POOLRAD_SEARCH_OUT 1200
+#define POOLRAD_SEARCH_UNAVAILABLE 255
 #define POOLRAD_WALK_VERSION_OUT 25
 #define POOLRAD_WALK_SAFE_OUT 26
 #define POOLRAD_WALK_ENGINE_OUT 27
@@ -113,6 +121,19 @@ static int poolrad_probe(const unsigned char *ram, size_t size, unsigned char *o
                     out[POOLRAD_ID_OUT] = id >> 8;
                     out[POOLRAD_ID_OUT + 1] = id;
                 }
+            }
+        }
+    }
+    /* Search mode is a separate record from the 2,048-byte game state above. */
+    out[POOLRAD_SEARCH_OUT] = POOLRAD_SEARCH_UNAVAILABLE;
+    if (a5 >= POOLRAD_SEARCH_BACK && poolrad_range(a5 - POOLRAD_SEARCH_BACK, 4, size)) {
+        uint32_t search_handle = poolrad_u32(ram + a5 - POOLRAD_SEARCH_BACK) & 0x00ffffff;
+        if (search_handle >= 0x1000 && !(search_handle & 1)
+                && poolrad_range(search_handle, 4, size)) {
+            uint32_t record = poolrad_u32(ram + search_handle) & 0x00ffffff;
+            if (record >= 0x1000 && !(record & 1)
+                    && poolrad_range(record, POOLRAD_SEARCH_FIELD + 2, size)) {
+                out[POOLRAD_SEARCH_OUT] = ram[record + POOLRAD_SEARCH_FIELD + 1] & 1;
             }
         }
     }
@@ -342,8 +363,11 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
         memset(out, 0, POOLRAD_PROBE_SIZE);
         memcpy(out + 4, ram + 0x910, 20);
         memcpy(out + 36, ram + 0x904, 4);
+        /* The clear above would read as "not searching"; without a map sample
+         * the search record was never validated, so say unavailable instead. */
+        out[POOLRAD_SEARCH_OUT] = POOLRAD_SEARCH_UNAVAILABLE;
     }
-    memcpy(out, "PRM4", 4);
+    memcpy(out, "PRM5", 4);
     out[POOLRAD_DISPLAY_MODE_OUT] = (unsigned char)mode;
     out[POOLRAD_WALK_VERSION_OUT] = 1;
     out[POOLRAD_WALK_ENGINE_OUT] = (unsigned char)engine;
@@ -363,6 +387,9 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
         out[POOLRAD_ID_OUT] = out[POOLRAD_ID_OUT + 1] = 255;
         out[POOLRAD_GLOBALS_OUT + 82] = out[POOLRAD_GLOBALS_OUT + 83]
             = out[POOLRAD_GLOBALS_OUT + 84] = 255;
+        /* The clear above lands on the search byte too. A status-only packet
+         * shows no position line, so the marker is unavailable, not "off". */
+        out[POOLRAD_SEARCH_OUT] = POOLRAD_SEARCH_UNAVAILABLE;
         out[POOLRAD_WALK_SAFE_OUT] = 0;
     }
     if (epoch == 0) out[POOLRAD_WALK_SAFE_OUT] = 0;

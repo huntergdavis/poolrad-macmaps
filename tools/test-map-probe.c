@@ -27,12 +27,16 @@ static void fixture(uint32_t globals, uint32_t handle, uint32_t map) {
     ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = 2;
 }
 static void status_only(unsigned mode, unsigned engine) {
-    assert(memcmp(output, "PRM4", 4) == 0);
+    assert(memcmp(output, "PRM5", 4) == 0);
     assert(output[24] == mode && output[25] == 1 && output[26] == 0 && output[27] == engine);
     assert(output[33] == 0 && output[34] == 255 && output[35] == 255);
     for (int i = 40; i < 48; i++) assert(output[i] == 0);
     for (int i = 48; i < POOLRAD_PROBE_SIZE; i++) {
-        assert(output[i] == ((i >= 130 && i <= 132) ? 255 : 0));
+        /* A status-only packet shows no position line at all, so the search
+         * marker reads unavailable rather than the cleared "not searching". */
+        unsigned expected = i >= 130 && i <= 132 ? 255
+            : i == POOLRAD_SEARCH_OUT ? POOLRAD_SEARCH_UNAVAILABLE : 0;
+        assert(output[i] == expected);
     }
 }
 static void display_tests(void) {
@@ -42,7 +46,7 @@ static void display_tests(void) {
     unsigned char original[sizeof(ram)];
     memcpy(original, ram, sizeof(ram));
     assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    assert(memcmp(output, "PRM4", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
+    assert(memcmp(output, "PRM5", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
     assert(output[26] == 1 && output[33] == 1 && poolrad_u32(output + 28) != 0);
     assert(output[130] == 15 && output[131] == 1 && output[132] == 6);
     assert(memcmp(output + 176, ram + 0x4000, 1024) == 0);
@@ -144,9 +148,48 @@ static void display_tests(void) {
     fixture(0x9000, 0x3000, 0x5000);
     assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
     assert(output[24] == 1 && output[26] == 1);
+    /* Search marker. CODE3 +0x2c52 appends STRS0 +0x13de, " search", when bit 0
+     * of the 16-bit field at *(A5-0x5eae)+0x594 is set; nothing else is read. */
+    fixture(0x8000, 0x2000, 0x4000);
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(output[POOLRAD_SEARCH_OUT] == POOLRAD_SEARCH_UNAVAILABLE); // No record yet.
+    for (unsigned value = 0; value < 256; value++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        put32(a5 - POOLRAD_SEARCH_BACK, 0x2400); put32(0x2400, 0x7000);
+        ram[0x7000 + POOLRAD_SEARCH_FIELD] = 0xff; // The high byte is never read.
+        ram[0x7000 + POOLRAD_SEARCH_FIELD + 1] = (unsigned char)value;
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[POOLRAD_SEARCH_OUT] == (value & 1));
+        assert(output[130] == 15 && output[131] == 1); // Position is untouched.
+    }
+    const uint32_t bad_search[] = {0, 1, 0xfff, 0x2401, 0xffffff, 0x100000};
+    for (unsigned i = 0; i < sizeof(bad_search) / sizeof(bad_search[0]); i++) {
+        fixture(0x8000, 0x2000, 0x4000);
+        put32(a5 - POOLRAD_SEARCH_BACK, bad_search[i]);
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[POOLRAD_SEARCH_OUT] == POOLRAD_SEARCH_UNAVAILABLE);
+        fixture(0x8000, 0x2000, 0x4000);
+        put32(a5 - POOLRAD_SEARCH_BACK, 0x2400); put32(0x2400, bad_search[i]);
+        assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+        assert(output[POOLRAD_SEARCH_OUT] == POOLRAD_SEARCH_UNAVAILABLE);
+    }
+    /* A record that runs past the end of RAM is unavailable, never a wild read. */
+    fixture(0x8000, 0x2000, 0x4000);
+    put32(a5 - POOLRAD_SEARCH_BACK, 0x2400);
+    put32(0x2400, (uint32_t)(sizeof(ram) - POOLRAD_SEARCH_FIELD));
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    assert(output[POOLRAD_SEARCH_OUT] == POOLRAD_SEARCH_UNAVAILABLE);
+    /* Searching while the guest is elsewhere must not leak a position. */
+    fixture(0x8000, 0x2000, 0x4000);
+    put32(a5 - POOLRAD_SEARCH_BACK, 0x2400); put32(0x2400, 0x7000);
+    ram[0x7000 + POOLRAD_SEARCH_FIELD + 1] = 1;
+    ram[a5 - POOLRAD_ENGINE_BACK] = 5;
+    assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
+    status_only(POOLRAD_DISPLAY_COMBAT, 5);
+    fixture(0x8000, 0x2000, 0x4000);
     ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
     assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    puts("Display probe: PRM4 explicit modes, status-only geometry clearing and independent profile passed.");
+    puts("Display probe: PRM5 explicit modes, search marker, status-only clearing and independent profile passed.");
 }
 static void tour_tests(void) {
     assert(poolrad_tour_phase(0xb166, 0x2a, 0) == 1); // Direction setter has committed; x/y not yet.

@@ -14,6 +14,19 @@ cover the original game.
 | Loading / setup | The game's verified party-setup or loaded-game continuation flag is set. This is not a disk-progress meter. |
 | Position unavailable | No supported state can be verified. Title screens, code-wheel screens, unknown modes and missing samples are not guessed. |
 
+## The search marker
+
+While the game's own position line reads `" search"`, the companion's header
+appends one letter: `0, 4 W S`. It is the same bit the game tests — bit 0 of the
+16-bit field at `*(A5-0x5eae) + 0x594`, which CODE3 `+0x2c52` uses to decide
+whether to print `" search"` — so the marker turns on and off exactly when the
+game's own line does. Nothing else about that record is interpreted.
+
+The marker never appears without a verified position: a status-only observation
+carries no coordinates, so it carries no marker either, and a search record the
+probe could not read is reported as unavailable rather than as "not searching".
+Older packets have no search byte at all and never show the marker.
+
 When the arrow is hidden, **reference** appears beside the retained area's
 name and **Reference only** replaces the normal tile-tap prompt. The explanation
 fits the existing footer. With no previous map, the pane shows the mode's
