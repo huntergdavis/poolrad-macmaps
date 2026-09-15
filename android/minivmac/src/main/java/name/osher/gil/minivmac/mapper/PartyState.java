@@ -20,6 +20,9 @@ public final class PartyState {
     /** The slowest the printed rules describe; see EQUIPMENT_REFERENCE.md. */
     public static final int SLOWEST_MOVEMENT = 3;
     public static final int EQUIP_PACKET_SIZE = SPELL_PACKET_SIZE + MAX_MEMBERS * EQUIP_STRIDE;
+    /** Eight per-member training blocks follow the equipment blocks. */
+    public static final int TRAIN_CLASSES = 3, TRAIN_STRIDE = 1 + 4 + TRAIN_CLASSES * 6;
+    public static final int TRAIN_PACKET_SIZE = EQUIP_PACKET_SIZE + MAX_MEMBERS * TRAIN_STRIDE;
     public static final int POISONED = 1, HELPLESS = 2;
     private static final String[] CONDITION_LABELS = {
             "Okay", "Animated", "Temporarily gone", "Running", "Unconscious",
@@ -61,10 +64,27 @@ public final class PartyState {
         private final String readiedWeapon, readiedArmor;
         /** Movement in combat squares and carried gp-weight, as the game reports them. */
         public final int movementSquares, carriedWeight;
+        /** Shared experience, and one entry per class the character actually has. */
+        public final int experience;
+        private final int[][] classes;
+
+        /** One class the character holds: its slot, level, and next threshold. */
+        public static final class Training {
+            public final int classSlot, level, nextThreshold;
+            Training(int classSlot, int level, int nextThreshold) {
+                this.classSlot = classSlot; this.level = level; this.nextThreshold = nextThreshold;
+            }
+            public String className() {
+                return classSlot >= 0 && classSlot < 8 ? CLASS_LABELS[classSlot] : "Class unavailable";
+            }
+            /** True only when the game defines no further level for this class. */
+            public boolean atMaximum() { return nextThreshold <= 0; }
+        }
         private Member(String name, int currentHp, int maxHp, Integer armorClass, int characterClass,
                        int condition, int trackedEffects, boolean hasConditionSample,
                        int[] ready, int[] awaitingRest, String readiedWeapon, String readiedArmor,
-                       int movementSquares, int carriedWeight) {
+                       int movementSquares, int carriedWeight, int experience, int[][] classes) {
+            this.experience = experience; this.classes = classes;
             this.readiedWeapon = readiedWeapon; this.readiedArmor = readiedArmor;
             this.movementSquares = movementSquares; this.carriedWeight = carriedWeight;
             this.name = name; this.currentHp = currentHp; this.maxHp = maxHp;
@@ -164,6 +184,34 @@ public final class PartyState {
             return "Movement: " + movementSquares + " squares · carrying " + carriedWeight;
         }
 
+        public boolean trainingAvailable() { return classes != null; }
+        public java.util.List<Training> training() {
+            java.util.List<Training> out = new ArrayList<>();
+            if (classes != null) for (int[] entry : classes)
+                out.add(new Training(entry[0], entry[1], entry[2]));
+            return out;
+        }
+        /** True when the game's own threshold for some class has been reached. */
+        public boolean readyToTrain() {
+            if (classes == null) return false;
+            for (int[] entry : classes)
+                if (entry[2] > 0 && experience >= entry[2]) return true;
+            return false;
+        }
+        public String experienceLabel() {
+            return classes == null ? "Experience unavailable" : "Experience: " + experience;
+        }
+        /** Describes one class without predicting what training would grant. */
+        public String trainingLabel(Training entry) {
+            if (entry.atMaximum())
+                return entry.className() + " level " + entry.level + " · no further level in this game";
+            if (experience >= entry.nextThreshold)
+                return entry.className() + " level " + entry.level + " · "
+                        + entry.nextThreshold + " reached, ready to train";
+            return entry.className() + " level " + entry.level + " · "
+                    + (entry.nextThreshold - experience) + " more for " + entry.nextThreshold;
+        }
+
         public String badgeMeaning() {
             switch (badge()) {
                 case "X": return "Dead";
@@ -196,6 +244,12 @@ public final class PartyState {
         return other != null && Arrays.equals(packet, other.packet);
     }
 
+    /** Big-endian signed 32-bit; a negative value is rejected by the caller. */
+    private static int readInt(byte[] data, int at) {
+        return ((data[at] & 255) << 24) | ((data[at + 1] & 255) << 16)
+                | ((data[at + 2] & 255) << 8) | (data[at + 3] & 255);
+    }
+
     /**
      * One NUL-padded reference name. Everything after the terminator must be
      * zero, and only printable ASCII is accepted, so a malformed block is
@@ -218,12 +272,14 @@ public final class PartyState {
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
                 || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
-                    && data[3] != '5')) return null;
-        boolean equipment = data[3] == '5';
+                    && data[3] != '5' && data[3] != '6')) return null;
+        boolean training = data[3] == '6';
+        boolean equipment = training || data[3] == '5';
         boolean spells = equipment || data[3] == '4';
         boolean conditions = spells || data[3] == '3';
-        if (data.length != (equipment ? EQUIP_PACKET_SIZE : spells ? SPELL_PACKET_SIZE
-                : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE)) return null;
+        if (data.length != (training ? TRAIN_PACKET_SIZE : equipment ? EQUIP_PACKET_SIZE
+                : spells ? SPELL_PACKET_SIZE : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
+            return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
         if (count < 1 || count > MAX_MEMBERS || data[5] != 0 || data[6] != 0 || data[7] != 0) return null;
@@ -237,6 +293,8 @@ public final class PartyState {
                     if (data[CONDITION_PACKET_SIZE + index * SPELL_STRIDE + offset] != 0) return null;
                 if (equipment) for (int offset = 0; offset < EQUIP_STRIDE; offset++)
                     if (data[SPELL_PACKET_SIZE + index * EQUIP_STRIDE + offset] != 0) return null;
+                if (training) for (int offset = 0; offset < TRAIN_STRIDE; offset++)
+                    if (data[EQUIP_PACKET_SIZE + index * TRAIN_STRIDE + offset] != 0) return null;
                 continue;
             }
             int length = 0;
@@ -319,6 +377,31 @@ public final class PartyState {
                 carriedWeight = ((data[block + 2 + 2 * NAME_BYTES] & 255) << 8)
                         | (data[block + 3 + 2 * NAME_BYTES] & 255);
             }
+            int experience = 0; int[][] classes = null;
+            if (training) {
+                int block = EQUIP_PACKET_SIZE + index * TRAIN_STRIDE;
+                int held = data[block] & 255;
+                if (held == 255) {
+                    for (int offset = 1; offset < TRAIN_STRIDE; offset++)
+                        if (data[block + offset] != 0) return null;
+                } else {
+                    if (held < 1 || held > TRAIN_CLASSES) return null;
+                    experience = readInt(data, block + 1);
+                    if (experience < 0) return null;
+                    classes = new int[held][];
+                    boolean[] seen = new boolean[8];
+                    for (int i = 0; i < held; i++) {
+                        int at = block + 5 + i * 6;
+                        int slot = data[at] & 255, level = data[at + 1] & 255;
+                        int next = readInt(data, at + 2);
+                        if (slot >= 8 || seen[slot] || level < 1 || next < 0) return null;
+                        seen[slot] = true;
+                        classes[i] = new int[]{slot, level, next};
+                    }
+                    for (int offset = 5 + held * 6; offset < TRAIN_STRIDE; offset++)
+                        if (data[block + offset] != 0) return null;
+                }
+            }
             final String name;
             try {
                 // ASCII names need no optional charset. Accented Mac names are
@@ -327,7 +410,7 @@ public final class PartyState {
             } catch (IllegalArgumentException unavailableCharset) { return null; }
             members.add(new Member(name, current, maximum, armorClass, characterClass,
                     condition, effects, conditions, ready, awaitingRest, readiedWeapon, readiedArmor,
-                    movementSquares, carriedWeight));
+                    movementSquares, carriedWeight, experience, classes));
         }
         return new PartyState(members, data);
     }

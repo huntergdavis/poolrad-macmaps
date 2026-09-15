@@ -53,6 +53,8 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | Done — 0.18.0 | Per-level memorized-spell readiness, awaiting-rest counts and a rest reminder in character details |
 | Done — 0.19.0 | Readied weapon/armor names, movement and carried weight; one-line map caption; two-column party for NPC-sized parties |
 | Withdrawn — 0.20.0 | Disk checkpoints (shipped 0.17.0): removed, same shutdown requirement |
+| Done — 0.21.0 | Party sidebar kept on a 1440-wide high-density panel |
+| Done — 0.22.0 | Experience and the game's own next-level figures in character details |
 | Done — 0.20.0 | Quiet map header, no helper-state captions, and both shutdown-gated tools gone |
 | User-verified — 2026-09-14 | Physical e-ink pen workflow: stylus drawing and two-finger zoom/scroll work well |
 | User-verified — 2026-09-14 | Hunter reports all device testing done on e-ink; he considers the e-ink pass complete |
@@ -542,8 +544,21 @@ research for sources and portability limits.
   class symbols and Arax's details read "Condition: Okay". No character was
   played into a rare condition and physical tablet acceptance is untested.
   [Badges and Mac evidence](PARTY_CONDITIONS.md) · [checks](LOCAL_TESTING.md).
-- [ ] **R2 — Training readiness.** Small XP progress and a training reminder;
+- [x] **R2 — Training readiness.** Small XP progress and a training reminder;
   respect class/race limits and normal training, not automatic level-ups.
+  **Delivered 0.22.0:** character details show the experience the game has
+  recorded and, per class held, the next-level figure the game itself compares
+  against — either how much more is needed or that it has been reached, with a
+  reminder that a hall teaching that class is still required. Read from
+  experience at record `+0xb4`, per-class levels at `+0x9a+slot`, and the game's
+  own threshold table at `A5-0x15b4 + slot*0x50 + (level+1)*4`, mirroring the
+  comparison CODE7 `+0x4644` makes. A class with no further level never reads as
+  ready. Nothing trains, levels, edits experience or predicts a result. 381 Java
+  tests and the rebuilt native suite pass; the captures decode the whole sample
+  party and agree with the game's own sheet. Live, Arax read "Experience: 2134"
+  and "Fighter level 1 · 2001 reached, ready to train" against the guest's own
+  `EXP: 2134 / Level: 1`. Nobody was trained through a hall, and the hall's class
+  restriction and fee are not modelled. [Evidence](TRAINING_READINESS.md).
 - [x] **R3 — Spell readiness.** Prepared-versus-spent spell uses and optional
   resting reminder in expanded party details. No invented mana gauge or
   instant spell restoration.
@@ -646,7 +661,17 @@ research for sources and portability limits.
   illustrations. Keep categories distinct, do not guess uncertain numbers, and
   never import future script references as if the player had encountered them.
   User priority: the manual reader shipped in REF5; the user has now raised this
-  automatic collection to **P0**. Local only. The risk noted earlier stands and
+  automatic collection to **P0**. Local only.
+  **Attempted 2026-09-14; blocked on one missing observation.** The enabler is
+  built and verified: the game's Message text is readable at `A5-0x6178` →
+  `TERec` → `hText`, and it decodes exactly right against all fifteen private
+  captures. What is missing is **the phrasing the game uses to cite an entry**.
+  It appears nowhere in STRS0, nowhere in any other resource of the game
+  application, and nowhere in the RLE-decoded DAX files; and no capture contains
+  a citation, because all of them are from the opening tour. Guessing a pattern
+  would file wrong entries into the notebook, which this item explicitly
+  forbids. **Unblocked by one screenshot, or the exact wording, of the game
+  citing a journal entry.** [Reader and evidence](MESSAGE_MEMORY.md). The risk noted earlier stands and
   must be respected: a wrong number silently plants a spoiler in the notebook,
   so an uncertain detection must record nothing rather than guess.
 

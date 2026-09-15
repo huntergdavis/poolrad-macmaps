@@ -1,5 +1,11 @@
 # Releases
 
+## 0.22.0 — How close they are to training
+
+[Release notes](releases/0.22.0.md): experience and the game's own next-level
+figures per class in character details, with a reminder that a training hall is
+still required. Nothing trains or levels anyone.
+
 ## 0.21.0 — The party comes back on a real tablet
 
 [Release notes](releases/0.21.0.md): the party sidebar no longer vanishes on a

@@ -1,5 +1,59 @@
 # Local Android prototype
 
+## R2 training readiness, and R9 blocked (2026-09-14, v0.22.0)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.22.0.apk`, SHA-256
+`3e6bb1772ca8a21a5270545dc8db156f9498ea0592ad34589a264489c23ca4e0`, versionCode 88.
+Offsets and the threshold table: [TRAINING_READINESS.md](TRAINING_READINESS.md).
+
+**R9 was attempted first, as the user raised it to P0, and is blocked.** The
+enabler is built and verified — the game's Message text reads out of
+`A5-0x6178` → `TERec` → `hText` and decodes exactly right against all fifteen
+private captures — but the phrasing the game uses to cite a journal entry
+appears nowhere in STRS0, nowhere else in the game application's resources, and
+nowhere in the RLE-decoded DAX files, and no capture contains a citation because
+all of them are from the opening tour. Guessing the pattern would file wrong
+entries, which R9 forbids. One screenshot of the game citing an entry unblocks
+it. No code was shipped for R9. [Reader and evidence](MESSAGE_MEMORY.md).
+
+R2 automated suites:
+
+- Native `tools/test-party-probe.c` with `-Wall -Wextra` passes, now covering
+  the real Fighter threshold row, every level 1..8 against the figure the game
+  compares, a multiclass character reporting each class, more classes than the
+  block holds, a level past the table, a character with no class, and per-member
+  independence. Two older blanket "rest of the packet is zero" assertions were
+  scoped to the row region; they predated every block added since conditions.
+- Android `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass: **381 tests,
+  zero failures/errors/skips**. `PartyTrainingTest` adds ten.
+- `check-wheel-apk.mjs` passes. Python helpers unchanged and not re-run.
+
+Private RAM replay decodes the whole sample party, and the values agree with the
+game's own character sheet:
+
+```text
+Arax the Bold    xp 2134  Fighter L1 next 2001   ready
+Lara Spellsword  xp  957  Fighter L1 next 2001 · Magic-User L1 next 2501
+Tanarakis        xp  970  Cleric  L1 next 1501 · Magic-User L1 next 2501
+Hogarth          xp  970  Fighter L1 next 2001 · Thief      L1 next 1251
+Shara the Grey   xp  970  Fighter L1 next 2001 · Magic-User L1 next 2501
+Zarram           xp 2134  Cleric  L1 next 1501  ready
+```
+
+Live on emulator-5584 after a clean shutdown and in-place update: the guest's own
+View for Arax prints `EXP: 2134` and `Level: 1`, and the companion's details read
+`Experience: 2134` and `Fighter level 1 · 2001 reached, ready to train` with the
+training-hall reminder beneath.
+
+Not claimed: **nobody was trained through a hall**, so a level has not been
+watched to change, and the hall's own class restriction and fee are not
+modelled. No physical e-ink or tablet acceptance; Hunter's own reports are the
+only hardware evidence on record.
+
+**Worth noting for the next pass:** the character details pane now needs
+scrolling at 1200×1600 to reach the training lines. It has grown a line at a
+time across 0.15.0–0.22.0 and is due a layout review.
+
 ## 0.21.0 — the party sidebar on Hunter's actual tablet (2026-09-14)
 
 **The target device is a Viwoods AiPaper Mini: 8.2-inch E Ink, 1920 × 1440 at

@@ -116,6 +116,29 @@ static void equip_names(unsigned member, const char *weapon, const char *armor) 
     assert(strcmp((const char *) equip_of(member) + 1 + POOLRAD_PARTY_NAME_BYTES, armor) == 0);
 }
 
+/* Gives `member` one class at `level` and writes that class's threshold row. */
+static void give_class(unsigned member, unsigned slot, unsigned level, const int32_t *row) {
+    uint32_t table = fixture_a5 - POOLRAD_PARTY_TRAIN_TABLE_BACK;
+    ram[member_record(member) + POOLRAD_PARTY_LEVEL_OFFSET + slot] = (unsigned char) level;
+    if (row) for (unsigned i = 0; i < POOLRAD_PARTY_TRAIN_LEVELS; i++)
+        put32(table + slot * POOLRAD_PARTY_TRAIN_CLASS_STRIDE + i * 4, (uint32_t) row[i]);
+}
+static void set_experience(unsigned member, uint32_t value) {
+    put32(member_record(member) + POOLRAD_PARTY_EXPERIENCE_OFFSET, value);
+}
+static const unsigned char *train_of(unsigned member) {
+    return output + POOLRAD_PARTY_EQUIP_SIZE + member * POOLRAD_PARTY_TRAIN_STRIDE;
+}
+static uint32_t be32(const unsigned char *p) {
+    return ((uint32_t) p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3];
+}
+static void train_unavailable(unsigned member) {
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(train_of(member)[0] == POOLRAD_PARTY_TRAIN_UNAVAILABLE);
+    for (unsigned i = 1; i < POOLRAD_PARTY_TRAIN_STRIDE; i++) assert(train_of(member)[i] == 0);
+    assert(output[24] == 10 && output[25] == 10);
+}
+
 static void combat_fixture(unsigned members, unsigned combatants) {
     /* Keep the largest fixture clear of A5 globals and the geometry block. */
     fixture(0x6000, 0x2000, 0x8000, members + combatants);
@@ -129,14 +152,27 @@ static void combat_fixture(unsigned members, unsigned combatants) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP5", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP6", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
         assert(output[row + 16] == 10 + i && output[row + 17] == 10 + i);
         assert(output[row + 18] == (unsigned char) (0 - i) && output[row + 19] == i);
     }
-    for (unsigned i = 8 + 6 * POOLRAD_PARTY_ROW_SIZE; i < sizeof(output); i++) assert(output[i] == 0);
+    // Unused rows stay zero. The per-member blocks that follow the rows have
+    // their own emptiness rules and are checked with their own features.
+    for (unsigned i = 8 + 6 * POOLRAD_PARTY_ROW_SIZE; i < POOLRAD_PARTY_BASE_SIZE; i++)
+        assert(output[i] == 0);
+    for (unsigned member = 6; member < POOLRAD_PARTY_MAX_MEMBERS; member++) {
+        for (unsigned i = 0; i < 2; i++)
+            assert(output[POOLRAD_PARTY_BASE_SIZE + member * 2 + i] == 0);
+        for (unsigned i = 0; i < POOLRAD_PARTY_SPELL_STRIDE; i++)
+            assert(output[POOLRAD_PARTY_CONDITION_SIZE + member * POOLRAD_PARTY_SPELL_STRIDE + i] == 0);
+        for (unsigned i = 0; i < POOLRAD_PARTY_EQUIP_STRIDE; i++)
+            assert(output[POOLRAD_PARTY_SPELL_SIZE + member * POOLRAD_PARTY_EQUIP_STRIDE + i] == 0);
+        for (unsigned i = 0; i < POOLRAD_PARTY_TRAIN_STRIDE; i++)
+            assert(output[POOLRAD_PARTY_EQUIP_SIZE + member * POOLRAD_PARTY_TRAIN_STRIDE + i] == 0);
+    }
 
     // Same logical record under every representable size correction for this
     // four-byte-aligned MacII heap; no game data is copied into these fixtures.
@@ -387,6 +423,77 @@ static void tests(void) {
     assert(equip_of(1)[0] == POOLRAD_PARTY_EQUIP_UNAVAILABLE);
     assert(equip_of(2)[0] == 0 && strcmp((const char *) equip_of(2) + 1, "Flail") == 0);
 
+    /* Training: the shared experience and the game's own next-level threshold.
+     * The Fighter row below is the one actually read from a private capture.
+     */
+    {
+        static const int32_t fighter[POOLRAD_PARTY_TRAIN_LEVELS] = {
+            0, 0, 2001, 4001, 8001, 18001, 35001, 70001, 125001, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+        static const int32_t thief[POOLRAD_PARTY_TRAIN_LEVELS] = {
+            0, 0, 1251, 2501, 5001, 10001, 20001, 42501, 70001, 110001,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1};
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        give_class(0, 2, 1, fighter);
+        set_experience(0, 2134);
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(train_of(0)[0] == 1);
+        assert(be32(train_of(0) + 1) == 2134);
+        assert(train_of(0)[5] == 2 && train_of(0)[6] == 1);
+        assert(be32(train_of(0) + 7) == 2001); /* Level 2 needs 2001, so eligible. */
+        for (unsigned i = 11; i < POOLRAD_PARTY_TRAIN_STRIDE; i++) assert(train_of(0)[i] == 0);
+
+        /* Every level reads the threshold the game would compare against. */
+        for (unsigned level = 1; level <= 8; level++) {
+            fixture(0xe000, 0x2000, 0x3000, 1);
+            give_class(0, 2, level, fighter);
+            set_experience(0, 1);
+            assert(poolrad_party_probe(ram, sizeof(ram), output));
+            uint32_t expected = fighter[level + 1] < 0 ? 0 : (uint32_t) fighter[level + 1];
+            assert(be32(train_of(0) + 7) == expected);
+            assert(train_of(0)[6] == level);
+        }
+
+        /* A multiclass character reports each class separately. */
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        give_class(0, 2, 1, fighter);
+        give_class(0, 6, 1, thief);
+        set_experience(0, 970);
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(train_of(0)[0] == 2);
+        assert(train_of(0)[5] == 2 && be32(train_of(0) + 7) == 2001);
+        assert(train_of(0)[11] == 6 && be32(train_of(0) + 13) == 1251);
+
+        /* More classes than the block holds is unavailable, never truncated. */
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        for (unsigned slot = 0; slot < 4; slot++) give_class(0, slot, 1, fighter);
+        set_experience(0, 1);
+        train_unavailable(0);
+
+        /* A level past the table's end is unavailable rather than read beyond. */
+        for (unsigned level = POOLRAD_PARTY_TRAIN_LEVELS - 1; level <= 255; level++) {
+            fixture(0xe000, 0x2000, 0x3000, 1);
+            give_class(0, 2, level, fighter);
+            train_unavailable(0);
+            if (level == 255) break;
+        }
+
+        /* A character with no class at all is unavailable, not an empty list. */
+        fixture(0xe000, 0x2000, 0x3000, 1);
+        set_experience(0, 500);
+        train_unavailable(0);
+
+        /* Members keep independent training blocks. */
+        fixture(0xe000, 0x2000, 0x3000, 2);
+        give_class(0, 2, 1, fighter);
+        give_class(1, 6, 3, thief);
+        set_experience(0, 2134); set_experience(1, 6000);
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        assert(be32(train_of(0) + 1) == 2134 && be32(train_of(0) + 7) == 2001);
+        assert(be32(train_of(1) + 1) == 6000 && train_of(1)[6] == 3);
+        assert(be32(train_of(1) + 7) == 5001);
+    }
+
     fixture(0xf000, 0x2400, 0x4800, 8); // All bases relocate; no fixed capture address is used.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 8);
     put32(fixture_a5 - 20898, member_handle(4)); // Selected member is not the list head.
@@ -410,7 +517,7 @@ static void tests(void) {
     combat_fixture(6, 10); // Real first-orc-combat shape, entirely synthetic bytes.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) assert(output[8 + i * 20 + 16] == 10 + i);
-    for (unsigned i = 8 + 6 * 20; i < sizeof(output); i++) assert(output[i] == 0);
+    for (unsigned i = 8 + 6 * 20; i < POOLRAD_PARTY_BASE_SIZE; i++) assert(output[i] == 0);
     ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 4;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 4);
     ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 10;
@@ -489,7 +596,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment and failure clearing passed.");
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds and failure clearing passed.");
 }
 
 static int replay(const char *path) {
@@ -527,10 +634,25 @@ static int replay(const char *path) {
             if (eq[0] == POOLRAD_PARTY_EQUIP_UNAVAILABLE) fputs("equipment unavailable; ", stderr);
             else fprintf(stderr, "weapon '%s'; armor '%s'; ",
                     eq + 1, eq + 1 + POOLRAD_PARTY_NAME_BYTES);
-            fprintf(stderr, "movement %u; carrying %u\n",
+            fprintf(stderr, "movement %u; carrying %u; ",
                     eq[1 + 2 * POOLRAD_PARTY_NAME_BYTES],
                     (unsigned) ((eq[2 + 2 * POOLRAD_PARTY_NAME_BYTES] << 8)
                             | eq[3 + 2 * POOLRAD_PARTY_NAME_BYTES]));
+        }
+        {
+            const unsigned char *tr = output + POOLRAD_PARTY_EQUIP_SIZE + i * POOLRAD_PARTY_TRAIN_STRIDE;
+            if (tr[0] == POOLRAD_PARTY_TRAIN_UNAVAILABLE) fputs("training unavailable\n", stderr);
+            else {
+                unsigned xp = (tr[1]<<24)|(tr[2]<<16)|(tr[3]<<8)|tr[4];
+                fprintf(stderr, "xp %u;", xp);
+                for (unsigned c = 0; c < tr[0]; c++) {
+                    const unsigned char *t = tr + 5 + c * 6;
+                    unsigned need = (t[2]<<24)|(t[3]<<16)|(t[4]<<8)|t[5];
+                    fprintf(stderr, " class%u L%u next %u%s", t[0], t[1], need,
+                            need && xp >= need ? " READY" : "");
+                }
+                fputc(10, stderr);
+            }
         }
     }
     return fwrite(output, 1, sizeof(output), stdout) == sizeof(output) ? 0 : 1;

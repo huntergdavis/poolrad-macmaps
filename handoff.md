@@ -1,7 +1,8 @@
 # PoolRad Mac Maps — continuation handoff
 
-Updated 2026-09-14. **R4 and F13 are complete for v0.19.0**, following R3
-(0.18.0), R8 (0.17.0), R5 (0.16.0) and R1 (0.15.0). See
+Updated 2026-09-14. **R2 is complete for v0.22.0**, following the 0.21.0 party
+sidebar fix, the 0.20.0 removals, R4/F13 (0.19.0), R3 (0.18.0), R5 (0.16.0) and
+R1 (0.15.0). R8 and desktop appearance were withdrawn in 0.20.0. See
 [docs/SPELL_READINESS.md](docs/SPELL_READINESS.md) for the memorized-spell
 array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JOURNAL.md](docs/JOURNAL.md) for journal linking,
 [docs/NOTEBOOK_BACKUPS.md](docs/NOTEBOOK_BACKUPS.md) for backup contents, and
@@ -13,21 +14,24 @@ array, [docs/CHECKPOINTS.md](docs/CHECKPOINTS.md) for disk checkpoints, [docs/JO
   `git@github.com:huntergdavis/poolrad-macmaps.git`, branch `main`.
 - Read **[docs/BACKLOG.md](docs/BACKLOG.md)** and current Git status/history.
   Do not resume the old Grind/Melt Squad projects from chat history.
-- **Next actionable software item: R2 — training readiness.** Small XP progress
-  and a training reminder; respect class/race limits and normal training, never
-  automatic level-ups. Needs the XP thresholds and the class/race limit tables
-  verified against the Mac executable, not modern D&D. Reuse R3/R4's pattern:
-  find the fields, extend the probe keeping PRP1..5 readable, emit only display
-  values, surface in character details. Arax's sheet shows `EXP: 2134` and
-  `Level: 1`, so the live numbers to check against are easy to read.
-  Order after R2: R7 useful places, R9 automatic encountered entries, then P3.
-  R6 is largely absorbed by F10 — reduce it to the search-mode indicator and
-  coordinates on demand, or close it.
-- **Disassembly works again:** capstone lives in `scratch/wheel-analysis-venv`
-  and `macresources` in `scratch/personal-boot-venv`; a helper needs both on
-  `sys.path`. To find the routine that prints a message, search every `CODE`
-  resource for `4879 0000 XXXX` (`pea.l $XXXX.l`) with that string's STRS0
-  offset. Item and spell tables hang off A5 at fixed negative offsets.
+- **Next actionable software item: R9 — automatic encountered journal entries
+  (P0), which is BLOCKED.** Read [docs/MESSAGE_MEMORY.md](docs/MESSAGE_MEMORY.md)
+  first. The reader is done and verified: the game's Message text is at
+  `A5-0x6178` → `TERec` → `hText` (`teLength` +0x3c, `hText` +0x3e) and decodes
+  correctly against every capture. **What is missing is the phrasing the game
+  uses to cite an entry.** It is not in STRS0, not in any other resource of the
+  game application, and not in the RLE-decoded DAX files; no capture has one
+  because all are from the opening tour. Do not invent a pattern — R9 forbids
+  guessing. **Ask Hunter for one screenshot, or the exact wording.**
+  After R9: L1 wilderness map, L2 tactical combat map, R6 reduced to just a
+  search-mode indicator. R7, L4 and L5 were cut by the user; Q1 and Q3 are
+  closed on his own reports.
+- **The character details pane now needs scrolling** at 1200x1600 to reach the
+  training lines. It gained a line per release from 0.15.0 to 0.22.0 and is due
+  a layout review before more is added.
+- **Test against Hunter's real geometry**, not just the emulator: a Viwoods
+  AiPaper Mini, 1920x1440 at 292 PPI, Android 13. The emulator's 1200x1600 at
+  density 1.25 hid a bug that removed the whole party sidebar on his device.
 - All P0 items are checked. Q1/Q3 still need actual tablet model/Android details
   and specific keyboard/rotation/vendor observations, already requested.
   The user HAS accepted stylus drawing, two-finger zoom/scroll and ordinary

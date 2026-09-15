@@ -18,8 +18,13 @@
         + POOLRAD_PARTY_SPELL_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_NAME_BYTES 32
 #define POOLRAD_PARTY_EQUIP_STRIDE (1 + 2 * POOLRAD_PARTY_NAME_BYTES + 3)
-#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_SPELL_SIZE \
+#define POOLRAD_PARTY_EQUIP_SIZE (POOLRAD_PARTY_SPELL_SIZE \
         + POOLRAD_PARTY_EQUIP_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
+#define POOLRAD_PARTY_CLASS_SLOTS 8
+#define POOLRAD_PARTY_TRAIN_CLASSES 3
+#define POOLRAD_PARTY_TRAIN_STRIDE (1 + 4 + POOLRAD_PARTY_TRAIN_CLASSES * 6)
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_EQUIP_SIZE \
+        + POOLRAD_PARTY_TRAIN_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -59,6 +64,17 @@
 #define POOLRAD_PARTY_ITEM_NAME_ENTRIES 256
 #define POOLRAD_PARTY_ITEM_PART_MAX 40
 #define POOLRAD_PARTY_EQUIP_UNAVAILABLE 0xff
+/* CODE7 +0x4436 reads the per-class level at record+0x9a+slot and treats zero
+ * as "not this class"; +0x4644 compares the shared experience at record+0xb4
+ * against the game's own threshold table, class*0x50 + (level+1)*4 bytes into
+ * A5-0x15b4. A threshold at or below zero means no further level is defined.
+ */
+#define POOLRAD_PARTY_LEVEL_OFFSET 0x9a
+#define POOLRAD_PARTY_EXPERIENCE_OFFSET 0xb4
+#define POOLRAD_PARTY_TRAIN_TABLE_BACK 0x15b4
+#define POOLRAD_PARTY_TRAIN_CLASS_STRIDE 0x50
+#define POOLRAD_PARTY_TRAIN_LEVELS 20
+#define POOLRAD_PARTY_TRAIN_UNAVAILABLE 0xff
 /* The game's own character sheet prints these two beside Weapon:/Armor:.
  * Unlike the item handles they are plain record fields and never purge.
  */
@@ -198,11 +214,55 @@ static int poolrad_party_equipment(const unsigned char *ram, size_t size, uint32
     return 1;
 }
 
+/* Experience and the game's own next-level thresholds, per class slot.
+ * Emits the shared experience once, then up to three (slot, level, threshold)
+ * triples for the classes the character actually has. A threshold of zero means
+ * the game defines no further level for that class. Nothing here trains, edits
+ * experience, or predicts a level-up: it reports the two numbers the game
+ * itself compares, so the player can see how close they are.
+ */
+static int poolrad_party_training(const unsigned char *ram, size_t size, uint32_t a5,
+        uint32_t record, unsigned char *out) {
+    uint32_t table, experience;
+    unsigned written = 0;
+    if (a5 < POOLRAD_PARTY_TRAIN_TABLE_BACK) return 0;
+    table = a5 - POOLRAD_PARTY_TRAIN_TABLE_BACK;
+    if (!poolrad_range(table, POOLRAD_PARTY_CLASS_SLOTS * POOLRAD_PARTY_TRAIN_CLASS_STRIDE, size))
+        return 0;
+    experience = poolrad_u32(ram + record + POOLRAD_PARTY_EXPERIENCE_OFFSET);
+    out[1] = (unsigned char) (experience >> 24); out[2] = (unsigned char) (experience >> 16);
+    out[3] = (unsigned char) (experience >> 8);  out[4] = (unsigned char) experience;
+    for (unsigned slot = 0; slot < POOLRAD_PARTY_CLASS_SLOTS; slot++) {
+        unsigned level = ram[record + POOLRAD_PARTY_LEVEL_OFFSET + slot];
+        uint32_t entry, threshold;
+        unsigned char *triple;
+        if (level == 0) continue; /* CODE7 +0x443a: a zero level is not this class. */
+        if (level >= POOLRAD_PARTY_TRAIN_LEVELS - 1) return 0; /* Beyond the table. */
+        if (written == POOLRAD_PARTY_TRAIN_CLASSES) return 0;  /* More classes than expected. */
+        entry = table + slot * POOLRAD_PARTY_TRAIN_CLASS_STRIDE + (level + 1) * 4;
+        threshold = poolrad_u32(ram + entry);
+        /* The table stores -1 past a class's last level; report that as zero. */
+        if (threshold & 0x80000000u) threshold = 0;
+        triple = out + 5 + written * 6;
+        triple[0] = (unsigned char) slot; triple[1] = (unsigned char) level;
+        triple[2] = (unsigned char) (threshold >> 24); triple[3] = (unsigned char) (threshold >> 16);
+        triple[4] = (unsigned char) (threshold >> 8);  triple[5] = (unsigned char) threshold;
+        written++;
+    }
+    if (written == 0) return 0; /* Every character has at least one class. */
+    out[0] = (unsigned char) written;
+    return 1;
+}
+
 /* PRP5: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
  * After the unchanged 168-byte base: eight (condition, tracked effects) pairs,
  * then eight 8-byte spell blocks (status, three ready counts, three awaiting
  * counts, zero), then eight 65-byte equipment blocks: status (0 read, 0xff
- * unavailable) and two 32-byte NUL-padded names, readied weapon then armor.
+ * unavailable) and two 32-byte NUL-padded names, readied weapon then armor,
+ * then eight 24-byte training blocks: class count (FF unavailable), the shared
+ * experience as a big-endian 32-bit value, and three (slot, level, next
+ * threshold) triples with the threshold big-endian 32-bit and zero meaning the
+ * game defines no further level. Unused triples are zero.
  * Condition is the Mac table ID0..8 or 0xff. Effects: poison=1, helpless=2,
  * or 0xff=unavailable; other effects are not interpreted. Unused pairs are zero.
  * AC is signed two's complement -127..60; 0x80 means unavailable. The Mac's
@@ -320,10 +380,18 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
             equipment[2 + 2 * POOLRAD_PARTY_NAME_BYTES] = ram[record + POOLRAD_PARTY_ENCUMBRANCE_OFFSET];
             equipment[3 + 2 * POOLRAD_PARTY_NAME_BYTES] = ram[record + POOLRAD_PARTY_ENCUMBRANCE_OFFSET + 1];
         }
+        {
+            unsigned char *training = packet + POOLRAD_PARTY_EQUIP_SIZE
+                    + count * POOLRAD_PARTY_TRAIN_STRIDE;
+            if (!poolrad_party_training(ram, size, a5, record, training)) {
+                training[0] = POOLRAD_PARTY_TRAIN_UNAVAILABLE;
+                for (unsigned i = 1; i < POOLRAD_PARTY_TRAIN_STRIDE; i++) training[i] = 0;
+            }
+        }
         count++;
     }
     if (count == 0) return 0;
-    memcpy(packet, "PRP5", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP6", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }
