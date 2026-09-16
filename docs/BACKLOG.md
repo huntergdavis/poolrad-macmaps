@@ -77,6 +77,50 @@ These requests supersede the separate area-wide drawing editor and the old
 optional-only code-wheel recognition policy below. Finish them before expanding
 the lower-priority queue.
 
+- [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
+  reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
+  correct, I only saw squares on my people who were on squares that used to be
+  occupied by enemies." The coordinates come straight from the game's own
+  table and are almost certainly right; what is suspect is **which side each
+  square belongs to**. The table entry is `{ i, flag, x, y }` and carries no
+  identity — entry `i` only states its own index — so the reader pairs the
+  `i`-th entry with the `i`-th combatant of the roster chain. That was
+  confirmed on two captures taken at the *start* of a battle, and his report is
+  good evidence it stops holding once a fight is under way (initiative, deaths,
+  monsters leaving the list).
+  Two leads, neither guessed at in the shipped code:
+  1. `flag` (entry `+1`, only ever 0 or 1, currently validated and ignored) may
+     be the side itself, or alive/acting.
+  2. Each record carries **its own handle at `+0x114`**, and in the captured
+     battle those handles were four bytes apart inside one master-pointer
+     block — so `(handle - block base) / 4` may be the combatant's true table
+     index, which would pair record to entry by identity instead of by order.
+  Needs a live mid-battle capture to settle, which needs F17. Do not change the
+  labelling on a hypothesis: guessing at this cost three releases on the party
+  pane already. [Research notes](COMBAT_MEMORY.md).
+- [ ] **F17 — Script the guest so a battle can be reached without hands (P0,
+  user requested 2026-09-15).** "I have a feeling we'll be coming back to this
+  one." Every new combat feature needs a real battle on screen, and reaching
+  one by hand through `adb shell input tap` has repeatedly failed: Mac menus do
+  not open from a synthetic tap and double-clicks do not register. His plan, in
+  order:
+  1. Send keyboard input to the guest from the command line. **Already
+     answered:** `adb -s <emulator> shell input keyevent 66` dismissed the
+     Mac's own "press Return to continue" dialog on 2026-09-15, because
+     `LiveMapView` is deliberately not focusable so hardware keys reach the
+     guest. Write it up and wrap it.
+  2. A script that sequences those inputs with waits, and settles on a real
+     readiness signal rather than a fixed sleep — the screen digest, or the
+     `PRT1` Message text the probe already reads.
+  3. `load game`, from a default save prepared for the purpose.
+  4. `continue`, for the opening walkthrough prompts.
+  5. `go to the slums`.
+  6. `walk until attacked, then choose Attack`.
+  7. Use it for screenshots of each new feature on request.
+  Emulator only, never a physical tablet — `android-ui.mjs` already refuses
+  anything but an `emulator-NNNN` serial and this must do the same. It drives
+  the game the way a player would; it must not write guest memory, and the
+  BOUNDARY stands.
 - [x] **F13 — Reclaim the caption line and fit an NPC-sized party (P0, user
   request 2026-09-14).** Drop the standing "North up · N walked · Info: trail
   options" caption and give the height back to the map. A party can reach eight

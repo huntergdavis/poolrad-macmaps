@@ -110,22 +110,17 @@ public final class JournalController {
             if (history == null) text(content,"Journal history is unavailable for this notebook, so lookups are not being remembered. Existing history has not been replaced.",14);
             else {
                 entryButtons(content,"Encountered in play",history.encountered(),history);
-                entryButtons(content,"Bookmarked tasks",history.bookmarks(),history);
                 entryButtons(content,"Recent lookups",history.recent(),history);
             }
             text(content,"Included with the app · 58 journal entries · 18 proclamations · 23 tavern tales",12);
         }
-        text(content,"Encountered references are the ones the running game named in front of you, in the order it named them; the app only recognises wordings that have been observed in the game, so anything it is not sure about is left out rather than guessed. Recent numbers, bookmarks, your own checked tasks and flag links belong to the selected notebook and are included in its backup. A checked task is your own note, not a quest the game reports as finished. The journal is read-only and never touches a game save.",12);
+        text(content,"Encountered references are the ones the running game named in front of you, in the order it named them; the app only recognises wordings that have been observed in the game, so anything it is not sure about is left out rather than guessed. Recent numbers belong to the selected notebook and are included in its backup. The journal is read-only and never touches a game save.",12);
         home = UpperHalfReferenceDialog.show(activity,"Adventure journal",scroll(content));
     }
     private void entryButtons(LinearLayout parent, String title, List<JournalBook.Key> keys, JournalHistory history) {
         if (keys.isEmpty()) return;
         text(parent,title,16);
-        for (JournalBook.Key key : keys) {
-            int links = history.links(key).size();
-            button(parent,key.label() + (history.done(key) ? " · done" : "")
-                    + (links == 0 ? "" : " · " + links + (links == 1 ? " flag" : " flags")),() -> openEntry(key));
-        }
+        for (JournalBook.Key key : keys) button(parent,key.label(),() -> openEntry(key));
     }
     private String category() { return kind == 0 ? "Journal (1–58)" : kind == 1 ? "Proclamation" : "Tavern tale (1–23)"; }
     private void lookup() {
@@ -157,30 +152,15 @@ public final class JournalController {
         if (book == null) return;
         LinearLayout content = column();
         final JournalHistory history = history();
-        if (history != null) {
-            history.opened(key); persist();
-            LinearLayout row = row(content);
-            Button star = button(row,"",() -> { });
-            Button task = button(row,"",() -> { });
-            Runnable refresh = () -> {
-                boolean saved = history.bookmarked(key);
-                star.setText(saved ? "Remove bookmark" : "Bookmark");
-                task.setEnabled(saved);
-                task.setText(!saved ? "Check off" : history.done(key) ? "Done ✓ · undo" : "Check off");
-            };
-            star.setOnClickListener(v -> {
-                try { history.toggle(key); persist(); }
-                catch (IllegalStateException full) { toast(full.getMessage()); }
-                refresh.run();
-            });
-            task.setOnClickListener(v -> {
-                try { history.toggleDone(key); persist(); }
-                catch (IllegalStateException notBookmarked) { toast("Bookmark this reference first, then check it off."); }
-                refresh.run();
-            });
-            refresh.run();
-            linkSection(content,key,history);
-        }
+        /*
+         * Opening a reference records it and then gets out of the way. Bookmark,
+         * Check off and Link a map flag used to sit above the text; the user cut
+         * them on 2026-09-15 as too complicated for reading a paragraph out of a
+         * 1989 book. JournalHistory still stores all three, so existing
+         * notebooks and their backups load unchanged -- only the buttons are
+         * gone, and nothing new is written to them.
+         */
+        if (history != null) { history.opened(key); persist(); }
         for (JournalBook.Block block : book.entry(key)) {
             if (!block.isImage()) text(content,block.text,17);
             else {
@@ -208,49 +188,10 @@ public final class JournalController {
         entry = self[0];
         if (previous != null) previous.dismiss();
     }
-    /** Your own cross-references between a reference and flags you placed yourself. */
-    private void linkSection(LinearLayout content, JournalBook.Key key, JournalHistory history) {
-        List<JournalHistory.Flag> linked = history.links(key);
-        if (!linked.isEmpty()) {
-            text(content,"Your linked map flags",15);
-            for (JournalHistory.Flag flag : linked) {
-                button(content,"Open " + flag.x + ", " + flag.y + " · " + flag.areaId.replace("por-mac-v11-geo-","area "),
-                        () -> { if (notebooks != null) notebooks.openFlagPage(flag.areaId,flag.x,flag.y); });
-            }
-        }
-        button(content,"Link a map flag…",() -> chooseFlag(key,history));
-    }
-
-    private void chooseFlag(JournalBook.Key key, JournalHistory history) {
-        LinearLayout content = column();
-        String areaId = notebooks == null ? null : notebooks.areaId();
-        if (areaId == null) {
-            text(content,"Links attach to a flag on a verified area map. Return to a known area, place a flag there, then link it.",15);
-            UpperHalfReferenceDialog.show(activity,"Link a map flag",scroll(content)); return;
-        }
-        text(content,"Flags you placed in " + notebooks.areaLabel() + ". Linking is your own cross-reference; it never marks a place as discovered.",13);
-        java.util.Map<Integer,name.osher.gil.minivmac.notebook.NoteIcon> flags = notebooks.flags();
-        if (flags.isEmpty()) text(content,"No flags here yet. Tap a map tile to add one, then link it.",15);
-        List<Integer> tiles = new java.util.ArrayList<>(flags.keySet());
-        java.util.Collections.sort(tiles);
-        for (final int tile : tiles) {
-            final JournalHistory.Flag flag = new JournalHistory.Flag(areaId,tile % 16,tile / 16);
-            boolean on = history.linked(key,flag);
-            Button choice = button(content,(on ? "Unlink " : "Link ") + flags.get(tile).label()
-                    + " · " + flag.x + ", " + flag.y,() -> { });
-            choice.setOnClickListener(v -> {
-                try { history.toggleLink(key,flag); persist(); }
-                catch (IllegalStateException full) { toast(full.getMessage()); return; }
-                if (picker != null) picker.dismiss();
-                openEntry(key);
-            });
-        }
-        picker = UpperHalfReferenceDialog.show(activity,"Link " + key.label(),scroll(content));
-    }
-
     /**
-     * Opened from a handwritten flag page. Shows only the references the player
-     * linked to that exact flag, and lets them link the one they are reading.
+     * Opened from a handwritten flag page. Shows the references that were
+     * linked to that exact flag before linking was removed, and lets them be
+     * unlinked. Nothing here creates a new link any more.
      */
     public void showFlagLinks(String areaId, String areaLabel, int x, int y) {
         if (destroyed || busy) return;
@@ -266,9 +207,9 @@ public final class JournalController {
         List<JournalBook.Key> keys = history.entriesFor(flag);
         text(content,"References you linked to " + x + ", " + y + " in " + areaLabel
                 + ". Your handwriting on this page stays where it is.",13);
-        if (keys.isEmpty()) text(content,"Nothing linked yet. Open Info → Journal, read a reference, then choose Link a map flag.",15);
+        if (keys.isEmpty()) text(content,"Nothing is linked to this flag. Linking was removed on 2026-09-15; anything linked before then is still listed here.",15);
         for (JournalBook.Key key : keys) {
-            button(content,"Read " + key.label() + (history.done(key) ? " · done" : ""),() -> {
+            button(content,"Read " + key.label(),() -> {
                 if (picker != null) picker.dismiss();
                 if (book == null) { toast("Import your journal book first under Info → Journal."); return; }
                 openEntry(key);

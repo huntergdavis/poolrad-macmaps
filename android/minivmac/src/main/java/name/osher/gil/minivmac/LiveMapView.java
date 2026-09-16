@@ -26,6 +26,7 @@ import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.PartyRefusal;
+import name.osher.gil.minivmac.mapper.ReadingHold;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
@@ -41,6 +42,15 @@ public final class LiveMapView extends View {
     private final float textScale;
     /** Why the probe would not report a party, when it would not. */
     private String partyRefusal;
+    /*
+     * One hold per display reading. The probes sample a running machine every
+     * 250ms and the game is under no obligation to be readable at that instant,
+     * least of all mid-battle, where it rewrites the very records these read.
+     * Each unreadable frame used to blank its part of the pane for one poll.
+     */
+    private final ReadingHold mapHold = new ReadingHold();
+    private final ReadingHold partyHold = new ReadingHold();
+    private final ReadingHold combatHold = new ReadingHold();
     private final SparseArray<PartyState.Member> partyActions = new SparseArray<>();
     private PoolRadState state;
     private PartyState party;
@@ -57,8 +67,11 @@ public final class LiveMapView extends View {
     private int touchPointer = -1, touchTile = -1;
     /** Where the footprint toggle was last drawn, and whether a press began on it. */
     private final android.graphics.RectF footprintButton = new android.graphics.RectF();
-    /** The drawn button is 26dp; fingers get the 48dp target the guidelines ask for. */
     private final android.graphics.RectF footprintTarget = new android.graphics.RectF();
+    /** The fog-of-war toggle beside it, same size, same behaviour. */
+    private final android.graphics.RectF fogButton = new android.graphics.RectF();
+    private final android.graphics.RectF fogTarget = new android.graphics.RectF();
+    private boolean touchFog;
     private boolean touchFootprints;
     private float touchX, touchY;
     private String touchArea;
@@ -77,14 +90,31 @@ public final class LiveMapView extends View {
         default void onExplorationAreaChanged(AreaIdentity area) { }
         /** The player tapped the footprint button on the map itself. */
         default void onFootprintsToggled(boolean shown) { }
+        /** The player tapped the fog-of-war button beside it. */
+        default void onFogToggled(boolean visitedOnly) { }
     }
 
     public void setListener(Listener value) { listener = value; }
+
+    /** Monotonic, so a wall-clock change cannot extend or cut short a hold. */
+    private long now() { return android.os.SystemClock.elapsedRealtime(); }
+
+    /**
+     * Drop every reading at once. Polling has stopped -- the pane is being put
+     * away, not blinking -- and nothing stale may survive to be shown on the
+     * way back in.
+     */
+    public void clearReadings() {
+        mapHold.reset(); partyHold.reset(); combatHold.reset();
+        showSample(null); showPartySample(null);
+    }
     public AreaIdentity currentArea() { return positionAvailable && state != null ? state.area : null; }
     public AreaIdentity displayedArea() { return state == null ? null : state.area; }
     public PoolRadState snapshot() { return positionAvailable ? state : null; }
     public void showPartySample(byte[] sample) {
         PartyState next = PartyState.parse(sample);
+        // A single unreadable frame is a blink; keep the party that is drawn.
+        if (!partyHold.accept(next != null, now())) return;
         PartyRefusal why = next == null ? PartyRefusal.parse(sample) : null;
         String reason = why == null ? null : why.label();
         boolean same = (party == null ? next == null : party.sameDisplay(next))
@@ -140,7 +170,8 @@ public final class LiveMapView extends View {
                 + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
                 + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
-                + "the button in the top-left corner of the map turns them off and on. "
+                + "two buttons in the top-left corner of the map turn the footprints "
+                + "and the fog of war off and on. "
                 + explorationStatus + health);
     }
 
@@ -162,6 +193,9 @@ public final class LiveMapView extends View {
      */
     public void showCombatSample(byte[] sample) {
         CombatSnapshot next = mode == MapMode.COMBAT ? CombatSnapshot.parse(sample) : null;
+        // The battlefield is the worst offender: a fight rewrites these records
+        // continuously, so without a hold it can blink several times a second.
+        if (mode == MapMode.COMBAT && !combatHold.accept(next != null, now())) return;
         boolean had = combat != null;
         if (next == null && !had) return;
         combat = next;
@@ -191,12 +225,30 @@ public final class LiveMapView extends View {
         // short gap; a real relocation changes that epoch even while Updating.
         // Other unavailable modes actively interrupt recording, including repeats.
         boolean deliver = nextMode != MapMode.UPDATING || next != null;
+        /*
+         * Unavailable and Updating are the probe saying "not this instant",
+         * not the game saying "something else is happening"; Combat, Camp,
+         * Wilderness and Loading are named states and apply at once. So hold
+         * the drawing through a transient unreadable frame -- position
+         * included, which is the whole point: the last known position is a
+         * better answer than no position.
+         *
+         * Recording is deliberately outside the hold. It still hears every
+         * interruption the moment it happens, because a position held on
+         * screen must never become a footprint the party did not walk.
+         */
+        boolean unreadable = nextMode == MapMode.UNAVAILABLE || nextMode == MapMode.UPDATING;
+        if (!mapHold.accept(!unreadable, now())) {
+            if (listener != null && deliver) listener.onExplorationSample(next);
+            return;
+        }
         if (!changed) {
             if (listener != null && deliver) listener.onExplorationSample(next);
             return;
         }
         mode = nextMode;
-        if (nextMode != MapMode.COMBAT) combat = null; // Never a stale battlefield.
+        // Never a stale battlefield: leaving combat drops it, hold and all.
+        if (nextMode != MapMode.COMBAT) { combat = null; combatHold.reset(); }
         positionAvailable = available;
         if (next != null) state = next; // Status-only packets retain a reference, not a live map.
         cancelTap(); // A press begun in one mode cannot finish in another.
@@ -224,9 +276,11 @@ public final class LiveMapView extends View {
             preciseTouch = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
                     || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER;
             touchFootprints = footprintTarget.contains(touchX, touchY);
-            touchMember = touchFootprints ? -1 : pane().memberAt(touchX, touchY);
+            touchFog = !touchFootprints && fogTarget.contains(touchX, touchY);
+            boolean onButton = touchFootprints || touchFog;
+            touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
-            touchTile = touchMember < 0 ? viewport().tileAt(touchX, touchY) : -1;
+            touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
         } else if (action == MotionEvent.ACTION_MOVE) {
@@ -246,6 +300,11 @@ public final class LiveMapView extends View {
                 setExplorationStyle(visitedOnly, shown);
                 performClick();
                 listener.onFootprintsToggled(shown);
+            } else if (valid && touchFog && fogTarget.contains(event.getX(), event.getY())) {
+                boolean fog = !visitedOnly;
+                setExplorationStyle(fog, footprints);
+                performClick();
+                listener.onFogToggled(fog);
             } else if (valid && touchMember >= 0 && touchParty == party && party != null
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
@@ -286,7 +345,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
-        touchFootprints = false;
+        touchFootprints = false; touchFog = false;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -334,7 +393,7 @@ public final class LiveMapView extends View {
         String status = positionAvailable ? state.positionLabelWithSearch()
                 : mode == MapMode.COMBAT && combat != null ? combat.summary()
                 : MapMode.UNAVAILABLE.label();
-        float button = drawFootprintButton(canvas, pane);
+        float button = drawHeaderButtons(canvas, pane);
         float available = Math.max(0, pane.mapWidth - 24 * density - button);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);
@@ -444,45 +503,94 @@ public final class LiveMapView extends View {
     }
 
     /**
-     * A small footprint toggle in the header, because the trail can crowd the
-     * map and reaching it through Info is three taps away. Returns the width it
-     * used so the title can start beside it. Drawn even with no trail yet, so
-     * the control does not appear and disappear under the player.
+     * Two small toggles in the header: the trail, and fog of war. Both can make
+     * a busy street hard to read, and both were three taps away under Info.
+     * Returns the width they used so the title can start beside them. Drawn
+     * even with nothing walked yet, so the controls do not appear and disappear
+     * under the player.
      */
-    private float drawFootprintButton(Canvas canvas, PartyPaneLayout pane) {
-        float size = 26 * density, left = 8 * density, top = 3 * density;
-        if (pane.mapWidth < 200 * density) { footprintButton.setEmpty(); footprintTarget.setEmpty(); return 0; }
+    private float drawHeaderButtons(Canvas canvas, PartyPaneLayout pane) {
+        float size = 26 * density, gap = 6 * density, left = 8 * density, top = 3 * density;
+        // Two buttons plus the title need the room; below this the header wins.
+        if (pane.mapWidth < 260 * density) {
+            footprintButton.setEmpty(); footprintTarget.setEmpty();
+            fogButton.setEmpty(); fogTarget.setEmpty();
+            return 0;
+        }
         footprintButton.set(left, top, left + size, top + size);
-        footprintTarget.set(footprintButton);
-        float grow = Math.max(0, (48 * density - size) / 2);
-        footprintTarget.inset(-grow, -grow);
-        footprintTarget.offset(Math.max(0, -footprintTarget.left), Math.max(0, -footprintTarget.top));
+        fogButton.set(left + size + gap, top, left + 2 * size + gap, top + size);
+        target(footprintButton, footprintTarget);
+        target(fogButton, fogTarget);
+        drawFootprints(canvas, footprintButton, size);
+        drawFog(canvas, fogButton, size);
+        ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
+        return 2 * size + gap + 8 * density;
+    }
+
+    /** The drawn button is 26dp; fingers get the 48dp target the guidelines ask for. */
+    private void target(android.graphics.RectF drawn, android.graphics.RectF touch) {
+        touch.set(drawn);
+        float grow = Math.max(0, (48 * density - drawn.width()) / 2);
+        touch.inset(-grow, -grow);
+        touch.offset(Math.max(0, -touch.left), Math.max(0, -touch.top));
+    }
+
+    private void frame(Canvas canvas, android.graphics.RectF button) {
         ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
         ink.setColor(Color.BLACK);
-        canvas.drawRoundRect(footprintButton, 4 * density, 4 * density, ink);
-        // Two soles, one ahead of the other, as on the trail itself.
-        float cx = footprintButton.centerX(), cy = footprintButton.centerY(), sole = size * .16f;
+        canvas.drawRoundRect(button, 4 * density, 4 * density, ink);
+    }
+
+    /**
+     * Crossed out, not hollowed out. Hollow soles plus a slash read as a percent
+     * sign at button size; filled soles under a slash read as footprints that
+     * are switched off. The white underlay keeps the slash visible where it
+     * crosses a sole, which matters most on e-ink, where there is no colour to
+     * fall back on.
+     */
+    private void drawFootprints(Canvas canvas, android.graphics.RectF button, float size) {
+        frame(canvas, button);
+        float cx = button.centerX(), cy = button.centerY(), sole = size * .16f;
         ink.setStyle(Paint.Style.FILL);
         canvas.drawOval(cx - sole * 1.8f, cy - sole * 1.9f, cx - sole * .2f, cy + sole * .3f, ink);
         canvas.drawOval(cx + sole * .2f, cy - sole * .3f, cx + sole * 1.8f, cy + sole * 1.9f, ink);
-        if (!footprints) {
-            /*
-             * Crossed out, not hollowed out. Hollow soles plus a slash read as
-             * a percent sign at button size; filled soles under a slash read as
-             * footprints that are switched off. The white underlay keeps the
-             * slash visible where it crosses a sole, which matters most on
-             * e-ink, where there is no colour to fall back on.
-             */
-            float x1 = footprintButton.left + 5 * density, y1 = footprintButton.bottom - 5 * density;
-            float x2 = footprintButton.right - 5 * density, y2 = footprintButton.top + 5 * density;
-            ink.setStyle(Paint.Style.STROKE);
-            ink.setColor(Color.WHITE); ink.setStrokeWidth(4 * density);
-            canvas.drawLine(x1, y1, x2, y2, ink);
-            ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density);
-            canvas.drawLine(x1, y1, x2, y2, ink);
+        if (!footprints) slash(canvas, button);
+    }
+
+    /**
+     * Fog of war as the thing it does to the map: four map squares, one walked
+     * and open, three still covered. An earlier version split a single square
+     * down the middle and outlined one half, which at this size read as a
+     * letter rather than a map. Same size as the trail button beside it, and
+     * the same slash when the feature is off, so the pair reads as one control
+     * strip rather than two ideas.
+     */
+    private void drawFog(Canvas canvas, android.graphics.RectF button, float size) {
+        frame(canvas, button);
+        float inset = size * .24f, gap = size * .07f;
+        float l = button.left + inset, t = button.top + inset;
+        float r = button.right - inset, b = button.bottom - inset;
+        float cellW = (r - l - gap) / 2, cellH = (b - t - gap) / 2;
+        for (int row = 0; row < 2; row++) {
+            for (int column = 0; column < 2; column++) {
+                float x = l + column * (cellW + gap), y = t + row * (cellH + gap);
+                boolean walked = row == 0 && column == 0;
+                ink.setStyle(walked ? Paint.Style.STROKE : Paint.Style.FILL);
+                ink.setStrokeWidth(Math.max(1, density));
+                canvas.drawRect(x, y, x + cellW, y + cellH, ink);
+            }
         }
-        ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
-        return size + 8 * density;
+        if (!visitedOnly) slash(canvas, button);
+    }
+
+    private void slash(Canvas canvas, android.graphics.RectF button) {
+        float x1 = button.left + 5 * density, y1 = button.bottom - 5 * density;
+        float x2 = button.right - 5 * density, y2 = button.top + 5 * density;
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setColor(Color.WHITE); ink.setStrokeWidth(4 * density);
+        canvas.drawLine(x1, y1, x2, y2, ink);
+        ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density);
+        canvas.drawLine(x1, y1, x2, y2, ink);
     }
 
     /** Keep title and live/unavailable status in separate bounded header regions. */

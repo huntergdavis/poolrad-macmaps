@@ -85,7 +85,8 @@ public final class PartyStripRenderCheck {
                 if (count > 0) view.showPartySample(partyPacket(count));
                 if (count < 0) view.showPartySample(new byte[]{'P','R','P','X',
                         7, 2, (byte) 0x82, 0, 1, 0x40});
-                view.setExplorationStyle(false, count == 0);
+                // Sweep both toggles so each button is rendered in both states.
+                view.setExplorationStyle(count == 0 || count == 7, count == 0 || count == 6);
                 Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
                 canvas.drawColor(Color.WHITE);

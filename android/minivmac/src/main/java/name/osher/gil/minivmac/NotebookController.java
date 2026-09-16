@@ -205,6 +205,12 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         prefs.edit().putBoolean(FOOTPRINTS, shown).apply();
     }
 
+    /** The fog-of-war button beside it, on the same preference as the checkbox. */
+    @Override public void onFogToggled(boolean visitedOnly) {
+        if (disposed) return;
+        prefs.edit().putBoolean(VISITED_ONLY, visitedOnly).apply();
+    }
+
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
 
     @Override public void onExplorationSample(PoolRadState sample) {
@@ -289,7 +295,6 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private void showExplorationOptions(NotebookStore.Notebook book, AreaIdentity target, ExplorationTrail trail) {
         LinearLayout list = column();
         list.addView(text(book.label() + " · " + target.label() + "\n" + trail.visitedCount() + " of 256 squares walked"));
-        list.addView(text("Observed visits, not line of sight. Footprints point in the direction travelled, not where the party looked. History starts now, not retroactively. Switch notebooks when changing campaigns."));
         CheckBox fog = new CheckBox(activity); fog.setText("Show only walked squares (fog of war)");
         CheckBox feet = new CheckBox(activity); feet.setText("Show directional footprints");
         fog.setTextColor(Color.BLACK); feet.setTextColor(Color.BLACK);
@@ -309,7 +314,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         button(list, "Reset walked map…").setOnClickListener(v -> {
             picker.dismiss(); confirmClearExploration(book, target, true);
         });
-        list.addView(text("Recent observed route — newest first (up to 256 observations). Use the return directions to retrace it. Breaks are not connected; older visits remain shaded. This is a snapshot, not turn-by-turn navigation."));
+        list.addView(text("Recent route, newest first. Breaks are not connected."));
         list.addView(text(ExplorationSummary.describe(trail)));
         ScrollView scroll = new ScrollView(activity); scroll.setSmoothScrollingEnabled(false); scroll.addView(list);
         picker = UpperHalfReferenceDialog.show(activity, "Exploration trail", scroll);

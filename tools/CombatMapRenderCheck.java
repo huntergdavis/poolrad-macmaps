@@ -4,9 +4,11 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.view.ContextThemeWrapper;
 import android.view.View;
 import name.osher.gil.minivmac.LiveMapView;
+import name.osher.gil.minivmac.mapper.ReadingHold;
 
 /**
  * Actual Android View checks for the tactical overview, detached from the
@@ -49,6 +51,53 @@ public final class CombatMapRenderCheck {
         {1, 27, 12}, {1, 26, 12}, {1, 28, 12}, {1, 26, 11}, {1, 25, 9}, {1, 27, 11},
         {2, 20, 12}, {2, 21, 13}, {2, 19, 11}, {2, 22, 14},
     };
+
+    /** Comfortably inside the hold, with room for a slow draw or two. */
+    private static final long HALFWAY = ReadingHold.HOLD_MS / 2;
+
+    /** Feed refused battlefields for a while; returns how many frames went in. */
+    private static int refuseUntil(LiveMapView view, long millis, byte[]... refusals) {
+        long start = SystemClock.elapsedRealtime();
+        int polls = 0;
+        while (SystemClock.elapsedRealtime() - start < millis) {
+            for (byte[] refusal : refusals) view.showCombatSample(refusal);
+            polls++;
+            idle(50);
+        }
+        return polls;
+    }
+
+    private static int refusePartyUntil(LiveMapView view, long millis) {
+        long start = SystemClock.elapsedRealtime();
+        int polls = 0;
+        while (SystemClock.elapsedRealtime() - start < millis) {
+            view.showPartySample(null);
+            // The refusal Hunter's own tablet reported, verbatim.
+            view.showPartySample(new byte[]{'P','R','P','X', 7, 2, (byte) 0x80, 0, 1, 0x36});
+            polls++;
+            idle(50);
+        }
+        return polls;
+    }
+
+    private static void idle(long millis) {
+        try { Thread.sleep(millis); } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    private static byte[] partyPacket(int count) {
+        byte[] b = new byte[8 + 8 * 20];
+        b[0]='P';b[1]='R';b[2]='P';b[3]='1';b[4]=(byte) count;
+        String[] names = {"Arax","Lara","Tanarakis","Hogarth","Shara","Zarram","Ohlo","Skull"};
+        for (int i = 0; i < count; i++) {
+            byte[] n = names[i].getBytes();
+            System.arraycopy(n, 0, b, 8 + i * 20, Math.min(n.length, 15));
+            b[8 + i * 20 + 16] = (byte) (7 + i);
+            b[8 + i * 20 + 17] = (byte) 20;
+        }
+        return b;
+    }
 
     private static LiveMapView map(Context context, int width, int height) {
         LiveMapView view = new LiveMapView(context, null);
@@ -156,6 +205,95 @@ public final class CombatMapRenderCheck {
                 check(Color.red(bitmap.getPixel(bitmap.getWidth() - 1, y)) >= 128
                         || y >= bitmap.getHeight() - 2,
                         "The overview painted the pane's right edge at row " + y);
+        });
+
+        /*
+         * The flicker Hunter reported: several times a second in a fight, where
+         * the game rewrites the very records these readers walk. Each refused
+         * frame used to blank its part of the pane for one poll. Nothing on
+         * screen may move while a reading is merely unreadable.
+         */
+        run("A refused battlefield does not blink the overview away", () -> {
+            LiveMapView view = map(context, 900, 520);
+            view.showSample(mapPacket(2, 5));
+            view.showCombatSample(combatPacket(BATTLE));
+            int drawn = inkPixels(draw(view), 0, 40, 900, 500);
+            check(drawn > 200, "The battlefield never drew in the first place");
+            /*
+             * The hold is five seconds of real time, so the loop is bounded by
+             * the clock rather than by a poll count: drawing and counting ink
+             * here is slow enough to outlast the hold on its own, which is how
+             * this check first failed.
+             */
+            int polls = refuseUntil(view, HALFWAY, null,
+                    new byte[]{'P','R','C','9'}, new byte[4]);
+            check(polls >= 3, "Too few refused frames to prove anything: " + polls);
+            check(inkPixels(draw(view), 0, 40, 900, 500) == drawn,
+                    "The battlefield changed while a refusal was still a blink");
+            // A good frame still gets through the hold.
+            view.showCombatSample(combatPacket(new int[][]{{1, 10, 10}, {2, 30, 18}}));
+            check(inkPixels(draw(view), 0, 40, 900, 500) != drawn,
+                    "A real battlefield update was swallowed by the hold");
+        });
+
+        run("A battlefield refused for longer than the hold does clear", () -> {
+            LiveMapView view = map(context, 900, 520);
+            view.showSample(mapPacket(2, 5));
+            view.showCombatSample(combatPacket(BATTLE));
+            int drawn = inkPixels(draw(view), 0, 40, 900, 500);
+            refuseUntil(view, ReadingHold.HOLD_MS + 500, (byte[]) null);
+            check(inkPixels(draw(view), 0, 40, 900, 500) < drawn - 200,
+                    "A battlefield that has been gone for over " + ReadingHold.HOLD_MS
+                            + "ms is not a blink, and must not still be drawn");
+        });
+
+        run("A refused party does not blink the party pane away", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(partyPacket(6));
+            int drawn = inkPixels(draw(view), 1000, 0, 1440, 600);
+            check(drawn > 200, "The party never drew in the first place");
+            int polls = refusePartyUntil(view, HALFWAY);
+            check(polls >= 3, "Too few refused frames to prove anything: " + polls);
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) == drawn,
+                    "The party changed while a refusal was still a blink");
+            view.showPartySample(partyPacket(4));
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) != drawn,
+                    "A real party update was swallowed by the hold");
+        });
+
+        run("A party refused for longer than the hold does clear", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(partyPacket(6));
+            int drawn = inkPixels(draw(view), 1000, 0, 1440, 600);
+            check(drawn > 200, "The party never drew");
+            check(String.valueOf(view.getContentDescription()).contains("Arax"),
+                    "The party is not in the accessible text to begin with");
+            refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
+            /*
+             * Not zero ink: with the party gone the map reclaims the width and
+             * its right-aligned status text moves into this strip. What must be
+             * true is that the party itself is no longer drawn or described.
+             */
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) < drawn - 200,
+                    "A party unreadable for over " + ReadingHold.HOLD_MS
+                            + "ms is not a blink, and must not still be drawn");
+            check(!String.valueOf(view.getContentDescription()).contains("Arax"),
+                    "The accessible text still lists a party that is no longer readable");
+            check(String.valueOf(view.getContentDescription()).length() > 0,
+                    "The pane went silent instead of saying what it knows");
+        });
+
+        run("Putting the pane away drops every held reading at once", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(partyPacket(6));
+            int drawn = inkPixels(draw(view), 1000, 0, 1440, 600);
+            check(drawn > 200, "The party never drew");
+            view.clearReadings();
+            // Again, the map reclaims the strip; what must go is the party.
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) < drawn - 200,
+                    "A held party survived the pane being put away");
+            check(!String.valueOf(view.getContentDescription()).contains("Arax"),
+                    "The accessible text still lists a party the pane has dropped");
         });
 
         System.out.println(passed + " combat overview checks passed");

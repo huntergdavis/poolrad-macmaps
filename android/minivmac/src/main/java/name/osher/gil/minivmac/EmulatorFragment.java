@@ -188,10 +188,8 @@ public class EmulatorFragment extends Fragment
         mMapPolling = false;
         mMapGeneration++;
         if (mUIHandler != null) mUIHandler.removeCallbacks(mMapPoll);
-        if (mLiveMap != null) {
-            mLiveMap.showSample(null);
-            mLiveMap.showPartySample(null);
-        }
+        // Not a blink: nothing held may survive the pane going away.
+        if (mLiveMap != null) mLiveMap.clearReadings();
     }
 
     private boolean companionMapActive() {

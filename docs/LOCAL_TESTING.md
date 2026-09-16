@@ -1,5 +1,79 @@
 # Local Android prototype
 
+## 0.31.0 — a five-second hold, a fog button, and less prose (2026-09-15)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.31.0.apk`, SHA-256
+`0154dd901d0a9b18a323bf28930eb922a445fe7a080940b8ed8c4c0a5957d93a`, versionCode 97.
+
+**The flicker.** With the party finally readable, Hunter reported it vanishing
+every three seconds, "and during a fight, sometimes many times per second in
+progression". That is the probes sampling a running machine every 250ms: the
+game is under no obligation to be readable at that instant, and a battle
+rewrites the very character records these readers walk. Each unreadable frame
+blanked its part of the pane for one poll.
+
+`ReadingHold` now stands in for a reading that has only just become unreadable,
+for `HOLD_MS` = 5000. One per display item — the map (position included), the
+party, the battlefield. Named game states (Combat, Camp, Wilderness, Loading)
+still apply at once; only Unavailable and Updating, which mean "not this
+instant", are held.
+
+**Exploration recording is deliberately outside the hold.** It still hears every
+interruption the moment it happens, because a position held on screen must never
+become a footprint the party did not walk. Putting the pane away
+(`clearReadings`) drops everything at once: that is not a blink.
+
+**A fog-of-war button** sits beside the footprint button, same 26dp size, same
+48dp touch target, same slash when the feature is off. Its icon is four map
+squares, one open and three still covered; the first attempt split one square
+down the middle and read as a letter at that size. Both write the same
+preferences the Info checkboxes use.
+
+**Three things cut as too complicated**, all on the user's word:
+
+- **Bookmark, Check off and Link a map flag** are gone from the journal, along
+  with the now-unreachable "Bookmarked tasks" section and the `· done` / `· N
+  flags` suffixes. `JournalHistory` still stores all three, so existing
+  notebooks and their backups load unchanged — only the buttons are gone and
+  nothing new is written to them. The flag page's "Linked references" viewer
+  remains for anything linked before today, and can be removed on a word.
+- The **exploration trail's** "Observed visits, not line of sight…" paragraph is
+  deleted, and the route paragraph is down to one line.
+
+Verified on emulator-5584:
+
+- **11 render checks pass** in `CombatMapRenderCheck`, five of them new: a
+  refused battlefield and a refused party each leave the pane pixel-identical
+  for a clock-bounded run of refused frames; each still clears once the frames
+  outlast the hold; a real update still gets through; and `clearReadings`
+  drops everything. The first version of these counted polls instead of
+  milliseconds and failed at poll 6 — drawing and counting ink is itself slow
+  enough to outlast a five-second hold, so the checks are now bounded by the
+  clock.
+- Both header buttons rendered in both states at 1440x684 and tapped live: the
+  fog button flips, and its state survives a force-stop and relaunch.
+- **442 Java tests**, zero failures/errors/skips, including a new
+  `ReadingHoldTest`: the hold expiring exactly once, a good frame restarting it,
+  nothing held before anything has been read, a backwards clock, a zero hold,
+  and a 240-frame battle alternating good and refused that must never reach the
+  deadline.
+- All five native suites pass under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`.
+
+**`adb shell input keyevent` reaches the guest.** Keycode 66 dismissed the Mac's
+own "press the Return key to continue" dialog, because `LiveMapView` is
+deliberately not focusable so hardware keys belong to the guest. That answers
+step 1 of F17 and is the hook the rest of the scripted driving will hang on.
+
+**Known defect, filed as F16.** The battle overview may be labelling the wrong
+side. Hunter: "I only saw squares on my people who were on squares that used to
+be occupied by enemies." The coordinates come from the game's own table and are
+almost certainly right; the party/other split comes from pairing the `i`-th
+table entry with the `i`-th combatant of the roster chain, which was confirmed
+only on captures taken at the *start* of a battle. It has not been changed on a
+hypothesis — that mistake cost three releases on the party pane — and needs a
+live mid-battle capture, which needs F17.
+
 ## 0.30.0 — the party appears: even, not four-byte aligned (2026-09-15)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.30.0.apk`, SHA-256
