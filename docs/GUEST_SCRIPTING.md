@@ -129,6 +129,16 @@ is what raised the question, and a turn sent while the prompt is up goes
 nowhere, so without the turn the party declines, steps back into the same
 doorway and asks again until the move budget runs out.
 
+## Touches always arrive; keys need focus
+
+A touch is delivered to whatever window is under the coordinates. A key goes to
+the focused window, and under load this emulator leaves `mCurrentFocus=null`
+for minutes while the app is still the resumed activity — every key sent then is
+dropped in silence. That is why `boot` clicks the startup dialog's OK button
+instead of answering it with Return, and why a step that will not respond to a
+key is worth checking `dumpsys window | grep mCurrentFocus` over before assuming
+the game is at fault.
+
 ## When the guard refuses
 
 `PoolRad is not the foreground app (...)` means exactly what it says, and the

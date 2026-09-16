@@ -38,6 +38,13 @@ LOAD_ITEM_Y = 686
 # does nothing and looks exactly like picking nothing.
 LOAD_ROW = (90, 672, 300, 24)
 LOAD_ENABLED_INK = 3000
+# The OK button of the Mac's "this computer may not have been shut down
+# properly" dialog, which is the first thing a cold boot shows. Clicked rather
+# than answered with Return: a touch is delivered by position, but a key needs
+# the window to hold focus, and under load this one sits on top with
+# mCurrentFocus=null for minutes at a time. With no dialog there, that spot is
+# bare Mac desktop and the click does nothing.
+STARTUP_OK = (892, 1294)
 MESSAGE = (200, 1230, 800, 250)
 # The button row inside the Message window, which is where the game says what
 # it wants next.
@@ -75,7 +82,15 @@ def settled(serial, quiet=1200, timeout=90000, region="message"):
 
 
 def boot(serial):
-    """Launch the app and take the guest as far as the game's own menu bar."""
+    """Cold-start the app and take the guest to a game that can be loaded into.
+
+    Force-stopped first, deliberately. Launching an app that is already running
+    resumes whatever it was doing, and what it was doing may be a game in
+    progress -- in which case Load Saved Game is greyed out and the next step
+    fails for a reason that has nothing to do with booting.
+    """
+    guest.shell(serial, "am force-stop %s" % PACKAGE)
+    time.sleep(2)
     guest.shell(serial, "monkey -p %s -c android.intent.category.LAUNCHER 1" % PACKAGE)
     # Wait for it to actually be in front, rather than letting the first
     # keystroke fail the foreground guard with a less useful message.
@@ -92,9 +107,14 @@ def boot(serial):
                          % (guest.foreground(serial) or guest.resumed(serial) or "something"))
     # The Mac may complain it was not shut down properly; Return dismisses it,
     # and sending Return when there is no dialog costs nothing.
-    deadline = time.monotonic() + 240
+    deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
-        settled(serial, quiet=2500, timeout=240000)
+        settled(serial, quiet=2500, timeout=240000, region="guest")
+        # Click the dialog's OK, then send Return as well. Return alone left
+        # the Mac sitting on that dialog for a whole five-minute timeout,
+        # because the window was on top without holding focus and every key
+        # was dropped in silence.
+        guest.click(serial, *STARTUP_OK)
         guest.send(serial, "input keyevent ENTER")
         time.sleep(2)
         if game_menu_ready(serial):
@@ -104,14 +124,20 @@ def boot(serial):
 
 
 def game_menu_ready(serial):
-    """True once File -> Load Saved Game is available, which only the game offers."""
+    """True once File -> Load Saved Game is not merely present but enabled.
+
+    Checking only that a menu opened was not enough: the Finder has a File menu
+    too, and so does a game already in progress, where the item is greyed. Both
+    reported a successful boot and then failed at the next step for reasons that
+    had nothing to do with booting.
+    """
     guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
     guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
-    time.sleep(0.6)
-    opened = guest.grab(serial).ink((FILE_MENU_X - 40, MENU_BAR_Y + 10, 340, 110))
+    time.sleep(0.8)
+    enabled = guest.grab(serial).ink(LOAD_ROW) >= LOAD_ENABLED_INK
     guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
     time.sleep(0.6)
-    return opened > 1500
+    return enabled
 
 
 def load(serial, save, folder="PoolRadSave"):
