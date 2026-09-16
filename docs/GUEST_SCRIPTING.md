@@ -1,0 +1,150 @@
+# Driving the emulated Macintosh from a script
+
+**Why this exists.** Every combat feature needs a real battle on screen, and
+reaching one by hand does not work: a synthetic `adb shell input tap` will not
+open a Mac menu, and two taps are too far apart in time to be a double click.
+Several sessions were spent clicking at the Finder and getting nowhere. This is
+the tooling for [F17](BACKLOG.md), and the reason it matters is
+[F16](BACKLOG.md) — the battle overview may be labelling the wrong side, and
+that cannot be settled without a live mid-battle capture.
+
+**Emulator only.** Both tools refuse any serial that is not `emulator-NNNN`,
+the same rule `android-ui.mjs` already follows. They play the game the way a
+player does — menus, keys and the mouse — and never write guest memory. The
+BOUNDARY stands: nothing here edits stats, teleports, or touches a save.
+
+## The two primitives that made it work
+
+**`input motionevent DOWN|MOVE|UP`.** Not `input tap`. With separate down, move
+and up there is a real mouse: a click the Mac believes, a double click inside
+its own double-click time, and a menu pulled down and released over an item.
+
+**Keys already reach the guest.** `adb shell input keyevent 66` dismissed the
+Mac's own "press the Return key to continue" dialog, because `LiveMapView` sets
+`setFocusable(false)` precisely so hardware keys belong to the emulated machine.
+`input text 8` walks the party forward.
+
+## Waiting on the screen, never on a sleep
+
+A fixed sleep is a guess that is either slow or flaky. `tools/guest.py` reads
+frames from `adb exec-out screencap`, whose raw form is a 16-byte header then
+RGBA8888, so it needs no image library:
+
+```sh
+tools/guest.py --serial emulator-5584 settle --region guest   # until it holds still
+tools/guest.py --serial emulator-5584 await-change <digest>   # until it moves
+tools/guest.py --serial emulator-5584 ink --region 20,1483,1000,3
+tools/guest.py --serial emulator-5584 shot /tmp/now.png
+tools/guest.py --serial emulator-5584 click 500 1200
+tools/guest.py --serial emulator-5584 drag 92 646 150 686     # a menu pull
+tools/guest.py --serial emulator-5584 press/move/release      # a menu held open
+```
+
+`press`/`move`/`release` are separate so a menu can be photographed while it is
+still down, which is how the game's File menu was read in the first place.
+
+## Reading the game's state by counting its buttons
+
+The game says what it wants next by how many buttons it draws in the Message
+window, so `tools/play.py` counts them instead of recognising any wording:
+
+| Buttons | State | What it is |
+| --- | --- | --- |
+| 1 | `continue` | Continue |
+| 2 | `question` | a yes/no question |
+| 4 | `encounter` | Combat / Wait / Flee / Advance |
+| 6 | `explore` | Area / Cast / View / Encamp / Search / Look |
+
+Two measurements make that reliable, and both were found the hard way:
+
+- **The band is `y 1483..1485`, the buttons' top edges only.** The Message
+  window's own frame runs the full width at 1474, 1479, 1480 and from 1522, and
+  counting across it merged every button into one run.
+- **Not the whole row.** The Mac's mouse pointer parks in the row after every
+  click and sits low in it; counted over the full row it was a third button in
+  a two-button question, and judged as a digest it reported an encounter on the
+  very first step.
+
+A state is only believed when two consecutive frames agree. The frame taken the
+instant a move lands catches the game mid-redraw, where the row is briefly
+neither one thing nor the other.
+
+## Movement, confirmed
+
+Exploration takes the number keys; combat takes the arrows.
+
+| Key | Effect |
+| --- | --- |
+| `8` | forward |
+| `4` | turn left |
+| `6` | turn right |
+| `2` | turn around |
+
+Verified one key at a time from a known square: `3,8 N` → `8` → `3,7 N` → `4` →
+`3,7 W` → `8` → `2,7 W` → `6` → `2,7 N` → `8` → *unchanged, a wall* → `2` →
+`2,7 S`.
+
+A move is confirmed by the game's own coordinate readout at `(505,1000,120,40)`
+changing — which is also how a wall is detected, since a blocked step leaves it
+alone. The clock beside it is deliberately outside that box, or every sample
+would differ.
+
+## The scenarios
+
+```sh
+tools/play.py --serial emulator-5584 boot            # to the game's menu bar
+tools/play.py --serial emulator-5584 load SampleParty
+tools/play.py --serial emulator-5584 tour            # Rolf's introduction
+tools/play.py --serial emulator-5584 walk forward left forward
+tools/play.py --serial emulator-5584 wander          # until something interrupts
+tools/play.py --serial emulator-5584 fight           # answer an encounter with Combat
+tools/play.py --serial emulator-5584 battle          # wander, then fight
+tools/play.py --serial emulator-5584 state           # what the game is asking
+```
+
+`load` drives File → Load Saved Game and then the standard file dialog by
+type-select, so it needs no coordinates inside the dialog at all.
+
+**`load` only works straight after `boot`.** Once a game is running the game
+greys Load Saved Game out — only Quit stays enabled — and picking a disabled
+menu item does nothing whatsoever. That failed silently once: the folder and
+save names were then typed into the running game, a stray letter opened the
+camp menu, and the party was found altering its marching order in a tent.
+`load` now checks that the screen changed after the menu pick and says so.
+
+### The two saves on the test disk
+
+| Save | Where it starts |
+| --- | --- |
+| `SampleParty` | New Phlan, 15,1 W, before Rolf's tour. Civilized: **no wandering monsters**, so `wander` will not find a fight there. |
+| `m1gate` | camped at 12,11 in the Slums. Exit the camp and `wander` meets something. |
+
+`wander` declines yes/no questions rather than answering yes — a script should
+not spend the party's money — and turns away afterwards. Walking into the inn
+is what raised the question, and a turn sent while the prompt is up goes
+nowhere, so without the turn the party declines, steps back into the same
+doorway and asks again until the move budget runs out.
+
+## Coordinates are for this emulator
+
+The pixel boxes above are for the 1200x1600 test emulator, `emulator-5584`. On
+a different window size they need measuring again; `guest.py ink` and a
+scanline sweep is how all of them were found:
+
+```sh
+python3 - <<'PY'
+import sys; sys.path.insert(0, "tools")
+import guest
+screen = guest.grab("emulator-5584")
+for y in range(1470, 1540):
+    print(y, screen.ink((20, y, 1000, 1)))
+PY
+```
+
+## Tests
+
+`tools/test-guest.py` covers the parts that can be wrong without an emulator
+noticing: region arithmetic and clipping, the PNG writer, every prompt named by
+its button count, the window frame not merging the buttons, the mouse pointer
+not being counted as one, and the refusal of any serial that is not an emulator.
+Synthetic frames only — no screenshot, ROM, game or save bytes are embedded.

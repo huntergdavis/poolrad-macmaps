@@ -98,8 +98,8 @@ the lower-priority queue.
   Needs a live mid-battle capture to settle, which needs F17. Do not change the
   labelling on a hypothesis: guessing at this cost three releases on the party
   pane already. [Research notes](COMBAT_MEMORY.md).
-- [ ] **F17 — Script the guest so a battle can be reached without hands (P0,
-  user requested 2026-09-15).** "I have a feeling we'll be coming back to this
+- [~] **F17 — Script the guest so a battle can be reached without hands (P0,
+  user requested 2026-09-15; steps 1-5 done, 6-7 in progress).** "I have a feeling we'll be coming back to this
   one." Every new combat feature needs a real battle on screen, and reaching
   one by hand through `adb shell input tap` has repeatedly failed: Mac menus do
   not open from a synthetic tap and double-clicks do not register. His plan, in
@@ -121,6 +121,14 @@ the lower-priority queue.
   anything but an `emulator-NNNN` serial and this must do the same. It drives
   the game the way a player would; it must not write guest memory, and the
   BOUNDARY stands.
+  **Built:** `tools/guest.py` (screen digests, ink, settle/await-change, and a
+  real mouse through `input motionevent`) and `tools/play.py` (boot, load, tour,
+  walk, wander, fight). Written up in [GUEST_SCRIPTING.md](GUEST_SCRIPTING.md),
+  tested by `tools/test-guest.py`. Verified end to end: booted, loaded
+  `SampleParty`, clicked through Rolf's whole tour, walked to the City Hall door
+  at 3,4 and collected its proclamation citation, then loaded `m1gate` and
+  wandered the Slums declining the inn. Movement keys confirmed one at a time:
+  8 forward, 4 left, 6 right, 2 about-face.
 - [x] **F13 — Reclaim the caption line and fit an NPC-sized party (P0, user
   request 2026-09-14).** Drop the standing "North up · N walked · Info: trail
   options" caption and give the height back to the map. A party can reach eight
