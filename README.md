@@ -11,84 +11,81 @@ companion for Pool of Radiance.** Its automapping and convenience features
 sparked this project; this is an independent Macintosh/Android implementation,
 not a port of its code or an official game release.
 
-<p>
-  <img src="docs/images/phlan-party-sidebar.png" width="360" alt="Live New Phlan map with party health bars, armor class and class symbols while Rolf welcomes the party in the original Mac game">
-  <img src="docs/images/compact-flag-note.png" width="360" alt="A handwritten flag page with compact title-row tools and twice the sketch height; the original game remains visible below">
-</p>
+<img src="docs/images/phlan-party-sidebar.png" width="760" alt="Live New Phlan map with party health bars, armor class and class symbols while Rolf welcomes the party in the original Mac game below">
 
-*Captured from the running Android emulator during the opening tour, not mockups or
-physical e-ink screenshots. Game artwork belongs to its respective owners.*
+*Captured from the running app, not mockups. Game artwork belongs to its respective owners.*
 
-## What works
+## The map draws itself
 
-- Live area map with 29 named locations, verified wall/door outlines, coordinates, and facing arrow.
-- Stable note identities across map reloads and door-state changes; no guessed area names.
-- Remember walked squares, follow directional footprints, or reveal only visited tiles.
-- Read recent return directions; exploration stays with your campaign notebook and backups.
-- Follow the opening guided tour; clear camp/combat/loading labels keep reference maps honest.
-- Party names, HP bars, armor class and class symbols; tap for readable details.
-- Tap a tile or symbol for a map-left, writing-right handwritten page.
-- Pen, ink-only eraser, undo/redo, autosave, and nine selectable map symbols.
-- A larger sketch page with compact title-row tools, finger zoom/pan, and Fit page.
-- Separate local notebooks keep different campaigns' notes apart.
-- Back up and restore handwriting, map flags, walked tiles, and journal history.
-- Map above the Mac display; optional keyboard below; no blinking marker.
-- Automatic code-wheel entry for verified prompts; illustrated offline fallback.
-- Map/Info tabs; lookup panels fit above the game, even with the keyboard open.
-- Offline spells, weapons/armor, class progression, and mixed-coin conversion.
-- The complete adventurer's journal built in: entries, proclamations, tavern tales and original illustrations, offline.
-- Journal entries, proclamations and tavern tales the game names out loud join the notebook's encountered list, tappable straight into the reader.
-- The complete adventurer's journal built in: entries, proclamations, tavern tales and original illustrations, offline.
-- Link a journal reference to a flag you placed, and check off your own tasks; both ride along in the notebook backup.
-- Per-level spell readiness in character details: what is castable now, what still needs rest.
-- Readied weapon and armor, movement and carried weight, all under the game's own names.
-- Experience and the game's own next-level figures, so you can see who is ready to train.
-- An `S` in the map header whenever the game's own position line says `search`.
-- Party conditions at a glance: one quiet badge for injury, unconsciousness, dying, death, petrification, poison or helplessness, with the exact wording on tap.
-- A read-only tactical overview of every combatant's square while a fight runs.
-- Save or share a PNG of the map, game, and optional keyboard together.
-- A separate app installation: keep your existing Mini vMac setup.
-- Optional private APK: import your bundled starting disks once, then keep saves across updates.
+Walls, doors, coordinates and your facing arrow, read live from the game's own
+memory across 29 named areas — no guessed names. Remember every walked square,
+follow directional footprints, or reveal only what you have visited. Camp,
+combat and loading states are labelled, so a reference map never lies about
+what it is showing.
 
-**Early prototype:** verified with Macintosh Pool of Radiance v1.1 in New
-Phlan and on the adjoining Slums gate round trip. Other transitions and
-dedicated combat/wilderness maps and broader NPC coverage remain unfinished.
-The user does all of his own testing on his e-ink tablet and reports on
-2026-09-15 that e-ink is working great, including stylus drawing and two-finger
-zoom/scroll; rotation and keyboard layout remain unreported.
+## Your party, at a glance
+
+Names, HP bars, armor class and class symbols sit beside the map. Tap anyone
+for spell readiness per level, readied weapon and armor, carried weight, and
+the game's own next-level figures. A quiet badge flags injury, poison, dying or
+petrification, with the exact wording on tap — and when a fight starts, a
+read-only overview shows every combatant's square.
+
+<img src="docs/images/combat-overview.png" width="760" alt="Battle overview showing six party squares filled and twenty-nine others hollow, an injured badge on Tanarakis, above the live Mac combat view">
+
+## Write on the map
+
+Tap any tile for a handwritten page: the map on the left, your writing on the
+right. Pen, ink-only eraser, undo/redo, autosave, nine map symbols, and finger
+zoom/pan. Separate notebooks keep campaigns apart, and a single backup carries
+your handwriting, flags, walked tiles and journal history.
+
+<img src="docs/images/temple-note-map.png" width="760" alt="Notebook page with a pinned map snapshot and temple symbol at left and a handwritten TYR at right">
+
+## The whole journal, built in
+
+All 58 journal entries, 18 proclamations, 23 tavern tales and the 14 original
+illustrations ship with the app — nothing to import, nothing to look up online.
+References the game cites out loud collect themselves into an encountered list,
+tappable straight into the reader.
+
+<img src="docs/images/journal-atlas.png" width="760" alt="Journal 37, a massive atlas, showing two original Moonsea map illustrations while the game below asks for a code wheel word">
+
+## Also offline
+
+Spells, weapons and armor, class progression and mixed-coin conversion ·
+automatic code-wheel entry with an illustrated fallback · save or share a PNG
+of the map, game and keyboard together · install alongside your existing Mini
+vMac setup.
+
+**Early prototype.** Verified against Macintosh Pool of Radiance v1.1 in New
+Phlan and the adjoining Slums gate round trip; other transitions, dedicated
+combat and wilderness maps, and broader NPC coverage are unfinished. Testing
+happens on a real e-ink tablet, where stylus drawing and two-finger zoom/scroll
+work well as of 2026-09-15; rotation and keyboard layout are still unreported.
+
 [Exploration trail](docs/EXPLORATION.md) · [Handwritten notes](docs/NOTEBOOK.md) · [Flag pages & symbols](docs/MAP_INK.md)
 
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.27.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.27.0)
+[0.30.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.30.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.27.0/poolrad-macmaps-0.27.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.30.0/poolrad-macmaps-0.30.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.
 
-**Bring your own ROM, Mac system disk, and Macintosh game.** None are in the public APK.
-[Step-by-step setup and troubleshooting →](docs/INSTALL.md)
+**Bring your own ROM, Mac system disk, and Macintosh game.** None are in the
+public APK. [Step-by-step setup and troubleshooting →](docs/INSTALL.md)
 
-**Read the journal:** it is [included with the app](docs/JOURNAL.md) — all 58
-journal entries, 18 proclamations, 23 tavern tales and the 14 original
-illustrations. Nothing to import. Open **Info → Journal**, or let the game's own
-citations collect themselves as you play.
-
-**Keep your notes:** [export a notebook backup](docs/NOTEBOOK_BACKUPS.md) before
-uninstalling or clearing app data. Updates install over the existing app.
-
-**One disk, automatic startup:** [combine your own System 7 and game/save
-disks](docs/PERSONAL_BOOT.md). The private builder preserves both file forks
-and original disks; a normal Mac startup alias launches the game.
-
-**Your own ready-to-play APK:** [bundle those personal files](docs/PERSONAL_PACKAGE.md)
-for automatic first-use setup. Later updates never replace your writable disks.
-Private builds stay local; the public download remains bring-your-own-files.
-An optional [pinned-source build](docs/PERSONAL_ASSET_FETCH.md) can fetch your
-explicitly configured inputs once and reuse the verified local cache.
+Updates install over the existing app, but
+[export a notebook backup](docs/NOTEBOOK_BACKUPS.md) before uninstalling or
+clearing app data. Optionally and privately, you can
+[combine System 7 and your game disks into one auto-booting disk](docs/PERSONAL_BOOT.md)
+and [bundle them into your own ready-to-play APK](docs/PERSONAL_PACKAGE.md);
+the public download stays bring-your-own-files.
 
 ## Project
 
