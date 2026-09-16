@@ -100,13 +100,33 @@ the lower-priority queue.
   stays original, so the toggle must drive the game's own input the way a player
   would — the way F18's Return button and the on-screen keyboard do — and must
   not write emulated RAM. Settle first, against the running game:
-  1. Where the game exposes quick mode (the combat row has a **Quick** button
-     for the acting character; the camp Alter menu has **Speed**; the Character
-     menu is unexamined), and whether it is per character or per battle.
-  2. Where the per-character flag lives in the record, so the Q can show the
-     real state rather than one the app is only remembering.
-  3. Whether a tap can reach it through the game's own UI from where the player
-     already is. If it cannot, say so and ask rather than reaching for a write.
+  **Checked against the running game, 2026-09-16 — and the answer is awkward.**
+  Both remaining menus were photographed. **Character** offers Create New, Drop,
+  Modify, Train, View, Add To Party, Remove From Party. **Options** offers
+  Sounds, Walking Sounds, Use Compass, Hide Windows in Background, Reset Window
+  Locations. Neither mentions quick. The game's only Quick is the one on the
+  combat button row — Move / View / Aim / Use / **Quick** / Done — and it
+  applies to the character whose turn it is.
+
+  So there is no path through the game's own UI to set quick for an arbitrary
+  character at an arbitrary moment, and a Q that worked any time could only work
+  by writing the character record in emulated RAM. Every reader in this app is
+  read-only and the BOUNDARY says the original game stays original, so that is
+  the user's call to make, not one to slip in. Two shapes, both honest:
+
+  1. **Read-only Q, plus a tap that works when the game would accept one.** The
+     badge shows each character's real quick state, read from the record; during
+     combat, the acting character's Q taps the game's own Quick button, exactly
+     the way the Return button presses Return. Other rows show the state but do
+     not act. Nothing is written. This is the smaller feature.
+  2. **A Q that writes the flag.** Works from anywhere, and is the first time
+     this app has written guest memory. It is one byte in a character record and
+     not a stat, but it is still a write, and it needs the user to say so.
+
+  Either way the flag has to be found first: capture the record before and after
+  using the game's own Quick in a battle and diff, the same method that found
+  the combat coordinates. The harness reaches a battle unattended now, so this
+  is cheap.
 - [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
   reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
   correct, I only saw squares on my people who were on squares that used to be
