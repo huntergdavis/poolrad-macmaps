@@ -49,6 +49,13 @@ BUTTON_ROW = (20, 1483, 1000, 38)
 # pointer a third button in a two-button question; the pointer sits low in the
 # row and never on this line.
 BUTTON_TOPS = (20, 1483, 1000, 3)
+# The Message window's own frame: two rules that run the full width just above
+# the buttons. In the game they measure about 2000 dark pixels; on the Finder's
+# desktop, about 360. Without this check the desktop counted as one wide button
+# and read as Continue -- and a tour once clicked the bare desktop 250 times
+# because the game had quit underneath it.
+MESSAGE_FRAME = (20, 1479, 1000, 2)
+FRAME_INK = 1700
 # The game's own coordinate and facing readout, e.g. "0,4 W". A move is only
 # believed once this changes, which is the one signal that distinguishes a step
 # from a bump into a wall. The clock beside it is deliberately outside the box,
@@ -180,8 +187,15 @@ def button_spans(screen, column=10, floor=6):
     return spans
 
 
+def playing(screen):
+    """True when the game's Message window is on screen at all."""
+    return screen.ink(MESSAGE_FRAME) >= FRAME_INK
+
+
 def state(screen):
     """What the game is asking for, by how many buttons it is offering."""
+    if not playing(screen):
+        return "no game"
     return {0: "busy", 1: "continue", 2: "question",
             4: "encounter", 6: "explore"}.get(len(button_spans(screen)), "unknown")
 
@@ -203,6 +217,9 @@ def steady_state(serial, tries=12):
     for _ in range(tries):
         screen = guest.grab(serial)
         now = state(screen)
+        if now == "no game":
+            raise SystemExit("Pool of Radiance is not running: its Message window "
+                             "is not on screen. Run `boot` and `load`.")
         if now == last and now in KNOWN:
             return now, screen
         last = now

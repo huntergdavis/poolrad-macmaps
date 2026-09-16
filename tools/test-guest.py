@@ -123,16 +123,30 @@ class ButtonRowTest(unittest.TestCase):
         if pointer:
             boxes.append(pointer + ((0, 0, 0),))
         # The Message window's own frame, which runs the full width above and
-        # below the buttons and would merge them all into one run if the band
-        # were not measured carefully.
-        boxes.append((x - 10, y - 4, width + 20, 2, (0, 0, 0)))
+        # below the buttons. It would merge them all into one run if the band
+        # were not measured carefully, and its presence is also what says the
+        # game is on screen at all.
+        fx, fy, fwidth, fheight = play.MESSAGE_FRAME
+        boxes.append((fx, fy, fwidth, fheight, (0, 0, 0)))
         boxes.append((x - 10, y + height + 4, width + 20, 3, (0, 0, 0)))
         return guest.Screen(frame(1200, 1600, boxes=boxes))
+
+    def desktop(self):
+        """No Message window at all: the game has quit to the Finder."""
+        return guest.Screen(frame(1200, 1600))
 
     def test_each_prompt_is_named_by_its_button_count(self):
         for count, name in ((1, "continue"), (2, "question"),
                             (4, "encounter"), (6, "explore"), (0, "busy")):
             self.assertEqual(name, play.state(self.row(count)), "%d buttons" % count)
+
+    def test_no_message_window_means_the_game_is_not_running(self):
+        # The Finder's desktop counted as one wide button and read as Continue.
+        # A tour clicked the bare desktop 250 times because of it.
+        self.assertFalse(play.playing(self.desktop()))
+        self.assertEqual("no game", play.state(self.desktop()))
+        self.assertTrue(play.playing(self.row(6)))
+        self.assertEqual("explore", play.state(self.row(6)))
 
     def test_an_unexpected_count_is_not_guessed_at(self):
         # Three buttons is a half-painted exploration row -- Area, Cast, View
