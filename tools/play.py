@@ -70,6 +70,17 @@ def settled(serial, quiet=1200, timeout=90000, region="message"):
 def boot(serial):
     """Launch the app and take the guest as far as the game's own menu bar."""
     guest.shell(serial, "monkey -p %s -c android.intent.category.LAUNCHER 1" % PACKAGE)
+    # Wait for it to actually be in front, rather than letting the first
+    # keystroke fail the foreground guard with a less useful message.
+    waited = time.monotonic() + 60
+    while time.monotonic() < waited:
+        if guest.foreground(serial).startswith(guest.PACKAGE):
+            break
+        time.sleep(2)
+    else:
+        raise SystemExit("PoolRad would not come to the front; %s is stuck there. "
+                         "If force-stopping it does not help, reboot the emulator."
+                         % (guest.foreground(serial) or "something"))
     # The Mac may complain it was not shut down properly; Return dismisses it,
     # and sending Return when there is no dialog costs nothing.
     deadline = time.monotonic() + 240

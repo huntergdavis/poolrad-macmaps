@@ -129,6 +129,15 @@ is what raised the question, and a turn sent while the prompt is up goes
 nowhere, so without the turn the party declines, steps back into the same
 doorway and asks again until the move budget runs out.
 
+## When the guard refuses
+
+`PoolRad is not the foreground app (...)` means exactly what it says, and the
+fix is usually `am force-stop` on whatever is named. Once it was not: an ANR'd
+`org.chromium.webview_shell` kept its focused window after a force-stop, a HOME
+press and an explicit `am start`, and nothing would take the foreground back.
+`adb reboot` on the emulator cleared it, and the app's ROM, disks and notebooks
+live in app storage, so a reboot costs nothing but the wait.
+
 ## Coordinates are for this emulator
 
 The pixel boxes above are for the 1200x1600 test emulator, `emulator-5584`. On
