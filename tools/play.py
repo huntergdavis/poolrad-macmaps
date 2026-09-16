@@ -61,8 +61,14 @@ BUTTON_TOPS = (20, 1483, 1000, 3)
 # desktop, about 360. Without this check the desktop counted as one wide button
 # and read as Continue -- and a tour once clicked the bare desktop 250 times
 # because the game had quit underneath it.
-MESSAGE_FRAME = (20, 1479, 1000, 2)
-FRAME_INK = 1700
+# Somewhere in this band the Message window draws a rule right across itself.
+# Pinning it to two named rows did not survive contact: the window sits a pixel
+# differently from one state to the next, so a box over rows 1479-1480 caught
+# both rules in one screenshot and only one in the next, and the game read as
+# not running while Rolf was talking. Scan the band and look for any full-width
+# rule instead.
+FRAME_BAND = (20, 1470, 1000, 13)
+FRAME_INK = 900
 # The game's own coordinate and facing readout, e.g. "0,4 W". A move is only
 # believed once this changes, which is the one signal that distinguishes a step
 # from a bump into a wall. The clock beside it is deliberately outside the box,
@@ -109,6 +115,12 @@ def boot(serial):
     # and sending Return when there is no dialog costs nothing.
     deadline = time.monotonic() + 300
     while time.monotonic() < deadline:
+        # Ask before knocking. Sending Return to a game that is already up
+        # starts one -- and then Load Saved Game is greyed out and the next
+        # step fails, having been told the boot succeeded.
+        if game_menu_ready(serial):
+            print("booted")
+            return
         settled(serial, quiet=2500, timeout=240000, region="guest")
         # Click the dialog's OK, then send Return as well. Return alone left
         # the Mac sitting on that dialog for a whole five-minute timeout,
@@ -117,10 +129,34 @@ def boot(serial):
         guest.click(serial, *STARTUP_OK)
         guest.send(serial, "input keyevent ENTER")
         time.sleep(2)
-        if game_menu_ready(serial):
-            print("booted")
-            return
     raise SystemExit("The game never reached its menu bar")
+
+
+def load_item_enabled(serial, patience=4.0):
+    """Open the File menu, hold it, and report whether Load Saved Game is live.
+
+    Polled rather than sampled once. Measured ink is 5741 for the enabled item,
+    1185 for the greyed one and under 1000 for anything that is not an open menu
+    at all, so the reading itself is unambiguous -- but under load the menu can
+    still be drawing 0.8s after the mouse goes down, and a single early sample
+    read as greyed on a boot that had in fact just succeeded.
+
+    Leaves the menu open; the caller releases, over the item or over the title.
+    """
+    guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
+    deadline = time.monotonic() + patience
+    while True:
+        if guest.grab(serial).ink(LOAD_ROW) >= LOAD_ENABLED_INK:
+            return True
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(0.4)
+
+
+def close_menu(serial):
+    guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    time.sleep(0.6)
 
 
 def game_menu_ready(serial):
@@ -131,13 +167,9 @@ def game_menu_ready(serial):
     reported a successful boot and then failed at the next step for reasons that
     had nothing to do with booting.
     """
-    guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
-    guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
-    time.sleep(0.8)
-    enabled = guest.grab(serial).ink(LOAD_ROW) >= LOAD_ENABLED_INK
-    guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
-    time.sleep(0.6)
-    return enabled
+    ready = load_item_enabled(serial)
+    close_menu(serial)
+    return ready
 
 
 def load(serial, save, folder="PoolRadSave"):
@@ -152,12 +184,8 @@ def load(serial, save, folder="PoolRadSave"):
     # Hold the menu open, read whether the item is live, and only then let go
     # over it. Comparing the screen before and after does not work: the game
     # animates a campfire, so something is always different.
-    guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
-    guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
-    time.sleep(0.8)
-    enabled = guest.grab(serial).ink(LOAD_ROW) >= LOAD_ENABLED_INK
-    if not enabled:
-        guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    if not load_item_enabled(serial):
+        close_menu(serial)
         raise SystemExit("Load Saved Game is greyed out, which it is whenever a "
                          "game is already running. Run `boot` first.")
     guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X + 58, LOAD_ITEM_Y))
@@ -215,7 +243,8 @@ def button_spans(screen, column=10, floor=6):
 
 def playing(screen):
     """True when the game's Message window is on screen at all."""
-    return screen.ink(MESSAGE_FRAME) >= FRAME_INK
+    x, y, width, height = FRAME_BAND
+    return any(screen.ink((x, y + row, width, 1)) >= FRAME_INK for row in range(height))
 
 
 def state(screen):
@@ -229,7 +258,7 @@ def state(screen):
 KNOWN = ("continue", "question", "encounter", "explore")
 
 
-def steady_state(serial, tries=12):
+def steady_state(serial, tries=30):
     """The same recognised answer twice running.
 
     A frame taken the instant a move lands catches the game mid-redraw: the row
@@ -243,13 +272,16 @@ def steady_state(serial, tries=12):
     for _ in range(tries):
         screen = guest.grab(serial)
         now = state(screen)
-        if now == "no game":
-            raise SystemExit("Pool of Radiance is not running: its Message window "
-                             "is not on screen. Run `boot` and `load`.")
         if now == last and now in KNOWN:
             return now, screen
         last = now
         time.sleep(0.5)
+    if last == "no game":
+        # Waited for it rather than judging the first frame: straight after a
+        # load the game spends a few seconds drawing, and there is genuinely no
+        # Message window yet.
+        raise SystemExit("Pool of Radiance is not running: its Message window "
+                         "never appeared. Run `boot` and `load`.")
     return last, screen
 
 

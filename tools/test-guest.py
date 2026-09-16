@@ -126,8 +126,10 @@ class ButtonRowTest(unittest.TestCase):
         # below the buttons. It would merge them all into one run if the band
         # were not measured carefully, and its presence is also what says the
         # game is on screen at all.
-        fx, fy, fwidth, fheight = play.MESSAGE_FRAME
-        boxes.append((fx, fy, fwidth, fheight, (0, 0, 0)))
+        fx, fy, fwidth, fheight = play.FRAME_BAND
+        # One rule, placed anywhere in the band -- which is the point: the real
+        # window moves a pixel between states.
+        boxes.append((fx, fy + 4, fwidth, 1, (0, 0, 0)))
         boxes.append((x - 10, y + height + 4, width + 20, 3, (0, 0, 0)))
         return guest.Screen(frame(1200, 1600, boxes=boxes))
 
@@ -147,6 +149,20 @@ class ButtonRowTest(unittest.TestCase):
         self.assertEqual("no game", play.state(self.desktop()))
         self.assertTrue(play.playing(self.row(6)))
         self.assertEqual("explore", play.state(self.row(6)))
+
+    def test_the_frame_is_found_wherever_in_the_band_it_sits(self):
+        # The window sits a pixel differently from one state to the next, and a
+        # rule pinned to two named rows read as "no game" while Rolf was talking.
+        x, y, width, height = play.FRAME_BAND
+        for row in range(height):
+            screen = guest.Screen(frame(1200, 1600,
+                                        boxes=[(x, y + row, width, 1, (0, 0, 0))]))
+            self.assertTrue(play.playing(screen), "rule at row %d" % row)
+        # Just above and just below the band is not the Message window.
+        for outside in (y - 2, y + height + 2):
+            screen = guest.Screen(frame(1200, 1600,
+                                        boxes=[(x, outside, width, 1, (0, 0, 0))]))
+            self.assertFalse(play.playing(screen), "rule at row %d" % outside)
 
     def test_an_unexpected_count_is_not_guessed_at(self):
         # Three buttons is a half-painted exploration row -- Area, Cast, View
