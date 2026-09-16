@@ -144,6 +144,33 @@ public class PartyPaneLayoutTest {
         }
     }
 
+    /**
+     * Hunter's own tablet, measured off the screenshots he took on 2026-09-15
+     * rather than guessed at: a 1440x1742 panel whose companion pane is
+     * 1440x684, and whose header baseline sits 44px below the pane top, which
+     * pins density at exactly 2.0 (the view draws that baseline at 22dp).
+     *
+     * The screenshots showed no party. They were taken on v0.18.0 or earlier --
+     * the two-line "North up . N walked" caption went away in v0.19.0 -- where
+     * a single fixed 216dp column needed 24 + 6*48 dp of height, so any font
+     * scale at or above 1.10 dropped the sidebar outright. E-ink tablets very
+     * commonly run a bumped font scale, so sweep it here: at his geometry the
+     * party has to appear at every scale a device can ask for.
+     */
+    @Test public void hunterTabletShowsThePartyAtEveryFontScale() {
+        for (float scale : new float[]{1f, 1.1f, 1.15f, 1.3f, 1.5f, 1.8f, 2f}) {
+            for (int count = 1; count <= 8; count++) {
+                PartyPaneLayout p = new PartyPaneLayout(1440, 684, 2f, count, scale);
+                String where = "1440x684 @2.0 x" + scale + " count " + count;
+                assertTrue("No party at all at " + where, p.rows > 0);
+                assertEquals("Not every member drawn at " + where, count, p.visibleMembers());
+                assertTrue("The map was squeezed out at " + where, p.mapHeight > 0 && p.mapWidth > 0);
+                for (int i = 0; i < count; i++)
+                    assertEquals(where, i, p.memberAt(p.columnLeft(i) + 1, p.rowTop(i) + p.rowHeight / 2));
+            }
+        }
+    }
+
     /** A strip under the map is still tappable, and the map above it is not. */
     @Test public void theStripUnderTheMapHitTestsLikeTheSidebar() {
         PartyPaneLayout p = new PartyPaneLayout(1440, 760, 3f, 6);

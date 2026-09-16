@@ -199,6 +199,12 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 : added.size() + " references noted in this notebook's journal list");
     }
 
+    /** The map's own footprint button; remembered like the Info checkbox. */
+    @Override public void onFootprintsToggled(boolean shown) {
+        if (disposed) return;
+        prefs.edit().putBoolean(FOOTPRINTS, shown).apply();
+    }
+
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
 
     @Override public void onExplorationSample(PoolRadState sample) {

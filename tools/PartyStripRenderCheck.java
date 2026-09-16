@@ -23,12 +23,18 @@ public final class PartyStripRenderCheck {
         catch (Throwable failure) { failure.printStackTrace(System.err); System.exit(1); }
     }
 
+    /*
+     * A PRM1 legacy packet, not PRM5. The current format only reports a live
+     * map for an area whose fingerprint is in the shipped catalog, which no
+     * synthetic map can be; the legacy path accepts geometry on its own, so the
+     * harness draws a real grid, trail and caption instead of the bare
+     * "position unavailable" header it used to.
+     */
     private static byte[] mapPacket() {
-        byte[] p = new byte[1204];
-        p[0]='P';p[1]='R';p[2]='M';p[3]='5';
+        byte[] p = new byte[1200];
+        p[0]='P';p[1]='R';p[2]='M';p[3]='1';
         p[24]=1;p[25]=1;p[26]=1;p[27]=4;p[31]=42;p[32]=1;p[33]=1;p[35]=20;
         p[130]=15;p[131]=1;p[132]=6;p[176]=0x12;p[432]=0x34;p[944]=(byte)0xe4;
-        p[1200]=(byte)255;
         return p;
     }
     private static byte[] partyPacket(int count) {
@@ -54,30 +60,41 @@ public final class PartyStripRenderCheck {
         Context system = (Context) at.getMethod("getSystemContext").invoke(thread);
         Context app = system.createPackageContext(pkg, Context.CONTEXT_IGNORE_SECURITY);
 
-        for (int dpi : new int[]{320, 420, 480}) {
+        /*
+         * Hunter's own tablet, measured off his 2026-09-15 screenshots: a
+         * 1440x1742 panel, companion pane 1440x684, density exactly 2.0
+         * (320 dpi). The font scales are swept because that, not the density,
+         * is what emptied the pane on the build he was running.
+         */
+        for (int dpi : new int[]{320, 480}) {
+          for (float fontScale : new float[]{1f, 1.15f, 1.8f}) {
             Configuration config = new Configuration(app.getResources().getConfiguration());
             config.densityDpi = dpi;
+            config.fontScale = fontScale;
             Context dense = new ContextThemeWrapper(app.createConfigurationContext(config),
                     android.R.style.Theme_Material_Light_NoActionBar);
-            for (int count : new int[]{6, 8}) {
+            for (int count : new int[]{6, 7, 0}) {
                 LiveMapView view = new LiveMapView(dense, null);
-                int w = 1440, h = 760;
+                int w = 1440, h = 684;
                 view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
                         View.MeasureSpec.makeMeasureSpec(h, View.MeasureSpec.EXACTLY));
                 view.layout(0, 0, w, h);
                 view.showSample(mapPacket());
-                view.showPartySample(partyPacket(count));
+                if (count > 0) view.showPartySample(partyPacket(count));
+                view.setExplorationStyle(false, count == 0);
                 Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);
                 canvas.drawColor(Color.WHITE);
                 view.draw(canvas);
-                String path = "/data/local/tmp/party-" + dpi + "dpi-" + count + ".png";
+                String path = "/data/local/tmp/party-" + dpi + "dpi-x" + fontScale + "-" + count + ".png";
                 try (FileOutputStream out = new FileOutputStream(path)) {
                     bitmap.compress(Bitmap.CompressFormat.PNG, 100, out);
                 }
                 System.out.println("wrote " + path + "  density="
-                        + dense.getResources().getDisplayMetrics().density);
+                        + dense.getResources().getDisplayMetrics().density
+                        + " scaledDensity=" + dense.getResources().getDisplayMetrics().scaledDensity);
             }
+          }
         }
     }
 }

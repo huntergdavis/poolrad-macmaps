@@ -1,5 +1,72 @@
 # Local Android prototype
 
+## 0.28.0 — the tablet measured, and a footprint switch (2026-09-15)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.28.0.apk`, SHA-256
+`6676b745df67d0a27ca4e0fe8a6e31291bf940a2a9b649765b6da6d198f7667b`, versionCode 94.
+
+**The missing party pane was not a layout bug.** The user's two on-device
+screenshots were measured rather than guessed at, which is what he asked for:
+
+| Measured | Value |
+| --- | --- |
+| Screenshot | 1440 x 1742 px |
+| Tab bar | y 0-95 |
+| Companion pane | y 96-779, so **1440 x 684** |
+| Header cap rows | y 119-139, baseline ~140 |
+| Header baseline offset | 44 px below the pane top |
+| Implied density | `LiveMapView` draws that baseline at 22dp, so **exactly 2.0** |
+
+Not the 2.625-3.0 the 0.27.0 strip was built for. At 1440 x 684 and density 2.0
+the layout already returns a two-column sidebar, so the arithmetic was not the
+fault.
+
+**The screenshots are from v0.18.0 or earlier.** They carry a two-line caption
+("North up · 55 walked · Info: trail options" above "Tap a tile or symbol ·
+Notebook 1"); that first line is a string literal that was removed in v0.19.0,
+and it appears in every tag from v0.3.0 to v0.18.0 and in none after. The v0.18.0
+layout was a single fixed 216dp column needing `24 + 6*48` dp of height, so at
+1440 x 684 any **font scale at or above 1.10** dropped the sidebar outright —
+which e-ink tablets commonly run. The current build shows the party at that
+geometry at every font scale from 1.0 to 2.0.
+
+Three things came out of that:
+
+- **Every caption now ends in the build name**, e.g. `· v0.28.0`. Dating those
+  screenshots took an archaeology pass over 29 tags; it should take a glance.
+- **A very large font scale no longer empties the pane.** Seven members at scale
+  1.8 wanted more than 684px in both the sidebar and the strip, and the answer
+  was to draw nothing. `PartyPaneLayout` now steps the scale back toward 1.0
+  until something fits and reports it as `appliedScale`, which the view draws
+  the party rows with. Smaller party text beats no party; the map's own text is
+  untouched.
+- **A new test pins his measured geometry**: 1440 x 684 at density 2.0, swept
+  across font scales 1.0 to 2.0 and party sizes 1 to 8.
+
+**The footprint toggle he asked for** is a 26dp button in the top-left corner of
+the map, drawn with a 48dp touch target, two filled soles when on and a
+white-underlaid slash across them when off. An earlier hollow-soles-plus-slash
+version read as a percent sign at button size. It writes the same preference the
+Info tab's "Show directional footprints" checkbox uses, so the two agree.
+
+Verified on emulator-5584, not only asserted:
+
+- Rendered at his exact geometry (1440 x 684, 320 dpi) through `app_process`:
+  the six-member sidebar draws with the map, the trail and the caption
+  `Tap a tile or symbol · Loading notebook… · v0.28.0`; at font scale 1.8 with
+  seven members the strip draws four columns of two where 0.27.0 drew nothing.
+- The harness itself was wrong before this: its synthetic PRM5 map could never
+  match a shipped area fingerprint, so every render it has ever produced showed
+  "Position unavailable" and a blank map. It now sends a legacy PRM1 packet,
+  which is accepted on geometry alone, and draws a real grid.
+- Tapped live: the button flips on → off → on, and off survives a force-stop
+  and relaunch.
+- `assembleMacIIDebug` and `testMacIIDebugUnitTest` pass, **429 Java tests, zero
+  failures/errors/skips**.
+
+Not verified here: anything on the physical tablet. The user installs and
+accepts that himself.
+
 ## 0.27.0 — the party strip and the bundled journal (2026-09-15)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.27.0.apk`, SHA-256

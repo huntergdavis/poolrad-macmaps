@@ -4,6 +4,12 @@ package name.osher.gil.minivmac.mapper;
 public final class PartyPaneLayout {
     public final int mapWidth, mapHeight, partyLeft, partyTop, partyWidth, partyHeight, columns, rows;
     public final float headerHeight, rowHeight, columnWidth;
+    /**
+     * The font scale the pane could actually honour, which is the requested
+     * one unless honouring it would have meant drawing no party at all. Draw
+     * the rows with this, not with the device's own scale.
+     */
+    public final float appliedScale;
     /** Columns narrower than this, in dp, drop the armour-class readout. */
     public static final float COMPACT_COLUMN = 150;
     private final int members;
@@ -17,11 +23,6 @@ public final class PartyPaneLayout {
             throw new IllegalArgumentException("Invalid companion pane bounds");
         if (Float.isNaN(fontScale) || Float.isInfinite(fontScale) || fontScale <= 0)
             throw new IllegalArgumentException("Invalid companion font scale");
-        float scale = Math.max(1, fontScale);
-        int preferred = (int) Math.ceil(216 * density * scale);
-        int narrowest = (int) Math.ceil(150 * density * scale);
-        float header = 24 * density * scale, minimumRow = 48 * density * scale;
-        float mapFloor = 280 * density;
         members = count;
 
         /*
@@ -45,49 +46,70 @@ public final class PartyPaneLayout {
          * map, put the party in a strip underneath it instead of hiding it.
          * Losing some map height beats losing the whole party.
          */
-        int wanted = 0, perColumn = 0, chosen = 0;
-        for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
-            int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
-            if (count == 0 || rowsPerColumn == 0) break;
-            if (height < header + rowsPerColumn * minimumRow) continue;
-            int room = (int) Math.min(width - mapFloor, width * 0.55f);
-            if (room <= 0) continue;
-            int columnWidth = Math.min(preferred, room / tryColumns);
-            if (columnWidth < narrowest) continue;
-            wanted = tryColumns; perColumn = rowsPerColumn; chosen = columnWidth;
-        }
-
         /*
-         * The strip under the map. Widest columns first, because more columns
-         * means fewer rows and a shorter strip, which leaves the map more room.
+         * An accessibility font scale is a request, not a hard constraint: at
+         * 1.8 a seven-member party wants more than a 684px pane has, and the
+         * old answer was to draw nothing. Honour the scale when it fits and
+         * step it back toward 1.0 when it does not, because smaller party text
+         * beats no party. The map's own text is never touched.
          */
-        // A strip spans the whole pane, so its columns can be tighter than a
-        // sidebar's; below COMPACT_COLUMN the row drops its armour-class
-        // readout to keep the name, health and bar legible.
-        int stripNarrowest = (int) Math.ceil(118 * density * scale);
-        // Whatever happens, the map keeps a quarter of the pane and 64 pixels.
-        float mapKeeps = Math.max(64, height * 0.25f);
+        float requested = Math.max(1, fontScale);
+        float scale = requested;
+        int wanted = 0, perColumn = 0, chosen = 0;
         int stripColumns = 0, stripRows = 0;
         float stripWidth = 0, stripHeight = 0;
-        if (wanted == 0 && count > 0 && width > 0) {
-            /*
-             * Prefer the shortest strip, so the map keeps the most height; and
-             * among equally short ones prefer the fewest columns, so six
-             * members make three wide pairs rather than four with a gap.
-             */
-            for (int tryColumns = 1; tryColumns <= Math.min(count, (int) (width / stripNarrowest)); tryColumns++) {
-                float each = width / (float) tryColumns;
-                if (each < stripNarrowest) continue;
+        float header = 0, mapFloor = 280 * density;
+        for (int attempt = 0; ; attempt++) {
+            scale = Math.max(1, requested - attempt * 0.1f);
+            int preferred = (int) Math.ceil(216 * density * scale);
+            int narrowest = (int) Math.ceil(150 * density * scale);
+            header = 24 * density * scale;
+            float minimumRow = 48 * density * scale;
+            wanted = 0; perColumn = 0; chosen = 0;
+            stripColumns = 0; stripRows = 0; stripWidth = 0; stripHeight = 0;
+            for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
                 int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
-                if (stripColumns > 0 && rowsPerColumn >= stripRows) continue;
-                float least = header + rowsPerColumn * minimumRow;
-                if (least > height * 0.75f || height - least < mapKeeps) continue;
-                // Grow the rows toward comfortable only while the map can spare it.
-                float roomy = Math.min(height * 0.75f, header + rowsPerColumn * 64 * density * scale);
-                stripColumns = tryColumns; stripRows = rowsPerColumn; stripWidth = each;
-                stripHeight = height - roomy >= mapKeeps ? roomy : least;
+                if (count == 0 || rowsPerColumn == 0) break;
+                if (height < header + rowsPerColumn * minimumRow) continue;
+                int room = (int) Math.min(width - mapFloor, width * 0.55f);
+                if (room <= 0) continue;
+                int columnWidth = Math.min(preferred, room / tryColumns);
+                if (columnWidth < narrowest) continue;
+                wanted = tryColumns; perColumn = rowsPerColumn; chosen = columnWidth;
             }
+
+            /*
+             * The strip under the map. Widest columns first, because more columns
+             * means fewer rows and a shorter strip, which leaves the map more room.
+             */
+            // A strip spans the whole pane, so its columns can be tighter than a
+            // sidebar's; below COMPACT_COLUMN the row drops its armour-class
+            // readout to keep the name, health and bar legible.
+            int stripNarrowest = (int) Math.ceil(118 * density * scale);
+            // Whatever happens, the map keeps a quarter of the pane and 64 pixels.
+            float mapKeeps = Math.max(64, height * 0.25f);
+            if (wanted == 0 && count > 0 && width > 0) {
+                /*
+                 * Prefer the shortest strip, so the map keeps the most height; and
+                 * among equally short ones prefer the fewest columns, so six
+                 * members make three wide pairs rather than four with a gap.
+                 */
+                for (int tryColumns = 1; tryColumns <= Math.min(count, (int) (width / stripNarrowest)); tryColumns++) {
+                    float each = width / (float) tryColumns;
+                    if (each < stripNarrowest) continue;
+                    int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
+                    if (stripColumns > 0 && rowsPerColumn >= stripRows) continue;
+                    float least = header + rowsPerColumn * minimumRow;
+                    if (least > height * 0.75f || height - least < mapKeeps) continue;
+                    // Grow the rows toward comfortable only while the map can spare it.
+                    float roomy = Math.min(height * 0.75f, header + rowsPerColumn * 64 * density * scale);
+                    stripColumns = tryColumns; stripRows = rowsPerColumn; stripWidth = each;
+                    stripHeight = height - roomy >= mapKeeps ? roomy : least;
+                }
+            }
+            if (wanted > 0 || stripColumns > 0 || scale <= 1) break;
         }
+        appliedScale = scale;
 
         if (wanted == 0 && stripColumns > 0) {
             columns=stripColumns;rows=stripRows;columnWidth=stripWidth;

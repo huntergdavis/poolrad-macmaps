@@ -52,6 +52,11 @@ public final class LiveMapView extends View {
     private String explorationStatus = "";
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
+    /** Where the footprint toggle was last drawn, and whether a press began on it. */
+    private final android.graphics.RectF footprintButton = new android.graphics.RectF();
+    /** The drawn button is 26dp; fingers get the 48dp target the guidelines ask for. */
+    private final android.graphics.RectF footprintTarget = new android.graphics.RectF();
+    private boolean touchFootprints;
     private float touchX, touchY;
     private String touchArea;
     private boolean preciseTouch;
@@ -67,6 +72,8 @@ public final class LiveMapView extends View {
         default void onPartyMemberTapped(PartyState.Member member) { }
         default void onExplorationSample(PoolRadState sample) { }
         default void onExplorationAreaChanged(AreaIdentity area) { }
+        /** The player tapped the footprint button on the map itself. */
+        default void onFootprintsToggled(boolean shown) { }
     }
 
     public void setListener(Listener value) { listener = value; }
@@ -124,6 +131,8 @@ public final class LiveMapView extends View {
                 : ". Reference only; map notes resume with local exploration. ")
                 + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
                 + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
+                + (footprints ? "Footprints shown; " : "Footprints hidden; ")
+                + "the button in the top-left corner of the map turns them off and on. "
                 + explorationStatus + health);
     }
 
@@ -206,7 +215,8 @@ public final class LiveMapView extends View {
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
             preciseTouch = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
                     || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER;
-            touchMember = pane().memberAt(touchX, touchY);
+            touchFootprints = footprintTarget.contains(touchX, touchY);
+            touchMember = touchFootprints ? -1 : pane().memberAt(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
             touchTile = touchMember < 0 ? viewport().tileAt(touchX, touchY) : -1;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
@@ -223,7 +233,12 @@ public final class LiveMapView extends View {
                     && Math.hypot(event.getX() - touchX, event.getY() - touchY)
                         <= ViewConfiguration.get(getContext()).getScaledTouchSlop()
                     && listener != null;
-            if (valid && touchMember >= 0 && touchParty == party && party != null
+            if (valid && touchFootprints && footprintTarget.contains(event.getX(), event.getY())) {
+                boolean shown = !footprints;
+                setExplorationStyle(visitedOnly, shown);
+                performClick();
+                listener.onFootprintsToggled(shown);
+            } else if (valid && touchMember >= 0 && touchParty == party && party != null
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
@@ -263,6 +278,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
+        touchFootprints = false;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -310,11 +326,12 @@ public final class LiveMapView extends View {
         String status = positionAvailable ? state.positionLabelWithSearch()
                 : mode == MapMode.COMBAT && combat != null ? combat.summary()
                 : MapMode.UNAVAILABLE.label();
-        float available = Math.max(0, pane.mapWidth - 24 * density);
+        float button = drawFootprintButton(canvas, pane);
+        float available = Math.max(0, pane.mapWidth - 24 * density - button);
         float statusWidth = Math.min(ink.measureText(status), available * .48f);
         ink.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
-                12 * density, 22 * density, ink);
+                12 * density + button, 22 * density, ink);
         ink.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
         ink.setColor(Color.BLACK);
@@ -346,8 +363,24 @@ public final class LiveMapView extends View {
         ink.setTextSize(11 * density);
         // The caption names the notebook and says taps work. Helper state does
         // not belong here; the header carries availability on its own.
+        /*
+         * When the party is not on screen, say why on screen. Guessing at a
+         * tablet's pane size and density from a bug report cost two wrong
+         * fixes; this makes the numbers screenshottable.
+         *
+         * The build name rides along on every caption for the same
+         * reason. A screenshot taken from v0.18.0 looked exactly like a
+         * bug in the current layout, and dating it took an archaeology
+         * pass over every tag.
+         */
+        String missing = party == null ? "party: no reading yet"
+                : pane.rows == 0 ? "party: no room in " + getWidth() + "×" + getHeight()
+                    + " @" + density + (textScale == 1 ? "" : " ×" + textScale)
+                : null;
         canvas.drawText(fitHeaderText(
-                        (positionAvailable ? "Tap a tile or symbol · " : "") + notebook, available),
+                        (positionAvailable ? "Tap a tile or symbol · " : "") + notebook
+                        + (missing == null ? "" : " · " + missing)
+                        + " · v" + BuildConfig.VERSION_NAME, available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 
@@ -401,6 +434,48 @@ public final class LiveMapView extends View {
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 
+    /**
+     * A small footprint toggle in the header, because the trail can crowd the
+     * map and reaching it through Info is three taps away. Returns the width it
+     * used so the title can start beside it. Drawn even with no trail yet, so
+     * the control does not appear and disappear under the player.
+     */
+    private float drawFootprintButton(Canvas canvas, PartyPaneLayout pane) {
+        float size = 26 * density, left = 8 * density, top = 3 * density;
+        if (pane.mapWidth < 200 * density) { footprintButton.setEmpty(); footprintTarget.setEmpty(); return 0; }
+        footprintButton.set(left, top, left + size, top + size);
+        footprintTarget.set(footprintButton);
+        float grow = Math.max(0, (48 * density - size) / 2);
+        footprintTarget.inset(-grow, -grow);
+        footprintTarget.offset(Math.max(0, -footprintTarget.left), Math.max(0, -footprintTarget.top));
+        ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
+        ink.setColor(Color.BLACK);
+        canvas.drawRoundRect(footprintButton, 4 * density, 4 * density, ink);
+        // Two soles, one ahead of the other, as on the trail itself.
+        float cx = footprintButton.centerX(), cy = footprintButton.centerY(), sole = size * .16f;
+        ink.setStyle(Paint.Style.FILL);
+        canvas.drawOval(cx - sole * 1.8f, cy - sole * 1.9f, cx - sole * .2f, cy + sole * .3f, ink);
+        canvas.drawOval(cx + sole * .2f, cy - sole * .3f, cx + sole * 1.8f, cy + sole * 1.9f, ink);
+        if (!footprints) {
+            /*
+             * Crossed out, not hollowed out. Hollow soles plus a slash read as
+             * a percent sign at button size; filled soles under a slash read as
+             * footprints that are switched off. The white underlay keeps the
+             * slash visible where it crosses a sole, which matters most on
+             * e-ink, where there is no colour to fall back on.
+             */
+            float x1 = footprintButton.left + 5 * density, y1 = footprintButton.bottom - 5 * density;
+            float x2 = footprintButton.right - 5 * density, y2 = footprintButton.top + 5 * density;
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setColor(Color.WHITE); ink.setStrokeWidth(4 * density);
+            canvas.drawLine(x1, y1, x2, y2, ink);
+            ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density);
+            canvas.drawLine(x1, y1, x2, y2, ink);
+        }
+        ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
+        return size + 8 * density;
+    }
+
     /** Keep title and live/unavailable status in separate bounded header regions. */
     private String fitHeaderText(String value, float width) {
         if (width <= 0) return "";
@@ -414,7 +489,9 @@ public final class LiveMapView extends View {
     private void drawParty(Canvas canvas, PartyPaneLayout p) {
         if (party == null || p.rows == 0) return;
         canvas.save(); canvas.clipRect(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop+p.partyHeight);
-        float unit = density * textScale;
+        // The layout, not the device, decides the party's text scale: it steps
+        // a very large accessibility scale back rather than draw no party.
+        float unit = density * p.appliedScale;
         ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
         // Beside the map the party is fenced off on its left; underneath it, on top.
         if (p.belowMap()) canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop,ink);
