@@ -76,6 +76,36 @@ An earlier pair taken around a keypress that did **not** move anything was
 discarded rather than interpreted; without a confirmed move a diff cannot be
 told apart from the enemy's turn and the redraw.
 
+## Open: is entry `i` still the `i`-th combatant once a fight is under way?
+
+Hunter, 2026-09-15: "I don't think the enemy squares code is correct, I only saw
+squares on my people who were on squares that used to be occupied by enemies."
+
+The coordinates are read straight from the table and are not in doubt. What is
+in doubt is the pairing above — entry `i` is the `i`-th combatant of the roster
+chain — because the table carries no identity of its own: each entry states only
+its own index. It was confirmed on two captures taken at the *start* of a
+battle.
+
+**First live re-check, 2026-09-16**, using the scripted driver
+([GUEST_SCRIPTING.md](GUEST_SCRIPTING.md)) to reach a real 6-vs-10 fight and
+compare the companion against the game's own Combat View: **at the start of a
+battle the labelling is correct.** The game draws the party as six checkered
+figures on the right — Arax the Bold was the selected one — and the ten enemies
+as light shield-bearers on a diagonal up the left; the companion's six filled
+circles and ten hollow squares sit exactly that way.
+
+So the assumption holds when the table is built. Whether it survives initiative,
+movement and deaths is the open question, and it is the one Hunter was looking
+at. Two leads, neither of them acted on:
+
+1. `flag` (entry `+1`, only ever 0 or 1, currently validated and ignored) may be
+   the side itself, or alive, or "has acted".
+2. Each record carries its own handle at `+0x114`, and in the captured battle
+   those handles were four bytes apart inside one master-pointer block — so
+   `(handle - block base) / 4` may be the combatant's true table index, pairing
+   record to entry by identity rather than by order.
+
 ## Still undecoded
 
 - **Terrain.** Nothing in the A5 globals looks like an arena grid: the largest

@@ -98,8 +98,18 @@ the lower-priority queue.
   Needs a live mid-battle capture to settle, which needs F17. Do not change the
   labelling on a hypothesis: guessing at this cost three releases on the party
   pane already. [Research notes](COMBAT_MEMORY.md).
+  **First live check, 2026-09-16, with F17's harness:** a real 6-vs-10 fight was
+  reached automatically and compared against the game's own Combat View. At the
+  *start* of a battle the labelling is **correct** — the game draws the party as
+  six checkered figures on the right (Arax the Bold was the selected one) and
+  the ten enemies as light shield-bearers on a diagonal up the left, and the
+  companion's six filled circles and ten hollow squares sit exactly that way.
+  So the order assumption holds when the table is built, which is consistent
+  with the two original captures. What is still unchecked is whether it survives
+  initiative, movement and deaths, which is what Hunter was looking at. Next:
+  advance a battle by rounds and compare again.
 - [~] **F17 — Script the guest so a battle can be reached without hands (P0,
-  user requested 2026-09-15; steps 1-5 done, 6-7 in progress).** "I have a feeling we'll be coming back to this
+  user requested 2026-09-15; steps 1-6 done, 7 in progress).** "I have a feeling we'll be coming back to this
   one." Every new combat feature needs a real battle on screen, and reaching
   one by hand through `adb shell input tap` has repeatedly failed: Mac menus do
   not open from a synthetic tap and double-clicks do not register. His plan, in
@@ -129,6 +139,9 @@ the lower-priority queue.
   at 3,4 and collected its proclamation citation, then loaded `m1gate` and
   wandered the Slums declining the inn. Movement keys confirmed one at a time:
   8 forward, 4 left, 6 right, 2 about-face.
+  **Step 6 done 2026-09-16:** `battle` walks until something attacks and answers
+  with Combat. From a loaded game it reached a real 6-vs-10 fight in 16 moves,
+  and the companion drew the battle overview beside the game's own Combat View.
 - [x] **F13 — Reclaim the caption line and fit an NPC-sized party (P0, user
   request 2026-09-14).** Drop the standing "North up · N walked · Info: trail
   options" caption and give the height back to the map. A party can reach eight
