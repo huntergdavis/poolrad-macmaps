@@ -1,5 +1,68 @@
 # Local Android prototype
 
+## 0.30.0 — the party appears: even, not four-byte aligned (2026-09-15)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.30.0.apk`, SHA-256
+`4b349f4fc4bddb76f4824b8a4db2fbd18a82e9471ba7bcca0ee9d5cc8ac6f0c6`, versionCode 96.
+
+0.29.0's refusal answered it on the first screenshot:
+
+```
+Tap a tile or symbol · Notebook 1 · party: heap block rejected [80000136] · v0.29.0
+```
+
+No "after N links", so it failed on the very first character record. Decoding
+that Memory Manager block header:
+
+| Field | Value | Verdict |
+| --- | --- | --- |
+| type nibble | 8 | relocatable, correct |
+| tag byte | `0x80` | size correction **0** |
+| physical size | `0x136` = **310** | = 302 (record) + 8 (header) + 0 |
+| `physical & 3` | 2 | **rejected** |
+
+Every check passed except one: the probes required a block size to be a
+**multiple of four**. That is not the Memory Manager's rule. A 24-bit Mac heap
+block's size is **even** (Inside Macintosh: Memory, Memory Manager
+pp2-22..2-23). Hunter's tablet allocates the 302-byte character record with no
+size correction at all — 310 bytes, the canonical case — and the alignment test
+threw away every single one.
+
+The wrong belief came from this emulator, which allocates those records with a
+two-byte correction (`0x82000138`, 312, a multiple of four). It was written down
+as fact in a comment — "Mac II allocations are four-byte aligned" — and copied
+into four separate checks.
+
+**Why his map worked while his party never did.** The map blocks are 1024 and
+2048 bytes logical; plus the 8-byte header that is 1032 and 2056, both already
+multiples of four, so the wrong rule and the right rule agreed on them. The
+302-byte character record is the one structure where they disagree. That is the
+whole bug, and it explains the symptom exactly: a perfect live map of New Phlan
+beside a permanently empty party pane, on every version he has ever run.
+
+Fixed in all four places — `poolrad_map_block`, the combat roster, the party
+roster and the effect-node walk — to require even, which is the real invariant.
+The exact physical size is already pinned by the logical size plus the
+correction nibble beside each test, so nothing else loosens.
+
+Verified:
+
+- `tools/test-party-probe.c` now sweeps all 16 size corrections expecting *even*
+  to be accepted, and pins **Hunter's exact header `0x80000136`** on a six-member
+  roster, asserting all six names come back. An odd physical size is still
+  refused.
+- `tools/test-combat-probe.c` gained the same pair: a 16-combatant battle whose
+  records are all unpadded reads correctly; an odd one is still refused.
+- `tools/test-map-probe.c`'s correction sweep expected four-byte alignment and
+  now expects even — it passed before only because its two blocks are
+  coincidentally 4-aligned either way.
+- All five native suites pass under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`.
+- **433 Java tests**, zero failures/errors/skips.
+
+Not verified here: his tablet. The proof that this is the right fix is that his
+own reported block header now parses, and is asserted by name in the suite.
+
 ## 0.29.0 — the party refusal says which check refused (2026-09-15)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.29.0.apk`, SHA-256

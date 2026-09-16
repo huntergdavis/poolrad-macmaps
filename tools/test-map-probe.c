@@ -592,15 +592,18 @@ int main(int argc, char **argv) {
         fixture(0x8000, 0x2000, 0x4000); put32(0x2200, bad[i]); unknown_identity();
     }
     /* Correct logical sizes despite every possible header size correction.
-     * Only four-byte-aligned allocations are valid for this Mac II profile. */
+     * A Mac heap block's size is even, not a multiple of four -- these two
+     * blocks are 1024 and 2048 bytes, so both rules happened to agree on them,
+     * which is how the four-byte assumption survived here while it was quietly
+     * discarding every 302-byte character record on Hunter's tablet. */
     for (unsigned correction = 0; correction < 16; correction++) {
         fixture(0x8000, 0x2000, 0x4000);
         put32(0x3ff8, 0x80000000 | (correction << 24) | (1032 + correction));
-        assert(poolrad_probe(ram, sizeof(ram), output) == !(correction & 3));
+        assert(poolrad_probe(ram, sizeof(ram), output) == !(correction & 1));
         fixture(0x8000, 0x2000, 0x4000);
         put32(0x5ff8, 0x80000000 | (correction << 24) | (2056 + correction));
         assert(poolrad_probe(ram, sizeof(ram), output));
-        assert(output[33] == !(correction & 3));
+        assert(output[33] == !(correction & 1));
     }
     for (unsigned tag = 0; tag < 256; tag++) {
         fixture(0x8000, 0x2000, 0x4000);

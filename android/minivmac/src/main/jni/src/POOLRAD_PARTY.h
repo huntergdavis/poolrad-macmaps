@@ -99,7 +99,7 @@ static unsigned char poolrad_party_effects(const unsigned char *ram, size_t size
         if (node < 0x1000 || (node & 1) || !poolrad_range(node, 10, size)) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
         header = poolrad_u32(ram + node - 8); physical = header & 0x00ffffff;
         if ((header & 0xf0000000) != 0x80000000
-                || physical != 18 + ((header >> 24) & 15) || (physical & 3)
+                || physical != 18 + ((header >> 24) & 15) || (physical & 1)
                 || !poolrad_range(node - 8, physical, size)) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
         for (unsigned i = 0; i < count; i++)
             if (handles[i] == handle || records[i] == node) return POOLRAD_PARTY_UNKNOWN_EFFECTS;
@@ -344,17 +344,20 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
         if (record < 0x1000 || (record & 1)
                 || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_RECORD, record);
         /* 24-bit Mac heap headers encode physical size plus a low-nibble size
-         * correction. The same 302-byte record legitimately occupies 312 bytes
-         * (tag0x82) or 316 bytes (tag0x86) after allocator padding. Validate the
-         * exact logical size, relocatable type and complete physical bounds;
-         * never accept an arbitrary oversized record or inspect padding as data.
+         * correction. The same 302-byte record legitimately occupies 310 bytes
+         * with no padding at all (tag0x80, which is what Hunter's tablet
+         * reports), 312 (tag0x82) or 316 (tag0x86). Validate the exact logical
+         * size, relocatable type and complete physical bounds; never accept an
+         * arbitrary oversized record or inspect padding as data. Block sizes
+         * are even, not four-byte aligned -- see POOLRAD.h, where assuming
+         * otherwise hid this party for the life of the project.
          * Inside Macintosh: Memory, Memory Manager pp2-22..2-23.
          */
         block_header = poolrad_u32(ram + record - 8);
         physical_size = block_header & 0x00ffffff;
         if ((block_header >> 28) != 8
                 || physical_size != POOLRAD_PARTY_RECORD_SIZE + 8 + ((block_header >> 24) & 15)
-                || (physical_size & 3)
+                || (physical_size & 1)
                 || !poolrad_range(record - 8, physical_size, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_BLOCK, block_header);
         for (unsigned i = 0; i < links; i++) {
             if (handles[i] == handle || records[i] == record) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_LOOP);

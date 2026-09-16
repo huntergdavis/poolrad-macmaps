@@ -56,7 +56,7 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
         physical = header & 0x00ffffff;
         if ((header >> 28) != 8
                 || physical != POOLRAD_PARTY_RECORD_SIZE + 8 + ((header >> 24) & 15)
-                || (physical & 3) || !poolrad_range(record - 8, physical, size)) return -1;
+                || (physical & 1) || !poolrad_range(record - 8, physical, size)) return -1;
         for (int i = 0; i < links; i++) if (records[i] == record) return -1;
         records[links] = record;
         slot = ram[record + POOLRAD_PARTY_SLOT_OFFSET];

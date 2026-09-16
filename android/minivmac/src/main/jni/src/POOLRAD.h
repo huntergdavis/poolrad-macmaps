@@ -66,7 +66,22 @@ static inline int poolrad_game_name(const unsigned char *ram, size_t size) {
 }
 /* Apple 24-bit movable block: physical size includes the eight-byte header and
  * the tag's low-nibble size correction. As with the party reader, allocator
- * padding is not application data. Mac II allocations are four-byte aligned. */
+ * padding is not application data. */
+/*
+ * Even, not four-byte aligned.
+ *
+ * This said "Mac II allocations are four-byte aligned", which was generalised
+ * from one emulator's heap, where these records happened to carry a two-byte
+ * size correction. Hunter's tablet reported the block header 0x80000136 for a
+ * character record: relocatable, size correction 0, physical 310 = the 302-byte
+ * record plus its 8-byte header and no padding at all -- the canonical case.
+ * That is a perfectly valid block, and the alignment test threw it away, which
+ * is why his party never once appeared while his map worked. The Memory
+ * Manager's actual invariant on the 24-bit heap is that a block size is even
+ * (Inside Macintosh: Memory, Memory Manager pp2-22..2-23); the exact physical
+ * size is already pinned by the logical size and the correction nibble beside
+ * this test, so evenness is all the alignment there is to check.
+ */
 static int poolrad_map_block(const unsigned char *ram, size_t size,
                              uint32_t data, uint32_t logical_size) {
     uint32_t header, physical, correction;
@@ -74,7 +89,7 @@ static int poolrad_map_block(const unsigned char *ram, size_t size,
     header = poolrad_u32(ram + data - 8);
     physical = header & 0x00ffffff;
     correction = (header >> 24) & 15;
-    return (header >> 28) == 8 && !(physical & 3)
+    return (header >> 28) == 8 && !(physical & 1)
         && physical == logical_size + 8 + correction
         && poolrad_range(data - 8, physical, size);
 }

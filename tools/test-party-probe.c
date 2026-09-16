@@ -188,19 +188,36 @@ static void tests(void) {
             assert(output[POOLRAD_PARTY_EQUIP_SIZE + member * POOLRAD_PARTY_TRAIN_STRIDE + i] == 0);
     }
 
-    // Same logical record under every representable size correction for this
-    // four-byte-aligned MacII heap; no game data is copied into these fixtures.
+    /* Same logical record under every representable size correction. A Mac
+     * heap block's size is even, not a multiple of four; this sweep used to
+     * demand four, which rejected every unpadded record and is exactly why
+     * Hunter's party never appeared. No game data is copied into the fixtures.
+     */
     for (unsigned correction = 0; correction < 16; correction++) {
         fixture(0xe000, 0x2000, 0x3000, 1);
         unsigned physical = POOLRAD_PARTY_RECORD_SIZE + 8 + correction;
         put32(member_record(0) - 8, ((0x80u | correction) << 24) | physical);
-        if ((physical & 3) == 0) {
+        if ((physical & 1) == 0) {
             assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 10);
             // Contents of allocator padding must not affect names/stats.
             memset(ram + member_record(0) + POOLRAD_PARTY_RECORD_SIZE, 0xa5, correction);
             assert(poolrad_party_probe(ram, sizeof(ram), output) && output[24] == 10);
         } else unavailable();
     }
+
+    /* The header Hunter's tablet actually reported, verbatim: relocatable, no
+     * size correction, physical 310 for the 302-byte record. The canonical
+     * allocation, and the one the old alignment test threw away.
+     */
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    for (unsigned i = 0; i < 6; i++) put32(member_record(i) - 8, 0x80000136);
+    assert(poolrad_party_probe(ram, sizeof(ram), output));
+    assert(memcmp(output, "PRP6", 4) == 0 && output[4] == 6);
+    for (unsigned i = 0; i < 6; i++)
+        assert(memcmp(output + 8 + i * POOLRAD_PARTY_ROW_SIZE, ram + member_record(i), 6) == 0);
+    // An odd physical size is still not a block, whatever the correction says.
+    fixture(0xe000, 0x2000, 0x3000, 1);
+    put32(member_record(0) - 8, 0x81000137); unavailable();
     fixture(0xe000, 0x2000, 0x3000, 6);
     put32(member_record(0) - 8, 0x8600013c); // Fresh SampleParty's valid allocation shape.
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[4] == 6);
@@ -250,11 +267,12 @@ static void tests(void) {
     effects_fixture(2); put32(0x5004, 0xffff); effects_unknown(); // Bounded bad pointer.
     effects_fixture(2); put32(0x8026, 0xffffff); effects_unknown(); // No partial poison claim.
     effects_fixture(1); put32(0x7ff8, 0x82000018); effects_unknown(); // Wrong logical allocation.
+    // Effect nodes take the same correction: even is a block, odd is not.
     for (unsigned pad = 0; pad < 16; pad++) {
         effects_fixture(1);
         put32(0x7ff8, ((0x80u | pad) << 24) | (18 + pad));
         assert(poolrad_party_probe(ram, sizeof(ram), output));
-        assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == ((18 + pad) % 4 ? 255 : 1));
+        assert(output[POOLRAD_PARTY_BASE_SIZE + 1] == ((18 + pad) % 2 ? 255 : 1));
     }
 
     /* Memorized-spell readiness: empty, ready and awaiting-rest slots. */

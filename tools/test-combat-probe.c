@@ -135,6 +135,20 @@ int main(void) {
     ram[g_records[2] + POOLRAD_PARTY_SLOT_OFFSET] = 0xff; // unassigned slot
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
 
+    /* An unpadded record is a record. The combat reader validates the same
+     * heap blocks as the party reader, and shared the same wrong belief that a
+     * block size must be a multiple of four; Hunter's tablet allocates these
+     * with no size correction at all, so the whole battle went with it. */
+    fixture(6, 10);
+    for (unsigned i = 0; i < 16; i++)
+        put32(g_records[i] - 8, 0x80000000u | (POOLRAD_PARTY_RECORD_SIZE + 8));
+    assert(poolrad_combat_probe(ram, sizeof ram, out));
+    assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
+    // An odd physical size is still not a block.
+    fixture(6, 10);
+    put32(g_records[3] - 8, 0x81000000u | (POOLRAD_PARTY_RECORD_SIZE + 9));
+    assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+
     /* A monster-only or party-only battle is still a battle. */
     fixture(6, 0);
     assert(poolrad_combat_probe(ram, sizeof ram, out));
