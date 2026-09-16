@@ -1,5 +1,55 @@
 # Local Android prototype
 
+## 0.29.0 — the party refusal says which check refused (2026-09-15)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.29.0.apk`, SHA-256
+`2505d2c67588585906f31ab3243cd9d75a6fb459999a27d3a88f32963a7f7c14`, versionCode 95.
+
+0.28.0's diagnostic did its job on the first screenshot. Hunter's pane reads
+**`party: no reading yet`** beside a perfectly live map of New Phlan at 0, 4 W,
+which settles it: the layout was never the problem, `party` is null, and the
+native probe is refusing to report a party at all. He has never seen one.
+
+**The probe had no way to say why.** It walks the game's own linked roster of
+character records and returns 0 the moment any of fourteen checks fails —
+the shared app guard, the A5 world, the roster head, each master pointer, each
+record's bounds, each Mac heap block header, chain loops, slot assignment,
+appended-monster counts, slot clashes, name bytes, hit points, an empty roster.
+From outside, all fourteen looked identical to "no game is running".
+
+Now each one names itself. `poolrad_party_probe_why` reports a refusal code, how
+many roster links had already been accepted, and the heap address or Memory
+Manager block header the check actually rejected. On failure the JNI layer sends
+a ten-byte `PRPX` packet instead of nothing, and the caption reads, for example:
+
+```
+Tap a tile or symbol · Notebook 1 · party: heap block rejected after 2 links [82000140] · v0.29.0
+```
+
+No game content crosses that boundary — a code, a count, and a heap structure
+value. The probe stays read-only and the acceptance rules are unchanged: this
+release diagnoses the refusal, it does not relax it.
+
+Verified:
+
+- `tools/test-party-probe.c` gained a fixture per refusal code — twelve of them,
+  each breaking exactly one check — and asserts the code, the link count **and**
+  the rejected value. Every prediction matched on the first run, which is what
+  makes the codes trustworthy. It also asserts that a NULL reason pointer, which
+  every existing caller passes, still works.
+- All five native suites pass under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`.
+- **433 Java tests**, zero failures/errors/skips, including a new
+  `PartyRefusalTest` covering every wording, the unsigned byte ranges, the
+  block header's high bit surviving the round trip, and the packets that must
+  *not* be read as refusals.
+- Rendered on emulator-5584 at Hunter's exact geometry through `app_process`:
+  a `PRPX` sample puts `party: heap block rejected after 2 links [82000140]` in
+  the caption beside a live map.
+
+Not verified here: which refusal his tablet actually hits. That is the next
+screenshot, and it should be the last one needed.
+
 ## 0.28.0 — the tablet measured, and a footprint switch (2026-09-15)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.28.0.apk`, SHA-256

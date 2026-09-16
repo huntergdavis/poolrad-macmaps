@@ -73,7 +73,9 @@ public final class PartyStripRenderCheck {
             config.fontScale = fontScale;
             Context dense = new ContextThemeWrapper(app.createConfigurationContext(config),
                     android.R.style.Theme_Material_Light_NoActionBar);
-            for (int count : new int[]{6, 7, 0}) {
+            // -1 stands for "the probe refused": a PRPX packet, which must put
+            // the reason in the caption rather than leaving a silent empty pane.
+            for (int count : new int[]{6, 7, 0, -1}) {
                 LiveMapView view = new LiveMapView(dense, null);
                 int w = 1440, h = 684;
                 view.measure(View.MeasureSpec.makeMeasureSpec(w, View.MeasureSpec.EXACTLY),
@@ -81,6 +83,8 @@ public final class PartyStripRenderCheck {
                 view.layout(0, 0, w, h);
                 view.showSample(mapPacket());
                 if (count > 0) view.showPartySample(partyPacket(count));
+                if (count < 0) view.showPartySample(new byte[]{'P','R','P','X',
+                        7, 2, (byte) 0x82, 0, 1, 0x40});
                 view.setExplorationStyle(false, count == 0);
                 Bitmap bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
                 Canvas canvas = new Canvas(bitmap);

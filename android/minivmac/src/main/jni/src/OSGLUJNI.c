@@ -1301,12 +1301,24 @@ LOCALPROC DeliverPartySample(void)
     if (atomic_exchange(&WantPartySample, 0) == 0) return;
     ui5b size;
     ui3p ram = GetRamForSnapshot(&size);
-    unsigned char data[POOLRAD_PARTY_SIZE];
+    unsigned char data[POOLRAD_PARTY_SIZE], why[6] = {0};
     jbyteArray sample = NULL;
-    if (poolrad_party_probe(ram, size, data)) {
+    if (poolrad_party_probe_why(ram, size, data, why)) {
         sample = (*jEnv)->NewByteArray(jEnv, POOLRAD_PARTY_SIZE);
         if (sample != NULL)
             (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, POOLRAD_PARTY_SIZE, (const jbyte *)data);
+        else
+            (*jEnv)->ExceptionClear(jEnv);
+    } else {
+        /* Say which check refused rather than staying silent. Ten bytes, no
+         * game content: a refusal code, how many roster links had passed, and
+         * the heap address or block header the check actually rejected.
+         */
+        const unsigned char refusal[10] = {'P','R','P','X',
+                why[0], why[1], why[2], why[3], why[4], why[5]};
+        sample = (*jEnv)->NewByteArray(jEnv, (jsize) sizeof refusal);
+        if (sample != NULL)
+            (*jEnv)->SetByteArrayRegion(jEnv, sample, 0, (jsize) sizeof refusal, (const jbyte *)refusal);
         else
             (*jEnv)->ExceptionClear(jEnv);
     }

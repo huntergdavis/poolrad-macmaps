@@ -149,6 +149,20 @@ static void combat_fixture(unsigned members, unsigned combatants) {
     }
 }
 
+/* Every refusal must name itself. A silent refusal is what let a live map sit
+ * beside an empty party pane with nothing to diagnose.
+ */
+static void refuses(unsigned code, unsigned links, uint32_t detail) {
+    unsigned char why[6]; memset(why, 0xee, sizeof(why));
+    memset(output, 0xff, sizeof(output));
+    assert(!poolrad_party_probe_why(ram, sizeof(ram), output, why));
+    for (unsigned i = 0; i < sizeof(output); i++) assert(output[i] == 0);
+    assert(why[0] == code);
+    assert(why[1] == links);
+    assert(((uint32_t) why[2] << 24 | (uint32_t) why[3] << 16
+            | (uint32_t) why[4] << 8 | why[5]) == detail);
+}
+
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
@@ -596,7 +610,63 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x7f; unavailable();
     fixture(0xe000, 0x2000, 0x3000, 1); ram[member_record(0)] = 0x8e;
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[8] == 0x8e);
-    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds and failure clearing passed.");
+
+    /* Named refusals. Each fixture breaks exactly one check, and the probe must
+     * report that check and how many roster links it had already accepted.
+     */
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    unsigned char accepted[6]; memset(accepted, 0xee, sizeof(accepted));
+    assert(poolrad_party_probe_why(ram, sizeof(ram), output, accepted));
+    for (unsigned i = 0; i < sizeof(accepted); i++) assert(accepted[i] == 0);
+
+    fixture(0xe000, 0x2000, 0x3000, 0);
+    refuses(POOLRAD_PARTY_WHY_NO_ROSTER, 0, 0);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    ram[0x910] = 0; // The shared profile guard, before anything party-specific.
+    refuses(POOLRAD_PARTY_WHY_NO_GAME, 0, 0);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    put32(fixture_a5 - POOLRAD_PARTY_HEAD_BACK, 3); // Odd, and below the heap.
+    refuses(POOLRAD_PARTY_WHY_HANDLE, 0, 3);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    put32(member_handle(2), 0x1001); // Third record: two links already accepted.
+    refuses(POOLRAD_PARTY_WHY_RECORD, 2, 0x1001);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    put32(member_record(1) - 8, 0x82000140); // Right tag, wrong physical size.
+    refuses(POOLRAD_PARTY_WHY_BLOCK, 1, 0x82000140);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    put32(member_record(3) + POOLRAD_PARTY_NEXT_OFFSET, member_handle(0));
+    refuses(POOLRAD_PARTY_WHY_LOOP, 4, 0);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    ram[member_record(0) + POOLRAD_PARTY_SLOT_OFFSET] = 0xff;
+    refuses(POOLRAD_PARTY_WHY_SLOT_UNSET, 1, member_record(0));
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    ram[member_record(4) + POOLRAD_PARTY_SLOT_OFFSET] = 0;
+    refuses(POOLRAD_PARTY_WHY_SLOT_CLASH, 5, 0x0f00);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    ram[member_record(2)] = 0x01;
+    refuses(POOLRAD_PARTY_WHY_NAME, 3, 0x0001);
+
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    ram[member_record(1) + POOLRAD_PARTY_MAX_HP_OFFSET] = 0;
+    refuses(POOLRAD_PARTY_WHY_HEALTH, 2, 0x0b00);
+
+    combat_fixture(0, 3); // A roster of monsters only holds no party at all.
+    refuses(POOLRAD_PARTY_WHY_EMPTY, 3, 0);
+
+    // The reason is optional: every existing caller passes NULL and must not crash.
+    fixture(0xe000, 0x2000, 0x3000, 0);
+    assert(!poolrad_party_probe_why(ram, sizeof(ram), output, NULL));
+    assert(!poolrad_party_probe(ram, sizeof(ram), output));
+
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds, named refusals and failure clearing passed.");
 }
 
 static int replay(const char *path) {

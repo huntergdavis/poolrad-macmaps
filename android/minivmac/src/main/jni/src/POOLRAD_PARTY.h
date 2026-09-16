@@ -254,6 +254,30 @@ static int poolrad_party_training(const unsigned char *ram, size_t size, uint32_
     return 1;
 }
 
+/* Why a party reading was refused. Every one of these is a structural fact
+ * about the emulated heap, never game content: the probe walks a linked list of
+ * character records and gives up the moment anything does not check out, and
+ * until now "gives up" looked exactly like "no game running" from the outside.
+ * Hunter's tablet has never once shown a party while its map works perfectly,
+ * so the refusal has to say which check refused. Reported alongside the number
+ * of roster links already accepted.
+ */
+#define POOLRAD_PARTY_WHY_OK 0
+#define POOLRAD_PARTY_WHY_NO_GAME 1        /* shared app/A5/geometry guard */
+#define POOLRAD_PARTY_WHY_NO_A5 2          /* A5 world too small for the head */
+#define POOLRAD_PARTY_WHY_HEAD_RANGE 3     /* head address outside RAM */
+#define POOLRAD_PARTY_WHY_NO_ROSTER 4      /* head handle zero: no party loaded */
+#define POOLRAD_PARTY_WHY_HANDLE 5         /* master pointer not a valid handle */
+#define POOLRAD_PARTY_WHY_RECORD 6         /* character record out of bounds */
+#define POOLRAD_PARTY_WHY_BLOCK 7          /* Mac heap block header rejected */
+#define POOLRAD_PARTY_WHY_LOOP 8           /* the roster chain revisits itself */
+#define POOLRAD_PARTY_WHY_SLOT_UNSET 9     /* slot still 0xff, mid-allocation */
+#define POOLRAD_PARTY_WHY_COMBATANTS 10    /* more appended monsters than CODE5 allows */
+#define POOLRAD_PARTY_WHY_SLOT_CLASH 11    /* two members claim one slot */
+#define POOLRAD_PARTY_WHY_NAME 12          /* name bytes not printable/terminated */
+#define POOLRAD_PARTY_WHY_HEALTH 13        /* hit points impossible */
+#define POOLRAD_PARTY_WHY_EMPTY 14         /* chain held no party members */
+
 /* PRP5: byte4=count, bytes5..7=0; eight rows: name[16], current, max, AC, class.
  * After the unchanged 168-byte base: eight (condition, tracked effects) pairs,
  * then eight 8-byte spell blocks (status, three ready counts, three awaiting
@@ -273,33 +297,52 @@ static int poolrad_party_training(const unsigned char *ram, size_t size, uint32_
  * The caller owns a separate POOLRAD_PARTY_SIZE-byte output buffer; on failure
  * it is zeroed so a discarded/invalid sample cannot masquerade as old health.
  */
-static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned char *out) {
+/* Record which check refused, how far the roster walk had got, and the value
+ * that failed. The detail is a heap address or a Memory Manager block header --
+ * structure, never game content -- and it is what turns "the heap block was
+ * rejected" into a one-round-trip fix instead of a guess.
+ */
+#define POOLRAD_PARTY_GIVE_UP_AT(code, value) do { \
+        if (why != NULL) { \
+            uint32_t detail = (uint32_t)(value); \
+            why[0] = (unsigned char)(code); why[1] = (unsigned char) links; \
+            why[2] = (unsigned char)(detail >> 24); why[3] = (unsigned char)(detail >> 16); \
+            why[4] = (unsigned char)(detail >> 8); why[5] = (unsigned char) detail; \
+        } \
+        return 0; \
+    } while (0)
+#define POOLRAD_PARTY_GIVE_UP(code) POOLRAD_PARTY_GIVE_UP_AT(code, 0)
+
+static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
+        unsigned char *out, unsigned char *why) {
     unsigned char map_sample[POOLRAD_PROBE_SIZE], packet[POOLRAD_PARTY_SIZE] = {0};
     uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
     uint32_t a5, head_address, handle;
     unsigned count = 0, links = 0, combatants = 0, occupied_slots = 0;
     if (out == NULL) return 0;
+    if (why != NULL) memset(why, 0, 6);
     memset(out, 0, POOLRAD_PARTY_SIZE);
     /* Reuse the shipped profile's exact app/A5/geometry/bootstrap guards.
      * This is not a new combat/exploration detector: health describes the party.
      */
-    if (!poolrad_probe(ram, size, map_sample)) return 0;
+    if (!poolrad_probe(ram, size, map_sample)) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_NO_GAME);
     a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
-    if (a5 < POOLRAD_PARTY_HEAD_BACK) return 0;
+    if (a5 < POOLRAD_PARTY_HEAD_BACK) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_NO_A5, a5);
     head_address = a5 - POOLRAD_PARTY_HEAD_BACK;
-    if (!poolrad_range(head_address, 4, size)) return 0;
+    if (!poolrad_range(head_address, 4, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_HEAD_RANGE, head_address);
     handle = poolrad_u32(ram + head_address) & 0x00ffffff;
-    if (handle == 0) return 0; // No loaded party is unavailable, not an empty live row.
+    // No loaded party is unavailable, not an empty live row.
+    if (handle == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_NO_ROSTER);
 
     while (handle != 0) {
         uint32_t record, block_header, physical_size;
         unsigned length, slot, has_visible_name = 0;
         unsigned char *row;
         if (links >= POOLRAD_PARTY_MAX_LINKS || handle < 0x1000 || (handle & 1)
-                || !poolrad_range(handle, 4, size)) return 0;
+                || !poolrad_range(handle, 4, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_HANDLE, handle);
         record = poolrad_u32(ram + handle) & 0x00ffffff;
         if (record < 0x1000 || (record & 1)
-                || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) return 0;
+                || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_RECORD, record);
         /* 24-bit Mac heap headers encode physical size plus a low-nibble size
          * correction. The same 302-byte record legitimately occupies 312 bytes
          * (tag0x82) or 316 bytes (tag0x86) after allocator padding. Validate the
@@ -312,9 +355,9 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
         if ((block_header >> 28) != 8
                 || physical_size != POOLRAD_PARTY_RECORD_SIZE + 8 + ((block_header >> 24) & 15)
                 || (physical_size & 3)
-                || !poolrad_range(record - 8, physical_size, size)) return 0;
+                || !poolrad_range(record - 8, physical_size, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_BLOCK, block_header);
         for (unsigned i = 0; i < links; i++) {
-            if (handles[i] == handle || records[i] == record) return 0;
+            if (handles[i] == handle || records[i] == record) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_LOOP);
         }
         handles[links] = handle; records[links] = record; links++;
         handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
@@ -325,21 +368,25 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
          * Validate all links, but never emit monster names or health as party.
          */
         slot = ram[record + POOLRAD_PARTY_SLOT_OFFSET];
-        if (slot == 0xff) return 0;
+        if (slot == 0xff) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_SLOT_UNSET, record);
         if (slot >= POOLRAD_PARTY_MAX_MEMBERS) {
-            if (++combatants > POOLRAD_PARTY_MAX_COMBATANTS) return 0;
+            if (++combatants > POOLRAD_PARTY_MAX_COMBATANTS) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_COMBATANTS, combatants);
             continue;
         }
-        if (count >= POOLRAD_PARTY_MAX_MEMBERS || (occupied_slots & (1u << slot))) return 0;
+        if (count >= POOLRAD_PARTY_MAX_MEMBERS || (occupied_slots & (1u << slot)))
+            POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_SLOT_CLASH, (occupied_slots << 8) | slot);
         occupied_slots |= 1u << slot;
         for (length = 0; length < 16 && ram[record + length] != 0; length++) {
             unsigned char letter = ram[record + length];
-            if (letter < 0x20 || letter == 0x7f) return 0;
+            if (letter < 0x20 || letter == 0x7f) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_NAME, (length << 8) | letter);
             if (letter != ' ') has_visible_name = 1;
         }
-        if (length == 0 || length == 16 || !has_visible_name) return 0;
+        if (length == 0 || length == 16 || !has_visible_name) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_NAME, length << 8);
         if (ram[record + POOLRAD_PARTY_MAX_HP_OFFSET] == 0
-                || ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] > ram[record + POOLRAD_PARTY_MAX_HP_OFFSET]) return 0;
+                || ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] > ram[record + POOLRAD_PARTY_MAX_HP_OFFSET])
+            POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_HEALTH,
+                    (ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] << 8)
+                        | ram[record + POOLRAD_PARTY_MAX_HP_OFFSET]);
         row = packet + 8 + count * POOLRAD_PARTY_ROW_SIZE;
         memcpy(row, ram + record, length);
         row[16] = ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET];
@@ -390,9 +437,14 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
         }
         count++;
     }
-    if (count == 0) return 0;
+    if (count == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_EMPTY);
     memcpy(packet, "PRP6", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
+}
+
+/** The reasonless form the sanitizer suites and every other caller already use. */
+static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned char *out) {
+    return poolrad_party_probe_why(ram, size, out, NULL);
 }
 #endif

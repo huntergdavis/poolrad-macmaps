@@ -25,6 +25,7 @@ import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
+import name.osher.gil.minivmac.mapper.PartyRefusal;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
@@ -38,6 +39,8 @@ public final class LiveMapView extends View {
     private final MapArtwork artwork = new MapArtwork();
     private final float density;
     private final float textScale;
+    /** Why the probe would not report a party, when it would not. */
+    private String partyRefusal;
     private final SparseArray<PartyState.Member> partyActions = new SparseArray<>();
     private PoolRadState state;
     private PartyState party;
@@ -82,7 +85,12 @@ public final class LiveMapView extends View {
     public PoolRadState snapshot() { return positionAvailable ? state : null; }
     public void showPartySample(byte[] sample) {
         PartyState next = PartyState.parse(sample);
-        if (party == null ? next == null : party.sameDisplay(next)) return;
+        PartyRefusal why = next == null ? PartyRefusal.parse(sample) : null;
+        String reason = why == null ? null : why.label();
+        boolean same = (party == null ? next == null : party.sameDisplay(next))
+                && (partyRefusal == null ? reason == null : partyRefusal.equals(reason));
+        partyRefusal = reason;
+        if (same) return;
         party = next; cancelTap();
         partyActions.clear();
         if (party != null) for (PartyState.Member member : party.members)
@@ -373,7 +381,8 @@ public final class LiveMapView extends View {
          * bug in the current layout, and dating it took an archaeology
          * pass over every tag.
          */
-        String missing = party == null ? "party: no reading yet"
+        String missing = party == null
+                    ? "party: " + (partyRefusal == null ? "no reading yet" : partyRefusal)
                 : pane.rows == 0 ? "party: no room in " + getWidth() + "×" + getHeight()
                     + " @" + density + (textScale == 1 ? "" : " ×" + textScale)
                 : null;
