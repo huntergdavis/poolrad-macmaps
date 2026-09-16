@@ -131,14 +131,48 @@ def parse_region(text, screen):
     return tuple(int(p) for p in parts)
 
 
+PACKAGE = "com.hunterdavis.poolradmacmaps."
+
+
+def foreground(serial):
+    """The package that currently owns the window, or "" if that is unclear."""
+    for line in adb(serial, "shell", "dumpsys window").splitlines():
+        if "mCurrentFocus" in line:
+            match = re.search(r"\s([A-Za-z0-9_.]+)/", line)
+            return match.group(1) if match else ""
+    return ""
+
+
+def require_foreground(serial):
+    """Refuse to type into whatever else happens to be on screen.
+
+    The app can crash or be swapped out mid-run, and everything after that
+    lands somewhere else. It did once: the guest died, the rest of a scripted
+    walk went into the launcher, and the emulator ended up on a web search for
+    the letter "a". `android-ui.mjs` has always refused input on this ground and
+    so does this.
+    """
+    front = foreground(serial)
+    if not front.startswith(PACKAGE):
+        raise SystemExit("PoolRad is not the foreground app (%s); refusing input"
+                         % (front or "nothing focused"))
+
+
 def shell(serial, script):
+    """Plain adb shell, for anything that is not input."""
+    return adb(serial, "shell", script)
+
+
+def send(serial, script):
+    """Input, which only ever goes to the app."""
+    require_foreground(serial)
     return adb(serial, "shell", script)
 
 
 def click(serial, x, y, times=1):
     """A real mouse down and up, which a Mac needs and `input tap` fakes badly."""
     press = "input motionevent DOWN %d %d; input motionevent UP %d %d" % (x, y, x, y)
-    shell(serial, "; ".join([press] * times))
+    send(serial, "; ".join([press] * times))
 
 
 def drag(serial, x1, y1, x2, y2, steps=6):
@@ -148,7 +182,7 @@ def drag(serial, x1, y1, x2, y2, steps=6):
         parts.append("input motionevent MOVE %d %d"
                      % (x1 + (x2 - x1) * step // steps, y1 + (y2 - y1) * step // steps))
     parts.append("input motionevent UP %d %d" % (x2, y2))
-    shell(serial, "; ".join(parts))
+    send(serial, "; ".join(parts))
 
 
 def settle(serial, box_text, quiet_ms, timeout_ms, poll_ms):
@@ -254,16 +288,16 @@ def main(argv=None):
             raise SystemExit("Unchanged after %dms" % args.timeout)
         print(found)
     elif args.command == "key":
-        shell(args.serial, "; ".join("input keyevent %s" % k for k in args.names))
+        send(args.serial, "; ".join("input keyevent %s" % k for k in args.names))
     elif args.command == "type":
-        shell(args.serial, "input text %s" % subprocess.list2cmdline([args.text]))
+        send(args.serial, "input text %s" % subprocess.list2cmdline([args.text]))
     elif args.command == "click":
         click(args.serial, args.x, args.y)
     elif args.command == "dclick":
         click(args.serial, args.x, args.y, times=2)
     elif args.command in ("press", "move", "release"):
         motion = {"press": "DOWN", "move": "MOVE", "release": "UP"}[args.command]
-        shell(args.serial, "input motionevent %s %d %d" % (motion, args.x, args.y))
+        send(args.serial, "input motionevent %s %d %d" % (motion, args.x, args.y))
     elif args.command == "drag":
         drag(args.serial, args.x1, args.y1, args.x2, args.y2)
     return 0

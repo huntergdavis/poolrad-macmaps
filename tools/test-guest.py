@@ -166,6 +166,41 @@ class ButtonRowTest(unittest.TestCase):
             self.assertLessEqual(right, x + width)
 
 
+class ForegroundTest(unittest.TestCase):
+    """Input must never land in whatever else happens to be on screen."""
+
+    def dumpsys(self, line):
+        original = guest.adb
+        guest.adb = lambda serial, *args, **kw: line
+        self.addCleanup(lambda: setattr(guest, "adb", original))
+
+    def test_the_focused_package_is_read_out_of_dumpsys(self):
+        self.dumpsys("  mCurrentFocus=Window{73bc82 u0 "
+                     "com.hunterdavis.poolradmacmaps.ii/name.osher.gil.minivmac.MiniVMac}")
+        self.assertEqual("com.hunterdavis.poolradmacmaps.ii", guest.foreground("emulator-1"))
+
+    def test_nothing_focused_reads_as_nothing_rather_than_as_the_app(self):
+        for line in ("  mCurrentFocus=null", "", "  mFocusedApp=null"):
+            self.dumpsys(line)
+            self.assertEqual("", guest.foreground("emulator-1"))
+
+    def test_input_is_refused_when_another_app_is_in_front(self):
+        # This is not hypothetical: the guest died mid-run, the rest of a
+        # scripted walk went into the launcher, and the emulator ended up on a
+        # web search for the letter "a".
+        for other in ("org.chromium.webview_shell", "com.android.launcher3", ""):
+            self.dumpsys("  mCurrentFocus=Window{1 u0 %s/x}" % other if other else "")
+            with self.assertRaises(SystemExit) as refused:
+                guest.require_foreground("emulator-1")
+            self.assertIn("refusing input", str(refused.exception))
+
+    def test_input_is_allowed_for_either_flavour_of_the_app(self):
+        for package in ("com.hunterdavis.poolradmacmaps.ii",
+                        "com.hunterdavis.poolradmacmaps.plus"):
+            self.dumpsys("  mCurrentFocus=Window{1 u0 %s/x}" % package)
+            guest.require_foreground("emulator-1")
+
+
 class SafetyTest(unittest.TestCase):
     def test_only_an_emulator_serial_is_accepted(self):
         for good in ("emulator-5554", "emulator-5584"):

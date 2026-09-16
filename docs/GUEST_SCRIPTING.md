@@ -8,8 +8,12 @@ the tooling for [F17](BACKLOG.md), and the reason it matters is
 [F16](BACKLOG.md) — the battle overview may be labelling the wrong side, and
 that cannot be settled without a live mid-battle capture.
 
-**Emulator only.** Both tools refuse any serial that is not `emulator-NNNN`,
-the same rule `android-ui.mjs` already follows. They play the game the way a
+**Emulator only, and only into the app.** Both tools refuse any serial that is
+not `emulator-NNNN`, and refuse to send a key, a tap or a drag unless PoolRad is
+the foreground app — the same two rules `android-ui.mjs` already follows. The
+second one is not hypothetical: during a long scripted tour the app lost the
+foreground, the rest of the run went into the launcher, and the emulator ended
+up on a web search for the letter "a". They play the game the way a
 player does — menus, keys and the mouse — and never write guest memory. The
 BOUNDARY stands: nothing here edits stats, teleports, or touches a save.
 

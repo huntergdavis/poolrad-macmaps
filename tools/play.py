@@ -75,7 +75,7 @@ def boot(serial):
     deadline = time.monotonic() + 240
     while time.monotonic() < deadline:
         settled(serial, quiet=2500, timeout=240000)
-        guest.shell(serial, "input keyevent ENTER")
+        guest.send(serial, "input keyevent ENTER")
         time.sleep(2)
         if game_menu_ready(serial):
             print("booted")
@@ -85,11 +85,11 @@ def boot(serial):
 
 def game_menu_ready(serial):
     """True once File -> Load Saved Game is available, which only the game offers."""
-    guest.shell(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
-    guest.shell(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
+    guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
     time.sleep(0.6)
     opened = guest.grab(serial).ink((FILE_MENU_X - 40, MENU_BAR_Y + 10, 340, 110))
-    guest.shell(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
     time.sleep(0.6)
     return opened > 1500
 
@@ -106,20 +106,20 @@ def load(serial, save, folder="PoolRadSave"):
     # Hold the menu open, read whether the item is live, and only then let go
     # over it. Comparing the screen before and after does not work: the game
     # animates a campfire, so something is always different.
-    guest.shell(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
-    guest.shell(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
+    guest.send(serial, "input motionevent DOWN %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+    guest.send(serial, "input motionevent MOVE %d %d" % (FILE_MENU_X, LOAD_ITEM_Y))
     time.sleep(0.8)
     enabled = guest.grab(serial).ink(LOAD_ROW) >= LOAD_ENABLED_INK
     if not enabled:
-        guest.shell(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
+        guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X, MENU_BAR_Y))
         raise SystemExit("Load Saved Game is greyed out, which it is whenever a "
                          "game is already running. Run `boot` first.")
-    guest.shell(serial, "input motionevent UP %d %d" % (FILE_MENU_X + 58, LOAD_ITEM_Y))
+    guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X + 58, LOAD_ITEM_Y))
     settled(serial, quiet=1200, region="guest")
     for name in (folder, save):
-        guest.shell(serial, "input text %s" % subprocess.list2cmdline([name]))
+        guest.send(serial, "input text %s" % subprocess.list2cmdline([name]))
         time.sleep(0.8)
-        guest.shell(serial, "input keyevent ENTER")
+        guest.send(serial, "input keyevent ENTER")
         settled(serial, quiet=1500)
     print("loaded", save)
 
@@ -131,7 +131,7 @@ def walk(serial, moves):
     for move in moves:
         key = STEPS.get(move, move)
         before = guest.grab(serial).digest(POSITION)
-        guest.shell(serial, "input text %s" % key)
+        guest.send(serial, "input text %s" % key)
         if guest.await_change(serial, box, before, 6000, 200) is None:
             print("blocked:", move)      # a wall, or a prompt took the key
         else:
@@ -251,18 +251,18 @@ def wander(serial, limit=120):
             # same doorway and asks again until the move budget runs out.
             answer(serial, screen)
             guest.await_change_screen(serial, row_box(), screen.digest(BUTTON_TOPS), 6000, 300)
-            guest.shell(serial, "input text %s" % STEPS["right" if blocked % 2 else "left"])
+            guest.send(serial, "input text %s" % STEPS["right" if blocked % 2 else "left"])
             blocked += 1
             continue
         if now != "explore":
             raise SystemExit("Gave up on a row of %d buttons (%s)"
                              % (len(button_spans(screen)), now))
         before = screen.digest(POSITION)
-        guest.shell(serial, "input text %s" % STEPS["forward"])
+        guest.send(serial, "input text %s" % STEPS["forward"])
         if guest.await_change_screen(serial, box, before, 4000, 400) is None:
             # A wall. Turn rather than keep pushing at it, alternating so the
             # party does not settle into a two-square loop.
-            guest.shell(serial, "input text %s" % STEPS["right" if blocked % 2 else "left"])
+            guest.send(serial, "input text %s" % STEPS["right" if blocked % 2 else "left"])
             blocked += 1
     print("no encounter in %d moves" % limit)
     return None
