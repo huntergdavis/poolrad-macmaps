@@ -66,6 +66,19 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
 
+    /**
+     * What the map's Return key should do. The notebook owns the map listener,
+     * but pressing a key belongs to whoever owns the emulator core, so that is
+     * handed in rather than reached for.
+     */
+    private Runnable returnKey = () -> { };
+
+    public void setReturnKey(Runnable action) { returnKey = action == null ? () -> { } : action; }
+
+    @Override public void onReturnPressed() {
+        if (!disposed) returnKey.run();
+    }
+
     public NotebookController(Activity activity, LiveMapView map) {
         this.activity = activity; this.map = map;
         transfers = ((MiniVMac) activity).notebookTransfers();

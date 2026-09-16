@@ -132,6 +132,22 @@ public class EmulatorFragment extends Fragment
         if (mUIHandler != null) mUIHandler.removeCallbacks(mReleaseAutomaticKey);
         releaseAutomaticKey();
     }
+    /**
+     * The map's own Return key. It goes through exactly the path the code-wheel
+     * answer and the on-screen keyboard use -- a scancode down, then up -- so
+     * it is a shortcut for a key the app already sends, not a new way into the
+     * game. Nothing is written to guest memory.
+     */
+    private void pressGuestReturn() {
+        Core target = mCore;
+        if (target == null || !target.isReady()) return;
+        cancelAutomaticWheel();
+        mAutomaticKey = translateKeyCode(KeyEvent.KEYCODE_ENTER);
+        mAutomaticKeyCore = target;
+        target.keyDown(mAutomaticKey);
+        mUIHandler.postDelayed(mReleaseAutomaticKey, 100);
+    }
+
     private void releaseAutomaticKey() {
         Core target = mAutomaticKeyCore;
         if (mAutomaticKey >= 0 && target != null && target == mCore && target.isReady())
@@ -302,6 +318,7 @@ public class EmulatorFragment extends Fragment
         mCompanionPane.setOnTabSelectedListener(this::onCompanionTabSelected);
         mCompanionPane.setOnToolSelectedListener(this::showCompanionTool);
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
+        mNotebook.setReturnKey(this::pressGuestReturn);
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
         mClipboardManager = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);

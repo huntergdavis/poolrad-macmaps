@@ -77,6 +77,36 @@ These requests supersede the separate area-wide drawing editor and the old
 optional-only code-wheel recognition policy below. Finish them before expanding
 the lower-priority queue.
 
+- [x] **F18 — A Return button in the corner of the map (P0, user requested
+  2026-09-16, shipped 0.32.0).** "Much of the game is mouseable, but I still need to open the
+  keyboard to press 'enter' sometimes. Having a tiny return button (like the
+  symbol for return) at the bottom-right of the area that holds the map would be
+  very convenient." A small ⏎ button in the bottom-right of the companion map
+  pane that sends Return to the guest. This is the same key the app's own
+  on-screen keyboard already sends, so it is a shortcut for something the app
+  does today, not a new kind of access: the readers stay read-only and no guest
+  memory is written. Match the footprint and fog buttons — same size, same 48dp
+  touch target.
+  **Done:** a 26dp ⏎ in the bottom-right of the map pane, 48dp touch target,
+  kept inside the pane at any size. It goes through the same scancode path the
+  code-wheel answer and the on-screen keyboard use. Verified live: the Mac's own
+  "press the Return key to continue" dialog was dismissed by tapping it.
+- [ ] **F19 — A per-character Quick toggle in the party list (P0, user requested
+  2026-09-16).** "I'd like the ability to toggle quick mode on and off for each
+  character. The little character icons in the listview we made should have a
+  little square Q toggle that is either on or off (similar to our map toggles)."
+  Reading the flag and drawing it is ordinary probe work. **Setting it is not:**
+  every reader in this app is read-only and the BOUNDARY says the original game
+  stays original, so the toggle must drive the game's own input the way a player
+  would — the way F18's Return button and the on-screen keyboard do — and must
+  not write emulated RAM. Settle first, against the running game:
+  1. Where the game exposes quick mode (the combat row has a **Quick** button
+     for the acting character; the camp Alter menu has **Speed**; the Character
+     menu is unexamined), and whether it is per character or per battle.
+  2. Where the per-character flag lives in the record, so the Q can show the
+     real state rather than one the app is only remembering.
+  3. Whether a tap can reach it through the game's own UI from where the player
+     already is. If it cannot, say so and ask rather than reaching for a write.
 - [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
   reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
   correct, I only saw squares on my people who were on squares that used to be

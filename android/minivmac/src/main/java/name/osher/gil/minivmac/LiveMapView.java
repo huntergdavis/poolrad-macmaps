@@ -72,6 +72,16 @@ public final class LiveMapView extends View {
     private final android.graphics.RectF fogButton = new android.graphics.RectF();
     private final android.graphics.RectF fogTarget = new android.graphics.RectF();
     private boolean touchFog;
+    /**
+     * A Return key in the map's bottom-right corner. Much of this game is
+     * playable with the mouse, but not all of it, and opening the whole
+     * keyboard to press one key is a poor trade. It sends exactly the key the
+     * app's own keyboard sends; nothing here reaches into the game any further
+     * than that.
+     */
+    private final android.graphics.RectF returnButton = new android.graphics.RectF();
+    private final android.graphics.RectF returnTarget = new android.graphics.RectF();
+    private boolean touchReturn;
     private boolean touchFootprints;
     private float touchX, touchY;
     private String touchArea;
@@ -92,6 +102,8 @@ public final class LiveMapView extends View {
         default void onFootprintsToggled(boolean shown) { }
         /** The player tapped the fog-of-war button beside it. */
         default void onFogToggled(boolean visitedOnly) { }
+        /** The player tapped the Return key in the map's corner. */
+        default void onReturnPressed() { }
     }
 
     public void setListener(Listener value) { listener = value; }
@@ -171,7 +183,8 @@ public final class LiveMapView extends View {
                 + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
                 + "two buttons in the top-left corner of the map turn the footprints "
-                + "and the fog of war off and on. "
+                + "and the fog of war off and on, and a Return key in the "
+                + "bottom-right corner presses Return in the game. "
                 + explorationStatus + health);
     }
 
@@ -277,7 +290,8 @@ public final class LiveMapView extends View {
                     || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER;
             touchFootprints = footprintTarget.contains(touchX, touchY);
             touchFog = !touchFootprints && fogTarget.contains(touchX, touchY);
-            boolean onButton = touchFootprints || touchFog;
+            touchReturn = !touchFootprints && !touchFog && returnTarget.contains(touchX, touchY);
+            boolean onButton = touchFootprints || touchFog || touchReturn;
             touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
@@ -300,6 +314,9 @@ public final class LiveMapView extends View {
                 setExplorationStyle(visitedOnly, shown);
                 performClick();
                 listener.onFootprintsToggled(shown);
+            } else if (valid && touchReturn && returnTarget.contains(event.getX(), event.getY())) {
+                performClick();
+                listener.onReturnPressed();
             } else if (valid && touchFog && fogTarget.contains(event.getX(), event.getY())) {
                 boolean fog = !visitedOnly;
                 setExplorationStyle(fog, footprints);
@@ -345,7 +362,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
-        touchFootprints = false; touchFog = false;
+        touchFootprints = false; touchFog = false; touchReturn = false;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -401,6 +418,7 @@ public final class LiveMapView extends View {
                 12 * density + button, 22 * density, ink);
         ink.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
+        drawReturnButton(canvas, pane);
         ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
@@ -581,6 +599,38 @@ public final class LiveMapView extends View {
             }
         }
         if (!visitedOnly) slash(canvas, button);
+    }
+
+    /**
+     * The Return key, in the bottom-right corner of the map rather than the
+     * header: it is an action on the game, not a view option, and the corner is
+     * where a thumb already is. The arrow is the key's own glyph -- a bar down
+     * the right, a shaft left along the bottom, and a head on the end.
+     */
+    private void drawReturnButton(Canvas canvas, PartyPaneLayout pane) {
+        float size = 26 * density, margin = 8 * density;
+        // The caption owns the bottom centre; below this the corner is too tight.
+        if (pane.mapWidth < 200 * density || pane.mapHeight < 120 * density) {
+            returnButton.setEmpty(); returnTarget.setEmpty(); return;
+        }
+        float right = pane.mapWidth - margin, bottom = pane.mapHeight - margin;
+        returnButton.set(right - size, bottom - size, right, bottom);
+        target(returnButton, returnTarget);
+        // Keep the touch target inside the pane, not off its right edge.
+        returnTarget.offset(Math.min(0, pane.mapWidth - returnTarget.right),
+                Math.min(0, pane.mapHeight - returnTarget.bottom));
+        frame(canvas, returnButton);
+        float inset = size * .28f;
+        float l = returnButton.left + inset, r = returnButton.right - inset;
+        float t = returnButton.top + inset, b = returnButton.bottom - inset;
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setStrokeWidth(Math.max(1, 1.4f * density));
+        canvas.drawLine(r, t, r, b, ink);          // the bar the arrow returns to
+        canvas.drawLine(r, b, l, b, ink);          // the shaft
+        float head = size * .16f;
+        canvas.drawLine(l, b, l + head, b - head, ink);
+        canvas.drawLine(l, b, l + head, b + head, ink);
+        ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
     }
 
     private void slash(Canvas canvas, android.graphics.RectF button) {
