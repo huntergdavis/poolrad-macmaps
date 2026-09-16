@@ -72,15 +72,17 @@ def boot(serial):
     guest.shell(serial, "monkey -p %s -c android.intent.category.LAUNCHER 1" % PACKAGE)
     # Wait for it to actually be in front, rather than letting the first
     # keystroke fail the foreground guard with a less useful message.
-    waited = time.monotonic() + 60
+    waited = time.monotonic() + 120
     while time.monotonic() < waited:
-        if guest.foreground(serial).startswith(guest.PACKAGE):
+        front = guest.foreground(serial)
+        if front.startswith(guest.PACKAGE) or (
+                not front and guest.resumed(serial).startswith(guest.PACKAGE)):
             break
         time.sleep(2)
     else:
-        raise SystemExit("PoolRad would not come to the front; %s is stuck there. "
-                         "If force-stopping it does not help, reboot the emulator."
-                         % (guest.foreground(serial) or "something"))
+        raise SystemExit("PoolRad would not come to the front; %s is there instead. "
+                         "If force-stopping that does not help, reboot the emulator."
+                         % (guest.foreground(serial) or guest.resumed(serial) or "something"))
     # The Mac may complain it was not shut down properly; Return dismisses it,
     # and sending Return when there is no dialog costs nothing.
     deadline = time.monotonic() + 240

@@ -134,28 +134,49 @@ def parse_region(text, screen):
 PACKAGE = "com.hunterdavis.poolradmacmaps."
 
 
+def package_in(line):
+    match = re.search(r"\s([A-Za-z0-9_.]+)/", line)
+    return match.group(1) if match else ""
+
+
 def foreground(serial):
-    """The package that currently owns the window, or "" if that is unclear."""
+    """The package that owns the focused window, or "" if nothing holds focus."""
     for line in adb(serial, "shell", "dumpsys window").splitlines():
         if "mCurrentFocus" in line:
-            match = re.search(r"\s([A-Za-z0-9_.]+)/", line)
-            return match.group(1) if match else ""
+            return package_in(line)
+    return ""
+
+
+def resumed(serial):
+    """The package whose activity is on top, focus or no focus."""
+    for line in adb(serial, "shell", "dumpsys activity activities").splitlines():
+        if "mResumedActivity" in line:
+            return package_in(line)
     return ""
 
 
 def require_foreground(serial):
     """Refuse to type into whatever else happens to be on screen.
 
-    The app can crash or be swapped out mid-run, and everything after that
-    lands somewhere else. It did once: the guest died, the rest of a scripted
-    walk went into the launcher, and the emulator ended up on a web search for
-    the letter "a". `android-ui.mjs` has always refused input on this ground and
-    so does this.
+    The app can be swapped out mid-run, and everything after that lands
+    somewhere else. It did once: the app lost the foreground, the rest of a
+    scripted walk went into the launcher, and the emulator ended up on a web
+    search for the letter "a". `android-ui.mjs` has always refused input on this
+    ground and so does this.
+
+    The test is "is another app in front", not "is this app focused". Under load
+    -- and this emulator runs a Macintosh -- focus is briefly null while the
+    right activity is resumed, and refusing then stopped a run whose only
+    problem was that the host was busy. Nothing can be typed into another app
+    while no window has focus.
     """
     front = foreground(serial)
-    if not front.startswith(PACKAGE):
-        raise SystemExit("PoolRad is not the foreground app (%s); refusing input"
-                         % (front or "nothing focused"))
+    if front.startswith(PACKAGE):
+        return
+    if not front and resumed(serial).startswith(PACKAGE):
+        return
+    raise SystemExit("PoolRad is not the foreground app (%s); refusing input"
+                     % (front or "nothing focused, and it is not on top either"))
 
 
 def shell(serial, script):

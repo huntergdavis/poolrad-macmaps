@@ -169,9 +169,13 @@ class ButtonRowTest(unittest.TestCase):
 class ForegroundTest(unittest.TestCase):
     """Input must never land in whatever else happens to be on screen."""
 
-    def dumpsys(self, line):
+    def dumpsys(self, focus, resumed=""):
         original = guest.adb
-        guest.adb = lambda serial, *args, **kw: line
+
+        def fake(serial, *args, **kw):
+            return resumed if "activities" in " ".join(args) else focus
+
+        guest.adb = fake
         self.addCleanup(lambda: setattr(guest, "adb", original))
 
     def test_the_focused_package_is_read_out_of_dumpsys(self):
@@ -193,6 +197,22 @@ class ForegroundTest(unittest.TestCase):
             with self.assertRaises(SystemExit) as refused:
                 guest.require_foreground("emulator-1")
             self.assertIn("refusing input", str(refused.exception))
+
+    def test_no_focus_is_allowed_while_the_app_is_still_on_top(self):
+        # Under load -- and this emulator runs a Macintosh -- focus is briefly
+        # null while the right activity is resumed. Nothing can be typed into
+        # another app while no window has focus, and refusing then stopped a
+        # run whose only problem was that the host was busy.
+        self.dumpsys("  mCurrentFocus=null",
+                     "    mResumedActivity: ActivityRecord{1 u0 "
+                     "com.hunterdavis.poolradmacmaps.ii/name.osher.gil.minivmac.MiniVMac t81}")
+        guest.require_foreground("emulator-1")
+
+    def test_no_focus_is_still_refused_when_the_app_is_not_on_top(self):
+        self.dumpsys("  mCurrentFocus=null",
+                     "    mResumedActivity: ActivityRecord{1 u0 com.android.launcher3/.Home t2}")
+        with self.assertRaises(SystemExit):
+            guest.require_foreground("emulator-1")
 
     def test_input_is_allowed_for_either_flavour_of_the_app(self):
         for package in ("com.hunterdavis.poolradmacmaps.ii",
