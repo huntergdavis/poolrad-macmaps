@@ -31,6 +31,8 @@
 #define POOLRAD_COMBAT_UNAVAILABLE 255
 #define POOLRAD_COMBAT_KIND_PARTY 1
 #define POOLRAD_COMBAT_KIND_OTHER 2
+/* Still in the chain and the table, no longer on the battlefield. Never sent. */
+#define POOLRAD_COMBAT_KIND_DEAD 3
 
 /* Walks the roster chain purely to learn how many combatants there are and
  * which of them are party members. Returns the count, or -1 if the chain does
@@ -61,8 +63,20 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
         records[links] = record;
         slot = ram[record + POOLRAD_PARTY_SLOT_OFFSET];
         if (slot == 0xff) return -1;
-        kinds[links] = slot < POOLRAD_PARTY_MAX_MEMBERS
-            ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER;
+        /* The dead stay in this list. A killed orc keeps its place in the
+         * chain, keeps its entry in the position table and keeps its last
+         * square, while the game's own Combat View stops drawing it -- so the
+         * overview went on showing a marker where an enemy used to be, and
+         * when the party advanced onto that square it looked like a square
+         * sitting on one of your own people. Which is exactly what Hunter
+         * reported. Verified in a live battle: an orc at 0 hit points was
+         * still combatant 7 of 16 at (31,15). They are counted for the index
+         * pairing, which is by position in the chain, and then left out.
+         */
+        kinds[links] = ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 0
+            ? POOLRAD_COMBAT_KIND_DEAD
+            : slot < POOLRAD_PARTY_MAX_MEMBERS
+                ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER;
         links++;
         handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
     }
@@ -108,14 +122,22 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
      * the wrong moment, so neither is trusted. */
     roster = poolrad_combat_roster(ram, size, a5, kinds);
     if (roster < 0 || (unsigned)roster != count) return 1;
+    /* Entry i belongs to combatant i, which is how the sides are known, so the
+     * dead are skipped here rather than earlier: the pairing is by position in
+     * the chain and must not be disturbed by leaving anyone out of it. */
+    unsigned drawn = 0;
     for (i = 0; i < count; i++) {
-        unsigned char *row = out + POOLRAD_COMBAT_ENTRY_OUT + i * 4;
+        unsigned char *row;
+        if (kinds[i] == POOLRAD_COMBAT_KIND_DEAD) continue;
+        row = out + POOLRAD_COMBAT_ENTRY_OUT + drawn * 4;
         row[0] = kinds[i];
         row[1] = ram[table + i * POOLRAD_COMBAT_STRIDE + 2];
         row[2] = ram[table + i * POOLRAD_COMBAT_STRIDE + 3];
+        drawn++;
     }
+    if (drawn == 0) return 1;   // a battle of nothing but the dead is no battle
     out[POOLRAD_COMBAT_STATUS_OUT] = POOLRAD_COMBAT_PRESENT;
-    out[POOLRAD_COMBAT_COUNT_OUT] = (unsigned char)count;
+    out[POOLRAD_COMBAT_COUNT_OUT] = (unsigned char) drawn;
     return 1;
 }
 #endif

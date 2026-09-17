@@ -1,5 +1,52 @@
 # Local Android prototype
 
+## 0.34.0 — the overview stops drawing the dead, and the keypad works (2026-09-17)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.34.0.apk`, SHA-256
+`607356fcde990314b39e58cf187d0859bdb8fc8377d224146b46ccc4128bcee5`, versionCode 100.
+
+**F20, the keypad.** Hunter: "the numeric keys 1-9 on a keyboard are better,
+because of the diagonals! ... 1 and 3 are upper left and upper right." The
+`keycodeTranslationTable` ran to 114 entries and Android's keypad keycodes start
+at 144, so a hardware keypad reached the emulated Mac **not at all** — only the
+app's own on-screen numpad did, which is why nobody noticed. It now runs to 161
+and maps the keypad to the same Mac codes `us_numpad.xml` sends. Verified live in
+a battle: keypad 1, 7 and 9 each moved the acting character, and the game's own
+`Move Left` counter fell from 9.
+
+Two documents claimed combat moves with the **arrow** keys. It does not, and the
+four arrow keycodes map to `-1`, so an arrow has never reached the guest either
+— which is exactly why taking that note at face value moved nobody. Both
+corrected, and an arrow mapping added on the strength of it was reverted.
+
+**F16, answered — and the sides were never wrong.** Three live experiments:
+
+| # | Experiment | Result |
+| --- | --- | --- |
+| 1 | compare the overview with the game's own Combat View at battle start | sides correct |
+| 2 | one keypad step, Hogarth acting | **entry 3** moved, (26,11)→(25,12); Hogarth is chain **#3** — pairing intact after movement |
+| 3 | fight to casualties, then compare chain and table | chain still 16, count still 16, **a killed orc still combatant 7 at (31,15) with 0 hit points** |
+
+Experiment 3 is the cause. **The dead are not removed.** A killed monster keeps
+its place in the chain, its entry in the position table and its last square,
+while the game's Combat View stops drawing it. So the overview left a marker
+where an enemy no longer was, and once the party advanced onto that square it
+read as a square sitting on one of your own people — exactly the report.
+
+Combatants at 0 hit points are now left out of the packet, *after* being counted
+for the index pairing, because that pairing is by position in the chain and must
+not shift because somebody was left out. `tools/test-combat-probe.c` asserts a
+dead orc drops the count from 16 to 15 while **every other combatant keeps its
+own square**, that a fallen party member is dropped the same way, and that a
+field of nothing but the dead reads as no battle at all.
+
+Also ruled out along the way: `flag`, the second byte of a table entry, is not
+the side — across a whole battle it read 0 for Arax and 1 for all fifteen others
+and never changed as characters acted.
+
+All five native suites pass under `-Wall -Wextra -Werror
+-fsanitize=address,undefined`. **447 Java tests**, 24 driver tests.
+
 ## 0.33.0 — the Quick toggle, and the first write (2026-09-17)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.33.0.apk`, SHA-256

@@ -129,7 +129,23 @@ separate arena-relative copy of the same x values at `A5-0x45c1` (the shipped
 table's x minus 24), which moved uniformly by +2 for all sixteen when the view
 scrolled. One clean step is worth seven muddled ones.
 
-**Still open: what happens when a combatant dies.** That is the one way the
+**Answered, 2026-09-17, and this is the actual cause.** The dead are not
+removed. In a live battle fought to several casualties, the chain was still 16
+long and the table count still 16, with a killed orc sitting at combatant 7 and
+holding its last square at (31,15) with 0 hit points. The game's own Combat View
+stops drawing it; the overview did not. So a marker stayed where an enemy used
+to be, and once the party advanced onto that square it read as a square sitting
+on one of your own people — which is precisely what was reported.
+
+The fix is to leave combatants at 0 hit points out of the packet, *after*
+counting them for the index pairing: the pairing is by position in the chain and
+must not shift because somebody was left out. Every other combatant keeps its
+own square, which the tests assert directly.
+
+Note what this also rules out: deaths do **not** disturb the ordering, because
+nothing is removed from the chain. The two leads below were never needed.
+
+**Formerly open: what happens when a combatant dies.** That is the one way the
 chain and the table could fall out of step — a monster leaving the list would
 shift every index after it — and it is the likeliest remaining explanation for
 what Hunter saw. The reader refuses when the chain length and the table count

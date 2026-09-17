@@ -24,6 +24,10 @@ static void record(uint32_t at, unsigned slot, uint32_t next_handle) {
      * size correction of two is part of a legitimate block. */
     put32(at - 8, 0x82000000u | (POOLRAD_PARTY_RECORD_SIZE + 8 + 2));
     ram[at + POOLRAD_PARTY_SLOT_OFFSET] = (unsigned char) slot;
+    /* Alive. Zero here means killed, and the killed are left out of the
+     * overview: they keep their place in the chain and their last square, and
+     * drawing them put a marker where an enemy no longer was. */
+    ram[at + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 5;
     put32(at + POOLRAD_PARTY_NEXT_OFFSET, next_handle);
 }
 /* `party` combatants in slots 0..party-1, then `others` monsters in slot 8. */
@@ -172,6 +176,44 @@ int main(void) {
     fixture(6, 10);
     assert(!poolrad_combat_probe(ram, sizeof ram, NULL));
     assert(!poolrad_combat_probe(ram, 0x92f, out));
+
+    /* The dead keep their place in the chain and the table, and the game's own
+     * Combat View stops drawing them. The overview must do the same, or a
+     * marker sits where an enemy used to be -- which is what a player sees as
+     * a square on one of their own people. */
+    fixture(6, 10);
+    ram[g_records[9] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;   /* an orc dies */
+    assert(poolrad_combat_probe(ram, sizeof ram, out));
+    assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
+    assert(out[POOLRAD_COMBAT_COUNT_OUT] == 15);
+    /* Everyone else keeps their own square: the pairing is by position in the
+     * chain, so leaving one out must not shift anybody's coordinates. */
+    {
+        unsigned drawn = 0;
+        for (unsigned i = 0; i < 16; i++) {
+            if (i == 9) continue;
+            const unsigned char *row = out + POOLRAD_COMBAT_ENTRY_OUT + drawn * 4;
+            assert(row[0] == (i < 6 ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER));
+            assert(row[1] == expected_x(i));
+            assert(row[2] == expected_y(i));
+            drawn++;
+        }
+        assert(drawn == 15);
+    }
+
+    /* A fallen party member is left out too, and the battle survives it. */
+    fixture(6, 10);
+    ram[g_records[2] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+    assert(poolrad_combat_probe(ram, sizeof ram, out));
+    assert(out[POOLRAD_COMBAT_COUNT_OUT] == 15);
+    assert(out[POOLRAD_COMBAT_ENTRY_OUT + 2 * 4 + 1] == expected_x(3));
+
+    /* Nothing but the dead is not a battle. */
+    fixture(6, 10);
+    for (unsigned i = 0; i < 16; i++)
+        ram[g_records[i] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+    assert(poolrad_combat_probe(ram, sizeof ram, out));
+    unavailable();
 
     puts("Combat probe: roster-checked grid table, index and sentinel guards, bounds passed.");
     return 0;

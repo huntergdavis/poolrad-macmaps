@@ -140,8 +140,8 @@ the lower-priority queue.
   Verified in the emulated machine's own memory: tapping the Q set Tanarakis's
   byte to 1 and no one else's, tapping again set it back, and exactly one byte
   across the six records moved each way.
-- [ ] **F20 — The numeric keypad reaches the guest (P0, user reported
-  2026-09-17, fixed but unreleased).** Hunter: "the numeric keys 1-9 on a
+- [x] **F20 — The numeric keypad reaches the guest (P0, user reported
+  2026-09-17, shipped 0.34.0).** Hunter: "the numeric keys 1-9 on a
   keyboard are better, because of the diagonals! ... 1 and 3 are upper left and
   upper right respectively." `keycodeTranslationTable` ran to 114 entries, and
   Android's keypad keycodes start at 144, so a hardware keypad reached the
@@ -153,8 +153,9 @@ the lower-priority queue.
   the **arrow** keys. It does not, and the four arrow keycodes map to -1, so an
   arrow has never reached the guest either. A speculative arrow mapping added
   on the strength of that note was reverted rather than kept.
-- [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
-  reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
+- [x] **F16 — The battle overview kept drawing the dead (P0, user reported
+  2026-09-15, found and fixed 2026-09-17, shipped 0.34.0).** Retitled: the sides
+  were never wrong. Hunter: "I don't think the enemy squares code is
   correct, I only saw squares on my people who were on squares that used to be
   occupied by enemies." The coordinates come straight from the game's own
   table and are almost certainly right; what is suspect is **which side each
@@ -171,9 +172,19 @@ the lower-priority queue.
      battle those handles were four bytes apart inside one master-pointer
      block — so `(handle - block base) / 4` may be the combatant's true table
      index, which would pair record to entry by identity instead of by order.
-  Needs a live mid-battle capture to settle, which needs F17. Do not change the
-  labelling on a hypothesis: guessing at this cost three releases on the party
-  pane already. [Research notes](COMBAT_MEMORY.md).
+  **Answered, and it was not the labelling.** Three live experiments settled it.
+  (1) At the start of a battle the sides are drawn correctly. (2) After a
+  character moves they are *still* correct: one keypad step with Hogarth acting
+  moved exactly table entry 3, and Hogarth is chain #3. (3) The real cause is
+  that **the dead stay in the list**. A killed orc keeps its place in the chain,
+  keeps its entry in the position table and keeps its last square, while the
+  game's own Combat View stops drawing it — verified in a live battle, an orc at
+  0 hit points still combatant 7 of 16 at (31,15). So the overview left a marker
+  where an enemy no longer was, and when the party advanced onto that square it
+  looked exactly like "squares on my people who were on squares that used to be
+  occupied by enemies". The probe now leaves combatants at 0 hit points out,
+  after counting them for the index pairing, which is by position in the chain
+  and must not shift. [Research notes](COMBAT_MEMORY.md).
   **First live check, 2026-09-16, with F17's harness:** a real 6-vs-10 fight was
   reached automatically and compared against the game's own Combat View. At the
   *start* of a battle the labelling is **correct** — the game draws the party as
