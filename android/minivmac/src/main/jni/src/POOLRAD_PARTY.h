@@ -23,8 +23,11 @@
 #define POOLRAD_PARTY_CLASS_SLOTS 8
 #define POOLRAD_PARTY_TRAIN_CLASSES 3
 #define POOLRAD_PARTY_TRAIN_STRIDE (1 + 4 + POOLRAD_PARTY_TRAIN_CLASSES * 6)
-#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_EQUIP_SIZE \
+#define POOLRAD_PARTY_TRAIN_SIZE (POOLRAD_PARTY_EQUIP_SIZE \
         + POOLRAD_PARTY_TRAIN_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
+/* PRP7 appends one quick byte per member: 0 off, 1 on, 0xff unreadable. */
+#define POOLRAD_PARTY_QUICK_UNAVAILABLE 0xff
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_TRAIN_SIZE + POOLRAD_PARTY_MAX_MEMBERS)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -78,6 +81,11 @@
 /* The game's own character sheet prints these two beside Weapon:/Armor:.
  * Unlike the item handles they are plain record fields and never purge.
  */
+/* The quick flag, and the one field this project writes. Found by capture, not
+ * guessed: see the comment on poolrad_party_set_quick below and docs/PARTY.md. */
+#define POOLRAD_PARTY_QUICK_OFFSET 0x11b
+#define POOLRAD_PARTY_QUICK_OFF 0
+#define POOLRAD_PARTY_QUICK_ON 1
 #define POOLRAD_PARTY_ENCUMBRANCE_OFFSET 0x10e
 #define POOLRAD_PARTY_MOVEMENT_OFFSET 0x12c
 
@@ -438,10 +446,20 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
                 for (unsigned i = 1; i < POOLRAD_PARTY_TRAIN_STRIDE; i++) training[i] = 0;
             }
         }
+        {
+            /* The quick flag, reported as it reads. Values the field is not
+             * allowed to hold are surfaced as unavailable rather than as "off",
+             * so a Q is never drawn confidently over a byte nobody understands.
+             */
+            unsigned char quick = ram[record + POOLRAD_PARTY_QUICK_OFFSET];
+            packet[POOLRAD_PARTY_TRAIN_SIZE + count] =
+                    (quick == POOLRAD_PARTY_QUICK_OFF || quick == POOLRAD_PARTY_QUICK_ON)
+                        ? quick : POOLRAD_PARTY_QUICK_UNAVAILABLE;
+        }
         count++;
     }
     if (count == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_EMPTY);
-    memcpy(packet, "PRP6", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP7", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }
@@ -466,28 +484,28 @@ static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned c
  * for her alone and stayed there while five other characters took their turns.
  * Evidence: docs/PARTY.md.
  */
-#define POOLRAD_PARTY_QUICK_OFFSET 0x11b
-#define POOLRAD_PARTY_QUICK_OFF 0
-#define POOLRAD_PARTY_QUICK_ON 1
-
-/* Sets one character's quick flag, and refuses everything else.
+/* Sets one party member's quick flag, and refuses everything else.
  *
  * The roster is walked with exactly the reader's checks -- the shared app and
  * A5 guards, the master pointer, the record bounds, the Mac heap block header,
  * chain loops, slot assignment -- and the write only happens if all of them
  * pass and the byte already holds a value this field is allowed to have. One
- * byte, in one record, belonging to one party member. Monsters are not party
- * members and are refused by slot, exactly as the reader refuses them.
+ * byte, in one record, belonging to one party member. The member is named by
+ * its position in the chain among party members -- the same numbering the
+ * reader's rows use, so row i on screen is character i here -- and monsters,
+ * which share this list, are skipped exactly as the reader skips them.
  *
  * Returns 1 when the byte was written or already held the wanted value.
  */
-static int poolrad_party_set_quick(unsigned char *ram, size_t size,
-                                   unsigned slot, int on) {
+/* inline, because this header is included by readers that never write, and a
+ * plain static would be an unused function to them under -Werror. */
+static inline int poolrad_party_set_quick(unsigned char *ram, size_t size,
+                                   unsigned member, int on) {
     unsigned char sample[POOLRAD_PARTY_SIZE];
     uint32_t a5, head_address, handle;
-    unsigned links = 0;
+    unsigned links = 0, seen = 0;
     uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
-    if (ram == NULL || slot >= POOLRAD_PARTY_MAX_MEMBERS) return 0;
+    if (ram == NULL || member >= POOLRAD_PARTY_MAX_MEMBERS) return 0;
     /* The party must read cleanly right now. A record that the reader would
      * refuse to show is not one to write into. */
     if (!poolrad_party_probe(ram, size, sample)) return 0;
@@ -512,7 +530,14 @@ static int poolrad_party_set_quick(unsigned char *ram, size_t size,
         for (unsigned i = 0; i < links; i++)
             if (handles[i] == handle || records[i] == record) return 0;
         handles[links] = handle; records[links] = record; links++;
-        if (ram[record + POOLRAD_PARTY_SLOT_OFFSET] == slot) {
+        /* Count party members in chain order, exactly as the reader emits its
+         * rows, so row i on screen is character i here. Monsters are appended
+         * to this same list and are skipped by both. */
+        if (ram[record + POOLRAD_PARTY_SLOT_OFFSET] >= POOLRAD_PARTY_MAX_MEMBERS) {
+            handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+            continue;
+        }
+        if (seen++ == member) {
             unsigned char *field = ram + record + POOLRAD_PARTY_QUICK_OFFSET;
             /* Never overwrite something that is not this field. If the byte
              * holds anything but the two values the game puts there, the

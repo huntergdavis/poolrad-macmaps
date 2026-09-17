@@ -42,6 +42,8 @@ typedef jboolean (*IsPausedType)();
 typedef void (*SetSpeedType)(jint speed);
 typedef jint (*GetSpeedType)();
 typedef jboolean (*RequestRamSnapshotType)(void);
+/** The only call that changes the running game; everything else here reads. */
+typedef jboolean (*SetPartyQuickType)(jint slot, jboolean on);
 
 // Global variables to keep the current variant handle and function pointer.
 static void* variantHandle = NULL;
@@ -78,6 +80,7 @@ static RequestRamSnapshotType requestMapSamplePtr = NULL;
 static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
 static RequestRamSnapshotType requestMessageSamplePtr = NULL;
+static SetPartyQuickType setPartyQuickPtr = NULL;
 static RequestRamSnapshotType requestCombatSamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
@@ -179,6 +182,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     requestWheelSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestWheelSample");
     requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
     requestMessageSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMessageSample");
+    setPartyQuickPtr = (SetPartyQuickType)dlsym(variantHandle, "setPartyQuick");
     requestCombatSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestCombatSample");
 
     const char* error = dlerror();
@@ -189,6 +193,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         requestPartySamplePtr = NULL;
         requestMessageSamplePtr = NULL;
         requestCombatSamplePtr = NULL;
+        setPartyQuickPtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -272,6 +277,12 @@ Java_name_osher_gil_minivmac_Core_requestMessageSampleNative(JNIEnv *env, jclass
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestCombatSampleNative(JNIEnv *env, jclass cls) {
     return requestCombatSamplePtr ? requestCombatSamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_setPartyQuickNative(JNIEnv *env, jclass cls,
+                                                      jint slot, jboolean on) {
+    return setPartyQuickPtr ? setPartyQuickPtr(slot, on) : JNI_FALSE;
 }
 
 /*

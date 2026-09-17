@@ -20,6 +20,77 @@ public class PartyStateTest {
         return packet;
     }
 
+    /**
+     * A PRP7 packet: everything PRP6 carries, plus one quick byte per member.
+     * The later sections have to be filled in properly -- 0xff meaning
+     * "unavailable" -- or the parser rejects the packet before ever reaching
+     * the quick bytes, which is how the first version of this fixture failed.
+     */
+    private static byte[] quickPacket(int count, int... flags) {
+        byte[] packet = new byte[PartyState.QUICK_PACKET_SIZE];
+        System.arraycopy(new byte[] {'P', 'R', 'P', '7'}, 0, packet, 0, 4);
+        packet[4] = (byte) count;
+        for (int i = 0; i < count; i++) {
+            int row = 8 + i * PartyState.ROW_SIZE;
+            byte[] name = ("Hero " + (i + 1)).getBytes(StandardCharsets.US_ASCII);
+            System.arraycopy(name, 0, packet, row, name.length);
+            packet[row + 16] = (byte) (10 + i);
+            packet[row + 17] = (byte) (10 + i);
+            packet[row + 18] = (byte) 0x80;   // armour class unavailable
+            packet[row + 19] = (byte) 0xff;   // class unavailable
+            packet[PartyState.PACKET_SIZE + i * 2] = (byte) 0xff;       // condition
+            packet[PartyState.PACKET_SIZE + i * 2 + 1] = (byte) 0xff;   // effects
+            packet[PartyState.CONDITION_PACKET_SIZE + i * PartyState.SPELL_STRIDE] = (byte) 0xff;
+            packet[PartyState.SPELL_PACKET_SIZE + i * PartyState.EQUIP_STRIDE] = (byte) 0xff;
+            packet[PartyState.EQUIP_PACKET_SIZE + i * PartyState.TRAIN_STRIDE] = (byte) 0xff;
+            packet[PartyState.TRAIN_PACKET_SIZE + i] = (byte) (i < flags.length ? flags[i] : 0);
+        }
+        return packet;
+    }
+
+    @Test public void theQuickFlagIsReadPerMember() {
+        PartyState party = PartyState.parse(quickPacket(3, 1, 0, 1));
+        assertNotNull(party);
+        assertEquals(Boolean.TRUE, party.members.get(0).quick);
+        assertEquals(Boolean.FALSE, party.members.get(1).quick);
+        assertEquals(Boolean.TRUE, party.members.get(2).quick);
+    }
+
+    @Test public void anUnreadableQuickFlagIsUnknownRatherThanOff() {
+        // The probe sends 0xff when the byte holds a value the field is not
+        // allowed to have. That must never be drawn as a confident "off".
+        for (int odd : new int[]{0xff, 2, 0x80, 0x7f}) {
+            PartyState party = PartyState.parse(quickPacket(1, odd));
+            assertNotNull("value " + odd, party);
+            assertNull("value " + odd, party.members.get(0).quick);
+        }
+    }
+
+    @Test public void olderPacketsCarryNoQuickFlagAtAll() {
+        assertNull(PartyState.parse(packet(1)).members.get(0).quick);
+        assertNull(PartyState.parse(detailedPacket(1)).members.get(0).quick);
+    }
+
+    @Test public void theQuickFlagChangesTheDisplay() {
+        // The pane redraws off packet equality, so a flag that flips has to
+        // count as a different display or the Q would never repaint.
+        PartyState off = PartyState.parse(quickPacket(1, 0));
+        PartyState on = PartyState.parse(quickPacket(1, 1));
+        assertFalse(off.sameDisplay(on));
+        assertTrue(off.sameDisplay(PartyState.parse(quickPacket(1, 0))));
+    }
+
+    @Test public void aQuickPacketOfTheWrongLengthIsRefused() {
+        byte[] good = quickPacket(2, 1, 0);
+        assertNotNull(PartyState.parse(good));
+        assertNull(PartyState.parse(Arrays.copyOf(good, good.length - 1)));
+        assertNull(PartyState.parse(Arrays.copyOf(good, good.length + 1)));
+        // Unused members' quick bytes must be zero, like every other tail field.
+        byte[] dirty = quickPacket(2, 1, 0);
+        dirty[PartyState.TRAIN_PACKET_SIZE + 5] = 1;
+        assertNull(PartyState.parse(dirty));
+    }
+
     private static byte[] detailedPacket(int count) {
         byte[] packet = packet(count);
         packet[3] = '2';

@@ -166,7 +166,7 @@ static void refuses(unsigned code, unsigned links, uint32_t detail) {
 static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP6", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP7", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -212,7 +212,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     for (unsigned i = 0; i < 6; i++) put32(member_record(i) - 8, 0x80000136);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP6", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP7", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++)
         assert(memcmp(output + 8 + i * POOLRAD_PARTY_ROW_SIZE, ram + member_record(i), 6) == 0);
     // An odd physical size is still not a block, whatever the correction says.
@@ -684,6 +684,24 @@ static void tests(void) {
     assert(!poolrad_party_probe_why(ram, sizeof(ram), output, NULL));
     assert(!poolrad_party_probe(ram, sizeof(ram), output));
 
+    /* The quick flag as the packet reports it: 0, 1, or unavailable for any
+     * value the field is not allowed to hold. A Q must never be drawn
+     * confidently over a byte nobody understands. */
+    {
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        for (unsigned i = 0; i < 6; i++)
+            ram[member_record(i) + POOLRAD_PARTY_QUICK_OFFSET] = (unsigned char) (i % 2);
+        assert(poolrad_party_probe(ram, sizeof(ram), output));
+        for (unsigned i = 0; i < 6; i++)
+            assert(output[POOLRAD_PARTY_TRAIN_SIZE + i] == (i % 2));
+        for (unsigned value = 2; value < 256; value++) {
+            fixture(0xe000, 0x2000, 0x3000, 1);
+            ram[member_record(0) + POOLRAD_PARTY_QUICK_OFFSET] = (unsigned char) value;
+            assert(poolrad_party_probe(ram, sizeof(ram), output));
+            assert(output[POOLRAD_PARTY_TRAIN_SIZE] == POOLRAD_PARTY_QUICK_UNAVAILABLE);
+        }
+    }
+
     /* The one write this project makes. Everything here is about what it must
      * refuse and what it must leave alone; the offset itself came from three
      * RAM captures around the game's own Quick button, not from this fixture.
@@ -716,17 +734,17 @@ static void tests(void) {
     /* Refusals. Each of these must write nothing at all. */
     {
         unsigned char before[sizeof(ram)];
-        struct { const char *what; unsigned slot; } cases[] = {
-            {"a monster slot", POOLRAD_PARTY_MAX_MEMBERS},
-            {"a slot past the end", 200},
-            {"an empty slot", 5},
+        struct { const char *what; unsigned member; } cases[] = {
+            {"one past the party size", POOLRAD_PARTY_MAX_MEMBERS},
+            {"far past the end", 200},
+            {"a member this party does not have", 5},
         };
         for (unsigned c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
-            fixture(0xe000, 0x2000, 0x3000, cases[c].slot == 5 ? 4 : 6);
+            fixture(0xe000, 0x2000, 0x3000, cases[c].member == 5 ? 4 : 6);
             for (unsigned i = 0; i < 6; i++)
                 ram[member_record(i) + POOLRAD_PARTY_QUICK_OFFSET] = POOLRAD_PARTY_QUICK_OFF;
             memcpy(before, ram, sizeof(ram));
-            assert(!poolrad_party_set_quick(ram, sizeof(ram), cases[c].slot, 1));
+            assert(!poolrad_party_set_quick(ram, sizeof(ram), cases[c].member, 1));
             assert(memcmp(ram, before, sizeof(ram)) == 0);
         }
 
@@ -761,6 +779,24 @@ static void tests(void) {
 
         /* A null buffer is refused rather than dereferenced. */
         assert(!poolrad_party_set_quick(NULL, sizeof(ram), 0, 1));
+
+        /* Members are numbered as the reader's rows are: monsters share the
+         * chain and are skipped, so member 5 of a six-hero party is the sixth
+         * hero even with ten orcs appended after them. */
+        combat_fixture(6, 10);
+        for (unsigned i = 0; i < 16; i++)
+            ram[member_record(i) + POOLRAD_PARTY_QUICK_OFFSET] = POOLRAD_PARTY_QUICK_OFF;
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_set_quick(ram, sizeof(ram), 5, 1));
+        unsigned moved = 0, where = 0;
+        for (unsigned i = 0; i < sizeof(ram); i++)
+            if (ram[i] != before[i]) { moved++; where = i; }
+        assert(moved == 1);
+        assert(where == member_record(5) + POOLRAD_PARTY_QUICK_OFFSET);
+        /* And there is no seventh member to set, however many orcs follow. */
+        memcpy(before, ram, sizeof(ram));
+        assert(!poolrad_party_set_quick(ram, sizeof(ram), 6, 1));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
     }
 
     puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds, named refusals, the guarded quick write and failure clearing passed.");

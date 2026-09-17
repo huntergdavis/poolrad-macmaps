@@ -91,8 +91,8 @@ the lower-priority queue.
   kept inside the pane at any size. It goes through the same scancode path the
   code-wheel answer and the on-screen keyboard use. Verified live: the Mac's own
   "press the Return key to continue" dialog was dismissed by tapping it.
-- [ ] **F19 — A per-character Quick toggle in the party list (P0, user requested
-  2026-09-16).** "I'd like the ability to toggle quick mode on and off for each
+- [x] **F19 — A per-character Quick toggle in the party list (P0, user requested
+  2026-09-16, shipped 0.33.0).** "I'd like the ability to toggle quick mode on and off for each
   character. The little character icons in the listview we made should have a
   little square Q toggle that is either on or off (similar to our map toggles)."
   Reading the flag and drawing it is ordinary probe work. **Setting it is not:**
@@ -127,6 +127,19 @@ the lower-priority queue.
   using the game's own Quick in a battle and diff, the same method that found
   the combat coordinates. The harness reaches a battle unattended now, so this
   is cheap.
+
+  **Done.** The owner chose the write: "it's time to break the barrier and start
+  writing to game memory." The flag is record `+0x11b`, found by capturing all
+  8 MB of guest RAM around one press of the game's own Quick button in a live
+  sixteen-combatant battle — exactly two bytes moved in that character's record
+  and none in the other fifteen, and the other of the two is attacks remaining
+  ([PARTY.md](PARTY.md)). A square Q sits at the right of every party row:
+  filled when on, outlined when off, a question mark when the byte does not read
+  as either. `poolrad_party_set_quick` is the only write in the project and it
+  refuses unless the whole party validates and the byte already holds 0 or 1.
+  Verified in the emulated machine's own memory: tapping the Q set Tanarakis's
+  byte to 1 and no one else's, tapping again set it back, and exactly one byte
+  across the six records moved each way.
 - [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
   reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
   correct, I only saw squares on my people who were on squares that used to be

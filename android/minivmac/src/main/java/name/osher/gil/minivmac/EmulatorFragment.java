@@ -148,6 +148,22 @@ public class EmulatorFragment extends Fragment
         mUIHandler.postDelayed(mReleaseAutomaticKey, 100);
     }
 
+    /**
+     * The only write this app makes into the running game: one party member's
+     * quick flag. Every guard is in the native reader, which refuses unless the
+     * whole party validates and the byte already holds a value the field is
+     * allowed to have. Authorised by the owner on 2026-09-16; see DESIGN.md.
+     */
+    private boolean setGuestQuick(int member, boolean on) {
+        Core target = mCore;
+        if (target == null || !target.isReady()) return false;
+        boolean written = target.setPartyQuick(member, on);
+        // Show the game's own answer, not an assumption: ask for a fresh sample
+        // rather than repainting what we hoped happened.
+        if (written) target.requestPartySample();
+        return written;
+    }
+
     private void releaseAutomaticKey() {
         Core target = mAutomaticKeyCore;
         if (mAutomaticKey >= 0 && target != null && target == mCore && target.isReady())
@@ -319,6 +335,7 @@ public class EmulatorFragment extends Fragment
         mCompanionPane.setOnToolSelectedListener(this::showCompanionTool);
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
         mNotebook.setReturnKey(this::pressGuestReturn);
+        mNotebook.setQuickSetter(this::setGuestQuick);
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
         mClipboardManager = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);

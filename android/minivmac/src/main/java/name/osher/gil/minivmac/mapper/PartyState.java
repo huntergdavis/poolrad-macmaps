@@ -23,6 +23,9 @@ public final class PartyState {
     /** Eight per-member training blocks follow the equipment blocks. */
     public static final int TRAIN_CLASSES = 3, TRAIN_STRIDE = 1 + 4 + TRAIN_CLASSES * 6;
     public static final int TRAIN_PACKET_SIZE = EQUIP_PACKET_SIZE + MAX_MEMBERS * TRAIN_STRIDE;
+    /** PRP7 appends one quick byte per member: 0 off, 1 on, 0xff unreadable. */
+    public static final int QUICK_PACKET_SIZE = TRAIN_PACKET_SIZE + MAX_MEMBERS;
+    public static final int QUICK_UNAVAILABLE = 0xff;
     public static final int POISONED = 1, HELPLESS = 2;
     private static final String[] CONDITION_LABELS = {
             "Okay", "Animated", "Temporarily gone", "Running", "Unconscious",
@@ -66,6 +69,12 @@ public final class PartyState {
         public final int movementSquares, carriedWeight;
         /** Shared experience, and one entry per class the character actually has. */
         public final int experience;
+        /**
+         * The game's own quick flag: {@code Boolean.TRUE} or {@code FALSE} when
+         * it reads as one of the two values the field is allowed to hold, and
+         * null when it does not. Null is drawn as unknown, never as off.
+         */
+        public final Boolean quick;
         private final int[][] classes;
 
         /** One class the character holds: its slot, level, and next threshold. */
@@ -83,7 +92,9 @@ public final class PartyState {
         private Member(String name, int currentHp, int maxHp, Integer armorClass, int characterClass,
                        int condition, int trackedEffects, boolean hasConditionSample,
                        int[] ready, int[] awaitingRest, String readiedWeapon, String readiedArmor,
-                       int movementSquares, int carriedWeight, int experience, int[][] classes) {
+                       int movementSquares, int carriedWeight, int experience, int[][] classes,
+                       Boolean quick) {
+            this.quick = quick;
             this.experience = experience; this.classes = classes;
             this.readiedWeapon = readiedWeapon; this.readiedArmor = readiedArmor;
             this.movementSquares = movementSquares; this.carriedWeight = carriedWeight;
@@ -272,13 +283,15 @@ public final class PartyState {
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
                 || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
-                    && data[3] != '5' && data[3] != '6')) return null;
-        boolean training = data[3] == '6';
+                    && data[3] != '5' && data[3] != '6' && data[3] != '7')) return null;
+        boolean quickFlags = data[3] == '7';
+        boolean training = quickFlags || data[3] == '6';
         boolean equipment = training || data[3] == '5';
         boolean spells = equipment || data[3] == '4';
         boolean conditions = spells || data[3] == '3';
-        if (data.length != (training ? TRAIN_PACKET_SIZE : equipment ? EQUIP_PACKET_SIZE
-                : spells ? SPELL_PACKET_SIZE : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
+        if (data.length != (quickFlags ? QUICK_PACKET_SIZE : training ? TRAIN_PACKET_SIZE
+                : equipment ? EQUIP_PACKET_SIZE : spells ? SPELL_PACKET_SIZE
+                : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
             return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
@@ -295,6 +308,7 @@ public final class PartyState {
                     if (data[SPELL_PACKET_SIZE + index * EQUIP_STRIDE + offset] != 0) return null;
                 if (training) for (int offset = 0; offset < TRAIN_STRIDE; offset++)
                     if (data[EQUIP_PACKET_SIZE + index * TRAIN_STRIDE + offset] != 0) return null;
+                if (quickFlags && data[TRAIN_PACKET_SIZE + index] != 0) return null;
                 continue;
             }
             int length = 0;
@@ -408,9 +422,16 @@ public final class PartyState {
                 // decoded as Mac Roman, never misrepresented as UTF-8/Latin-1.
                 name = new String(data, start, length, Charset.forName(extended ? "x-MacRoman" : "US-ASCII"));
             } catch (IllegalArgumentException unavailableCharset) { return null; }
+            Boolean quick = null;
+            if (quickFlags) {
+                int flag = data[TRAIN_PACKET_SIZE + index] & 255;
+                // Anything but the two values the field is allowed to hold stays
+                // null, so the pane shows unknown rather than a confident "off".
+                if (flag == 0 || flag == 1) quick = flag == 1;
+            }
             members.add(new Member(name, current, maximum, armorClass, characterClass,
                     condition, effects, conditions, ready, awaitingRest, readiedWeapon, readiedArmor,
-                    movementSquares, carriedWeight, experience, classes));
+                    movementSquares, carriedWeight, experience, classes, quick));
         }
         return new PartyState(members, data);
     }

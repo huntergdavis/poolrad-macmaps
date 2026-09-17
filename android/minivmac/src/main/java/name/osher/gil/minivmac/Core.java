@@ -43,6 +43,17 @@ public class Core {
 	public void setPartySampleListener(MapSampleListener listener) { mPartySampleListener = listener; }
 	public boolean requestPartySample() { return initOk && requestPartySampleNative(); }
 	private static native boolean requestPartySampleNative();
+
+	/**
+	 * Sets one party member's quick flag in the running game. The only call in
+	 * this app that changes guest memory; every guard lives in the native
+	 * reader, which refuses unless the whole party validates and the byte
+	 * already holds a value the field is allowed to have.
+	 */
+	public boolean setPartyQuick(int slot, boolean on) {
+		return initOk && setPartyQuickNative(slot, on);
+	}
+	private static native boolean setPartyQuickNative(int slot, boolean on);
 	@SuppressWarnings("unused") // Read-only compact sample delivered on emulation thread.
 	public void onPartySample(byte[] sample) {
 		MapSampleListener listener = mPartySampleListener;

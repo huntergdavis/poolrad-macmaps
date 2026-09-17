@@ -75,6 +75,24 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     public void setReturnKey(Runnable action) { returnKey = action == null ? () -> { } : action; }
 
+    /** What a character's Q should do; owned by whoever owns the emulator core. */
+    public interface QuickSetter { boolean set(int member, boolean on); }
+
+    private QuickSetter quickSetter = (member, on) -> false;
+
+    public void setQuickSetter(QuickSetter setter) {
+        quickSetter = setter == null ? (member, on) -> false : setter;
+    }
+
+    @Override public void onQuickToggled(int member, boolean on) {
+        if (disposed) return;
+        // The write is refused whenever the party does not read cleanly, which
+        // is a normal thing to happen mid-redraw. Say so rather than leaving a
+        // tap that silently did nothing.
+        if (!quickSetter.set(member, on))
+            toast("The game would not take that just now; try again in a moment.");
+    }
+
     @Override public void onReturnPressed() {
         if (!disposed) returnKey.run();
     }

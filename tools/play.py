@@ -40,12 +40,18 @@ LOAD_ROW = (90, 672, 300, 24)
 LOAD_ENABLED_INK = 3000
 # Whose menu bar is this? The game's runs "File Edit Character Options Windows"
 # and reaches into this slice; the Finder's stops after Special and leaves it
-# blank. Measured: 677 with the game frontmost, 0 with the Finder. Without this
-# the Finder's own File menu passed for the game's -- its second item is Open,
-# which is where Load Saved Game sits -- and a scripted load went type-selecting
-# around the desktop instead.
+# blank. Without this the Finder's own File menu passed for the game's -- its
+# second item is Open, which is where Load Saved Game sits -- and a scripted
+# load went type-selecting around the desktop instead.
+#
+# Counted at a grey threshold, not a black one. With no save loaded the game
+# greys "Windows" out, and dithered grey has no pixels below 128 at all: the
+# first version of this read 0 and called a perfectly good game the Finder.
+# Below 200 the three cases are 826 (game, nothing loaded), 989 (game, in a
+# battle) and 0 (Finder).
 GAME_MENU_BAR = (480, 638, 120, 22)
-GAME_MENU_INK = 200
+GAME_MENU_GREY = 200
+GAME_MENU_INK = 400
 # Launching the game from the Finder, for a disk whose startup items do not do
 # it. Click the open folder's title bar, type-select the application -- "Pool"
 # sorts to "Pool of Radiance v1.1" ahead of PoolRad2 and the rest, because the
@@ -163,7 +169,7 @@ def launch_from_finder(serial):
 def game_frontmost(serial, screen=None):
     """True when Pool of Radiance owns the menu bar, rather than the Finder."""
     screen = screen or guest.grab(serial)
-    return screen.ink(GAME_MENU_BAR) >= GAME_MENU_INK
+    return screen.ink(GAME_MENU_BAR, GAME_MENU_GREY) >= GAME_MENU_INK
 
 
 def load_item_enabled(serial, patience=4.0):

@@ -81,7 +81,10 @@ public final class LiveMapView extends View {
      */
     private final android.graphics.RectF returnButton = new android.graphics.RectF();
     private final android.graphics.RectF returnTarget = new android.graphics.RectF();
+    private final android.graphics.RectF quickButton = new android.graphics.RectF();
     private boolean touchReturn;
+    /** Which member's Q a press began on, or -1. */
+    private int touchQuick = -1;
     private boolean touchFootprints;
     private float touchX, touchY;
     private String touchArea;
@@ -104,6 +107,11 @@ public final class LiveMapView extends View {
         default void onFogToggled(boolean visitedOnly) { }
         /** The player tapped the Return key in the map's corner. */
         default void onReturnPressed() { }
+        /**
+         * The player tapped a character's Q. {@code member} numbers the party
+         * rows as they are drawn, which is the numbering the writer uses.
+         */
+        default void onQuickToggled(int member, boolean on) { }
     }
 
     public void setListener(Listener value) { listener = value; }
@@ -291,7 +299,8 @@ public final class LiveMapView extends View {
             touchFootprints = footprintTarget.contains(touchX, touchY);
             touchFog = !touchFootprints && fogTarget.contains(touchX, touchY);
             touchReturn = !touchFootprints && !touchFog && returnTarget.contains(touchX, touchY);
-            boolean onButton = touchFootprints || touchFog || touchReturn;
+            touchQuick = touchFootprints || touchFog || touchReturn ? -1 : quickAt(touchX, touchY);
+            boolean onButton = touchFootprints || touchFog || touchReturn || touchQuick >= 0;
             touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
@@ -314,6 +323,13 @@ public final class LiveMapView extends View {
                 setExplorationStyle(visitedOnly, shown);
                 performClick();
                 listener.onFootprintsToggled(shown);
+            } else if (valid && touchQuick >= 0 && quickAt(event.getX(), event.getY()) == touchQuick
+                    && party != null && touchQuick < party.members.size()) {
+                // Unknown reads as off, so a first tap turns it on rather than
+                // doing nothing the player can see.
+                Boolean current = party.members.get(touchQuick).quick;
+                performClick();
+                listener.onQuickToggled(touchQuick, !Boolean.TRUE.equals(current));
             } else if (valid && touchReturn && returnTarget.contains(event.getX(), event.getY())) {
                 performClick();
                 listener.onReturnPressed();
@@ -362,7 +378,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
-        touchFootprints = false; touchFog = false; touchReturn = false;
+        touchFootprints = false; touchFog = false; touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -633,6 +649,29 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
     }
 
+    /**
+     * A character's quick flag as a square Q: filled when the game has them on
+     * computer control, outlined when it does not, and a question mark when the
+     * flag does not read as either -- never a confident "off" over a byte
+     * nobody understands.
+     */
+    private void drawQuick(Canvas canvas, android.graphics.RectF box, Boolean quick, float unit) {
+        boolean on = Boolean.TRUE.equals(quick);
+        ink.setStyle(on ? Paint.Style.FILL : Paint.Style.STROKE);
+        ink.setStrokeWidth(Math.max(1, density));
+        ink.setColor(Color.BLACK);
+        canvas.drawRoundRect(box, 3 * unit, 3 * unit, ink);
+        ink.setStyle(Paint.Style.FILL);
+        ink.setColor(on ? Color.WHITE : Color.BLACK);
+        ink.setTextAlign(Paint.Align.CENTER);
+        ink.setTextSize(11 * unit);
+        Paint.FontMetrics metrics = ink.getFontMetrics();
+        float baseline = box.centerY() - (metrics.ascent + metrics.descent) / 2;
+        canvas.drawText(quick == null ? "?" : "Q", box.centerX(), baseline, ink);
+        ink.setColor(Color.BLACK);
+        ink.setTextAlign(Paint.Align.LEFT);
+    }
+
     private void slash(Canvas canvas, android.graphics.RectF button) {
         float x1 = button.left + 5 * density, y1 = button.bottom - 5 * density;
         float x2 = button.right - 5 * density, y2 = button.top + 5 * density;
@@ -651,6 +690,41 @@ public final class LiveMapView extends View {
         if (width < ellipsis) return "";
         int count = ink.breakText(value, true, width - ellipsis, null);
         return value.substring(0, count) + "…";
+    }
+
+    /**
+     * The Q square on a party row, in the row's top-right corner.
+     *
+     * One helper for drawing and for hit-testing, so the two cannot drift; the
+     * footprint button was drawn and tested from separate arithmetic once and
+     * that is a bug waiting to happen.
+     */
+    private void quickSquare(PartyPaneLayout p, int index, float unit, android.graphics.RectF into) {
+        float column = p.columnLeft(index);
+        float right = column + p.columnWidth - 10 * unit;
+        float top = p.rowTop(index) + (p.rowHeight - 48 * unit) / 2;
+        float size = 16 * unit;
+        into.set(right - size, top, right, top + size);
+    }
+
+    /** Which member's Q is under a point, or -1. Generous, like the map buttons. */
+    private int quickAt(float x, float y) {
+        PartyPaneLayout p = pane();
+        if (party == null || p.rows == 0) return -1;
+        float unit = density * p.appliedScale;
+        android.graphics.RectF box = new android.graphics.RectF();
+        android.graphics.RectF touch = new android.graphics.RectF();
+        for (int i = 0; i < p.visibleMembers(); i++) {
+            quickSquare(p, i, unit, box);
+            touch.set(box);
+            // Half the shortfall to a 48dp target, and no more: the squares sit
+            // inside a row, so a target that grew to the full 48dp would reach
+            // into the row above and steal its taps.
+            float grow = Math.max(0, Math.min(8 * density, (48 * density - box.width()) / 2));
+            touch.inset(-grow, -grow);
+            if (touch.contains(x, y)) return i;
+        }
+        return -1;
     }
 
     private void drawParty(Canvas canvas, PartyPaneLayout p) {
@@ -677,8 +751,10 @@ public final class LiveMapView extends View {
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
             if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
             else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);
+            quickSquare(p, i, unit, quickButton);
+            drawQuick(canvas, quickButton, member.quick, unit);
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK); ink.setTextSize(13*unit);
-            float available=Math.max(0,right-left);
+            float available=Math.max(0,right-left-quickButton.width()-6*unit);
             int chars=ink.breakText(member.name,true,available,null);
             String name=chars==member.name.length()?member.name:chars>1?member.name.substring(0,chars-1)+"…":"";
             ink.setTextAlign(Paint.Align.LEFT);canvas.drawText(name,left,top+14*unit,ink);

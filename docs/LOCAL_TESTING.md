@@ -1,5 +1,62 @@
 # Local Android prototype
 
+## 0.33.0 — the Quick toggle, and the first write (2026-09-17)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.33.0.apk`, SHA-256
+`fabbd384129743ed93aa8340da9c4c18752fa720a3204846150621ad9a5bb04f`, versionCode 99.
+
+**F19.** Hunter: quick "doesn't have a menu item, it's spacebar based during
+battle, or you need to flip a memory bit." He chose the bit.
+
+**Finding it.** The scripted driver reached a real sixteen-combatant battle and
+all 8 MB of guest RAM was captured around one press of the game's own Quick
+button on Lara Spellsword. Exactly two bytes changed in her record and nothing
+at all in the other fifteen combatants'. `+0x120` reads `02` for Hogarth and
+Shara and `01` for the rest before anything happens and fell to zero when she
+attacked, so it is attacks remaining; `+0x11b` went 0 to 1 for her alone and was
+still 1 after five other characters had taken their turns. A spacebar sent on
+her turn changed no record at all. Evidence in [PARTY.md](PARTY.md).
+
+**The write.** `poolrad_party_set_quick` is the only write in this project. It
+requires the whole party to read cleanly first, walks the roster with every
+check the reader makes, numbers members exactly as the reader's rows are
+numbered so row *i* on screen is character *i*, and refuses to write unless the
+byte already holds `0` or `1` — a byte holding anything else means the offset is
+not what it is believed to be.
+
+**The packet** is now PRP7: PRP6 plus one quick byte per member, `0xff` where
+the field does not read as either value. The pane draws that as a question mark,
+never as a confident "off".
+
+Verified in the emulated machine's own memory, not just on screen:
+
+| Step | Guest RAM |
+| --- | --- |
+| party loaded | all six `+0x11b = 0` |
+| tapped Tanarakis's Q | Tanarakis `1`, the other five `0` |
+| tapped it again | all six `0` |
+
+Diffing the two captures record by record: **one byte changed across all six
+records** — offset `0x11b` of record 2 — each way. The badge only fills because
+the app reads the flag back out of the game, so the picture is the game's answer
+and not an assumption.
+
+- `tools/test-party-probe.c`: a successful write changes exactly one byte in the
+  whole of RAM and it is that byte; clearing restores RAM byte-for-byte; and
+  every refusal writes nothing — one past the party size, far past the end, a
+  member the party does not have, an unreadable party, a bad heap block, no
+  party at all, a null buffer, all 254 unexpected values of the field, and a
+  seventh member of a six-hero party with ten orcs appended.
+- All five native suites pass under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`. **447 Java tests**, 24 driver tests.
+
+Driver fixes needed to get there, both from the tool believing the wrong thing:
+the game does not start itself on this disk, so `boot` now launches it from the
+Finder by type-select and File > Open; and "is the game frontmost" is measured
+on its menu bar at a **grey** threshold, because with no save loaded the game
+greys "Windows" out and dithered grey has no pixels below 128 at all — the first
+version read 0 and called a perfectly good game the Finder.
+
 ## 0.32.0 — a Return key in the corner of the map (2026-09-16)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.32.0.apk`, SHA-256

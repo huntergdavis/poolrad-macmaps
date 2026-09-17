@@ -1326,6 +1326,20 @@ LOCALPROC DeliverPartySample(void)
     if (sample != NULL) (*jEnv)->DeleteLocalRef(jEnv, sample);
 }
 
+/* The only write. Guarded entirely inside poolrad_party_set_quick, which
+ * refuses unless the whole party reads cleanly and the byte already holds a
+ * value the field is allowed to have. Authorised by the owner on 2026-09-16;
+ * see docs/DESIGN.md for what that does and does not cover.
+ */
+GLOBALFUNC jboolean setPartyQuick(jint slot, jboolean on)
+{
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    if (ram == NULL || slot < 0) return JNI_FALSE;
+    return poolrad_party_set_quick((unsigned char *) ram, size,
+                                   (unsigned) slot, on == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+}
+
 GLOBALFUNC jboolean requestMessageSample(void)
 {
     return atomic_exchange(&WantMessageSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;

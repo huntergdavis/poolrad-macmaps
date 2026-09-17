@@ -37,9 +37,19 @@ public final class PartyStripRenderCheck {
         p[130]=15;p[131]=1;p[132]=6;p[176]=0x12;p[432]=0x34;p[944]=(byte)0xe4;
         return p;
     }
+    /** PRP7, so the rows carry a quick flag: on for every other member. */
     private static byte[] partyPacket(int count) {
-        byte[] b = new byte[8 + 8 * 20];
-        b[0]='P';b[1]='R';b[2]='P';b[3]='1';b[4]=(byte) count;
+        int rows = 8 + 8 * 20, conditions = rows + 16, spells = conditions + 8 * 8;
+        int equip = spells + 8 * (1 + 64 + 3), training = equip + 8 * (1 + 4 + 18);
+        byte[] b = new byte[training + 8];
+        b[0]='P';b[1]='R';b[2]='P';b[3]='7';b[4]=(byte) count;
+        for (int i = 0; i < count; i++) {
+            b[rows + i * 2] = (byte) 0xff; b[rows + i * 2 + 1] = (byte) 0xff;
+            b[conditions + i * 8] = (byte) 0xff;
+            b[spells + i * (1 + 64 + 3)] = (byte) 0xff;
+            b[equip + i * (1 + 4 + 18)] = (byte) 0xff;
+            b[training + i] = (byte) (i % 3 == 0 ? 1 : i % 3 == 1 ? 0 : 2);
+        }
         String[] names = {"Arax the Bold","Lara Spellsword","Tanarakis","Hogarth",
                           "Shara the Grey","Zarram","Ohlo","Skullcrusher"};
         for (int i = 0; i < count; i++) {
