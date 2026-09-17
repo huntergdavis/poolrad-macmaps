@@ -428,7 +428,14 @@ public final class LiveMapView extends View {
                 : MapMode.UNAVAILABLE.label();
         float button = drawHeaderButtons(canvas, pane);
         float available = Math.max(0, pane.mapWidth - 24 * density - button);
-        float statusWidth = Math.min(ink.measureText(status), available * .48f);
+        /*
+         * The status gets more of the header in a battle. "BATTLE · overview"
+         * is a short title and the tally beside it is the long part -- six of
+         * yours, six others, one down, one lost -- and at the ordinary 48% it
+         * lost the casualties to an ellipsis, which are the words worth reading.
+         */
+        float share = mode == MapMode.COMBAT ? .66f : .48f;
+        float statusWidth = Math.min(ink.measureText(status), available * share);
         ink.setTextAlign(Paint.Align.LEFT);
         canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
                 12 * density + button, 22 * density, ink);
@@ -522,11 +529,18 @@ public final class LiveMapView extends View {
             float radius = cell * .32f;
             ink.setStyle(spot.party && !spot.fallen ? Paint.Style.FILL : Paint.Style.STROKE);
             ink.setStrokeWidth(Math.max(1.5f * density, cell * .09f));
-            if (spot.fallen) {
-                // A cross, for one of yours who is down where they fell and can
-                // still be reached. Nothing else on this grid is diagonal.
+            if (spot.fallen && spot.savable()) {
+                // A diagonal cross: one of yours, down but still worth reaching.
+                // Nothing else on this grid is diagonal.
                 canvas.drawLine(cx - radius, cy - radius, cx + radius, cy + radius, ink);
                 canvas.drawLine(cx - radius, cy + radius, cx + radius, cy - radius, ink);
+            } else if (spot.fallen) {
+                // An upright cross for dead or petrified: past bandaging, and a
+                // different shape rather than a heavier version of the same one,
+                // because weight alone does not read at this size on e-ink.
+                canvas.drawLine(cx, cy - radius, cx, cy + radius, ink);
+                canvas.drawLine(cx - radius * .7f, cy - radius * .3f,
+                                cx + radius * .7f, cy - radius * .3f, ink);
             } else if (spot.party) canvas.drawCircle(cx, cy, radius, ink);
             else canvas.drawRect(cx - radius, cy - radius, cx + radius, cy + radius, ink);
         }
@@ -539,7 +553,7 @@ public final class LiveMapView extends View {
         canvas.drawText(fitHeaderText(
                         (battle.fallenCount() == 0
                             ? "Filled is yours · reference only, tap the game below to act"
-                            : "Filled is yours, a cross is down · reference only"), available),
+                            : "Filled is yours · ✕ still savable · ✝ past saving"), available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 
@@ -769,8 +783,22 @@ public final class LiveMapView extends View {
             // A narrow strip cell has no room for both readouts; health wins.
             boolean compact = p.columnWidth < PartyPaneLayout.COMPACT_COLUMN * unit;
             canvas.drawText((compact ? "" : "HP ")+member.currentHp+"/"+member.maxHp,left,top+28*unit,ink);
-            if (!compact) {
-                ink.setTextAlign(Paint.Align.RIGHT);
+            /*
+             * Say it, do not spell it. A character who is down has carried a
+             * one-letter badge for a while -- `!` dying, `X` dead -- which is
+             * fine once you know it and no use when you are scanning for who to
+             * bandage. The word takes the armour class's place, because armour
+             * class is the least interesting number about someone who is dying,
+             * and it is drawn even in a narrow strip where the class is not.
+             */
+            String down = member.downLabel();
+            ink.setTextAlign(Paint.Align.RIGHT);
+            if (down != null) {
+                String fitted = down;
+                float room = Math.max(0, right - left - ink.measureText("00/00") - 6 * unit);
+                if (ink.measureText(fitted) > room) fitted = down.substring(0, 4);
+                canvas.drawText(fitted, right, top + 28 * unit, ink);
+            } else if (!compact) {
                 canvas.drawText("AC "+(member.armorClass==null ? "—" : member.armorClass),right,top+28*unit,ink);
             }
             float barTop=top+34*unit,barBottom=top+40*unit;

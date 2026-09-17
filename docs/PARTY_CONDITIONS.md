@@ -19,6 +19,12 @@ color dependency, flashing indicator or guest-game modification.
 | `–` | Temporarily gone or Gone; tap for the exact status |
 | `?` | Condition or tracked effects unavailable |
 
+Since 0.36.0 the row also **says the word** beside the badge — Unconscious,
+Dying, Dead or Petrified — in the slot the armour class usually occupies, which
+is the least interesting number about someone who is dying. A one-letter badge
+is fine once you know it and no use at all when you are scanning for who to
+bandage. It is drawn even in a narrow strip, where the armour class is not.
+
 Death/dying/unconsciousness/petrification/absence take precedence over effects;
 poison then helplessness take precedence over running/animated and injury.
 Details retain the whole observed combination. The ordinary class symbol

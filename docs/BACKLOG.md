@@ -153,6 +153,15 @@ the lower-priority queue.
   the **arrow** keys. It does not, and the four arrow keycodes map to -1, so an
   arrow has never reached the guest either. A speculative arrow mapping added
   on the strength of that note was reverted rather than kept.
+- [x] **F22 — Dying and dead told apart, in both views (P0, user requested
+  2026-09-17, shipped 0.36.0).** "It should say on the characters view too, if
+  they are dying or dead not just on the map view." The combat entry's spare
+  fourth byte now carries the game's own condition, so the map draws a diagonal
+  ✕ for someone still savable and an upright ✝ for someone past saving — two
+  shapes, not one shape in two weights — and the party row prints the word
+  (Unconscious, Dying, Dead, Petrified) where the armour class usually sits.
+  The header tallies "1 down · 1 lost" and gets more of the line in combat so
+  the casualties are not lost to an ellipsis.
 - [x] **F21 — Crosses for party members who are down (P0, user requested
   2026-09-17, shipped 0.35.0).** "Can we update the map to have Xs for party
   members who are dead/dying that we could try to bandage etc?" A fair

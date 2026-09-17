@@ -1,5 +1,55 @@
 # Local Android prototype
 
+## 0.36.0 — dying and dead are different things (2026-09-17)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.36.0.apk`, SHA-256
+`21f8c5076d54ab74f5a11d090e9597ba5f3b13092b059a87c2095950a5774f18`, versionCode 102.
+
+Hunter: "let's differentiate that please, it should say on the characters view
+too, if they are dying or dead not just on the map view."
+
+**The condition now travels.** A combat entry is four bytes and only three were
+used; the fourth had to be zero. It now carries the game's own condition, so the
+pane can say which of the four ways of being down a character is in rather than
+grouping them. Standing combatants report theirs too.
+
+| | Map | Party row |
+| --- | --- | --- |
+| Unconscious, Dying | **✕** diagonal cross, still savable | the word, where the armour class goes |
+| Dead, Petrified | **✝** upright cross, past saving | the word |
+| standing | circle (yours) or square (theirs) | armour class as before |
+
+Two different *shapes*, not the same shape in a heavier weight — weight alone
+does not read at this size on e-ink. The header tallies both: "6 of yours ·
+6 others · **1 down · 1 lost**", and the caption reads "Filled is yours · ✕
+still savable · ✝ past saving".
+
+**The party row says the word.** It has carried a one-letter badge for a while
+(`!` dying, `X` dead), which is fine once you know it and no use when you are
+scanning for who to bandage. The word takes the armour class's place, and is
+drawn even in a narrow strip where the class is not.
+
+The battle header also gets more of the line in combat — 66% rather than 48% —
+because "BATTLE · overview" is a short title and the casualties were being lost
+to an ellipsis, which are the words worth reading.
+
+Verified:
+
+- `tools/test-combat-probe.c` asserts the condition byte arrives for all four
+  down conditions and every standing one, and that an unreadable condition says
+  so rather than inventing one.
+- `CombatSnapshotTest` covers every invalid condition value being refused, every
+  valid one accepted, a fallen marker carrying a condition that is not one of
+  the four being refused, and the four labels and savable/not answers.
+- **12 render checks**, extended: a cross draws something, something different
+  from a circle, and dead draws something different again from dying.
+- All five native suites under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`; **448 Java tests**.
+
+One thing the old guard caught on the way: the row's fourth byte had a "must be
+zero" check in both the parser and its test. Repurposing a reserved byte means
+finding every place that insisted it stay reserved.
+
 ## 0.35.0 — a cross for whoever is down (2026-09-17)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.35.0.apk`, SHA-256

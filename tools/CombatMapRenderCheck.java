@@ -46,6 +46,10 @@ public final class CombatMapRenderCheck {
         p[0]='P'; p[1]='R'; p[2]='C'; p[3]='1'; p[4]=1; p[5]=(byte) rows.length;
         for (int i = 0; i < rows.length; i++) {
             p[8+i*4] = (byte) rows[i][0]; p[8+i*4+1] = (byte) rows[i][1]; p[8+i*4+2] = (byte) rows[i][2];
+            // The fourth column is the game's own condition. A fallen marker
+            // has to carry one of the four ways of being down or the reader
+            // rejects it, which is the point of the check.
+            p[8+i*4+3] = (byte) (rows[i].length > 3 ? rows[i][3] : 0);
         }
         return p;
     }
@@ -308,12 +312,21 @@ public final class CombatMapRenderCheck {
             int circle = inkPixels(draw(standing), 0, 40, 900, 500);
             LiveMapView down = map(context, 900, 520);
             down.showSample(mapPacket(2, 5));
-            down.showCombatSample(combatPacket(new int[][]{{4, 10, 10}}));
+            down.showCombatSample(combatPacket(new int[][]{{4, 10, 10, 5}}));   // dying
             Bitmap drawn = draw(down);
             int cross = inkPixels(drawn, 0, 40, 900, 500);
             check(cross > 0, "A fallen character drew nothing at all");
             check(cross != circle, "A cross is indistinguishable from a circle: "
                     + cross + " vs " + circle);
+            // Dying and dead are different shapes, not the same one in a
+            // different weight: weight alone does not read at this size.
+            LiveMapView gone = map(context, 900, 520);
+            gone.showSample(mapPacket(2, 5));
+            gone.showCombatSample(combatPacket(new int[][]{{4, 10, 10, 6}}));   // dead
+            int upright = inkPixels(draw(gone), 0, 40, 900, 500);
+            check(upright > 0, "A dead character drew nothing at all");
+            check(upright != cross, "Dead is indistinguishable from dying: "
+                    + upright + " vs " + cross);
             check(String.valueOf(down.getContentDescription()).contains("Battle overview"),
                     "A battle of one fallen character stopped being a battle");
         });

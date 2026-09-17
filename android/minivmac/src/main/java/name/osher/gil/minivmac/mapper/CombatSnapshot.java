@@ -31,9 +31,29 @@ public final class CombatSnapshot {
          * longer is was the whole of F16.
          */
         public final boolean fallen;
-        Spot(boolean party, int x, int y) { this(party, false, x, y); }
-        Spot(boolean party, boolean fallen, int x, int y) {
+        /**
+         * The game's own condition for this combatant, or -1 if it did not read
+         * as one. Carried so the pane can say "Dying" rather than group every
+         * way of being down under one word: the difference between someone you
+         * can still bandage and someone you cannot is the whole point.
+         */
+        public final int condition;
+        Spot(boolean party, int x, int y) { this(party, false, x, y, -1); }
+        Spot(boolean party, boolean fallen, int x, int y, int condition) {
             this.party = party; this.fallen = fallen; this.x = x; this.y = y;
+            this.condition = condition;
+        }
+        /** Down, and still worth reaching: unconscious or dying. */
+        public boolean savable() { return condition == 4 || condition == 5; }
+        /** A word for this state, or null when there is nothing to say. */
+        public String stateLabel() {
+            switch (condition) {
+                case 4: return "Unconscious";
+                case 5: return "Dying";
+                case 6: return "Dead";
+                case 7: return "Petrified";
+                default: return null;
+            }
         }
         @Override public String toString() {
             return (fallen ? "fallen " : party ? "party " : "other ") + x + "," + y;
@@ -86,9 +106,15 @@ public final class CombatSnapshot {
         for (int i = 0; i < count; i++) {
             int at = 8 + i * 4;
             int kind = packet[at] & 255, x = packet[at + 1] & 255, y = packet[at + 2] & 255;
+            int condition = packet[at + 3] & 255;
+            if (condition > 8 && condition != 255) return null;
+            if (condition == 255) condition = -1;
             if (kind != 1 && kind != 2 && kind != 4) return null;
-            if (x > MAX_COORDINATE || y > MAX_COORDINATE || packet[at + 3] != 0) return null;
-            spots.add(new Spot(kind == 1 || kind == 4, kind == 4, x, y));
+            // The fourth byte used to have to be zero. It now carries the
+            // condition, which is checked above instead.
+            if (x > MAX_COORDINATE || y > MAX_COORDINATE) return null;
+            if (kind == 4 && condition >= 0 && (condition < 4 || condition > 7)) return null;
+            spots.add(new Spot(kind == 1 || kind == 4, kind == 4, x, y, condition));
         }
         // Rows past the declared count belong to no one.
         for (int at = 8 + count * 4; at < packet.length; at++) if (packet[at] != 0) return null;
@@ -97,9 +123,12 @@ public final class CombatSnapshot {
 
     /** Plain wording for the header; never a tactical suggestion. */
     public String summary() {
-        int party = partyCount(), fallen = fallenCount();
+        int party = partyCount();
+        int savable = 0, lost = 0;
+        for (Spot spot : spots) if (spot.fallen) { if (spot.savable()) savable++; else lost++; }
         return party + " of yours · " + (size() - party) + " other"
                 + (size() - party == 1 ? "" : "s")
-                + (fallen == 0 ? "" : " · " + fallen + " down");
+                + (savable == 0 ? "" : " · " + savable + " down")
+                + (lost == 0 ? "" : " · " + lost + " lost");
     }
 }

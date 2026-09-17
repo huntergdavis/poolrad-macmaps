@@ -33,9 +33,14 @@
 #define POOLRAD_COMBAT_KIND_OTHER 2
 /* Still in the chain and the table, no longer on the battlefield. Never sent. */
 #define POOLRAD_COMBAT_KIND_DEAD 3
-/* One of yours, down where they fell, and reachable: unconscious, dying, dead
- * or petrified. Sent, because these are the ones a player goes to bandage. */
+/* One of yours, down where they fell: unconscious, dying, dead or petrified.
+ * Sent, because these are the ones a player goes to bandage. Which of the four
+ * it is rides along in the entry's fourth byte, so the pane can say the word
+ * rather than group them. */
 #define POOLRAD_COMBAT_KIND_FALLEN 4
+/* The entry's fourth byte: the game's own condition, or 0xff if it did not
+ * read as one. Standing combatants send their condition here too. */
+#define POOLRAD_COMBAT_CONDITION_UNAVAILABLE 0xff
 
 /* The game's own condition byte, record +0x118: 0 Okay, 1 Animated,
  * 2 Temporarily gone, 3 Running, 4 Unconscious, 5 Dying, 6 Dead,
@@ -52,7 +57,7 @@
  * `kinds` in chain order. No name, health or statistic is read here.
  */
 static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t a5,
-                                 unsigned char *kinds) {
+                                 unsigned char *kinds, unsigned char *conditions) {
     uint32_t handle, records[POOLRAD_COMBAT_MAX];
     int links = 0;
     if (a5 < POOLRAD_PARTY_HEAD_BACK || !poolrad_range(a5 - POOLRAD_PARTY_HEAD_BACK, 4, size)) return -1;
@@ -104,6 +109,7 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
                 /* No readable condition: fall back on hit points, which is all
                  * there is to go on and is what this used before. */
                 : ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 0;
+            conditions[links] = known ? condition : POOLRAD_COMBAT_CONDITION_UNAVAILABLE;
             kinds[links] = away ? POOLRAD_COMBAT_KIND_DEAD
                 : down ? (party ? POOLRAD_COMBAT_KIND_FALLEN : POOLRAD_COMBAT_KIND_DEAD)
                 : party ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER;
@@ -120,7 +126,7 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
  * never be presented as the current one.
  */
 static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned char *out) {
-    unsigned char kinds[POOLRAD_COMBAT_MAX];
+    unsigned char kinds[POOLRAD_COMBAT_MAX], conditions[POOLRAD_COMBAT_MAX];
     uint32_t a5, table;
     int roster;
     unsigned count, i;
@@ -151,7 +157,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     /* The roster says how many combatants there are and which are the party.
      * A count that disagrees with the chain means one of the two was read at
      * the wrong moment, so neither is trusted. */
-    roster = poolrad_combat_roster(ram, size, a5, kinds);
+    roster = poolrad_combat_roster(ram, size, a5, kinds, conditions);
     if (roster < 0 || (unsigned)roster != count) return 1;
     /* Entry i belongs to combatant i, which is how the sides are known, so the
      * dead are skipped here rather than earlier: the pairing is by position in
@@ -164,6 +170,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
         row[0] = kinds[i];
         row[1] = ram[table + i * POOLRAD_COMBAT_STRIDE + 2];
         row[2] = ram[table + i * POOLRAD_COMBAT_STRIDE + 3];
+        row[3] = conditions[i];
         drawn++;
     }
     if (drawn == 0) return 1;   // a battle of nothing but the dead is no battle

@@ -120,6 +120,23 @@ public final class PartyState {
             return conditionLabel() + (injured() ? "; injured" : "") + "; " + effectsLabel();
         }
         /** One quiet monochrome badge; the full combination is available on tap. */
+        /**
+         * The word for a character who is down, or null when there is none.
+         *
+         * The row has carried a one-letter badge for a while -- `!` dying, `X`
+         * dead -- which is fine once you know it and no use at all when you are
+         * looking for who to bandage. This is the same fact in a word.
+         */
+        public String downLabel() {
+            switch (condition) {
+                case 4: return "Unconscious";
+                case 5: return "Dying";
+                case 6: return "Dead";
+                case 7: return "Petrified";
+                default: return null;
+            }
+        }
+
         public String badge() {
             if (condition == 6) return "X";
             if (condition == 5) return "!";

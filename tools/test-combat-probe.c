@@ -212,6 +212,9 @@ int main(void) {
         const unsigned char *row = out + POOLRAD_COMBAT_ENTRY_OUT + 2 * 4;
         assert(row[0] == POOLRAD_COMBAT_KIND_FALLEN);
         assert(row[1] == expected_x(2) && row[2] == expected_y(2));
+        /* Which of the four ways of being down rides along, so the pane can
+         * say "Dying" instead of lumping it in with "Dead". */
+        assert(row[3] == condition);
     }
 
     /* A monster in the same state is still left out: the game stops drawing it. */
@@ -231,7 +234,7 @@ int main(void) {
         assert(out[POOLRAD_COMBAT_COUNT_OUT] == 14);
     }
 
-    /* Standing conditions change nothing. */
+    /* Standing conditions change nothing, and still report themselves. */
     for (unsigned condition = 0; condition <= 3; condition++) {
         if (condition == 2) continue;
         fixture(6, 10);
@@ -240,6 +243,7 @@ int main(void) {
         assert(poolrad_combat_probe(ram, sizeof ram, out));
         assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
         assert(out[POOLRAD_COMBAT_ENTRY_OUT] == POOLRAD_COMBAT_KIND_PARTY);
+        assert(out[POOLRAD_COMBAT_ENTRY_OUT + 3] == condition);
     }
 
     /* With no readable condition it falls back on hit points, as it used to. */
@@ -250,6 +254,8 @@ int main(void) {
         assert(poolrad_combat_probe(ram, sizeof ram, out));
         assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
         assert(out[POOLRAD_COMBAT_ENTRY_OUT + 2 * 4] == POOLRAD_COMBAT_KIND_FALLEN);
+        /* An unreadable condition says so rather than inventing one. */
+        assert(out[POOLRAD_COMBAT_ENTRY_OUT + 2 * 4 + 3] == POOLRAD_COMBAT_CONDITION_UNAVAILABLE);
     }
 
     /* Nothing but the dead is not a battle. */

@@ -81,6 +81,36 @@ public class CombatSnapshotTest {
         assertEquals(CombatSnapshot.MAX_COMBATANTS, CombatSnapshot.parse(packet(full)).size());
     }
 
+    @Test public void aFallenCharacterSaysWhichKindOfDownTheyAre() {
+        // Dying is savable and dead is not; the map draws them differently and
+        // the pane says the word, so the word has to arrive.
+        int[][] rows = {{1, 10, 10, 0}, {4, 11, 10, 5}, {4, 12, 10, 6},
+                        {4, 13, 10, 4}, {4, 14, 10, 7}, {2, 20, 10, 0}};
+        CombatSnapshot battle = CombatSnapshot.parse(packetOf(rows));
+        assertNotNull(battle);
+        assertEquals(5, battle.partyCount());
+        assertEquals(4, battle.fallenCount());
+        assertEquals("Dying", battle.spots().get(1).stateLabel());
+        assertEquals("Dead", battle.spots().get(2).stateLabel());
+        assertEquals("Unconscious", battle.spots().get(3).stateLabel());
+        assertEquals("Petrified", battle.spots().get(4).stateLabel());
+        assertTrue(battle.spots().get(1).savable());
+        assertFalse(battle.spots().get(2).savable());
+        assertTrue(battle.spots().get(3).savable());
+        assertFalse(battle.spots().get(4).savable());
+        assertNull(battle.spots().get(0).stateLabel());
+        assertTrue(battle.summary().contains("2 down"));
+        assertTrue(battle.summary().contains("2 lost"));
+    }
+
+    private static byte[] packetOf(int[][] rows) {
+        byte[] p = new byte[CombatSnapshot.PACKET_SIZE];
+        p[0] = 'P'; p[1] = 'R'; p[2] = 'C'; p[3] = '1'; p[4] = 1; p[5] = (byte) rows.length;
+        for (int i = 0; i < rows.length; i++)
+            for (int j = 0; j < 4; j++) p[8 + i * 4 + j] = (byte) rows[i][j];
+        return p;
+    }
+
     @Test public void malformedPacketsAreRejected() {
         byte[] good = packet(BATTLE);
         assertNotNull(CombatSnapshot.parse(good));
@@ -105,8 +135,22 @@ public class CombatSnapshotTest {
             byte[] b = good.clone(); b[8 + 4 * 4] = (byte) kind;
             assertNull("kind " + kind + " accepted", CombatSnapshot.parse(b));
         }
-        byte[] padded = good.clone(); padded[8 + 2 * 4 + 3] = 1;
-        assertNull("a used reserved byte inside a row accepted", CombatSnapshot.parse(padded));
+        // The row's fourth byte used to be reserved and had to be zero. It now
+        // carries the game's own condition, so the check is on its value.
+        for (int condition = 9; condition < 255; condition++) {
+            byte[] b = good.clone(); b[8 + 2 * 4 + 3] = (byte) condition;
+            assertNull("condition " + condition + " accepted", CombatSnapshot.parse(b));
+        }
+        for (int condition = 0; condition <= 8; condition++) {
+            byte[] b = good.clone(); b[8 + 2 * 4 + 3] = (byte) condition;
+            assertNotNull("condition " + condition + " rejected", CombatSnapshot.parse(b));
+        }
+        // A fallen marker must be one of the four ways of being down.
+        for (int condition : new int[]{0, 1, 2, 3, 8}) {
+            byte[] b = good.clone();
+            b[8 + 2 * 4] = 4; b[8 + 2 * 4 + 3] = (byte) condition;
+            assertNull("fallen with condition " + condition + " accepted", CombatSnapshot.parse(b));
+        }
         byte[] trailing = good.clone(); trailing[8 + BATTLE.length * 4] = 1;
         assertNull("a row past the count accepted", CombatSnapshot.parse(trailing));
 
