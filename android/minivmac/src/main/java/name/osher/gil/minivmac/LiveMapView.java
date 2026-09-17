@@ -520,9 +520,14 @@ public final class LiveMapView extends View {
             float cx = left + (spot.x - battle.left + .5f) * cell;
             float cy = top + (spot.y - battle.top + .5f) * cell;
             float radius = cell * .32f;
-            ink.setStyle(spot.party ? Paint.Style.FILL : Paint.Style.STROKE);
+            ink.setStyle(spot.party && !spot.fallen ? Paint.Style.FILL : Paint.Style.STROKE);
             ink.setStrokeWidth(Math.max(1.5f * density, cell * .09f));
-            if (spot.party) canvas.drawCircle(cx, cy, radius, ink);
+            if (spot.fallen) {
+                // A cross, for one of yours who is down where they fell and can
+                // still be reached. Nothing else on this grid is diagonal.
+                canvas.drawLine(cx - radius, cy - radius, cx + radius, cy + radius, ink);
+                canvas.drawLine(cx - radius, cy + radius, cx + radius, cy - radius, ink);
+            } else if (spot.party) canvas.drawCircle(cx, cy, radius, ink);
             else canvas.drawRect(cx - radius, cy - radius, cx + radius, cy + radius, ink);
         }
         ink.setStyle(Paint.Style.FILL);
@@ -532,7 +537,9 @@ public final class LiveMapView extends View {
                 pane.mapWidth / 2f, top - 8 * density, ink);
         ink.setTextSize(11 * density);
         canvas.drawText(fitHeaderText(
-                        "Filled is yours · reference only, tap the game below to act", available),
+                        (battle.fallenCount() == 0
+                            ? "Filled is yours · reference only, tap the game below to act"
+                            : "Filled is yours, a cross is down · reference only"), available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 

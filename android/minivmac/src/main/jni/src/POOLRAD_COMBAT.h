@@ -33,6 +33,18 @@
 #define POOLRAD_COMBAT_KIND_OTHER 2
 /* Still in the chain and the table, no longer on the battlefield. Never sent. */
 #define POOLRAD_COMBAT_KIND_DEAD 3
+/* One of yours, down where they fell, and reachable: unconscious, dying, dead
+ * or petrified. Sent, because these are the ones a player goes to bandage. */
+#define POOLRAD_COMBAT_KIND_FALLEN 4
+
+/* The game's own condition byte, record +0x118: 0 Okay, 1 Animated,
+ * 2 Temporarily gone, 3 Running, 4 Unconscious, 5 Dying, 6 Dead,
+ * 7 Petrified, 8 Gone. See docs/PARTY_CONDITIONS.md. */
+#define POOLRAD_COMBAT_CONDITION_LAST 8
+#define POOLRAD_COMBAT_CONDITION_AWAY_A 2
+#define POOLRAD_COMBAT_CONDITION_AWAY_B 8
+#define POOLRAD_COMBAT_CONDITION_DOWN_FIRST 4
+#define POOLRAD_COMBAT_CONDITION_DOWN_LAST 7
 
 /* Walks the roster chain purely to learn how many combatants there are and
  * which of them are party members. Returns the count, or -1 if the chain does
@@ -73,10 +85,29 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
          * still combatant 7 of 16 at (31,15). They are counted for the index
          * pairing, which is by position in the chain, and then left out.
          */
-        kinds[links] = ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 0
-            ? POOLRAD_COMBAT_KIND_DEAD
-            : slot < POOLRAD_PARTY_MAX_MEMBERS
-                ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER;
+        {
+            /* Ask the game what state they are in rather than inferring it from
+             * a hit-point byte. Off the field entirely -- gone, or temporarily
+             * gone -- is nobody. Down but present is a body on a square: a
+             * monster's is not drawn by the game's own Combat View and is not
+             * drawn here, but one of your own is exactly what you are looking
+             * for when you go to bandage them, so it is sent as fallen.
+             */
+            unsigned char condition = ram[record + POOLRAD_PARTY_CONDITION_OFFSET];
+            int known = condition <= POOLRAD_COMBAT_CONDITION_LAST;
+            int party = slot < POOLRAD_PARTY_MAX_MEMBERS;
+            int away = known && (condition == POOLRAD_COMBAT_CONDITION_AWAY_A
+                                 || condition == POOLRAD_COMBAT_CONDITION_AWAY_B);
+            int down = known
+                ? (condition >= POOLRAD_COMBAT_CONDITION_DOWN_FIRST
+                   && condition <= POOLRAD_COMBAT_CONDITION_DOWN_LAST)
+                /* No readable condition: fall back on hit points, which is all
+                 * there is to go on and is what this used before. */
+                : ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 0;
+            kinds[links] = away ? POOLRAD_COMBAT_KIND_DEAD
+                : down ? (party ? POOLRAD_COMBAT_KIND_FALLEN : POOLRAD_COMBAT_KIND_DEAD)
+                : party ? POOLRAD_COMBAT_KIND_PARTY : POOLRAD_COMBAT_KIND_OTHER;
+        }
         links++;
         handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
     }

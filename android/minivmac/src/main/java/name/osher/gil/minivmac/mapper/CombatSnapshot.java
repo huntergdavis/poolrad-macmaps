@@ -23,8 +23,21 @@ public final class CombatSnapshot {
     public static final class Spot {
         public final boolean party;
         public final int x, y;
-        Spot(boolean party, int x, int y) { this.party = party; this.x = x; this.y = y; }
-        @Override public String toString() { return (party ? "party " : "other ") + x + "," + y; }
+        /**
+         * One of yours, down where they fell: unconscious, dying, dead or
+         * petrified. Drawn as a cross, because these are the ones worth walking
+         * to. A monster in the same state is not sent at all -- the game's own
+         * Combat View stops drawing it, and a marker left where an enemy no
+         * longer is was the whole of F16.
+         */
+        public final boolean fallen;
+        Spot(boolean party, int x, int y) { this(party, false, x, y); }
+        Spot(boolean party, boolean fallen, int x, int y) {
+            this.party = party; this.fallen = fallen; this.x = x; this.y = y;
+        }
+        @Override public String toString() {
+            return (fallen ? "fallen " : party ? "party " : "other ") + x + "," + y;
+        }
     }
 
     private final List<Spot> spots;
@@ -45,6 +58,13 @@ public final class CombatSnapshot {
     /** Inclusive width and height of the squares actually occupied. */
     public int width() { return right - left + 1; }
     public int height() { return bottom - top + 1; }
+    /** Your own, down where they fell and worth reaching. */
+    public int fallenCount() {
+        int count = 0;
+        for (Spot spot : spots) if (spot.fallen) count++;
+        return count;
+    }
+
     public int partyCount() {
         int total = 0; for (Spot spot : spots) if (spot.party) total++; return total;
     }
@@ -66,9 +86,9 @@ public final class CombatSnapshot {
         for (int i = 0; i < count; i++) {
             int at = 8 + i * 4;
             int kind = packet[at] & 255, x = packet[at + 1] & 255, y = packet[at + 2] & 255;
-            if (kind != 1 && kind != 2) return null;
+            if (kind != 1 && kind != 2 && kind != 4) return null;
             if (x > MAX_COORDINATE || y > MAX_COORDINATE || packet[at + 3] != 0) return null;
-            spots.add(new Spot(kind == 1, x, y));
+            spots.add(new Spot(kind == 1 || kind == 4, kind == 4, x, y));
         }
         // Rows past the declared count belong to no one.
         for (int at = 8 + count * 4; at < packet.length; at++) if (packet[at] != 0) return null;
@@ -77,8 +97,9 @@ public final class CombatSnapshot {
 
     /** Plain wording for the header; never a tactical suggestion. */
     public String summary() {
-        int party = partyCount();
-        return party + (party == 1 ? " of yours" : " of yours") + " · "
-                + (size() - party) + " other" + (size() - party == 1 ? "" : "s");
+        int party = partyCount(), fallen = fallenCount();
+        return party + " of yours · " + (size() - party) + " other"
+                + (size() - party == 1 ? "" : "s")
+                + (fallen == 0 ? "" : " · " + fallen + " down");
     }
 }

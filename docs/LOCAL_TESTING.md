@@ -1,5 +1,45 @@
 # Local Android prototype
 
+## 0.35.0 — a cross for whoever is down (2026-09-17)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.35.0.apk`, SHA-256
+`a07aa967fef6ba6582c5b9fd3de0b775bea155c5b107b018592dce8449ab0709`, versionCode 101.
+
+**F21, and a fair correction to what 0.34.0 did.** Hunter: "Can we update the
+map to have Xs for party members who are dead/dying that we could try to bandage
+etc?" Dropping every combatant at zero hit points also dropped the bodies a
+player most needs to find, which is worse than the bug it fixed.
+
+The overview now asks **the game's own condition byte**, record `+0x118`, rather
+than inferring anything from hit points:
+
+| Condition | On the field? | Drawn |
+| --- | --- | --- |
+| 0 Okay, 1 Animated, 3 Running | standing | circle (yours) or square (theirs) |
+| 4 Unconscious, 5 Dying, 6 Dead, 7 Petrified | down where they fell | **cross**, if one of yours; nothing, if not |
+| 2 Temporarily gone, 8 Gone | off the field | nothing |
+| anything else | unreadable | falls back on hit points, as before |
+
+A monster that is down is still left out, because the game's own Combat View
+stops drawing it — that was F16. One of your own is exactly what you are looking
+for, so it is kept and marked. The header counts them: "6 of yours · 6 others ·
+**2 down**", and the caption reads "Filled is yours, a cross is down".
+
+Verified:
+
+- `tools/test-combat-probe.c` covers all four down conditions for a party member
+  (kept, marked fallen, own square unchanged), the same four for a monster
+  (still dropped), both away conditions for either side (dropped), every
+  standing condition (unchanged), and all 247 unreadable condition bytes falling
+  back on hit points.
+- **12 render checks** in `CombatMapRenderCheck`, one new: a cross draws
+  something, and something different from a circle, and a battle of one fallen
+  character is still a battle.
+- Rendered at 1440x684: six squares, four circles and two crosses, one of them
+  well in front of the party's line — which is the whole point of drawing it.
+- All five native suites under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`; **447 Java tests**.
+
 ## 0.34.0 — the overview stops drawing the dead, and the keypad works (2026-09-17)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.34.0.apk`, SHA-256

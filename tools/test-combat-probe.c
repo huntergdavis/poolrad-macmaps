@@ -182,7 +182,7 @@ int main(void) {
      * marker sits where an enemy used to be -- which is what a player sees as
      * a square on one of their own people. */
     fixture(6, 10);
-    ram[g_records[9] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;   /* an orc dies */
+    ram[g_records[9] + POOLRAD_PARTY_CONDITION_OFFSET] = 6;    /* an orc dies */
     assert(poolrad_combat_probe(ram, sizeof ram, out));
     assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
     assert(out[POOLRAD_COMBAT_COUNT_OUT] == 15);
@@ -201,17 +201,61 @@ int main(void) {
         assert(drawn == 15);
     }
 
-    /* A fallen party member is left out too, and the battle survives it. */
-    fixture(6, 10);
-    ram[g_records[2] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
-    assert(poolrad_combat_probe(ram, sizeof ram, out));
-    assert(out[POOLRAD_COMBAT_COUNT_OUT] == 15);
-    assert(out[POOLRAD_COMBAT_ENTRY_OUT + 2 * 4 + 1] == expected_x(3));
+    /* One of your own, down where they fell, is kept and marked. These are the
+     * squares a player walks to in order to bandage somebody, so losing them
+     * would be worse than the bug that started this. */
+    for (unsigned condition = 4; condition <= 7; condition++) {
+        fixture(6, 10);
+        ram[g_records[2] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
+        const unsigned char *row = out + POOLRAD_COMBAT_ENTRY_OUT + 2 * 4;
+        assert(row[0] == POOLRAD_COMBAT_KIND_FALLEN);
+        assert(row[1] == expected_x(2) && row[2] == expected_y(2));
+    }
+
+    /* A monster in the same state is still left out: the game stops drawing it. */
+    for (unsigned condition = 4; condition <= 7; condition++) {
+        fixture(6, 10);
+        ram[g_records[9] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 15);
+    }
+
+    /* Off the field entirely is nobody, yours or theirs. */
+    for (unsigned condition = 2; condition <= 8; condition += 6) {
+        fixture(6, 10);
+        ram[g_records[2] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        ram[g_records[9] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 14);
+    }
+
+    /* Standing conditions change nothing. */
+    for (unsigned condition = 0; condition <= 3; condition++) {
+        if (condition == 2) continue;
+        fixture(6, 10);
+        for (unsigned i = 0; i < 16; i++)
+            ram[g_records[i] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
+        assert(out[POOLRAD_COMBAT_ENTRY_OUT] == POOLRAD_COMBAT_KIND_PARTY);
+    }
+
+    /* With no readable condition it falls back on hit points, as it used to. */
+    for (unsigned condition = 9; condition < 256; condition++) {
+        fixture(6, 10);
+        ram[g_records[2] + POOLRAD_PARTY_CONDITION_OFFSET] = (unsigned char) condition;
+        ram[g_records[2] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
+        assert(out[POOLRAD_COMBAT_ENTRY_OUT + 2 * 4] == POOLRAD_COMBAT_KIND_FALLEN);
+    }
 
     /* Nothing but the dead is not a battle. */
     fixture(6, 10);
     for (unsigned i = 0; i < 16; i++)
-        ram[g_records[i] + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+        ram[g_records[i] + POOLRAD_PARTY_CONDITION_OFFSET] = 8;   /* all gone */
     assert(poolrad_combat_probe(ram, sizeof ram, out));
     unavailable();
 

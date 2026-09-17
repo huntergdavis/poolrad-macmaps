@@ -153,6 +153,18 @@ the lower-priority queue.
   the **arrow** keys. It does not, and the four arrow keycodes map to -1, so an
   arrow has never reached the guest either. A speculative arrow mapping added
   on the strength of that note was reverted rather than kept.
+- [x] **F21 — Crosses for party members who are down (P0, user requested
+  2026-09-17, shipped 0.35.0).** "Can we update the map to have Xs for party
+  members who are dead/dying that we could try to bandage etc?" A fair
+  correction to F16: dropping everyone at zero hit points also dropped the
+  bodies a player most needs to find. The overview now asks the game's own
+  condition byte (record `+0x118`) instead of inferring from hit points —
+  4 Unconscious, 5 Dying, 6 Dead, 7 Petrified are **down but reachable**, and 2
+  Temporarily gone and 8 Gone are off the field. One of your own who is down is
+  drawn as a **cross** and counted in the header ("6 of yours · 6 others ·
+  2 down"); a monster in the same state is still left out, because the game's
+  own Combat View stops drawing it. With no readable condition it falls back on
+  hit points, as before.
 - [x] **F16 — The battle overview kept drawing the dead (P0, user reported
   2026-09-15, found and fixed 2026-09-17, shipped 0.34.0).** Retitled: the sides
   were never wrong. Hunter: "I don't think the enemy squares code is

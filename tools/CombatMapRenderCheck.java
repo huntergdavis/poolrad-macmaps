@@ -38,6 +38,9 @@ public final class CombatMapRenderCheck {
         p[1200]=(byte)255;
         return p;
     }
+    /** A cross must be visibly different from both a circle and a square. */
+    private static byte[] combatPacketOf(int[][] rows) { return combatPacket(rows); }
+
     private static byte[] combatPacket(int[][] rows) {
         byte[] p = new byte[8 + 71 * 4];
         p[0]='P'; p[1]='R'; p[2]='C'; p[3]='1'; p[4]=1; p[5]=(byte) rows.length;
@@ -294,6 +297,25 @@ public final class CombatMapRenderCheck {
                     "A held party survived the pane being put away");
             check(!String.valueOf(view.getContentDescription()).contains("Arax"),
                     "The accessible text still lists a party the pane has dropped");
+        });
+
+        run("A fallen party member draws a cross, not a circle", () -> {
+            // The ones worth walking to. A dead monster is not sent at all, but
+            // one of your own who is down is exactly what you are looking for.
+            LiveMapView standing = map(context, 900, 520);
+            standing.showSample(mapPacket(2, 5));
+            standing.showCombatSample(combatPacket(new int[][]{{1, 10, 10}}));
+            int circle = inkPixels(draw(standing), 0, 40, 900, 500);
+            LiveMapView down = map(context, 900, 520);
+            down.showSample(mapPacket(2, 5));
+            down.showCombatSample(combatPacket(new int[][]{{4, 10, 10}}));
+            Bitmap drawn = draw(down);
+            int cross = inkPixels(drawn, 0, 40, 900, 500);
+            check(cross > 0, "A fallen character drew nothing at all");
+            check(cross != circle, "A cross is indistinguishable from a circle: "
+                    + cross + " vs " + circle);
+            check(String.valueOf(down.getContentDescription()).contains("Battle overview"),
+                    "A battle of one fallen character stopped being a battle");
         });
 
         System.out.println(passed + " combat overview checks passed");
