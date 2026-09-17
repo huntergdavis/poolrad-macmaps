@@ -1,5 +1,50 @@
 # Local Android prototype
 
+## 0.32.0 — a Return key in the corner of the map (2026-09-16)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.32.0.apk`, SHA-256
+`8884eebbb6dc9058eec9bc9439bc34e2b75d12c4530bba5fe3262792328911ab`, versionCode 98.
+
+**F18.** "Much of the game is mouseable, but I still need to open the keyboard to
+press 'enter' sometimes." A 26dp return arrow in the bottom-right of the
+companion map pane, with the same 48dp touch target as the footprint and fog
+buttons and kept inside the pane at any size. It sends the key through exactly
+the path the code-wheel answer and the on-screen keyboard already use — a
+scancode down, then up after 100ms — so it is a shortcut for something the app
+does today, not a new kind of access.
+
+Verified live on a fresh emulator: the Mac's own "press the Return key to
+continue" dialog was dismissed by tapping the button, and the guest went on to
+boot to the Finder. 442 Java tests and 24 driver tests pass.
+
+**F19 research, and a boundary the owner moved.** Both of the game's remaining
+menus were photographed against the running game. **Character** offers Create
+New, Drop, Modify, Train, View, Add To Party, Remove From Party. **Options**
+offers Sounds, Walking Sounds, Use Compass, Hide Windows in Background, Reset
+Window Locations. Neither mentions quick. The game's only Quick is on the combat
+button row — Move / View / Aim / Use / **Quick** / Done — and it applies to
+whoever's turn it is.
+
+So a per-character Q that works at any time cannot be driven through the game's
+own UI; it needs a write into the character record. Hunter was told that plainly
+and chose it: "Yeah, it's time to break the barrier and start writing to game
+memory." Recorded in [DESIGN.md](DESIGN.md) with what it does and does not
+authorise — the quick flag, one byte, in a record that has passed every check
+the party reader already makes; stat editing and teleporting were named
+separately and stay out; the readers stay read-only and keep being checked
+byte-for-byte against untouched RAM.
+
+Still to do for F19: find the flag by diffing a character record around the
+game's own Quick in a live battle, then a narrowly scoped write with tests that
+prove nothing else in RAM moved.
+
+Test-rig note: the old `emulator-5584` was lost when the host ran out of room at
+load average 19. A replacement runs under `systemd-run --user
+--unit=poolrad-5584` from the `poolrad-map-test` AVD, writable rather than
+`-read-only` so app data survives, with `wm size 1200x1600` and `wm density 200`
+so the harness's measured coordinates still hold. The app's ROM and disks
+survived on it.
+
 ## 0.31.0 — a five-second hold, a fog button, and less prose (2026-09-15)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.31.0.apk`, SHA-256

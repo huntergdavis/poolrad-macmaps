@@ -24,4 +24,25 @@ High contrast, stable layouts, large targets and minimal animation come first.
 Emulator tests are useful evidence, not a substitute for testing real e-ink and
 stylus hardware. No cloud, accounts, LLM dependency, stat editing or teleporting.
 
+## Writing to the running game (owner decision, 2026-09-16)
+
+Every reader in this app has been read-only, and for a long time that was the
+whole of it. Hunter lifted that for one purpose: "Yeah, it's time to break the
+barrier and start writing to game memory," asked for a per-character Quick
+toggle after being told plainly that the game offers no menu path to one and
+that a write was the only way.
+
+What that does and does not authorise:
+
+- **Authorised:** setting the game's own per-character quick flag, one byte in a
+  character record that has first passed every check the party reader already
+  makes. It is a play-speed preference the game sets itself from its combat
+  button, not a capability the player does not have.
+- **Still out:** stat editing and teleporting, which were named separately and
+  were not lifted. Nor is anything else: a write goes in for a feature the owner
+  asked for, one field at a time, never as a general facility.
+- **Unchanged:** the readers. Every probe stays read-only, keeps its validation,
+  and is still checked byte-for-byte against untouched guest RAM. A write is an
+  explicit, separate, narrowly scoped call with its own tests.
+
 The ordered, checkable implementation queue is [BACKLOG.md](BACKLOG.md).
