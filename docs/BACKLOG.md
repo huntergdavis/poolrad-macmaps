@@ -140,6 +140,19 @@ the lower-priority queue.
   Verified in the emulated machine's own memory: tapping the Q set Tanarakis's
   byte to 1 and no one else's, tapping again set it back, and exactly one byte
   across the six records moved each way.
+- [ ] **F20 — The numeric keypad reaches the guest (P0, user reported
+  2026-09-17, fixed but unreleased).** Hunter: "the numeric keys 1-9 on a
+  keyboard are better, because of the diagonals! ... 1 and 3 are upper left and
+  upper right respectively." `keycodeTranslationTable` ran to 114 entries, and
+  Android's keypad keycodes start at 144, so a hardware keypad reached the
+  emulated Mac **not at all** — only the app's own on-screen numpad did. The
+  table now runs to 161 and maps the keypad to the same Mac codes
+  `us_numpad.xml` sends. Verified live in a battle: keypad 1, 7 and 9 each moved
+  the acting character and the game's own `Move Left` counter fell from 9.
+  Also corrected: COMBAT_MEMORY.md and LOCAL_TESTING.md both said combat used
+  the **arrow** keys. It does not, and the four arrow keycodes map to -1, so an
+  arrow has never reached the guest either. A speculative arrow mapping added
+  on the strength of that note was reverted rather than kept.
 - [ ] **F16 — The battle overview may be labelling the wrong side (P0, user
   reported 2026-09-15).** Hunter: "I don't think the enemy squares code is
   correct, I only saw squares on my people who were on squares that used to be

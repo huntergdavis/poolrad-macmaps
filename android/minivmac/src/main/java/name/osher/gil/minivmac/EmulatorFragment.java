@@ -59,6 +59,20 @@ public class EmulatorFragment extends Fragment
     static final String STATE_COMPANION_TAB = "poolrad_companion_tab";
     private static final String PREF_SHOW_COMPANION = "poolrad_show_companion";
 
+    /*
+     * Android keycode to Macintosh key code.
+     *
+     * The tail from 144 is the numeric keypad, which used to be past the end of
+     * this table entirely, so a hardware keypad reached the guest not at all.
+     * Pool of Radiance moves a character in combat with the keypad, and the
+     * diagonals are the point of it: 1 and 3 step up-left and up-right, which
+     * no arrow key can do. These are the same Mac codes the app's own on-screen
+     * numpad sends in us_numpad.xml, so both routes agree.
+     *
+     * The four arrow keys stay unmapped. They were mapped briefly on the
+     * strength of an old note saying combat used them; it does not, and a
+     * speculative mapping is not worth the behaviour it invents.
+     */
     private final static int[] keycodeTranslationTable = {
             -1, -1, -1, -1, -1, -1, -1, 0x1D, 0x12, 0x13,
             0x14, 0x15, 0x17, 0x16, 0x1A, 0x1C, 0x19, -1, -1, -1,
@@ -71,7 +85,12 @@ public class EmulatorFragment extends Fragment
             -1, 0x45, -1, -1, 0x3A, -1, -1, -1, -1, -1,
             -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
             -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
-            -1, -1, -1, 0x37};
+            -1, -1, -1, 0x37, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+            -1, -1, -1, -1, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57,
+            0x58, 0x59, 0x5B, 0x5C, 0x4B, 0x43, 0x4E, 0x45, 0x41, -1,
+            0x4C, 0x51};
     private final static int TRACKBALL_SENSITIVITY = 8;
     private final static int KEYCODE_MAC_SHIFT = 56;
     private final static int KEYCODE_NUMPAD = -20;

@@ -453,8 +453,10 @@ short version is that the game keeps one four-byte entry per combatant at
 
 **Finding it needed the input question answered first.** The previous pass was
 blocked because the number keys that walk the party outdoors do nothing in
-combat. They are the wrong keys: **in combat the arrow keys move the
-combatant**, the mirror of exploration. With that settled, `Move Left` counting
+combat. They are the wrong keys: **in combat the numeric keypad moves
+the combatant**, the mirror of exploration. (This said "arrow keys" until
+2026-09-17; see [COMBAT_MEMORY.md](COMBAT_MEMORY.md). Arrow keycodes map to -1
+and have never reached the guest at all.) With that settled, `Move Left` counting
 down from 9 confirmed each step, and a capture pair either side of one verified
 square gave the position bytes immediately — `x` and `y` adjacent, changing by
 exactly one in the direction moved. A second, orthogonal move separated the two

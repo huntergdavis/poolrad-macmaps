@@ -17,10 +17,22 @@ entry disagrees, if the sentinel is missing, or if the count disagrees with the
 chain length. Confirmed on two live battles (sixteen combatants and
 thirty-five) and on camp, walking and an area arrival, where the count is zero.
 
-**The input question is answered: in combat the party moves with the arrow
-keys**, the mirror of exploration, where it moves with the number keys. The
+**The input question is answered: in combat the party moves with the numeric
+keypad**, the mirror of exploration, where it moves with the number keys. The
 `Move Left` counter confirms each step, which is what finally made a clean
 one-square before/after diff possible.
+
+*Corrected 2026-09-17.* This said "arrow keys" and that was wrong. Hunter: "the
+numeric keys 1-9 on a keyboard are better, because of the diagonals! ... 1 and 3
+are upper left and upper right respectively." The diagonals are the whole point
+and no arrow can do them. Checked against the build: Android's four arrow
+keycodes map to `-1` in `keycodeTranslationTable`, so an arrow key has never
+reached the guest at all, and pressing one in combat moves nobody — which is
+exactly what happened when this note was taken at face value. The keypad
+keycodes, 144 upward, were past the end of that table, so a hardware keypad did
+not reach the guest either; only the app's own on-screen numpad did, which is
+why this went unnoticed. The table now runs to 161 and maps the keypad to the
+same Mac codes `us_numpad.xml` sends.
 
 ## Verified: the combatant list is already reachable
 
@@ -95,9 +107,36 @@ figures on the right — Arax the Bold was the selected one — and the ten enem
 as light shield-bearers on a diagonal up the left; the companion's six filled
 circles and ten hollow squares sit exactly that way.
 
-So the assumption holds when the table is built. Whether it survives initiative,
-movement and deaths is the open question, and it is the one Hunter was looking
-at. Two leads, neither of them acted on:
+So the assumption holds when the table is built.
+
+**Second live re-check, 2026-09-17: it also survives movement.** In a live
+sixteen-combatant battle, with Hogarth acting, a single keypad step was taken
+and RAM captured either side of it. Exactly one table entry changed —
+
+    entry 3: (26,11) -> (25,12)      Hogarth is chain #3
+
+— and nothing else in the table moved. Entry *i* was still combatant *i* after a
+character had moved, so neither movement nor the turn order disturbs the
+pairing. (The byte-level diff shows it at `A5-0x46d6`, which is the table base
+plus `3 * 4 + 2`, confirming the arithmetic as well as the result.)
+
+Two things were ruled out along the way. `flag`, the second byte of an entry, is
+**not** the side: across a whole battle it read 0 for Arax and 1 for all fifteen
+others and never changed as characters acted. And a first attempt that pressed
+seven direction keys in a row proved nothing, because the entries did not move
+at all — the presses were blocked, and the only thing that shifted was a
+separate arena-relative copy of the same x values at `A5-0x45c1` (the shipped
+table's x minus 24), which moved uniformly by +2 for all sixteen when the view
+scrolled. One clean step is worth seven muddled ones.
+
+**Still open: what happens when a combatant dies.** That is the one way the
+chain and the table could fall out of step — a monster leaving the list would
+shift every index after it — and it is the likeliest remaining explanation for
+what Hunter saw. The reader refuses when the chain length and the table count
+disagree, so the dangerous case is both changing while the *order* does not
+match. Next experiment: kill one orc in the middle of the list and compare.
+
+Two leads, neither of them acted on, if that experiment shows a break:
 
 1. `flag` (entry `+1`, only ever 0 or 1, currently validated and ignored) may be
    the side itself, or alive, or "has acted".
