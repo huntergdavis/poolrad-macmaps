@@ -38,6 +38,21 @@ LOAD_ITEM_Y = 686
 # does nothing and looks exactly like picking nothing.
 LOAD_ROW = (90, 672, 300, 24)
 LOAD_ENABLED_INK = 3000
+# Whose menu bar is this? The game's runs "File Edit Character Options Windows"
+# and reaches into this slice; the Finder's stops after Special and leaves it
+# blank. Measured: 677 with the game frontmost, 0 with the Finder. Without this
+# the Finder's own File menu passed for the game's -- its second item is Open,
+# which is where Load Saved Game sits -- and a scripted load went type-selecting
+# around the desktop instead.
+GAME_MENU_BAR = (480, 638, 120, 22)
+GAME_MENU_INK = 200
+# Launching the game from the Finder, for a disk whose startup items do not do
+# it. Click the open folder's title bar, type-select the application -- "Pool"
+# sorts to "Pool of Radiance v1.1" ahead of PoolRad2 and the rest, because the
+# space beats the R -- then File > Open, which is the Finder's second item.
+FOLDER_TITLE = (400, 710)
+FINDER_OPEN_Y = 710
+GAME_PREFIX = "Pool"
 # The OK button of the Mac's "this computer may not have been shut down
 # properly" dialog, which is the first thing a cold boot shows. Clicked rather
 # than answered with Return: a touch is delivered by position, but a key needs
@@ -129,7 +144,26 @@ def boot(serial):
         guest.click(serial, *STARTUP_OK)
         guest.send(serial, "input keyevent ENTER")
         time.sleep(2)
+        # Some disks start the game themselves and some leave you in the Finder.
+        if not game_frontmost(serial):
+            launch_from_finder(serial)
+            settled(serial, quiet=2500, timeout=240000, region="guest")
     raise SystemExit("The game never reached its menu bar")
+
+
+def launch_from_finder(serial):
+    """Open the game from the Finder, for disks that do not start it themselves."""
+    guest.click(serial, *FOLDER_TITLE)
+    time.sleep(1)
+    guest.send(serial, "input text %s" % GAME_PREFIX)
+    time.sleep(1)
+    guest.drag(serial, FILE_MENU_X, MENU_BAR_Y, FILE_MENU_X + 58, FINDER_OPEN_Y)
+
+
+def game_frontmost(serial, screen=None):
+    """True when Pool of Radiance owns the menu bar, rather than the Finder."""
+    screen = screen or guest.grab(serial)
+    return screen.ink(GAME_MENU_BAR) >= GAME_MENU_INK
 
 
 def load_item_enabled(serial, patience=4.0):
@@ -167,6 +201,8 @@ def game_menu_ready(serial):
     reported a successful boot and then failed at the next step for reasons that
     had nothing to do with booting.
     """
+    if not game_frontmost(serial):
+        return False
     ready = load_item_enabled(serial)
     close_menu(serial)
     return ready
@@ -184,6 +220,9 @@ def load(serial, save, folder="PoolRadSave"):
     # Hold the menu open, read whether the item is live, and only then let go
     # over it. Comparing the screen before and after does not work: the game
     # animates a campfire, so something is always different.
+    if not game_frontmost(serial):
+        raise SystemExit("Pool of Radiance is not the front application; the "
+                         "Finder is. Its File menu is not the game's. Run `boot`.")
     if not load_item_enabled(serial):
         close_menu(serial)
         raise SystemExit("Load Saved Game is greyed out, which it is whenever a "

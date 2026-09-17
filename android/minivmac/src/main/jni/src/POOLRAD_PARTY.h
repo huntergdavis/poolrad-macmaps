@@ -450,4 +450,80 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
 static int poolrad_party_probe(const unsigned char *ram, size_t size, unsigned char *out) {
     return poolrad_party_probe_why(ram, size, out, NULL);
 }
+
+/* The one field this project writes.
+ *
+ * Every reader here is read-only and stays that way. On 2026-09-16 the owner
+ * lifted that for a single purpose -- a per-character Quick toggle -- after
+ * being shown that Pool of Radiance has no menu for one: its only Quick is the
+ * combat button, for whoever's turn it is. See docs/DESIGN.md.
+ *
+ * Found, not guessed. Three RAM captures around the game's own Quick button in
+ * a live battle: pressing Quick on Lara Spellsword changed exactly two bytes in
+ * her record and nothing at all in the other fifteen combatants'. One of the
+ * two, +0x120, reads 2 for Hogarth and Shara and 1 for the rest and fell to 0
+ * when she attacked, so it is attacks remaining. The other, +0x11b, went 0 to 1
+ * for her alone and stayed there while five other characters took their turns.
+ * Evidence: docs/PARTY.md.
+ */
+#define POOLRAD_PARTY_QUICK_OFFSET 0x11b
+#define POOLRAD_PARTY_QUICK_OFF 0
+#define POOLRAD_PARTY_QUICK_ON 1
+
+/* Sets one character's quick flag, and refuses everything else.
+ *
+ * The roster is walked with exactly the reader's checks -- the shared app and
+ * A5 guards, the master pointer, the record bounds, the Mac heap block header,
+ * chain loops, slot assignment -- and the write only happens if all of them
+ * pass and the byte already holds a value this field is allowed to have. One
+ * byte, in one record, belonging to one party member. Monsters are not party
+ * members and are refused by slot, exactly as the reader refuses them.
+ *
+ * Returns 1 when the byte was written or already held the wanted value.
+ */
+static int poolrad_party_set_quick(unsigned char *ram, size_t size,
+                                   unsigned slot, int on) {
+    unsigned char sample[POOLRAD_PARTY_SIZE];
+    uint32_t a5, head_address, handle;
+    unsigned links = 0;
+    uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
+    if (ram == NULL || slot >= POOLRAD_PARTY_MAX_MEMBERS) return 0;
+    /* The party must read cleanly right now. A record that the reader would
+     * refuse to show is not one to write into. */
+    if (!poolrad_party_probe(ram, size, sample)) return 0;
+    a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
+    if (a5 < POOLRAD_PARTY_HEAD_BACK || !poolrad_range(a5 - POOLRAD_PARTY_HEAD_BACK, 4, size))
+        return 0;
+    head_address = a5 - POOLRAD_PARTY_HEAD_BACK;
+    handle = poolrad_u32(ram + head_address) & 0x00ffffff;
+    while (handle != 0) {
+        uint32_t record, block_header, physical_size;
+        if (links >= POOLRAD_PARTY_MAX_LINKS || handle < 0x1000 || (handle & 1)
+                || !poolrad_range(handle, 4, size)) return 0;
+        record = poolrad_u32(ram + handle) & 0x00ffffff;
+        if (record < 0x1000 || (record & 1)
+                || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) return 0;
+        block_header = poolrad_u32(ram + record - 8);
+        physical_size = block_header & 0x00ffffff;
+        if ((block_header >> 28) != 8
+                || physical_size != POOLRAD_PARTY_RECORD_SIZE + 8 + ((block_header >> 24) & 15)
+                || (physical_size & 1)
+                || !poolrad_range(record - 8, physical_size, size)) return 0;
+        for (unsigned i = 0; i < links; i++)
+            if (handles[i] == handle || records[i] == record) return 0;
+        handles[links] = handle; records[links] = record; links++;
+        if (ram[record + POOLRAD_PARTY_SLOT_OFFSET] == slot) {
+            unsigned char *field = ram + record + POOLRAD_PARTY_QUICK_OFFSET;
+            /* Never overwrite something that is not this field. If the byte
+             * holds anything but the two values the game puts there, the
+             * offset is not what it was believed to be and nothing is written. */
+            if (*field != POOLRAD_PARTY_QUICK_OFF && *field != POOLRAD_PARTY_QUICK_ON) return 0;
+            *field = on ? POOLRAD_PARTY_QUICK_ON : POOLRAD_PARTY_QUICK_OFF;
+            return 1;
+        }
+        handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+    }
+    return 0;
+}
+
 #endif

@@ -47,6 +47,58 @@ as fixed addresses by the implementation.
 | Displayed armor class | `60 − unsigned(record[0x11d])` | CODE 3 `+0x0858..0x08b6`, called by the party row through A5 `+0x49a`, formats the sign and absolute difference from 60. |
 | Character class | Record + `0x2f` | CODE 3 `+0x3a72..0x3ad0` indexes the Mac's own class-name table at A5 `−0x5e82`. |
 | Logical character size | 302 bytes (`0x12e`) | CODE 7 `+0x1ebc` requests this allocation; `+0x1ee6` bounds the record-clearing loop by the same size. |
+| Quick flag | Record + `0x11b`, 0 or 1 | Live capture, below. The only field this project writes. |
+
+## The quick flag, and how it was found
+
+Hunter, 2026-09-17: quick "doesn't have a menu item, it's spacebar based during
+battle, or you need to flip a memory bit." The game's menus confirm the first
+half — Character and Options were both photographed and neither mentions quick,
+and the only Quick is the combat button for whoever's turn it is.
+
+Found by capture, not by reading a table. A real sixteen-combatant battle was
+reached with the scripted driver, and the full 8 MB of guest RAM was captured
+around a single press of the game's own **Quick** button on Lara Spellsword:
+
+| Snapshot | What had happened |
+| --- | --- |
+| 1 | mid-battle, Lara's turn, before anything |
+| 2 | after a spacebar, which changed **no** character record at all |
+| 3 | after clicking the game's own Quick on Lara |
+| 4 | after pressing Done on Shara the Grey, and again several turns later |
+
+Between 2 and 3, **exactly two bytes changed in Lara's record and nothing
+whatsoever in the other fifteen combatants'**:
+
+| Offset | Before | After | Verdict |
+| --- | --- | --- | --- |
+| `+0x11b` | `00` | `01` | **the quick flag** |
+| `+0x120` | `01` | `00` | attacks remaining, not this |
+
+`+0x120` is ruled out by its own values: it reads `02` for Hogarth and Shara and
+`01` for the other four before anything happens, which is a per-character
+attack count, and it fell to zero when Lara attacked. `+0x11b` read `00` for all
+six before, went to `01` for Lara alone, and was still `01` after five other
+characters had taken their turns. Nothing else in the record moved.
+
+The raw 8 MB captures are private and are not in the repository; the diff was
+taken with the reader's own roster walk, so the records were located exactly as
+the shipped probe locates them.
+
+### Writing it
+
+`poolrad_party_set_quick` is the only write in this project, authorised by the
+owner on 2026-09-16 (see [DESIGN.md](DESIGN.md)). It walks the roster with every
+check the reader makes, requires the whole party to read cleanly first, refuses
+any slot that is not a party member, and refuses to write at all unless the byte
+already holds `00` or `01` — because a byte holding anything else means the
+offset is not what it is believed to be. It then writes one byte.
+
+`tools/test-party-probe.c` asserts that a successful write changes exactly one
+byte in the whole of RAM and that it is that one; that clearing it restores RAM
+byte-for-byte; and that every refusal — a monster slot, a slot past the end, an
+empty slot, an unreadable party, a bad heap block, no party at all, a null
+buffer, and all 254 unexpected values of the field itself — writes nothing.
 
 The append routine builds eight occupancy slots at `0x671714`, accepts slot
 numbers 0–7 at `0x671746`, and stops at eight at `0x6717a2`. The reader therefore

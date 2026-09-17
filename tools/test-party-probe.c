@@ -684,7 +684,86 @@ static void tests(void) {
     assert(!poolrad_party_probe_why(ram, sizeof(ram), output, NULL));
     assert(!poolrad_party_probe(ram, sizeof(ram), output));
 
-    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds, named refusals and failure clearing passed.");
+    /* The one write this project makes. Everything here is about what it must
+     * refuse and what it must leave alone; the offset itself came from three
+     * RAM captures around the game's own Quick button, not from this fixture.
+     */
+    {
+        unsigned char before[sizeof(ram)];
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        for (unsigned i = 0; i < 6; i++)
+            ram[member_record(i) + POOLRAD_PARTY_QUICK_OFFSET] = POOLRAD_PARTY_QUICK_OFF;
+        memcpy(before, ram, sizeof(ram));
+
+        /* Sets the asked-for member, and touches one byte in all of RAM. */
+        assert(poolrad_party_set_quick(ram, sizeof(ram), 3, 1));
+        assert(ram[member_record(3) + POOLRAD_PARTY_QUICK_OFFSET] == POOLRAD_PARTY_QUICK_ON);
+        unsigned changed = 0, at = 0;
+        for (unsigned i = 0; i < sizeof(ram); i++)
+            if (ram[i] != before[i]) { changed++; at = i; }
+        assert(changed == 1);
+        assert(at == member_record(3) + POOLRAD_PARTY_QUICK_OFFSET);
+
+        /* And clears it again, leaving RAM byte-for-byte as it started. */
+        assert(poolrad_party_set_quick(ram, sizeof(ram), 3, 0));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        /* Writing what is already there is success, and still changes nothing. */
+        assert(poolrad_party_set_quick(ram, sizeof(ram), 3, 0));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+    }
+
+    /* Refusals. Each of these must write nothing at all. */
+    {
+        unsigned char before[sizeof(ram)];
+        struct { const char *what; unsigned slot; } cases[] = {
+            {"a monster slot", POOLRAD_PARTY_MAX_MEMBERS},
+            {"a slot past the end", 200},
+            {"an empty slot", 5},
+        };
+        for (unsigned c = 0; c < sizeof(cases) / sizeof(cases[0]); c++) {
+            fixture(0xe000, 0x2000, 0x3000, cases[c].slot == 5 ? 4 : 6);
+            for (unsigned i = 0; i < 6; i++)
+                ram[member_record(i) + POOLRAD_PARTY_QUICK_OFFSET] = POOLRAD_PARTY_QUICK_OFF;
+            memcpy(before, ram, sizeof(ram));
+            assert(!poolrad_party_set_quick(ram, sizeof(ram), cases[c].slot, 1));
+            assert(memcmp(ram, before, sizeof(ram)) == 0);
+        }
+
+        /* A party the reader would refuse is not one to write into. */
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        ram[member_record(2) + POOLRAD_PARTY_MAX_HP_OFFSET] = 0;   /* impossible health */
+        memcpy(before, ram, sizeof(ram));
+        assert(!poolrad_party_set_quick(ram, sizeof(ram), 0, 1));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        put32(member_record(1) - 8, 0x82000140);                   /* bad heap block */
+        memcpy(before, ram, sizeof(ram));
+        assert(!poolrad_party_set_quick(ram, sizeof(ram), 0, 1));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        fixture(0xe000, 0x2000, 0x3000, 0);                        /* no party at all */
+        memcpy(before, ram, sizeof(ram));
+        assert(!poolrad_party_set_quick(ram, sizeof(ram), 0, 1));
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        /* The strongest guard: if the byte does not hold a value this field is
+         * allowed to have, the offset is not what it was believed to be, and
+         * nothing is written. */
+        for (unsigned value = 2; value < 256; value++) {
+            fixture(0xe000, 0x2000, 0x3000, 6);
+            ram[member_record(0) + POOLRAD_PARTY_QUICK_OFFSET] = (unsigned char) value;
+            memcpy(before, ram, sizeof(ram));
+            assert(!poolrad_party_set_quick(ram, sizeof(ram), 0, 1));
+            assert(memcmp(ram, before, sizeof(ram)) == 0);
+        }
+
+        /* A null buffer is refused rather than dereferenced. */
+        assert(!poolrad_party_set_quick(NULL, sizeof(ram), 0, 1));
+    }
+
+    puts("Party probe: profile, bounds, relocation, linked order, combat filtering, health, AC/class, conditions, bounded effects, spell readiness, readied equipment, training thresholds, named refusals, the guarded quick write and failure clearing passed.");
 }
 
 static int replay(const char *path) {
