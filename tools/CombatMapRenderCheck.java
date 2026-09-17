@@ -42,8 +42,8 @@ public final class CombatMapRenderCheck {
     private static byte[] combatPacketOf(int[][] rows) { return combatPacket(rows); }
 
     private static byte[] combatPacket(int[][] rows) {
-        byte[] p = new byte[8 + 71 * 4];
-        p[0]='P'; p[1]='R'; p[2]='C'; p[3]='1'; p[4]=1; p[5]=(byte) rows.length;
+        byte[] p = new byte[8 + 71 * 4 + 16];   // PRC2: entries then the actor's name
+        p[0]='P'; p[1]='R'; p[2]='C'; p[3]='2'; p[4]=1; p[5]=(byte) rows.length;
         for (int i = 0; i < rows.length; i++) {
             p[8+i*4] = (byte) rows[i][0]; p[8+i*4+1] = (byte) rows[i][1]; p[8+i*4+2] = (byte) rows[i][2];
             // The fourth column is the game's own condition. A fallen marker

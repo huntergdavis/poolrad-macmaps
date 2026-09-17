@@ -55,7 +55,7 @@ static void fixture(unsigned party, unsigned others) {
     put32(g_a5 - POOLRAD_PARTY_HEAD_BACK, 0x10000);
 }
 static void unavailable(void) {
-    assert(memcmp(out, "PRC1", 4) == 0);
+    assert(memcmp(out, "PRC2", 4) == 0);
     assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_UNAVAILABLE);
     assert(out[POOLRAD_COMBAT_COUNT_OUT] == 0);
     for (int i = POOLRAD_COMBAT_ENTRY_OUT; i < POOLRAD_COMBAT_SIZE; i++) assert(out[i] == 0);
@@ -264,6 +264,50 @@ int main(void) {
         ram[g_records[i] + POOLRAD_PARTY_CONDITION_OFFSET] = 8;   /* all gone */
     assert(poolrad_combat_probe(ram, sizeof ram, out));
     unavailable();
+
+    /* Whose turn it is, carried in the packet's tail. Read from the game's own
+     * Combat Message window, so it is the same name the player is looking at. */
+    {
+        fixture(6, 10);
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        /* The fixture has no Combat Message window, so nobody is acting and the
+         * tail must be empty rather than filled with something invented. */
+        for (unsigned i = 0; i < POOLRAD_ACTOR_MAX; i++)
+            assert(out[POOLRAD_COMBAT_ACTOR_OUT + i] == 0);
+        /* Give it one, exactly as the game lays it out: a TEHandle at
+         * A5-0x6230, a TERec, and the text "Name\rHitpoints ...". */
+        uint32_t te = 0x7200, handle = 0x7100, text_handle = 0x7180, text = 0x7300;
+        const char line[] = "Shara the Grey\r\rHitpoints 9\rAC 0";
+        put32(g_a5 - POOLRAD_COMBAT_MESSAGE_BACK, handle);
+        put32(handle, te);
+        ram[te + POOLRAD_TE_LENGTH] = (unsigned char) ((sizeof(line) - 1) >> 8);
+        ram[te + POOLRAD_TE_LENGTH + 1] = (unsigned char) (sizeof(line) - 1);
+        put32(te + POOLRAD_TE_HTEXT, text_handle);
+        put32(text_handle, text);
+        memcpy(ram + text, line, sizeof(line) - 1);
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(memcmp(out + POOLRAD_COMBAT_ACTOR_OUT, "Shara the Grey", 15) == 0);
+
+        /* A first line too long to be one of the game's names is nobody. */
+        const char wide[] = "A name far too long to be a character\r";
+        ram[te + POOLRAD_TE_LENGTH + 1] = (unsigned char) (sizeof(wide) - 1);
+        memcpy(ram + text, wide, sizeof(wide) - 1);
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_ACTOR_OUT] == 0);
+
+        /* So is one with a control byte in it, or one that is padded. */
+        const char odd[] = "Sha\x01ra\r";
+        ram[te + POOLRAD_TE_LENGTH + 1] = (unsigned char) (sizeof(odd) - 1);
+        memcpy(ram + text, odd, sizeof(odd) - 1);
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_ACTOR_OUT] == 0);
+
+        const char padded[] = " Shara\r";
+        ram[te + POOLRAD_TE_LENGTH + 1] = (unsigned char) (sizeof(padded) - 1);
+        memcpy(ram + text, padded, sizeof(padded) - 1);
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_ACTOR_OUT] == 0);
+    }
 
     puts("Combat probe: roster-checked grid table, index and sentinel guards, bounds passed.");
     return 0;

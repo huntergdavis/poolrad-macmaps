@@ -15,6 +15,7 @@
 #ifndef POOLRAD_COMBAT_PROBE_H
 #define POOLRAD_COMBAT_PROBE_H
 #include "POOLRAD_PARTY.h"
+#include "POOLRAD_MESSAGE.h"
 
 #define POOLRAD_COMBAT_COUNT_BACK 0x46e8
 #define POOLRAD_COMBAT_TABLE_BACK 0x46e4
@@ -23,7 +24,13 @@
 #define POOLRAD_COMBAT_MAX (POOLRAD_PARTY_MAX_LINKS)
 /* Both observed battles stay well inside this; anything larger is not a grid. */
 #define POOLRAD_COMBAT_MAX_COORDINATE 63
-#define POOLRAD_COMBAT_SIZE (8 + POOLRAD_COMBAT_MAX * 4)
+/* PRC2 appends the acting character's name, NUL padded. Whose turn it is was
+ * the one thing the overview could not say, and it is the thing a small screen
+ * makes hardest to keep track of. Read from the Combat Message window; see
+ * POOLRAD_MESSAGE.h. */
+#define POOLRAD_COMBAT_ENTRIES_SIZE (8 + POOLRAD_COMBAT_MAX * 4)
+#define POOLRAD_COMBAT_ACTOR_OUT POOLRAD_COMBAT_ENTRIES_SIZE
+#define POOLRAD_COMBAT_SIZE (POOLRAD_COMBAT_ENTRIES_SIZE + POOLRAD_ACTOR_MAX)
 #define POOLRAD_COMBAT_STATUS_OUT 4
 #define POOLRAD_COMBAT_COUNT_OUT 5
 #define POOLRAD_COMBAT_ENTRY_OUT 8
@@ -133,7 +140,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     if (out == NULL) return 0;
     if (!poolrad_game_name(ram, size)) return 0;
     memset(out, 0, POOLRAD_COMBAT_SIZE);
-    memcpy(out, "PRC1", 4);
+    memcpy(out, "PRC2", 4);
     out[POOLRAD_COMBAT_STATUS_OUT] = POOLRAD_COMBAT_UNAVAILABLE;
     a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
     if (a5 < POOLRAD_COMBAT_COUNT_BACK || (a5 & 1)) return 1;
@@ -176,6 +183,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     if (drawn == 0) return 1;   // a battle of nothing but the dead is no battle
     out[POOLRAD_COMBAT_STATUS_OUT] = POOLRAD_COMBAT_PRESENT;
     out[POOLRAD_COMBAT_COUNT_OUT] = (unsigned char) drawn;
+    poolrad_combat_actor(ram, size, out + POOLRAD_COMBAT_ACTOR_OUT);
     return 1;
 }
 #endif

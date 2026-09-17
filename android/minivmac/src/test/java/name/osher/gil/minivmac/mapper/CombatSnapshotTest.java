@@ -8,7 +8,7 @@ import static org.junit.Assert.*;
 public class CombatSnapshotTest {
     private byte[] packet(int[][] rows) {
         byte[] b = new byte[CombatSnapshot.PACKET_SIZE];
-        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='1'; b[4]=1; b[5]=(byte) rows.length;
+        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='2'; b[4]=1; b[5]=(byte) rows.length;
         for (int i = 0; i < rows.length; i++) {
             b[8+i*4] = (byte) rows[i][0];
             b[8+i*4+1] = (byte) rows[i][1];
@@ -18,7 +18,7 @@ public class CombatSnapshotTest {
     }
     private byte[] unavailable() {
         byte[] b = new byte[CombatSnapshot.PACKET_SIZE];
-        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='1'; b[4]=(byte)255;
+        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='2'; b[4]=(byte)255;
         return b;
     }
     private static final int[][] BATTLE = {
@@ -81,6 +81,43 @@ public class CombatSnapshotTest {
         assertEquals(CombatSnapshot.MAX_COMBATANTS, CombatSnapshot.parse(packet(full)).size());
     }
 
+    @Test public void theActingCharacterIsReadBackByName() {
+        // Whose turn it is comes from the game's own Combat Message window, so
+        // it is the same name the player is looking at.
+        byte[] p = packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}});
+        assertNull("no name means nobody", CombatSnapshot.parse(p).acting);
+        byte[] named = withActor(p, "Shara the Grey");
+        CombatSnapshot battle = CombatSnapshot.parse(named);
+        assertNotNull(battle);
+        assertEquals("Shara the Grey", battle.acting);
+        assertTrue(battle.isActing("Shara the Grey"));
+        assertFalse(battle.isActing("Zarram"));
+        assertFalse(battle.isActing(null));
+    }
+
+    @Test public void aNameThatIsNotOneIsRefused() {
+        byte[] p = packetOf(new int[][]{{1, 10, 10, 0}});
+        // Control bytes are not a name.
+        byte[] bad = p.clone(); bad[CombatSnapshot.ENTRIES_SIZE] = 7;
+        assertNull(CombatSnapshot.parse(bad));
+        // Nor is anything written after the terminator.
+        byte[] trailing = withActor(p, "Arax");
+        trailing[CombatSnapshot.ENTRIES_SIZE + 9] = 'x';
+        assertNull(CombatSnapshot.parse(trailing));
+        // A name filling the field with no room to terminate is still a name.
+        assertEquals(16, CombatSnapshot.ACTOR_BYTES);
+        byte[] full = withActor(p, "Sixteen chars!!!");
+        assertEquals("Sixteen chars!!!", CombatSnapshot.parse(full).acting);
+    }
+
+    private static byte[] withActor(byte[] packet, String name) {
+        byte[] out = packet.clone();
+        byte[] bytes = name.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+        System.arraycopy(bytes, 0, out, CombatSnapshot.ENTRIES_SIZE,
+                Math.min(bytes.length, CombatSnapshot.ACTOR_BYTES));
+        return out;
+    }
+
     @Test public void aFallenCharacterSaysWhichKindOfDownTheyAre() {
         // Dying is savable and dead is not; the map draws them differently and
         // the pane says the word, so the word has to arrive.
@@ -105,7 +142,7 @@ public class CombatSnapshotTest {
 
     private static byte[] packetOf(int[][] rows) {
         byte[] p = new byte[CombatSnapshot.PACKET_SIZE];
-        p[0] = 'P'; p[1] = 'R'; p[2] = 'C'; p[3] = '1'; p[4] = 1; p[5] = (byte) rows.length;
+        p[0] = 'P'; p[1] = 'R'; p[2] = 'C'; p[3] = '2'; p[4] = 1; p[5] = (byte) rows.length;
         for (int i = 0; i < rows.length; i++)
             for (int j = 0; j < 4; j++) p[8 + i * 4 + j] = (byte) rows[i][j];
         return p;

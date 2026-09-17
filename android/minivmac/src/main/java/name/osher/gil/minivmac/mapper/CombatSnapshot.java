@@ -15,7 +15,10 @@ import java.util.List;
 public final class CombatSnapshot {
     /** The roster reader's own ceiling; the packet can hold no more. */
     public static final int MAX_COMBATANTS = 71;
-    public static final int PACKET_SIZE = 8 + MAX_COMBATANTS * 4;
+    public static final int ENTRIES_SIZE = 8 + MAX_COMBATANTS * 4;
+    /** PRC2 appends the acting character's name, NUL padded. */
+    public static final int ACTOR_BYTES = 16;
+    public static final int PACKET_SIZE = ENTRIES_SIZE + ACTOR_BYTES;
     /** Coordinates the native reader will accept at all. */
     public static final int MAX_COORDINATE = 63;
 
@@ -62,8 +65,15 @@ public final class CombatSnapshot {
 
     private final List<Spot> spots;
     public final int left, top, right, bottom;
+    /**
+     * Whose turn it is, by name, or null when the game is not saying. Read from
+     * the game's own Combat Message window rather than worked out, so it is the
+     * same name the player is looking at.
+     */
+    public final String acting;
 
-    private CombatSnapshot(List<Spot> spots) {
+    private CombatSnapshot(List<Spot> spots, String acting) {
+        this.acting = acting;
         this.spots = Collections.unmodifiableList(spots);
         int l = MAX_COORDINATE, t = MAX_COORDINATE, r = 0, b = 0;
         for (Spot spot : spots) {
@@ -71,6 +81,31 @@ public final class CombatSnapshot {
             t = Math.min(t, spot.y); b = Math.max(b, spot.y);
         }
         left = l; top = t; right = r; bottom = b;
+    }
+
+    /** True when this name is the one the game says is acting. */
+    public boolean isActing(String name) {
+        return acting != null && acting.equals(name);
+    }
+
+    /**
+     * The name field, or null if it is not one.
+     *
+     * An empty field is nobody acting and reads as "". A field that is not a
+     * name at all -- control bytes, or anything written after the terminator --
+     * rejects the whole packet, the way every other reader here rejects rather
+     * than half-decodes: if that field is wrong, the rest is suspect too.
+     */
+    private static String readActor(byte[] packet) {
+        int length = 0;
+        while (length < ACTOR_BYTES && packet[ENTRIES_SIZE + length] != 0) length++;
+        for (int at = ENTRIES_SIZE + length; at < packet.length; at++)
+            if (packet[at] != 0) return null;
+        for (int i = 0; i < length; i++) {
+            int c = packet[ENTRIES_SIZE + i] & 255;
+            if (c < 0x20 || c > 0x7e) return null;
+        }
+        return new String(packet, ENTRIES_SIZE, length, java.nio.charset.StandardCharsets.US_ASCII);
     }
 
     public List<Spot> spots() { return spots; }
@@ -92,13 +127,13 @@ public final class CombatSnapshot {
     /** Null unless a battle is running and the whole packet validates. */
     public static CombatSnapshot parse(byte[] packet) {
         if (packet == null || packet.length != PACKET_SIZE) return null;
-        if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'C' || packet[3] != '1') return null;
+        if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'C' || packet[3] != '2') return null;
         int status = packet[4] & 255, count = packet[5] & 255;
         if ((packet[6] | packet[7]) != 0) return null;
         if (status == 255) {
             // Unavailable must not smuggle squares along with it.
             if (count != 0) return null;
-            for (int at = 8; at < packet.length; at++) if (packet[at] != 0) return null;
+            for (int at = 8; at < ENTRIES_SIZE; at++) if (packet[at] != 0) return null;
             return null;
         }
         if (status != 1 || count < 1 || count > MAX_COMBATANTS) return null;
@@ -117,8 +152,10 @@ public final class CombatSnapshot {
             spots.add(new Spot(kind == 1 || kind == 4, kind == 4, x, y, condition));
         }
         // Rows past the declared count belong to no one.
-        for (int at = 8 + count * 4; at < packet.length; at++) if (packet[at] != 0) return null;
-        return new CombatSnapshot(spots);
+        for (int at = 8 + count * 4; at < ENTRIES_SIZE; at++) if (packet[at] != 0) return null;
+        String actor = readActor(packet);
+        if (actor == null) return null;
+        return new CombatSnapshot(spots, actor.isEmpty() ? null : actor);
     }
 
     /** Plain wording for the header; never a tactical suggestion. */

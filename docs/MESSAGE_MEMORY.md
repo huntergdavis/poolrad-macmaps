@@ -238,3 +238,22 @@ encountered list, once, and rides along in that notebook's backup.
 Until the other two wordings are observed, the manual reader shipped in REF5
 remains the only way to reach a journal entry or proclamation the game
 mentioned.
+
+## The Combat Message window is a different window
+
+`A5-0x6178` is the ordinary Message window's TEHandle. During a battle that one
+is **empty** — teLength zero in all sixteen captures — and the text the player
+is reading lives in a second TERec whose handle sits at **`A5-0x6230`**.
+
+Found rather than guessed: take the visible combat text, "Hogarth\rHitpoints 10
+\rAC 1\r\rLong Bow", find its buffer in RAM, walk back through the single master
+pointer that names it to the TERec whose `hText` holds that handle, and then to
+the A5 global holding the TERec's handle. Confirmed against every capture — in
+combat it reads the acting character and matches the screenshot taken beside it
+(Lara Spellsword, Shara the Grey, Hogarth, Zarram); out of combat there is
+nothing there at all.
+
+Its first line is the name of whoever is acting, which is what the companion
+uses to ring that character on the battle overview and bar their row in the
+party pane. The name is validated before it is believed: printable only, no
+leading or trailing space, and short enough to be one of the game's own names.

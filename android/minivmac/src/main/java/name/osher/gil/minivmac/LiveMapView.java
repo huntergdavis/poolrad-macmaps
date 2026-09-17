@@ -175,10 +175,15 @@ public final class LiveMapView extends View {
                     + ". Position unavailable; party arrow hidden. " + mode.explanation();
         StringBuilder health = new StringBuilder();
         if (party != null) for (PartyState.Member member : party.members)
-            health.append(' ').append(member.name).append(": ").append(member.currentHp).append(" of ").append(member.maxHp)
+            health.append(' ').append(member.name)
+                    .append(combat != null && combat.isActing(member.name) ? " (acting): " : ": ")
+                    .append(member.currentHp).append(" of ").append(member.maxHp)
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
                     .append("; ").append(member.classLabel())
-                    .append("; ").append(member.conditionSummary()).append('.');
+                    .append("; ").append(member.conditionSummary())
+                    .append(member.readyToTrain() ? "; can train" : "")
+                    .append(member.spellsAwaitingRestTotal() > 0 ? "; spells await rest" : "")
+                    .append('.');
         if (mode == MapMode.COMBAT && combat != null)
             status = "Battle overview. " + combat.summary()
                     + ", between " + combat.left + "," + combat.top
@@ -523,10 +528,28 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.STROKE);
         ink.setStrokeWidth(Math.max(1, density));
         canvas.drawRect(left, top, left + gridWidth, top + gridHeight, ink);
+        /*
+         * Whose turn it is, ringed. Everything else on this grid says what
+         * somebody is; this says what the game is waiting for. The name comes
+         * from the game's own Combat Message window, and the party's spots are
+         * in the same order as the party's rows, so the nth party marker is the
+         * nth character.
+         */
+        int actingAt = -1;
+        if (battle.acting != null && party != null)
+            for (int i = 0; i < party.members.size() && actingAt < 0; i++)
+                if (battle.acting.equals(party.members.get(i).name)) actingAt = i;
+        int index = -1;
         for (CombatSnapshot.Spot spot : battle.spots()) {
+            index++;
             float cx = left + (spot.x - battle.left + .5f) * cell;
             float cy = top + (spot.y - battle.top + .5f) * cell;
             float radius = cell * .32f;
+            if (actingAt >= 0 && partyIndexOf(battle, index) == actingAt) {
+                ink.setStyle(Paint.Style.STROKE);
+                ink.setStrokeWidth(Math.max(1, density));
+                canvas.drawCircle(cx, cy, radius * 1.9f, ink);
+            }
             ink.setStyle(spot.party && !spot.fallen ? Paint.Style.FILL : Paint.Style.STROKE);
             ink.setStrokeWidth(Math.max(1.5f * density, cell * .09f));
             if (spot.fallen && spot.savable()) {
@@ -703,6 +726,17 @@ public final class LiveMapView extends View {
         canvas.drawLine(x1, y1, x2, y2, ink);
     }
 
+    /** How many party spots precede this one, or -1 if it is not one of ours. */
+    private int partyIndexOf(CombatSnapshot battle, int index) {
+        int seen = 0;
+        for (int i = 0; i < battle.spots().size(); i++) {
+            if (!battle.spots().get(i).party) continue;
+            if (i == index) return seen;
+            seen++;
+        }
+        return -1;
+    }
+
     /** Keep title and live/unavailable status in separate bounded header regions. */
     private String fitHeaderText(String value, float width) {
         if (width <= 0) return "";
@@ -772,10 +806,45 @@ public final class LiveMapView extends View {
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
             if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
             else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);
+            /*
+             * The acting character's row, marked with a bar down its left edge.
+             * In a fight the question is not who is hurt but who the game is
+             * waiting for, and the name is in the Combat Message window.
+             */
+            if (combat != null && combat.isActing(member.name)) {
+                ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
+                canvas.drawRect(column, p.rowTop(i) + 2 * unit,
+                        column + 3 * unit, p.rowTop(i) + p.rowHeight - 2 * unit, ink);
+            }
             quickSquare(p, i, unit, quickButton);
             drawQuick(canvas, quickButton, member.quick, unit);
-            ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK); ink.setTextSize(13*unit);
-            float available=Math.max(0,right-left-quickButton.width()-6*unit);
+            /*
+             * Two marks the game already knows and never puts in front of you.
+             *
+             * "T" when the game's own experience threshold for one of this
+             * character's classes has been passed, which saves a speculative
+             * walk to the training hall. "R" when spells were chosen through
+             * the Memorize screen and are still waiting on rest, which saves
+             * making camp to find out nobody needed it. Neither is advice: the
+             * app is not saying train or rest, only that the game would let you.
+             *
+             * They sit just left of the Q and take their width out of the
+             * name's, so a long name shortens rather than running into them.
+             */
+            String marks = (member.readyToTrain() ? "T" : "")
+                    + (member.spellsAwaitingRestTotal() > 0 ? "R" : "");
+            ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
+            float marksWidth = 0;
+            if (!marks.isEmpty()) {
+                ink.setTextSize(10 * unit);
+                marksWidth = ink.measureText(marks) + 5 * unit;
+                ink.setTextAlign(Paint.Align.RIGHT);
+                canvas.drawText(marks, right - quickButton.width() - 4 * unit,
+                        quickButton.bottom - 4 * unit, ink);
+                ink.setTextAlign(Paint.Align.LEFT);
+            }
+            ink.setTextSize(13*unit);
+            float available=Math.max(0,right-left-quickButton.width()-marksWidth-6*unit);
             int chars=ink.breakText(member.name,true,available,null);
             String name=chars==member.name.length()?member.name:chars>1?member.name.substring(0,chars-1)+"…":"";
             ink.setTextAlign(Paint.Align.LEFT);canvas.drawText(name,left,top+14*unit,ink);

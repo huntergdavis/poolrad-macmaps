@@ -153,6 +153,24 @@ the lower-priority queue.
   the **arrow** keys. It does not, and the four arrow keycodes map to -1, so an
   arrow has never reached the guest either. A speculative arrow mapping added
   on the strength of that note was reverted rather than kept.
+- [x] **F23 — Whose turn it is (brainstormed and picked 2026-09-17, shipped
+  0.37.0).** In a fight the hard thing on a small screen is keeping track of who
+  the game is waiting for. It says so in its **Combat Message** window, which is
+  a different window from the ordinary Message one: that lives at `A5-0x6178`
+  and is empty during a battle, while the combat text is at **`A5-0x6230`**.
+  Found by taking the visible text, locating its buffer, and walking back
+  through the master pointer to the TERec and then to the global holding its
+  handle; confirmed against all sixteen battle captures, where it names the
+  acting character and matches the screenshot taken beside it. The packet
+  becomes PRC2 with the name in its tail. The overview rings that character's
+  marker and the party row gets a bar down its left edge.
+- [x] **F24 — "Can train" and "spells await rest" marks (brainstormed and picked
+  2026-09-17, shipped 0.37.0).** Both facts were already read and never shown:
+  a **T** when the game's own experience threshold for one of the character's
+  classes has been passed, saving a speculative walk to the training hall, and
+  an **R** when spells chosen at the Memorize screen are still waiting on rest,
+  saving a camp nobody needed. Neither is advice — the app is not saying train
+  or rest, only that the game would allow it.
 - [x] **F22 — Dying and dead told apart, in both views (P0, user requested
   2026-09-17, shipped 0.36.0).** "It should say on the characters view too, if
   they are dying or dead not just on the map view." The combat entry's spare

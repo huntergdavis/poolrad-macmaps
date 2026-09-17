@@ -1,5 +1,49 @@
 # Local Android prototype
 
+## 0.37.0 — whose turn it is, and two marks the game already knew (2026-09-17)
+
+The final public universal APK is `scratch/poolrad-macmaps-0.37.0.apk`, SHA-256
+`2b0573219bcf2a6e0fbf49667f25d1f790e3b44d2a9ab844029aec9e3dd050ec`, versionCode 103.
+
+Two of the brainstormed ideas, both of which turned out to be nearly free
+because the data was already there or nearly there.
+
+**F23, whose turn it is.** The game says so in its **Combat Message** window,
+which is not the Message window the app already reads: that one lives at
+`A5-0x6178` and is empty during a battle. The combat text is at **`A5-0x6230`**,
+found by taking the visible text, locating its buffer, and walking back through
+its master pointer to the TERec and then to the global holding that TERec's
+handle. Confirmed against all sixteen battle captures — it names the acting
+character and matches the screenshot taken beside it every time, and reads as
+nothing at all outside combat. The combat packet becomes PRC2 with the name in
+its tail; the overview rings that character's marker and the party row takes a
+bar down its left edge.
+
+**F24, two marks.** Both facts were already parsed and never shown: **T** when
+the game's own experience threshold for one of a character's classes has been
+passed, and **R** when spells chosen at the Memorize screen are still waiting on
+rest. They sit beside the Q and take their width out of the name's, so a long
+name shortens rather than colliding. Neither is advice.
+
+Verified:
+
+- `tools/test-combat-probe.c` gained the actor: a fixture with no Combat Message
+  window reports nobody rather than inventing someone, one with a proper TERec
+  reports the name, and a first line that is too long, contains a control byte,
+  or is padded with a space is refused.
+- `CombatSnapshotTest` covers the name read back, `isActing`, a malformed field
+  rejecting the whole packet the way every other reader here rejects rather than
+  half-decodes, and a name that exactly fills the field.
+- Rendered at 1440x684 with all of it at once: T on Arax, R on Lara, Hogarth's
+  row barred and his marker ringed, Tanarakis "Dying" with a ✕, Shara "Dead"
+  with a ✝ — no collisions.
+- 12 render checks, **450 Java tests**, five native suites under `-Wall -Wextra
+  -Werror -fsanitize=address,undefined`.
+
+Both message readers are now `static inline`: the combat header includes the
+message header, and a plain static is an unused function to whichever of the two
+does not call it.
+
 ## 0.36.0 — dying and dead are different things (2026-09-17)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.36.0.apk`, SHA-256
