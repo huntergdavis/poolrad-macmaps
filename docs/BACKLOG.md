@@ -1025,6 +1025,20 @@ on the right side of it only because the game itself performs the action.
 - [ ] **F46 — A "Money" page:** the existing converter plus what the party
   actually holds. The purse has not been located in RAM yet.
 - [ ] **F47 — A message log.**
+- [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
+  time, never 24-hour. Same rule wherever else a time is shown, including the
+  auto-save names in F37.
+- [ ] **F49 — Back up saves off the disk image** to Android storage, and
+  restore them. At ~17 KB each this is cheap, and today the disk image is the
+  only copy that exists.
+- [ ] **F50 — Area progress on the map header** — "explored 62 of 256 squares".
+- [ ] **F51 — Mark where you were attacked.** Wherever a fight started, the map
+  keeps a monster icon with a cross through it. Drawn from what actually
+  happened to this party, so it spoils nothing and needs no bestiary.
+- [ ] **F52 — "Rest until healed",** driving the game's own rest command until
+  the party is up. Opt-in, and through the menus like F39-F41, never a write.
+- [ ] **F53 — Export the whole notebook as one file** — every map and every
+  note in a campaign, not a single page, because the notes span areas.
 
 ## Not in this project
 
