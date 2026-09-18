@@ -1061,7 +1061,7 @@ reads back correctly.
   routine has to be traced in its CODE resources, which is a much larger job. Also open from F78: the framing of an item block, which is
   roughly but not exactly 66 bytes, and whether the data fork's numbers really
   are little-endian.
-- [ ] **F33 — Load a save from the companion,** by reading the file.
+- [x] **F33 (delivered 0.47.0) — Load a save from the companion,** by reading the file.
   **PAUSED 2026-09-18, one question for the owner.** Reading a save is done —
   `SavedParty.parse` already says who is in one, so the companion can show what
   each save holds. Making the game *load* it is the part that needs a decision,

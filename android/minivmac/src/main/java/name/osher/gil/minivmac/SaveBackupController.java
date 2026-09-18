@@ -22,6 +22,7 @@ import name.osher.gil.minivmac.hfs.HfsFile;
 import name.osher.gil.minivmac.hfs.HfsVolume;
 import name.osher.gil.minivmac.hfs.SaveArchive;
 import name.osher.gil.minivmac.hfs.SaveBackupFiles;
+import name.osher.gil.minivmac.hfs.SavedParty;
 
 /**
  * Copying the game's own saved games off the guest disk, and putting them back.
@@ -41,9 +42,16 @@ public final class SaveBackupController {
     /** Whether the emulator currently has a disk in the drive. */
     public interface DriveState { boolean anyDiskInserted(); }
 
+    /** How a chosen saved game gets loaded: quit, start again, open it. */
+    public interface Loader { void load(String folder, String save); }
+
+    /** The game's own application, as the Finder lists it. */
+    public static final String APPLICATION = "Pool of Radiance v1.1";
+
     private final Activity activity;
     private final FileManager files;
     private final DriveState drive;
+    private Loader loader;
     private final SaveBackupFiles backups;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
@@ -54,6 +62,8 @@ public final class SaveBackupController {
         this.drive = drive;
         this.backups = new SaveBackupFiles(new File(activity.getFilesDir(), "savebackups"));
     }
+
+    public void setLoader(Loader loader) { this.loader = loader; }
 
     public void dispose() { io.shutdown(); }
 
@@ -96,11 +106,77 @@ public final class SaveBackupController {
                 .setMessage(heading)
                 .setItems(options.toArray(new String[0]), (dialog, which) -> {
                     String chosen = options.get(which);
-                    if (chosen.startsWith("Back up")) backUp(theSaves);
+                    if (chosen.startsWith("Load")) chooseSaveToLoad(theSaves);
+                    else if (chosen.startsWith("Back up")) backUp(theSaves);
                     else if (chosen.startsWith("Restore")) chooseBackup();
                 })
                 .setNegativeButton("Close", null)
                 .show();
+    }
+
+    /**
+     * Which save, described by who is in it. A list of file names is no help
+     * when they are called F7Healed and F7Injured; a list of parties is.
+     */
+    private void chooseSaveToLoad(List<Found> saves) {
+        List<Found> loadable = new ArrayList<>();
+        List<String> labels = new ArrayList<>();
+        for (Found save : saves) {
+            String who = describeParty(save);
+            if (who == null) continue;          // not a saved party; nothing to load
+            loadable.add(save);
+            labels.add(save.file.name + "\n" + who);
+        }
+        if (loadable.isEmpty()) { say("No saved parties were found on the guest disk."); return; }
+        new AlertDialog.Builder(activity)
+                .setTitle("Load which saved game?")
+                .setItems(labels.toArray(new String[0]),
+                        (dialog, which) -> confirmLoad(loadable.get(which)))
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** "Zarram, Arax the Bold and 4 others - 5/9 HP", or null if it is not a party. */
+    private String describeParty(Found save) {
+        try (Blocks blocks = SaveBackupFiles.open(save.image, false)) {
+            HfsVolume volume = HfsVolume.open(blocks);
+            SavedParty party = SavedParty.parse(volume.readResourceFork(save.file));
+            StringBuilder text = new StringBuilder();
+            int shown = Math.min(2, party.members.size());
+            for (int i = 0; i < shown; i++) {
+                if (i > 0) text.append(", ");
+                text.append(party.members.get(i).name);
+            }
+            int rest = party.members.size() - shown;
+            if (rest > 0) text.append(" and ").append(rest).append(rest == 1 ? " other" : " others");
+            int hurt = 0;
+            for (SavedParty.Member member : party.members) if (member.currentHp < member.maxHp) hurt++;
+            if (hurt > 0) text.append(" \u00b7 ").append(hurt).append(hurt == 1 ? " hurt" : " hurt");
+            return text.toString();
+        } catch (IOException | RuntimeException notAParty) {
+            return null;
+        }
+    }
+
+    private void confirmLoad(Found save) {
+        new AlertDialog.Builder(activity)
+                .setTitle("Load " + save.file.name + "?")
+                .setMessage("The game has to be closed and started again to load, because it "
+                        + "only offers Load Saved Game before a game begins. Anything not saved "
+                        + "in the game you are playing now will be lost.")
+                .setPositiveButton("Load", (DialogInterface dialog, int which) -> {
+                    Loader run = loader;
+                    if (run != null) run.load(folderOf(save), save.file.name);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+    }
+
+    /** The last part of the folder path, which is what the game's dialog wants. */
+    private String folderOf(Found save) {
+        String path = SaveBackupFiles.SAVE_FOLDER;
+        int colon = path.lastIndexOf(':');
+        return colon < 0 ? path : path.substring(colon + 1);
     }
 
     private void backUp(List<Found> saves) {

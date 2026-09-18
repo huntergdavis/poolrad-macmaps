@@ -28,6 +28,7 @@ import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
 import android.widget.Button;
 import android.widget.ImageButton;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -50,6 +51,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.ByteBuffer;
 import java.util.List;
 import name.osher.gil.minivmac.mapper.PollingPace;
+import name.osher.gil.minivmac.mapper.LoadSequence;
+import name.osher.gil.minivmac.mapper.GameSignal;
 import name.osher.gil.minivmac.mapper.AutomaticWheel;
 import name.osher.gil.minivmac.mapper.WheelPrompt;
 import name.osher.gil.minivmac.desktop.DiskAccessGate;
@@ -261,6 +264,133 @@ public class EmulatorFragment extends Fragment
         }
     }
 
+    private volatile byte[] mLastPartySample;
+    private LoadSequence mLoad;
+    private View mBusyLayout;
+    private TextView mBusyText;
+    /** Mac key codes: the modifier and the key the sequence needs most. */
+    private static final int MAC_COMMAND = 0x37, MAC_RETURN = 0x24;
+    /** Long enough for the guest to notice each key; it is not a fast typist. */
+    private static final long KEY_GAP_MS = 70;
+
+    /** What the probe last said the machine was doing. */
+    private GameSignal guestSignal() { return GameSignal.of(mLastPartySample); }
+
+    private void tapGuestKey(int macKey) {
+        Core target = mCore;
+        if (target == null || !target.isReady() || macKey < 0) return;
+        target.keyDown(macKey);
+        mUIHandler.postDelayed(() -> {
+            Core still = mCore;
+            if (still == target && still.isReady()) still.keyUp(macKey);
+        }, KEY_GAP_MS / 2);
+    }
+
+    /** Hold Command, press a letter, let go. */
+    private void sendCommandKey(char letter) {
+        Core target = mCore;
+        int macKey = translateKeyCode(KeyEvent.KEYCODE_A + Character.toUpperCase(letter) - 'A');
+        if (target == null || !target.isReady() || macKey < 0) return;
+        target.keyDown(MAC_COMMAND);
+        mUIHandler.postDelayed(() -> {
+            Core still = mCore;
+            if (still != target || !still.isReady()) return;
+            still.keyDown(macKey);
+            mUIHandler.postDelayed(() -> {
+                Core again = mCore;
+                if (again != target || !again.isReady()) return;
+                again.keyUp(macKey);
+                mUIHandler.postDelayed(() -> {
+                    Core last = mCore;
+                    if (last == target && last.isReady()) last.keyUp(MAC_COMMAND);
+                }, KEY_GAP_MS);
+            }, KEY_GAP_MS);
+        }, KEY_GAP_MS);
+    }
+
+    /** Type a line and press Return, one key at a time. */
+    private void sendGuestLine(String text) {
+        long at = 0;
+        for (int i = 0; i < text.length(); i++) {
+            char letter = text.charAt(i);
+            int macKey = macKeyFor(letter);
+            if (macKey < 0) continue;
+            at += KEY_GAP_MS * 2;
+            mUIHandler.postDelayed(() -> tapGuestKey(macKey), at);
+        }
+        mUIHandler.postDelayed(() -> tapGuestKey(MAC_RETURN), at + KEY_GAP_MS * 3);
+    }
+
+    /**
+     * Only what the game's own dialogs need: letters, digits and a space. A
+     * character with no mapping is skipped rather than guessed at, because a
+     * wrong key in a Standard File dialog selects the wrong file.
+     */
+    private int macKeyFor(char letter) {
+        char upper = Character.toUpperCase(letter);
+        if (upper >= 'A' && upper <= 'Z') return translateKeyCode(KeyEvent.KEYCODE_A + upper - 'A');
+        if (upper >= '0' && upper <= '9') return translateKeyCode(KeyEvent.KEYCODE_0 + upper - '0');
+        if (upper == ' ') return translateKeyCode(KeyEvent.KEYCODE_SPACE);
+        if (upper == '.') return translateKeyCode(KeyEvent.KEYCODE_PERIOD);
+        return -1;
+    }
+
+    private void showBusy(String what) {
+        if (mBusyLayout == null) return;
+        mBusyText.setText(what);
+        mBusyLayout.setVisibility(View.VISIBLE);
+    }
+
+    private void hideBusy() {
+        if (mBusyLayout != null) mBusyLayout.setVisibility(View.GONE);
+    }
+
+    /**
+     * Quit the game, start it again and load a save, with the guest covered so
+     * none of it is watched. Every step is decided by LoadSequence from what
+     * the probe says the machine is doing; nothing here reads the screen.
+     */
+    void loadSavedGame(String application, String folder, String save) {
+        if (mLoad != null) { toastGuest("Already loading something."); return; }
+        Core target = mCore;
+        if (target == null || !target.isReady()) { toastGuest("The emulator is not running."); return; }
+        mLoad = new LoadSequence(application, folder, save);
+        showBusy(mLoad.describe());
+        mUIHandler.post(mLoadTick);
+    }
+
+    private final Runnable mLoadTick = new Runnable() {
+        @Override public void run() {
+            LoadSequence load = mLoad;
+            if (load == null) return;
+            Core target = mCore;
+            if (target == null || !target.isReady()) { finishLoad("The emulator stopped."); return; }
+            LoadSequence.Instruction step = load.next(guestSignal(), SystemClock.elapsedRealtime());
+            showBusy(load.describe());
+            switch (step.kind) {
+                case COMMAND_KEY: sendCommandKey(step.key); break;
+                case TYPE_LINE: sendGuestLine(step.text); break;
+                case FINISHED: finishLoad(step.message); return;
+                case FAILED: finishLoad(step.message); return;
+                default: break;
+            }
+            mUIHandler.postDelayed(this, 400);
+        }
+    };
+
+    private void finishLoad(String message) {
+        mLoad = null;
+        hideBusy();
+        toastGuest(message);
+        // Whatever happened, the companion starts reading again from nothing.
+        startMapPolling();
+    }
+
+    private void toastGuest(String message) {
+        if (isAdded() && message != null)
+            Toast.makeText(requireContext(), message, Toast.LENGTH_LONG).show();
+    }
+
     private void startMapPolling() {
         stopMapPolling();
         if (companionMapActive()) {
@@ -378,6 +508,8 @@ public class EmulatorFragment extends Fragment
         mScreenView = root.findViewById(R.id.screen);
         mTrackPadView = root.findViewById(R.id.trackpad);
         mRestartLayout = root.findViewById(R.id.restart_layout);
+        mBusyLayout = root.findViewById(R.id.busy_layout);
+        mBusyText = root.findViewById(R.id.busy_text);
         Button restartButton = root.findViewById(R.id.restart_button);
         restartButton.setOnClickListener(v -> initEmulator());
         mKeyboardView = root.findViewById(R.id.keyboard);
@@ -490,11 +622,15 @@ public class EmulatorFragment extends Fragment
                     openCompanionTool(() -> mNotebook.chooseNotebook());
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_saved_games) {
-                    if (mSaveBackup == null) mSaveBackup = new SaveBackupController(
-                            requireActivity(), FileManager.getInstance(), () -> {
-                                Core target = mCore;
-                                return target != null && target.hasDisksInserted();
-                            });
+                    if (mSaveBackup == null) {
+                        mSaveBackup = new SaveBackupController(
+                                requireActivity(), FileManager.getInstance(), () -> {
+                                    Core target = mCore;
+                                    return target != null && target.hasDisksInserted();
+                                });
+                        mSaveBackup.setLoader((folder, save) ->
+                                loadSavedGame(SaveBackupController.APPLICATION, folder, save));
+                    }
                     mSaveBackup.show();
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
@@ -639,6 +775,10 @@ public class EmulatorFragment extends Fragment
             });
             mCore.setPartySampleListener(sample -> {
                 final int generation = mMapGeneration;
+                // Kept whatever the companion is doing: this is how the load
+                // sequence knows whether a game is running, and it has to be
+                // true even with the map hidden.
+                mLastPartySample = sample;
                 mUIHandler.post(() -> {
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
                         mLiveMap.showPartySample(sample);
