@@ -1,8 +1,16 @@
 # The saved game, and who has already decoded one
 
-Research done 2026-09-18 for F33/F34, after the owner settled that we will not
-write our own save format — saving calls the game's own routine — but that
-decoding the format for **loading** would still be worth having.
+Research done 2026-09-18 for F33/F34.
+
+**The result changed the project's boundary.** The research was commissioned
+under a decision that we would *not* write our own save format. On reading it
+the owner reversed that: "I take it back, we're going to be writing our own
+saves and we'll need to document and publish the format." The plan is now to
+align the Macintosh format, verify it, publish the specification, and build a
+converter that turns any platform's save into a Macintosh one — so parties
+other people played, at any point in the game, can be loaded here for testing.
+Recorded in [DESIGN.md](DESIGN.md); the ordered work is the save block of
+[BACKLOG.md](BACKLOG.md), F49 and F77 through F81.
 
 ## The short answer
 
@@ -61,3 +69,27 @@ Gold Box Companion reads **game memory rather than save files**, and says so
 plainly: its character editor "reads/modifies memory so it's instant compared
 to save file editors." That is independently the same architecture this project
 arrived at, for the same reason.
+
+
+## Why the converter is the point
+
+`wish` already converts between DOS, C64 and Amiga saves. **Nobody has the
+Macintosh side.** Adding it would make this the only route by which a party
+played anywhere else reaches the Macintosh port — and for this project
+specifically it solves a problem the scripting harness cannot solve at any
+price. `tools/play.py` can reach a battle in the slums; it cannot reach the
+endgame, and it will not be able to for a very long time. A converted save can,
+immediately, and with a party somebody actually played.
+
+That also means the format work has a second audience. Publishing the spec is
+the part that outlives this app.
+
+## Rules for anything that writes
+
+A bad save costs the owner his game, so these are not style preferences.
+
+1. **Back up the save disk first.** F49 is a prerequisite for this block, not a
+   nice-to-have. Today the disk image is the only copy of his saves.
+2. **Never overwrite an existing save.** Construct into a new file.
+3. **Verify by loading.** No save is claimed to work until the game has loaded
+   it and the party reads back correctly.

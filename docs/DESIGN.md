@@ -75,4 +75,42 @@ after-fight bandage he asked for is on the authorised side of it now.
 - **Unchanged:** the readers stay read-only, keep their validation, and are
   still checked byte-for-byte against untouched guest RAM.
 
+### Amended 2026-09-18: we write saves, and we publish the format
+
+The morning's decision was that we would not write our own save format —
+saving would call the game's own routine. The research into who had already
+decoded a Gold Box save changed the owner's mind, and he said so plainly: "I
+take it back, we're going to be writing our own saves and we'll need to
+document and publish the format."
+
+What changed the calculation is that the record is already documented
+field-by-field on three other platforms, and the Macintosh's 302 bytes look
+like the Amiga's 288 with different padding — both big-endian 68k. So this is
+an alignment against existing work rather than a decode from nothing, and the
+prize at the end is larger than a save button: **a converter that turns any
+platform's save into a Macintosh one**, which would let parties other people
+played, anywhere in the game, be loaded here for testing. Nobody has the
+Macintosh side of that. See [SAVE_FORMAT.md](SAVE_FORMAT.md).
+
+What this authorises:
+
+- **Writing save files we construct ourselves,** loading saves by reading the
+  file, and converting saves from other platforms into Macintosh ones.
+- **Publishing the format specification** once it is verified, as the project's
+  own reverse-engineering work. The format, never the publisher's data: no game
+  assets, no disk images, no extracted content.
+- **Importing a party somebody else played.** A converted save arrives with
+  whatever that party legitimately earned, which is not the same thing as
+  editing stats, and must not become a route to it. **We write saves; we do not
+  edit characters inside them.** Stat and HP editing stay excluded, and a
+  converter is not an excuse to add a field the player could not have earned.
+
+What this requires, because a bad save costs the owner his game:
+
+- **Back up the save disk before anything writes to it** (F49 is now a
+  prerequisite, not a nice-to-have).
+- **Never overwrite an existing save.** A save we construct goes to a new file.
+- **Verify by loading.** A save is not claimed to work until the game has
+  loaded it and the party reads back correctly.
+
 The ordered, checkable implementation queue is [BACKLOG.md](BACKLOG.md).

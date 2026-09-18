@@ -1021,35 +1021,53 @@ other, the entry says so. Nothing here is started unless it says so.
   on the info screen, not on the map. Pairs with F39 and F52.
 - [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
 
-### Save machinery
+### Save machinery — now the save format itself
 
-A real Pool of Radiance save, measured from the owner's own `disk2.dsk` on
-2026-09-18, is a 12,906-byte data fork plus a ~4.4 KB resource fork — about
-17 KB. Everything here drives the game's own File menu at that scale. An
-emulator memory snapshot (32 MB) is not on the table and was rejected.
+**Owner decision, 2026-09-18, replacing the one made earlier the same day.**
+The plan had been to call the game's own save routine and never touch the
+format. The research into who had already decoded a Gold Box save changed his
+mind: "I take it back, we're going to be writing our own saves and we'll need
+to document and publish the format."
 
-**Saving is the exception to the 2026-09-18 memory-write decision, because a
-save is a file and no amount of altering RAM produces one.** Two options, and
-they should be settled before F33 is built: call the game's own save and load
-routines directly from the emulator, which performs a real save with no menus
-on screen and is the preferred answer; or decode the 12,906-byte save format
-and write the file ourselves, which is far more work and risks producing a file
-the game will not read. Loading has a third route the saving side does not —
-the save is close to a serialised game state, so it could in principle be read
-into RAM — but that needs the same format decoded.
+The reasoning is in [SAVE_FORMAT.md](SAVE_FORMAT.md) and it is worth repeating
+here, because it is what makes this block worth its size. The same character
+record is documented field-by-field for DOS (285 bytes), Amiga (288) and C64.
+Ours measures 302. The Amiga record is documented as the DOS one plus padding,
+big-endian, and the Amiga is also big-endian 68k — so the Macintosh is very
+likely the same field order with different alignment, and this is an alignment
+job against existing work rather than a decode from nothing. **The prize is the
+converter at the end:** any platform's save turned into a Macintosh one, so
+parties other people played, at any point in the game, can be loaded here for
+testing. Nobody has the Macintosh side of that.
 
-**Settled 2026-09-18:** we will not write our own save format; saving calls the
-game's own routine. Decoding the format for *loading* is still wanted, and the
-research for it is in [SAVE_FORMAT.md](SAVE_FORMAT.md). The finding in one
-line: nobody has decoded the Macintosh save, but the same record is documented
-field-by-field for DOS (285 bytes), Amiga (288) and C64, and the Mac's 302
-bytes look like the same field order with different padding — so this is an
-alignment job against layouts that already exist, not a decode from nothing.
+Measured on his own `disk2.dsk`: a save is a 12,906-byte data fork plus a
+~4.4 KB resource fork, about 17 KB. The DOS-lineage documentation describes the
+structures inside a save and says nothing about how the Macintosh port arranges
+its two forks around them; that part is ours.
 
-- [ ] **F33 — Load a save from the companion.** The rest of this block is built
-  on whichever mechanism this establishes.
-- [ ] **F36 — Answer the game's own save and overwrite prompts.** Needed before
-  anything can save unattended.
+**Three rules for this block, because a bad save costs him his game.** Back up
+before anything writes. Never overwrite an existing save — construct into a new
+file. Nothing is claimed to work until the game has loaded it and the party
+reads back correctly.
+
+- [ ] **F49 — Back up and restore saves off the disk image.** Promoted to the
+  front of this block and treated as a prerequisite: nothing here writes to the
+  save disk until his saves exist somewhere else. At ~17 KB each this is cheap,
+  and today the disk image is the only copy.
+- [ ] **F77 — Align the Macintosh character record against the documented DOS,
+  Amiga and C64 layouts.** Start here, because it is the cheapest step and the
+  one that pays elsewhere: the offsets this project found independently (name
+  `+0x00`, class `+0x2f`, maxHP `+0x32`, encumbrance `+0x10e`, chain `+0x110`,
+  own handle `+0x114`, condition `+0x118`, quick `+0x11b`, AC `+0x11d`, attacks
+  `+0x120`, currentHP `+0x12b`, movement `+0x12c`) either fall in the documented
+  order once padding is accounted for, or they do not. If they do, the whole map
+  is confirmed in one pass — **which unblocks F41 and F39**, both currently
+  stuck on the equipment and spell sections.
+- [ ] **F78 — Decode the saved game itself:** what the data fork holds, what the
+  resource fork holds, and where the party, position and world state sit in it.
+- [ ] **F33 — Load a save from the companion,** by reading the file.
+- [ ] **F79 — Write a save the game will load.** Verified the only way that
+  counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
 - [ ] **F37 — Periodic auto-save,** named by wall-clock date in am/pm form,
   keeping the most recent 20 and rotating the oldest out. **The rotation is the
@@ -1058,9 +1076,19 @@ alignment job against layouts that already exist, not a decode from nothing.
   new notebook rather than writing into the wrong one.
 - [ ] **F38 — Resume polling automatically after the guest restarts.** Today it
   takes a tab toggle.
-- [ ] **F49 — Back up saves off the disk image** to Android storage, and
-  restore them. At ~17 KB each this is cheap, and today the disk image is the
-  only copy that exists.
+- [ ] **F80 — Publish the format specification** once it is verified. The
+  project's own reverse-engineering work, and the Macintosh piece nobody else
+  has. The format only: no game assets, no disk images, no extracted content.
+- [ ] **F81 — A converter: any platform's save into a Macintosh one.** The
+  reason for the whole block. It lets a party somebody else played, at any point
+  in the game, be loaded here — which is a test fixture the scripting harness
+  cannot produce at any price. **Boundary:** a converted save arrives with
+  whatever that party legitimately earned, which is not stat editing and must
+  not become a route to it. We write saves; we do not edit characters inside
+  them.
+- [ ] **F36 — Answer the game's own save and overwrite prompts.** Kept, demoted:
+  it is only needed on whatever paths still go through the game's own dialogs
+  once F79 exists, and may turn out to be unnecessary.
 
 ### Helper actions — performed by writing memory, not by driving menus
 
