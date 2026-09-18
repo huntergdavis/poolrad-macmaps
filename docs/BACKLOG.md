@@ -956,9 +956,10 @@ research for sources and portability limits.
 
 ## Queue from the brainstorm rounds (2026-09-17 → 2026-09-18)
 
-Every item below was proposed in a spitball round and explicitly kept by the
-owner; ideas he skipped are not recorded here. Order is his stated priority.
-Nothing here is started unless it says so.
+Fifty-two items the owner kept across seven spitball rounds; ideas he skipped
+are not recorded. **This list is in his priority order** and the order is the
+instruction — where two items are only ordered because one depends on the
+other, the entry says so. Nothing here is started unless it says so.
 
 ### P0 — his designation
 
@@ -980,7 +981,7 @@ Nothing here is started unless it says so.
   way F23 marks whose turn it is inside one. The same question — who is the
   game waiting on — and it goes unanswered everywhere but the guest screen.
 
-### In flight
+### In flight — finish before starting anything below
 
 - [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
   movement is below the party's best, i.e. they are carrying too much. Code is
@@ -989,63 +990,19 @@ Nothing here is started unless it says so.
 - [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
   few seconds. Read-only: it identifies, it does not command.
 
-### The options page and what moves onto it
+### The options page, and the toggles that need it to exist first
 
-- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map.
-- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
+- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map,
+  and everything below in this block lands on it.
+- [ ] **F55 — A legend for the map's marks,** reached from a link in the
+  bottom-right of the map area. The marks have piled up — the crosses, the
+  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
 - [ ] **F31 — Option: auto-skip messages.**
-- [ ] **F32 — An info panel** naming which save is loaded and how much room is
-  left on the save disk.
-
-### Save machinery
-
-A real Pool of Radiance save, measured from the owner's own `disk2.dsk` on
-2026-09-18, is a 12,906-byte data fork plus a ~4.4 KB resource fork — about
-17 KB. Everything here drives the game's own File menu at that scale. An
-emulator memory snapshot (32 MB) is not on the table and was rejected.
-
-- [ ] **F33 — Load a save from the companion.**
-- [ ] **F34 — Auto-load the last save on launch.**
-- [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
-  new notebook rather than writing into the wrong one.
-- [ ] **F36 — Answer the game's own save and overwrite prompts** as part of the
-  save flow.
-- [ ] **F37 — Periodic auto-save,** named by wall-clock date, keeping the most
-  recent 20 and rotating the oldest out so the disk cannot fill.
-- [ ] **F38 — Resume polling automatically after the guest restarts.** Today it
-  takes a tab toggle.
-
-### Driving the game's own commands
-
-All three are opt-in, and all three go through the game's menus — never a
-memory write. They sit next to the excluded auto-heal/auto-ammo line and stay
-on the right side of it only because the game itself performs the action.
-
-- [ ] **F39 — Auto-memorise after rest,** the same spells as last time.
-- [ ] **F40 — Auto-bandage when a fight exits.**
-- [ ] **F41 — Auto-equip a weapon at battle start** for anyone without one.
-
-### The rest, in order
-
-- [ ] **F42 — A citation notice opens that journal entry.**
-- [ ] **F43 — Long-press a party row, open that character's sheet in the game.**
-- [ ] **F44 — A chores tab:** "2 can train · 1 needs rest · 1 dying".
-- [ ] **F45 — Older footprints drawn slightly smaller,** so a trail reads
-  directionally. Deliberately not shading: shading does not hold up on e-ink.
-- [ ] **F46 — A "Money" page:** the existing converter plus what the party
-  actually holds. The purse has not been located in RAM yet.
-- [ ] **F47 — A message log.**
-- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle
-  on the options page. The Combat Message and ordinary Message TEHandles are
-  already read, so the text costs nothing to obtain; 1984 Mac type at e-ink
-  size is the hardest thing on the screen to read. An option, not a default,
-  because it covers screen the map wants.
-- [ ] **F67 — Mark NPCs in the party distinctly** from characters the player
-  rolled. The roster walk already tells them apart.
-- [ ] **F68 — Trim the on-screen keyboard to the keys the game uses,** with
-  bigger targets. Needs care rather than a fixed subset: names still have to be
-  typeable, so the full alphabet must stay reachable — most likely a compact
-  default that expands when the game is asking for text.
+- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle.
+  The Combat Message and ordinary Message TEHandles are already read, so the
+  text costs nothing to obtain; 1984 Mac type at e-ink size is the hardest
+  thing on the screen to read. An option, not a default, because it covers
+  screen the map wants.
 - [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
   *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
   2.0 — there is room, and the gain is larger than the idea suggested.* A row
@@ -1056,37 +1013,124 @@ on the right side of it only because the game itself performs the action.
   the layout falls back to **two** columns: the sidebar takes 792 of 1440px and
   the map drops from 1008px wide to 648px. One-line rows at roughly 28dp keep a
   single column in all of those cases, so the map keeps its full width instead
-  of losing a third of it. Worth building for the eight-member and
-  large-type cases, not for the common six.
-- [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
-  time, never 24-hour. Same rule wherever else a time is shown, including the
-  auto-save names in F37.
+  of losing a third of it. Worth building for the eight-member and large-type
+  cases, not for the common six.
+- [ ] **F32 — An info panel** naming which save is loaded and how much room is
+  left on the save disk.
+- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
+  on the info screen, not on the map. Pairs with F39 and F52.
+- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
+
+### Save machinery
+
+A real Pool of Radiance save, measured from the owner's own `disk2.dsk` on
+2026-09-18, is a 12,906-byte data fork plus a ~4.4 KB resource fork — about
+17 KB. Everything here drives the game's own File menu at that scale. An
+emulator memory snapshot (32 MB) is not on the table and was rejected.
+
+- [ ] **F33 — Load a save from the companion.** The rest of this block is built
+  on the menu-driving this establishes.
+- [ ] **F36 — Answer the game's own save and overwrite prompts.** Needed before
+  anything can save unattended.
+- [ ] **F34 — Auto-load the last save on launch.**
+- [ ] **F37 — Periodic auto-save,** named by wall-clock date in am/pm form,
+  keeping the most recent 20 and rotating the oldest out. **The rotation is the
+  point:** an automatic save must never overwrite a save the player made.
+- [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
+  new notebook rather than writing into the wrong one.
+- [ ] **F38 — Resume polling automatically after the guest restarts.** Today it
+  takes a tab toggle.
 - [ ] **F49 — Back up saves off the disk image** to Android storage, and
   restore them. At ~17 KB each this is cheap, and today the disk image is the
   only copy that exists.
-- [ ] **F50 — Area progress on the map header** — "explored 62 of 256 squares".
-- [ ] **F51 — Mark where you were attacked.** Wherever a fight started, the map
-  keeps a monster icon with a cross through it. Drawn from what actually
-  happened to this party, so it spoils nothing and needs no bestiary.
+
+### Driving the game's own commands
+
+All of these are opt-in, and all go through the game's menus — never a memory
+write. They sit next to the excluded auto-heal/auto-ammo line and stay on the
+right side of it only because the game itself performs the action.
+
+- [ ] **F40 — Bandage and quicksave when a fight ends.** The owner's standing
+  answer to "what should always happen after a fight". The quicksave goes into
+  the F37 rotation and never overwrites the last save he made, so it depends on
+  F37 being built first.
+- [ ] **F41 — Auto-equip a weapon at battle start** for anyone without one.
+- [ ] **F39 — Auto-memorise after rest,** the same spells as last time.
 - [ ] **F52 — "Rest until healed",** driving the game's own rest command until
-  the party is up. Opt-in, and through the menus like F39-F41, never a write.
-- [ ] **F55 — A legend for the map's marks,** reached from a link in the
-  bottom-right of the map area. The marks have piled up — the crosses, the
-  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
-- [ ] **F56 — A note index:** every note listed by area and date, tap to open.
-  Handwriting cannot be searched, but it can be listed.
-- [ ] **F57 — Open the notebook page for the area you just entered.**
-- [ ] **F58 — An area-connection map** — which door led where, built only from
-  movement this party actually made.
-- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
-  on the info screen, not on the map. Pairs with F39 and F52.
-- [ ] **F60 — Tap the header to ping your own square,** for finding yourself on
-  a large map.
+  the party is up.
 - [ ] **F61 — Big Yes/No buttons when the game asks a yes/no question.** Same
   family as F30, and it routes around the keyboard-focus problem that has
   repeatedly broken the scripting harness.
+
+### Reading the fight
+
+- [ ] **F70 — Name the monsters in the combat header.** The roster walk already
+  reads their name bytes; "29 others" is the least informative thing on the
+  overview.
+- [ ] **F71 — Count how many of each monster type remain** as the fight thins.
+- [ ] **F73 — Draw the real arena bounds.** The overview frames the occupied
+  squares today because the arena's own bounds were never decoded, which is
+  the known limit recorded under L2.
+
+### The map
+
+- [ ] **F51 — Mark where you were attacked.** Wherever a fight started, the map
+  keeps a monster icon with a cross through it. Drawn from what actually
+  happened to this party, so it spoils nothing and needs no bestiary.
+- [ ] **F74 — Mark squares where you found something** — an exclamation mark,
+  an open chest, and so on. User-visible history, not a spoiler: it records
+  only what this party already found.
+- [ ] **F50 — Area progress on the map header** — "explored 62 of 256 squares".
+- [ ] **F45 — Older footprints drawn slightly smaller,** so a trail reads
+  directionally. Deliberately not shading: shading does not hold up on e-ink.
+- [ ] **F60 — Tap the header to ping your own square,** for finding yourself on
+  a large map.
+- [ ] **F75 — A 1:1 option** drawing the map at the game's own grid scale.
+- [ ] **F58 — An area-connection map** — which door led where, built only from
+  movement this party actually made.
 - [ ] **F62 — A stitch view:** the neighbouring area's map beside the current
   one when you cross a boundary.
+
+### The party list
+
+- [ ] **F67 — Mark NPCs in the party distinctly** from characters the player
+  rolled. The roster walk already tells them apart.
+- [ ] **F72 — Show the marching order.** Wanted, with a design caution from the
+  owner: the row is already carrying a badge, a name, HP, armour class, a bar,
+  T/R/W and Q, and this must not make it busy.
+- [ ] **F43 — Long-press a party row, open that character's sheet in the game.**
+- [ ] **F44 — A chores tab:** "2 can train · 1 needs rest · 1 dying".
+
+### The notebook
+
+The map already serves as the notebook's underlay — notes are drawn over the
+live map surface and linked to flags on it — so no separate tracing feature is
+needed. Confirmed 2026-09-18.
+
+- [ ] **F42 — A citation notice opens that journal entry.**
+- [ ] **F57 — Open the notebook page for the area you just entered.**
+- [ ] **F56 — A note index:** every note listed by area and date, tap to open.
+  Handwriting cannot be searched, but it can be listed.
+- [ ] **F53 — Export the whole notebook as one file** — every map and every
+  note in a campaign, not a single page, because the notes span areas.
+
+### Remaining
+
+- [ ] **F46 — A "Money" page:** the existing converter plus what the party
+  actually holds. The purse has not been located in RAM yet.
+- [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
+  time, never 24-hour. Same rule wherever else a time is shown, including the
+  auto-save names in F37.
+- [ ] **F68 — Trim the on-screen keyboard to the keys the game uses,** with
+  bigger targets. Needs care rather than a fixed subset: names still have to be
+  typeable, so the full alphabet must stay reachable — most likely a compact
+  default that expands when the game is asking for text.
+- [ ] **F47 — A message log.**
+
+### P3
+
+- [ ] **F76 — Templates for a new notebook page** — a blank grid, a ruled list,
+  a blank map frame.
 
 ### Back of the backlog
 
@@ -1096,17 +1140,14 @@ companion feature. The eventual aim is a harness that can play the game
 through unattended; that is a direction, not a milestone, and no round of work
 should trade a requested feature for it.
 
-- [ ] **F65 — Teach `tools/play.py` to reach a named area on demand,** so
-  screenshots for a feature are repeatable instead of hand-driven. Complex, and
-  filed behind everything under the standing rule above.
-
 - [ ] **F63 — One backup file for the whole companion** — notebooks, fog and
   trails together. Wanted, but by the owner's own account rarely used, so it
   sits behind everything above. Broader than F53, which is an export for
   reading rather than a restore.
+- [ ] **F65 — Teach `tools/play.py` to reach a named area on demand,** so
+  screenshots for a feature are repeatable instead of hand-driven. Complex, and
+  filed behind everything under the standing rule above.
 
-- [ ] **F53 — Export the whole notebook as one file** — every map and every
-  note in a campaign, not a single page, because the notes span areas.
 
 ## Not in this project
 
