@@ -1102,11 +1102,17 @@ reads back correctly.
 - [ ] **F80 — Publish the format specification** once it is verified. The
   project's own reverse-engineering work, and the Macintosh piece nobody else
   has. The format only: no game assets, no disk images, no extracted content.
-- [ ] **F82 — Establish what the Macintosh version itself supports:** the level
+- [x] **F82 (delivered 0.46.0) — Establish what the Macintosh version itself supports:** the level
   cap for each class, the class and race lists, and the item and spell tables it
   actually has. A prerequisite for F81 — a converter cannot adjust to limits
   nobody has written down, and these are exactly the limits a port is likely to
   have changed.
+- [ ] **F85 — Enumerate the item catalogue this version has.** Left open by
+  F82: item names come from the game's `ITEM%d.DAX` data files rather than from
+  any table in the application, so they are a separate structure from the class,
+  race and spell lists. The running game's item names are already read correctly
+  by the party probe, by a different route. F81 needs this, because an item from
+  another version that does not exist here is exactly the case it has to refuse.
 - [ ] **F81 — A converter: any platform's save into a Macintosh one.** The
   reason for the whole block. It lets a party somebody else played, at any point
   in the game, be loaded here — which is a test fixture the scripting harness
