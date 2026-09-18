@@ -40,10 +40,22 @@ you where you have not been.
 Names, HP bars, armor class and class symbols sit beside the map. Tap anyone
 for spell readiness per level, readied weapon and armor, carried weight, and
 the game's own next-level figures. A quiet badge flags injury, poison, dying or
-petrification, with the exact wording on tap — and when a fight starts, a
-read-only overview shows every combatant's square.
+petrification, with the exact wording on tap. **Q** turns quick combat on for
+one character; **T** appears where the game itself will let them train.
 
-<img src="docs/images/combat-overview.png" width="760" alt="Battle overview showing six party squares filled and twenty-nine others hollow, an injured badge on Tanarakis, above the live Mac combat view">
+## When a fight starts
+
+A read-only overview shows every combatant's square — yours filled, everyone
+else hollow. **The ring says whose turn it is**, and the same character's row is
+marked beside it, so "who is the game waiting for" has an answer without
+counting figures. Tap any of your squares and that row lights up for a few
+seconds. Nobody is named, no move is suggested, and it clears the moment the
+battle ends.
+
+Anyone down is drawn as a cross rather than dropped: a diagonal one for someone
+still worth reaching, an upright one for past helping.
+
+<img src="docs/images/battle-overview.png" width="760" alt="Battle overview during a goblin ambush: six filled circles for the party and twelve hollow squares for the goblins between 23,11 and 31,15, one party circle ringed to show whose turn it is, with the matching bar beside Lara Spellsword's row">
 
 ## Write on the map
 
