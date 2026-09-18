@@ -49,6 +49,7 @@ import java.io.IOException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.nio.ByteBuffer;
 import java.util.List;
+import name.osher.gil.minivmac.mapper.PollingPace;
 import name.osher.gil.minivmac.mapper.AutomaticWheel;
 import name.osher.gil.minivmac.mapper.WheelPrompt;
 import name.osher.gil.minivmac.desktop.DiskAccessGate;
@@ -214,6 +215,8 @@ public class EmulatorFragment extends Fragment
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
+    /** How fast to read the machine, given how long since its screen moved. */
+    private final PollingPace mMapPace = new PollingPace();
     private final Runnable mMapPoll = new Runnable() {
         @Override public void run() {
             if (!mMapPolling || !companionMapActive()) return;
@@ -223,14 +226,33 @@ public class EmulatorFragment extends Fragment
                 target.requestMessageSample(); target.requestCombatSample();
             }
             else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
-            mUIHandler.postDelayed(this, 250);
+            mUIHandler.postDelayed(this, mMapPace.interval(SystemClock.elapsedRealtime()));
         }
     };
+
+    /**
+     * The guest's screen moved, so read at the full rate again — and if a slow
+     * read was already scheduled, do not sit out the rest of its wait. Without
+     * this, stepping through a door after a quiet minute would take three
+     * seconds to reach the map.
+     */
+    private void guestScreenMoved() {
+        long now = SystemClock.elapsedRealtime();
+        boolean waiting = mMapPolling && mMapPace.slowed(now);
+        mMapPace.sawActivity(now);
+        if (waiting && mUIHandler != null) {
+            mUIHandler.removeCallbacks(mMapPoll);
+            mUIHandler.post(mMapPoll);
+        }
+    }
 
     private void startMapPolling() {
         stopMapPolling();
         if (companionMapActive()) {
             mMapPolling = true;
+            // A pane that has just opened knows nothing; read at full rate
+            // until the machine itself shows it has gone quiet.
+            mMapPace.reset();
             mUIHandler.post(mMapPoll);
         }
     }
@@ -625,7 +647,10 @@ public class EmulatorFragment extends Fragment
             mScreenView.setOnMouseEventListener(mouseInput);
             mTrackPadView.setOnMouseEventListener(mouseInput);
 
-            mCore.setOnUpdateScreenListener((update, top, left, bottom, right) -> mUIHandler.post(() -> mScreenView.updateScreen(update, top, left, bottom, right)));
+            mCore.setOnUpdateScreenListener((update, top, left, bottom, right) -> mUIHandler.post(() -> {
+                guestScreenMoved();
+                mScreenView.updateScreen(update, top, left, bottom, right);
+            }));
 
             mCore.setOnDiskEventListener(new Core.OnDiskEventListener() {
 

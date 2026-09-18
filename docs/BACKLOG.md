@@ -985,7 +985,7 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
-- [ ] **F25 — Stop reading when there is nothing to read.** Pause the RAM polls
+- [x] **F25 (delivered 0.41.0) — Stop reading when there is nothing to read.** Pause the RAM polls
   while the guest is idle, and suspend the emulator when the app is
   backgrounded. Conditional on auto-resuming the moment it is foregrounded; if
   resume cannot be made reliable, drop the suspend half and keep the pause.
