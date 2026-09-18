@@ -1095,22 +1095,37 @@ reads back correctly.
   check that no game is running by **reading it from guest memory**, not by
   looking at whether a menu item appears grey. That is the check the scripting
   harness did not have, and it is the reason it failed silently.
-- [ ] **F87 — The DEBUG RAM snapshot comes back empty.** Found 2026-09-18 while
-  trying the F84 experiment. Every snapshot taken today is the right size,
-  8,388,608 bytes, and almost entirely zeros: 22 pages with anything in them
-  against 861 in a snapshot from an earlier session, and low memory's
-  application-globals pointer at `0x904` reading `0xffffff` instead of a real
-  address. The game was demonstrably running at the time — `play.py state` said
-  `continue` and the companion was drawing a live map from the same machine.
+- [ ] **F87 — RAM snapshots come back empty, and the first diagnosis was wrong.**
+  Found 2026-09-18. Snapshots are the right size, 8,388,608 bytes, and almost
+  entirely zeros: 22 pages with anything in them against 861 in one from an
+  earlier session, with low memory's application-globals pointer at `0x904`
+  reading `0xffffff`.
 
-  So the companion's own probes are reading guest memory perfectly well while
-  the snapshot path returns nothing, which points at the snapshot path rather
-  than at the emulator. Worth finding: the probes and the snapshot should be
-  looking at the same bytes.
+  **The first write-up of this said the probes were reading fine while the
+  snapshot was empty, and that was wrong.** They cannot disagree:
+  `DeliverRamSnapshot` and `DeliverMapSample` both call the same
+  `GetRamForSnapshot`, which returns the one `RAM` pointer and `kRAM_Size`. When
+  the snapshot is empty the companion shows "Position unavailable" at the same
+  moment, which is the probes finding nothing too.
 
-  `tools/check-snapshot.py` now refuses an empty snapshot rather than handing
-  one back, because an empty one is the right size and looks exactly like a real
-  one until something tries to read it.
+  So the real question is why the app reads an empty guest while the emulated
+  Macintosh is visibly running on screen — a more serious question than a broken
+  snapshot path, and worth answering before anything else needs a capture.
+
+  **What makes this hard to pin down:** every attempt costs a multi-minute boot,
+  and the machine kept drifting between steps — at a Continue prompt, at the
+  title with no party, quit to the Finder. "Position unavailable" is the
+  *correct* display in all of those, so it proves nothing on its own. What is
+  needed is one capture taken with the party demonstrably walking around, and
+  `tools/snapshot-with-save.sh` now boots, loads, checks the state, captures and
+  checks the state again in one go so that the reading means something. It has
+  not yet caught the machine in play.
+
+  `tools/check-snapshot.py` refuses an empty snapshot rather than handing one
+  back, because an empty one is the right size and looks exactly like a real one
+  until something tries to read it.
+
+  **Blocks F84**, which cannot be tested without a snapshot of a played game.
 
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
   F33 ships the reading, the chooser, the overlay and the guarded sequence, and
