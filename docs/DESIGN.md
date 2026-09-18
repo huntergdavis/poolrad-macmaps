@@ -22,7 +22,9 @@ accessible when automatic startup fails.
 
 High contrast, stable layouts, large targets and minimal animation come first.
 Emulator tests are useful evidence, not a substitute for testing real e-ink and
-stylus hardware. No cloud, accounts, LLM dependency, stat editing or teleporting.
+stylus hardware. No cloud, accounts, LLM dependency or
+teleporting. Writing to the running game, and stat editing with the owner's
+per-edit sign-off, were allowed later — see the dated amendments below.
 
 ## Writing to the running game (owner decision, 2026-09-16)
 
@@ -112,5 +114,33 @@ What this requires, because a bad save costs the owner his game:
 - **Never overwrite an existing save.** A save we construct goes to a new file.
 - **Verify by loading.** A save is not claimed to work until the game has
   loaded it and the party reads back correctly.
+
+### Amended 2026-09-18: stat editing, gated on the owner's sign-off
+
+The last standing exclusion is lifted: "I actually think stat editing is OK from
+now on, if I sign off on it."
+
+**The gate is the whole of it, and it is the part that will be forgotten.** This
+does not make stat editing a capability the app has. It makes each stat edit
+something the owner can authorise, one at a time, in the same way he authorised
+the quick flag. The earlier test — whether a write does something the player
+could have done through the game — no longer decides these; his sign-off does.
+
+- **No feature writes a stat on its own initiative.** Not to round out a
+  converted save, not to repair something that reads oddly, not to make a test
+  pass. If a stat needs changing and he has not said so, the answer is to ask.
+- **No general stat editor** gets built as scaffolding for a specific edit he
+  asked for. One field at a time, with its own tests, like every write before it.
+- **Sign-off is per edit, not per session,** and it is recorded with the work.
+  "He approved stat editing" is not a citation; the specific request is.
+- **Teleporting was not mentioned and is not lifted.** It has been paired with
+  stat editing in the exclusions list since the beginning, and this reads as a
+  statement about stats. If he wants it too, he will say so.
+- **Unchanged:** the readers stay read-only and keep their validation.
+
+One consequence worth stating, because it is the case most likely to come up:
+a save converted from another platform (F81) may hold a value the Macintosh
+record cannot represent. Correcting that is a conversion problem, not a licence
+to edit — say what could not be represented and ask.
 
 The ordered, checkable implementation queue is [BACKLOG.md](BACKLOG.md).

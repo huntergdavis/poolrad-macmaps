@@ -1082,10 +1082,11 @@ reads back correctly.
 - [ ] **F81 — A converter: any platform's save into a Macintosh one.** The
   reason for the whole block. It lets a party somebody else played, at any point
   in the game, be loaded here — which is a test fixture the scripting harness
-  cannot produce at any price. **Boundary:** a converted save arrives with
-  whatever that party legitimately earned, which is not stat editing and must
-  not become a route to it. We write saves; we do not edit characters inside
-  them.
+  cannot produce at any price. **Boundary:** a converted save
+  arrives with whatever that party legitimately earned, and converting is not
+  editing. If a value will not survive the conversion, say which one and ask —
+  the stat-editing sign-off is his to give per edit, not the converter's to
+  assume.
 - [ ] **F36 — Answer the game's own save and overwrite prompts.** Kept, demoted:
   it is only needed on whatever paths still go through the game's own dialogs
   once F79 exists, and may turn out to be unnecessary.
@@ -1098,11 +1099,12 @@ overruled it, for a reason about the player rather than about safety: "the
 player shouldn't have to see a bunch of menu commands being executed for things
 the helper does." A companion that puppets the File and Camp menus in front of
 you is worse than one that quietly sets the field. So the write is the
-implementation here, not the fallback. Recorded in [DESIGN.md](DESIGN.md),
-which also records what this does **not** open: arbitrary stat editing and
-teleporting stay out. The test is not writes-versus-reads, it is whether the
-write does a thing the player could have done through the game at a moment they
-asked for it.
+implementation here, not the fallback. Recorded in [DESIGN.md](DESIGN.md).
+These particular writes need no further sign-off, because each does a thing the
+player could have done through the game at a moment they asked for it. Stat
+editing, which does not clear that bar, was separately allowed later the same
+day — but only edit by edit, with his sign-off each time. Teleporting stays
+out.
 
 Each of these is opt-in, writes one named field in a record that has already
 passed every check the party reader makes, and refuses rather than guessing when
@@ -1223,16 +1225,23 @@ should trade a requested feature for it.
 ## Not in this project
 
 LLMs, cloud accounts/sync, telemetry, rooting, an exposed RAM server, general
-multi-game support, stat/HP editors, teleporting, auto-ammo, bypassing training
-restrictions, emulator rewrites, and marathon CI or all-device matrices.
+multi-game support, teleporting, auto-ammo, bypassing training restrictions,
+emulator rewrites, and marathon CI or all-device matrices.
 
-**Amended 2026-09-18:** "auto-heal" left this list. The owner asked for an
-after-fight bandage and for rest-until-healed, both performed by writing memory
-rather than by driving menus, so healing the party at a moment he asked for it
-is now in scope. What the line still excludes is unchanged in substance: stat
-and HP editing as a facility, and teleporting. The distinction is whether the
-write does something the player could have done through the game at a moment
-they asked for it.
+**Amended 2026-09-18, twice.** "auto-heal" left this list first: the owner
+asked for an after-fight bandage and for rest-until-healed, both performed by
+writing memory rather than by driving menus. Then "stat/HP editors" left it too
+— "I actually think stat editing is OK from now on, **if I sign off on it**."
+
+The gate is the whole of that, and it is what this list now records. Stat
+editing is not a capability the app has; it is something he can authorise one
+edit at a time. **No feature writes a stat on its own initiative**, no general
+editor gets built as scaffolding for a specific request, and sign-off is per
+edit and recorded with the work — "he approved stat editing" is not a citation.
+
+**Teleporting is still excluded.** It was not mentioned, and has been paired
+with stat editing here since the beginning; that pairing is not a reason to
+assume it went too.
 
 The new approved scope is a read-only game companion plus user-owned notes,
 screenshots, and explicit desktop personalization. Those user-owned writes do
