@@ -1038,6 +1038,14 @@ the game will not read. Loading has a third route the saving side does not —
 the save is close to a serialised game state, so it could in principle be read
 into RAM — but that needs the same format decoded.
 
+**Settled 2026-09-18:** we will not write our own save format; saving calls the
+game's own routine. Decoding the format for *loading* is still wanted, and the
+research for it is in [SAVE_FORMAT.md](SAVE_FORMAT.md). The finding in one
+line: nobody has decoded the Macintosh save, but the same record is documented
+field-by-field for DOS (285 bytes), Amiga (288) and C64, and the Mac's 302
+bytes look like the same field order with different padding — so this is an
+alignment job against layouts that already exist, not a decode from nothing.
+
 - [ ] **F33 — Load a save from the companion.** The rest of this block is built
   on whichever mechanism this establishes.
 - [ ] **F36 — Answer the game's own save and overwrite prompts.** Needed before

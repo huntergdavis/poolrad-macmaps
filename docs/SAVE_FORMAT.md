@@ -1,0 +1,63 @@
+# The saved game, and who has already decoded one
+
+Research done 2026-09-18 for F33/F34, after the owner settled that we will not
+write our own save format — saving calls the game's own routine — but that
+decoding the format for **loading** would still be worth having.
+
+## The short answer
+
+**Nobody has decoded the Macintosh save.** Every public project found targets
+the DOS, C64 or Amiga line. Searching for Macintosh Gold Box reverse
+engineering now returns *this repository* among the results, which is its own
+kind of answer.
+
+**But the record is documented field-by-field on three other platforms,** and
+those platforms are the same record at different sizes. That turns the Mac job
+from a decode into an alignment.
+
+## What exists
+
+| Project | Platform | What it has | Use to us |
+| --- | --- | --- | --- |
+| [malcyon/wish](https://github.com/malcyon/wish) | C64, reads/writes DOS and Amiga saves | `docs/README.md` covers the container, the character record and the **save game layout**; `goldbox/dos_layout.py` records what differs between four record layouts | The closest thing to a Rosetta stone |
+| [Gold Box Companion](https://gbc.zorbus.net/) | DOS under DOSBox | Ships `formats.zip` describing character save file formats, plus lists of effects and items | Field meanings |
+| [Gold Box Explorer](https://github.com/bsimser/Gold-Box-Explorer) | DOS | Views and exports Gold Box game files | Data files, not saves |
+| [Amiga-dev wiki](http://amiga-dev.wikidot.com/project:pool-of-radiance) | Amiga | Data file formats; ByteKiller 2.0 unpacking | Background |
+| [OpenGold](https://github.com/stdarg/OpenGold) | DOS data | Reimplementation that loads original records, unknown bytes retained | Field meanings |
+
+## Sizes, which are the encouraging part
+
+| Platform | Character record |
+| --- | --- |
+| DOS | 285 bytes |
+| Amiga | 288 bytes |
+| **Macintosh (this project's own measurement)** | **302 bytes** |
+
+`wish` documents the Amiga record as *the DOS record plus padding*, applied
+through an `amiga_por_offset` table, big-endian. Amiga is also big-endian 68k.
+The Mac is 14 bytes off the Amiga, which is the shape of a port that kept the
+field order and changed the alignment — not a different design. So the likely
+job is aligning a documented layout against the offsets this project has
+already found on its own (name `+0x00`, class `+0x2f`, maxHP `+0x32`,
+encumbrance `+0x10e`, chain `+0x110`, own handle `+0x114`, condition `+0x118`,
+quick `+0x11b`, AC `+0x11d`, attacks `+0x120`, currentHP `+0x12b`, movement
+`+0x12c`), rather than starting from nothing.
+
+## Two cautions
+
+**These are save editors.** Every one of them edits stats, which is outside
+this project's boundary and stays outside it. What is useful here is their
+knowledge of *where the fields are*, for reading a save in order to load it.
+Take the layout knowledge, not the code, and not the purpose.
+
+**A Mac save is not just a record.** The measured file is a 12,906-byte data
+fork plus a ~4.4 KB resource fork. The DOS-lineage documentation describes the
+character and party structures inside a save; it says nothing about how the Mac
+port arranges its two forks around them. That part is ours to work out.
+
+## Architecture note, offered as validation
+
+Gold Box Companion reads **game memory rather than save files**, and says so
+plainly: its character editor "reads/modifies memory so it's instant compared
+to save file editors." That is independently the same architecture this project
+arrived at, for the same reason.
