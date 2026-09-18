@@ -220,13 +220,27 @@ public class EmulatorFragment extends Fragment
     private final PollingPace mMapPace = new PollingPace();
     private final Runnable mMapPoll = new Runnable() {
         @Override public void run() {
-            if (!mMapPolling || !companionMapActive()) return;
-            Core target = mCore;
-            if (target != null && target.isReady()) {
-                target.requestMapSample(); target.requestPartySample();
-                target.requestMessageSample(); target.requestCombatSample();
+            /*
+             * Two different things used to end this loop the same way. Being
+             * told to stop is one; finding the companion momentarily inactive
+             * -- mid-restart, or for an instant while the fragment is not
+             * resumed -- is the other, and it used to return without posting
+             * the next tick. Nothing then noticed. The loop was simply gone,
+             * and the only way back was to toggle the companion's tab, which
+             * is a thing nobody should have to know to do.
+             *
+             * So a tick with nothing to read into now waits and comes round
+             * again; only being told to stop actually stops it.
+             */
+            if (!mMapPolling) return;
+            if (companionMapActive()) {
+                Core target = mCore;
+                if (target != null && target.isReady()) {
+                    target.requestMapSample(); target.requestPartySample();
+                    target.requestMessageSample(); target.requestCombatSample();
+                }
+                else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
             }
-            else { mLiveMap.showSample(null); mLiveMap.showPartySample(null); }
             mUIHandler.postDelayed(this, mMapPace.interval(SystemClock.elapsedRealtime()));
         }
     };
@@ -651,6 +665,18 @@ public class EmulatorFragment extends Fragment
             mCore.setOnInitScreenListener((screenWidth, screenHeight) -> mUIHandler.post(() -> {
                 mScreenView.setTargetScreenSize(screenWidth, screenHeight);
                 if (mMapStack != null) mMapStack.setGuestSize(screenWidth, screenHeight);
+                /*
+                 * A machine has just come up. Whether it is the first one or a
+                 * restart, the companion starts again from nothing: every held
+                 * reading is dropped, because a new machine is not a blink, and
+                 * the polling loop is restarted so it does not matter whether
+                 * the old one was still going round.
+                 *
+                 * Restarting the guest used to leave the map where it was until
+                 * the tab was toggled, which is a thing nobody should have to
+                 * know to do.
+                 */
+                if (mCore == mapCore) startMapPolling();
             }));
 
             ScreenView.OnMouseEventListener mouseInput = createMouseInputListener();

@@ -1084,7 +1084,7 @@ reads back correctly.
   point:** an automatic save must never overwrite a save the player made.
 - [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
   new notebook rather than writing into the wrong one.
-- [ ] **F38 — Resume polling automatically after the guest restarts.** Today it
+- [x] **F38 (delivered 0.45.0) — Resume polling automatically after the guest restarts.** Today it
   takes a tab toggle.
 - [ ] **F80 — Publish the format specification** once it is verified. The
   project's own reverse-engineering work, and the Macintosh piece nobody else
