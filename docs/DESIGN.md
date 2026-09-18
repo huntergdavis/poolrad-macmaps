@@ -45,4 +45,34 @@ What that does and does not authorise:
   and is still checked byte-for-byte against untouched guest RAM. A write is an
   explicit, separate, narrowly scoped call with its own tests.
 
+### Amended 2026-09-18: the helper acts through memory, not through menus
+
+The queue had every helper action — bandage, equip, memorise, rest — driving
+the game's own menus, on the reasoning that an action the game performs itself
+is safer than one the app performs. Hunter overruled that, and the reason is
+about the player rather than about safety: "the player shouldn't have to see a
+bunch of menu commands being executed for things the helper does." Watching the
+companion puppet the menus is worse than not seeing it happen at all.
+
+So for the helper actions he has asked for, the write is the implementation, not
+the fallback. This widens the 2026-09-16 authorisation from one byte to a set of
+named fields, and it moves the auto-heal line that the exclusions list drew: the
+after-fight bandage he asked for is on the authorised side of it now.
+
+- **Authorised, as writes:** the per-character quick flag (2026-09-16); healing
+  a bandageable character after a fight; equipping a weapon for someone who has
+  none at a battle's start; restoring memorised spells after rest; restoring
+  the party after rest. Each is one named field in a record that has passed
+  every check the reader already makes, and each ships with its own tests.
+- **Still out, and not lifted by this:** arbitrary stat editing and teleporting.
+  The distinction is not "writes versus reads" any more; it is whether the write
+  does something the player could have done themselves through the game, at a
+  moment they asked for it. A bandage is a command the game has. A raised
+  strength score is not.
+- **The exception is saving.** A save is a file, so no amount of altering RAM
+  produces one — see the note under F33/F37 in the backlog for the two real
+  options and which is preferred.
+- **Unchanged:** the readers stay read-only, keep their validation, and are
+  still checked byte-for-byte against untouched guest RAM.
+
 The ordered, checkable implementation queue is [BACKLOG.md](BACKLOG.md).

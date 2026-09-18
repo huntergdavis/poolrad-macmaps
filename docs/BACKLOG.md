@@ -1028,8 +1028,18 @@ A real Pool of Radiance save, measured from the owner's own `disk2.dsk` on
 17 KB. Everything here drives the game's own File menu at that scale. An
 emulator memory snapshot (32 MB) is not on the table and was rejected.
 
+**Saving is the exception to the 2026-09-18 memory-write decision, because a
+save is a file and no amount of altering RAM produces one.** Two options, and
+they should be settled before F33 is built: call the game's own save and load
+routines directly from the emulator, which performs a real save with no menus
+on screen and is the preferred answer; or decode the 12,906-byte save format
+and write the file ourselves, which is far more work and risks producing a file
+the game will not read. Loading has a third route the saving side does not —
+the save is close to a serialised game state, so it could in principle be read
+into RAM — but that needs the same format decoded.
+
 - [ ] **F33 — Load a save from the companion.** The rest of this block is built
-  on the menu-driving this establishes.
+  on whichever mechanism this establishes.
 - [ ] **F36 — Answer the game's own save and overwrite prompts.** Needed before
   anything can save unattended.
 - [ ] **F34 — Auto-load the last save on launch.**
@@ -1044,23 +1054,48 @@ emulator memory snapshot (32 MB) is not on the table and was rejected.
   restore them. At ~17 KB each this is cheap, and today the disk image is the
   only copy that exists.
 
-### Driving the game's own commands
+### Helper actions — performed by writing memory, not by driving menus
 
-All of these are opt-in, and all go through the game's menus — never a memory
-write. They sit next to the excluded auto-heal/auto-ammo line and stay on the
-right side of it only because the game itself performs the action.
+**Owner decision, 2026-09-18.** These were queued as menu-driving on the
+reasoning that an action the game performs itself is the conservative one. He
+overruled it, for a reason about the player rather than about safety: "the
+player shouldn't have to see a bunch of menu commands being executed for things
+the helper does." A companion that puppets the File and Camp menus in front of
+you is worse than one that quietly sets the field. So the write is the
+implementation here, not the fallback. Recorded in [DESIGN.md](DESIGN.md),
+which also records what this does **not** open: arbitrary stat editing and
+teleporting stay out. The test is not writes-versus-reads, it is whether the
+write does a thing the player could have done through the game at a moment they
+asked for it.
 
-- [ ] **F40 — Bandage and quicksave when a fight ends.** The owner's standing
-  answer to "what should always happen after a fight". The quicksave goes into
-  the F37 rotation and never overwrites the last save he made, so it depends on
-  F37 being built first.
-- [ ] **F41 — Auto-equip a weapon at battle start** for anyone without one.
-- [ ] **F39 — Auto-memorise after rest,** the same spells as last time.
-- [ ] **F52 — "Rest until healed",** driving the game's own rest command until
-  the party is up.
-- [ ] **F61 — Big Yes/No buttons when the game asks a yes/no question.** Same
-  family as F30, and it routes around the keyboard-focus problem that has
-  repeatedly broken the scripting harness.
+Each of these is opt-in, writes one named field in a record that has already
+passed every check the party reader makes, and refuses rather than guessing when
+the field does not hold a value it recognises — the same contract as the shipped
+quick-flag write.
+
+- [ ] **F40 — Bandage when a fight ends,** by writing the character's condition
+  and current HP, and quicksave alongside it. The owner's standing answer to
+  what should always happen after a fight. Needs the condition byte at `+0x118`
+  and current HP at `+0x12b`, both already read. This supersedes the
+  "auto-heal" exclusion for this specific case; see DESIGN.md. The quicksave
+  half is F37's problem, not a memory write — see the note there.
+- [ ] **F41 — Equip a weapon at battle start** for anyone without one, by
+  writing the equipped field directly. **Blocked on decoding:** the equipment
+  section of the character record is known to start where the fixture puts it,
+  stride 68, but which field marks a weapon as equipped has not been
+  established. Decode it before building.
+- [ ] **F39 — Restore memorised spells after rest,** the same spells as last
+  time, by writing the memorised-spell fields. **Blocked on decoding:** the
+  spell section's layout is known by position but not by meaning.
+- [ ] **F52 — "Rest until healed",** by restoring HP, conditions and spells
+  directly. Diverges further from the game's own rest than the others do,
+  because resting also advances the game clock; decide whether the clock is
+  advanced to match, and say so in the release note either way.
+- [ ] **F61 — Big Yes/No buttons when the game asks a yes/no question.** The one
+  item in this block that stays as input rather than a write, because it is the
+  player answering the game, not the helper acting for them. Same family as
+  F30, and it routes around the keyboard-focus problem that has repeatedly
+  broken the scripting harness.
 
 ### Reading the fight
 
@@ -1152,8 +1187,16 @@ should trade a requested feature for it.
 ## Not in this project
 
 LLMs, cloud accounts/sync, telemetry, rooting, an exposed RAM server, general
-multi-game support, stat/HP editors, teleporting, auto-heal/auto-ammo, bypassing
-training restrictions, emulator rewrites, and marathon CI or all-device matrices.
+multi-game support, stat/HP editors, teleporting, auto-ammo, bypassing training
+restrictions, emulator rewrites, and marathon CI or all-device matrices.
+
+**Amended 2026-09-18:** "auto-heal" left this list. The owner asked for an
+after-fight bandage and for rest-until-healed, both performed by writing memory
+rather than by driving menus, so healing the party at a moment he asked for it
+is now in scope. What the line still excludes is unchanged in substance: stat
+and HP editing as a facility, and teleporting. The distinction is whether the
+write does something the player could have done through the game at a moment
+they asked for it.
 
 The new approved scope is a read-only game companion plus user-owned notes,
 screenshots, and explicit desktop personalization. Those user-owned writes do
