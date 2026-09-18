@@ -1049,6 +1049,33 @@ reads back correctly.
   roughly but not exactly 66 bytes, and whether the data fork's numbers really
   are little-endian.
 - [ ] **F33 — Load a save from the companion,** by reading the file.
+  **PAUSED 2026-09-18, one question for the owner.** Reading a save is done —
+  `SavedParty.parse` already says who is in one, so the companion can show what
+  each save holds. Making the game *load* it is the part that needs a decision,
+  because of something this project already learned painfully: **the game greys
+  out File → Load Saved Game the moment a game is running.** Only Quit stays
+  enabled. `tools/play.py` records what happened when that went unnoticed — the
+  folder and save names were typed into the running game instead, "where a stray
+  letter opened the camp menu and the party was found altering its marching
+  order".
+
+  So loading is only possible before a game starts, and there are two ways to
+  offer it, which are different features:
+
+  1. **Only at the title screen.** The companion lists saves any time, and the
+     Load button works only when no game is running; otherwise it says why. Safe,
+     and honest about what the game allows.
+  2. **Quit and relaunch to load.** The companion ends the running game and
+     loads the chosen save. Works whenever you ask, and throws away anything
+     unsaved.
+
+  Guessing costs something either way: (1) looks broken to somebody who wanted
+  to load mid-session, and (2) can discard progress. **Waiting for the owner.**
+
+  Whichever it is, one gate is settled and applies to both: the companion will
+  check that no game is running by **reading it from guest memory**, not by
+  looking at whether a menu item appears grey. That is the check the scripting
+  harness did not have, and it is the reason it failed silently.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
