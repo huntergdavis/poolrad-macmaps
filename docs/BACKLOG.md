@@ -956,10 +956,32 @@ research for sources and portability limits.
 
 ## Queue from the brainstorm rounds (2026-09-17 → 2026-09-18)
 
-Fifty-two items the owner kept across seven spitball rounds; ideas he skipped
+Fifty-eight items the owner kept across seven spitball rounds; ideas he skipped
 are not recorded. **This list is in his priority order** and the order is the
 instruction — where two items are only ordered because one depends on the
-other, the entry says so. Nothing here is started unless it says so.
+other, the entry says so.
+
+**Every group below ships as a real release to `origin/main`,** by his
+instruction on 2026-09-18, so that each can be tested on the tablet as it
+lands rather than at the end. The planned releases:
+
+| Release | Group |
+| --- | --- |
+| 0.38.0 | In flight — F27, F28 |
+| 0.39.0 | Original P0s — F25, F26, F54 |
+| 0.40.0 | Save foundations — F49, F77 |
+| 0.41.0 | Reading a save — F78, F33, F34 |
+| 0.42.0 | Writing a save — F79, F37, F35, F38 |
+| 0.43.0 | The spec and the converter — F82, F81, F80 |
+| 0.44.0 | P1 — F66 |
+| 0.45.0 | Options page — F29, F55, F31, F64, F69, F32, F59, F30 |
+| 0.46.0 | Helper actions — F40, F41, F39, F52, F61 |
+| 0.47.0 | Reading the fight — F70, F71, F73 |
+| 0.48.0 | The map — F51, F74, F50, F45, F60, F75, F58, F62 |
+| 0.49.0 | The party list — F67, F72, F43, F44 |
+| 0.50.0 | The notebook — F42, F57, F56, F53 |
+| 0.51.0 | Remaining — F46, F48, F68, F47, F76 |
+| 0.52.0 | Back of the backlog — F63, F65 |
 
 ### P0 — his designation
 
@@ -975,53 +997,7 @@ other, the entry says so. Nothing here is started unless it says so.
   you drew telling you where you have not been. It spoils nothing, because it
   reads only squares you have already seen.
 
-### P1 — his designation
-
-- [ ] **F66 — Mark which character the game has selected outside combat,** the
-  way F23 marks whose turn it is inside one. The same question — who is the
-  game waiting on — and it goes unanswered everywhere but the guest screen.
-
-### In flight — finish before starting anything below
-
-- [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
-  movement is below the party's best, i.e. they are carrying too much. Code is
-  written in `LiveMapView` and `PartyState.slowedByLoad`; it compiles, has no
-  tests and no render check, and is uncommitted.
-- [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
-  few seconds. Read-only: it identifies, it does not command.
-
-### The options page, and the toggles that need it to exist first
-
-- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map,
-  and everything below in this block lands on it.
-- [ ] **F55 — A legend for the map's marks,** reached from a link in the
-  bottom-right of the map area. The marks have piled up — the crosses, the
-  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
-- [ ] **F31 — Option: auto-skip messages.**
-- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle.
-  The Combat Message and ordinary Message TEHandles are already read, so the
-  text costs nothing to obtain; 1984 Mac type at e-ink size is the hardest
-  thing on the screen to read. An option, not a default, because it covers
-  screen the map wants.
-- [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
-  *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
-  2.0 — there is room, and the gain is larger than the idea suggested.* A row
-  is 48dp today: name, then HP with armour class, then the health bar. At six
-  members the sidebar already fits one 432px column, so one-line rows would buy
-  the map nothing there. They pay at seven and eight members, and at any font
-  scale from 1.10 up, where `header + rows x 96px` exceeds the 684px pane and
-  the layout falls back to **two** columns: the sidebar takes 792 of 1440px and
-  the map drops from 1008px wide to 648px. One-line rows at roughly 28dp keep a
-  single column in all of those cases, so the map keeps its full width instead
-  of losing a third of it. Worth building for the eight-member and large-type
-  cases, not for the common six.
-- [ ] **F32 — An info panel** naming which save is loaded and how much room is
-  left on the save disk.
-- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
-  on the info screen, not on the map. Pairs with F39 and F52.
-- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
-
-### Save machinery — now the save format itself
+### P0 — the save chain (promoted 2026-09-18)
 
 **Owner decision, 2026-09-18, replacing the one made earlier the same day.**
 The plan had been to call the game's own save routine and never touch the
@@ -1117,6 +1093,52 @@ reads back correctly.
 - [ ] **F36 — Answer the game's own save and overwrite prompts.** Kept, demoted:
   it is only needed on whatever paths still go through the game's own dialogs
   once F79 exists, and may turn out to be unnecessary.
+
+### P1 — his designation
+
+- [ ] **F66 — Mark which character the game has selected outside combat,** the
+  way F23 marks whose turn it is inside one. The same question — who is the
+  game waiting on — and it goes unanswered everywhere but the guest screen.
+
+### In flight — finish before starting anything below
+
+- [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
+  movement is below the party's best, i.e. they are carrying too much. Code is
+  written in `LiveMapView` and `PartyState.slowedByLoad`; it compiles, has no
+  tests and no render check, and is uncommitted.
+- [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
+  few seconds. Read-only: it identifies, it does not command.
+
+### The options page, and the toggles that need it to exist first
+
+- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map,
+  and everything below in this block lands on it.
+- [ ] **F55 — A legend for the map's marks,** reached from a link in the
+  bottom-right of the map area. The marks have piled up — the crosses, the
+  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
+- [ ] **F31 — Option: auto-skip messages.**
+- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle.
+  The Combat Message and ordinary Message TEHandles are already read, so the
+  text costs nothing to obtain; 1984 Mac type at e-ink size is the hardest
+  thing on the screen to read. An option, not a default, because it covers
+  screen the map wants.
+- [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
+  *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
+  2.0 — there is room, and the gain is larger than the idea suggested.* A row
+  is 48dp today: name, then HP with armour class, then the health bar. At six
+  members the sidebar already fits one 432px column, so one-line rows would buy
+  the map nothing there. They pay at seven and eight members, and at any font
+  scale from 1.10 up, where `header + rows x 96px` exceeds the 684px pane and
+  the layout falls back to **two** columns: the sidebar takes 792 of 1440px and
+  the map drops from 1008px wide to 648px. One-line rows at roughly 28dp keep a
+  single column in all of those cases, so the map keeps its full width instead
+  of losing a third of it. Worth building for the eight-member and large-type
+  cases, not for the common six.
+- [ ] **F32 — An info panel** naming which save is loaded and how much room is
+  left on the save disk.
+- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
+  on the info screen, not on the map. Pairs with F39 and F52.
+- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
 
 ### Helper actions — performed by writing memory, not by driving menus
 
