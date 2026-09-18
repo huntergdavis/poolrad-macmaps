@@ -1155,22 +1155,35 @@ reads back correctly.
 
 ### In flight — finish before starting anything below
 
-- [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
-  movement is below the party's best, i.e. they are carrying too much. Code is
-  written in `LiveMapView` and `PartyState.slowedByLoad`; it compiles, has no
-  tests and no render check, and is uncommitted.
-- [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
-  few seconds. Read-only: it identifies, it does not command.
-- [ ] **F83 — Finish repairing `tools/PartyPaneRenderCheck.java`.** Found
-  2026-09-18: this suite has never been run in the project's recorded history,
-  and on untouched `HEAD` it failed at its third check. Eleven of its checks
-  encoded rules that later releases deliberately overturned — the 0.28.0 strip
-  under the map, the 0.31.0 five-second reading hold, the 0.36.0 condition word
-  in the armour-class slot, and the wilderness work's refusal to name an area it
-  cannot vouch for. Nine are repaired and the file now reaches check 20, where a
-  Combat-mode reference map still differs from what the check expects. Finish
-  the remaining checks, or delete the ones whose rules no longer exist rather
-  than leaving a suite nobody can run. `tools/verify.sh` runs it.
+- [x] **F27 (delivered 0.38.0) — The `W` mark for a slowed character.** Drawn
+  when a member's movement is below the party's best, i.e. they are carrying too
+  much. `LiveMapView` and `PartyState.slowedByLoad`, with `PartyLoadTest` and
+  the render checks that go with it.
+- [x] **F28 (delivered 0.38.0) — Tap a combatant on the overview, highlight that
+  party row** for a few seconds. Read-only: it identifies, it does not command.
+- [x] **F83 (delivered 2026-09-18) — `tools/PartyPaneRenderCheck.java` runs
+  clean.** All 23 checks pass on an emulator; the suite had never once run to
+  completion. The last two failures were both rules later releases deliberately
+  overturned, and both are now checks on the behaviour that replaced them:
+
+  - **Check 20 demanded the local area map during combat.** Since 0.25.0
+    `LiveMapView.drawCombat` draws the tactical overview in the map's own
+    allocation and returns before any exploration ink. The check now asserts
+    what combat owes: the reference map is gone from the screen — fewer than
+    half its ink pixels still drawn in place — while the area identity, the
+    walked squares and the refusal to invent a position all survive.
+  - **Check 21 demanded a visually distinct screen per mode.** Before any local
+    observation the header deliberately reads `AREA MAP · Position unavailable`
+    whatever the mode, because naming each transient mode made the header flash
+    several times a second as the game settled; the mode moved to the accessible
+    description. The check now asserts that steadiness — combat draws its own
+    screen, every other mode shares one, and `checkStatus` still requires each
+    to name itself in the description.
+
+  Worth keeping in mind: a density rule was the wrong instrument here. Combat's
+  centred explanation is *denser* than the map's thin walls (1298 dark pixels
+  against 1127), so "fewer pixels" would have failed on correct behaviour.
+  Overlap with the reference map's own ink is what actually says it is gone.
 
 ### The options page, and the toggles that need it to exist first
 

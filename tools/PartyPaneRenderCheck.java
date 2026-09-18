@@ -598,8 +598,8 @@ public final class PartyPaneRenderCheck {
             checkWalked(view, 4); equal(before, render(view), "Unchanged samples altered visible coverage");
         });
 
-        run("PRM4 status-only modes retain the reference map without inventing position updates", PartyPaneRenderCheck::statusTransitions);
-        run("empty and narrow mode screens are distinct, bounded and add no panels", PartyPaneRenderCheck::emptyStatuses);
+        run("PRM4 status-only modes keep the reference map, combat replaces it, none invent a position", PartyPaneRenderCheck::statusTransitions);
+        run("empty and narrow mode screens hold one steady header, bounded and adding no panels", PartyPaneRenderCheck::emptyStatuses);
         run("mode changes cancel pending map/party taps without altering independent health", PartyPaneRenderCheck::modeTouchAndParty);
         run("PRM4 non-recordable local positions move the arrow and retain flags without authorizing footsteps", PartyPaneRenderCheck::displayWithoutRecording);
 
