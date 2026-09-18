@@ -308,8 +308,8 @@ public class EmulatorFragment extends Fragment
         }, KEY_GAP_MS);
     }
 
-    /** Type a line and press Return, one key at a time. */
-    private void sendGuestLine(String text) {
+    /** Type text one key at a time, with Return afterwards only if asked. */
+    private void sendGuestLine(String text, boolean thenReturn) {
         long at = 0;
         for (int i = 0; i < text.length(); i++) {
             char letter = text.charAt(i);
@@ -318,7 +318,7 @@ public class EmulatorFragment extends Fragment
             at += KEY_GAP_MS * 2;
             mUIHandler.postDelayed(() -> tapGuestKey(macKey), at);
         }
-        mUIHandler.postDelayed(() -> tapGuestKey(MAC_RETURN), at + KEY_GAP_MS * 3);
+        if (thenReturn) mUIHandler.postDelayed(() -> tapGuestKey(MAC_RETURN), at + KEY_GAP_MS * 3);
     }
 
     /**
@@ -369,7 +369,8 @@ public class EmulatorFragment extends Fragment
             showBusy(load.describe());
             switch (step.kind) {
                 case COMMAND_KEY: sendCommandKey(step.key); break;
-                case TYPE_LINE: sendGuestLine(step.text); break;
+                case TYPE_LINE: sendGuestLine(step.text, true); break;
+                case TYPE_ONLY: sendGuestLine(step.text, false); break;
                 case FINISHED: finishLoad(step.message); return;
                 case FAILED: finishLoad(step.message); return;
                 default: break;

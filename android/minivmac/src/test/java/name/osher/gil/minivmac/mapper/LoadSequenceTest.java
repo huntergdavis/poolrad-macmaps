@@ -47,13 +47,16 @@ public class LoadSequenceTest {
         assertEquals(LoadSequence.Kind.WAIT, load.next(GameSignal.NO_GAME, t).kind);
         t += 100;
         LoadSequence.Instruction name = load.next(GameSignal.NO_GAME, t);   // type the app name
-        assertEquals(LoadSequence.Kind.TYPE_LINE, name.kind);
+        assertEquals("the Finder selects by typing; Return there renames",
+                LoadSequence.Kind.TYPE_ONLY, name.kind);
         assertEquals("Pool of Radiance v1.1", name.text);
         t += LoadSequence.TYPING_SETTLE + 100;
         assertEquals('O', load.next(GameSignal.NO_GAME, t).key);            // Finder's Open
         t += 10_000;
         assertEquals(LoadSequence.Kind.WAIT, load.next(GameSignal.NO_PARTY, t).kind);
-        t += 100;
+        // The game is seen before it is ready for menus; Cmd-L waits for that.
+        assertEquals(LoadSequence.Kind.WAIT, load.next(GameSignal.NO_PARTY, t + 100).kind);
+        t += LoadSequence.READY_SETTLE + 100;
         assertEquals('L', load.next(GameSignal.NO_PARTY, t).key);           // load dialog
         t += LoadSequence.DIALOG_SETTLE + 100;
         assertEquals(LoadSequence.Kind.WAIT, load.next(GameSignal.NO_PARTY, t).kind);
@@ -95,6 +98,7 @@ public class LoadSequenceTest {
         load.next(GameSignal.NO_GAME, 100);
         load.next(GameSignal.NO_PARTY, 20_000);     // game up; on to the dialog
         LoadSequence.Instruction stopped = load.next(GameSignal.PARTY, 20_100);
+        // Even inside the settle, a party appearing stops it.
         assertEquals(LoadSequence.Kind.FAILED, stopped.kind);
         assertTrue(load.failure(), load.failure().contains("still running"));
         assertTrue(load.failure(), load.failure().contains("nothing was typed"));
@@ -116,7 +120,7 @@ public class LoadSequenceTest {
         long t = 0;
         load.next(GameSignal.NO_GAME, t);
         load.next(GameSignal.NO_PARTY, t += 100);
-        load.next(GameSignal.NO_PARTY, t += 100);                       // Cmd-L
+        load.next(GameSignal.NO_PARTY, t += LoadSequence.READY_SETTLE + 100);   // Cmd-L
         load.next(GameSignal.NO_PARTY, t += LoadSequence.DIALOG_SETTLE + 100);
         load.next(GameSignal.NO_PARTY, t += 100);                       // folder
         load.next(GameSignal.NO_PARTY, t += LoadSequence.DIALOG_SETTLE + 100);
@@ -133,7 +137,7 @@ public class LoadSequenceTest {
         long t = 0;
         load.next(GameSignal.NO_GAME, t);
         load.next(GameSignal.NO_PARTY, t += 100);
-        load.next(GameSignal.NO_PARTY, t += 100);
+        load.next(GameSignal.NO_PARTY, t += LoadSequence.READY_SETTLE + 100);
         load.next(GameSignal.NO_PARTY, t += LoadSequence.DIALOG_SETTLE + 100);
         load.next(GameSignal.NO_PARTY, t += 100);
         load.next(GameSignal.NO_PARTY, t += LoadSequence.DIALOG_SETTLE + 100);
@@ -141,6 +145,24 @@ public class LoadSequenceTest {
         assertEquals(LoadSequence.Kind.FINISHED, load.next(GameSignal.PARTY, t += 100).kind);
         for (int i = 0; i < 5; i++)
             assertEquals(LoadSequence.Kind.FINISHED, load.next(GameSignal.PARTY, t += 1_000).kind);
+    }
+
+    @Test public void theFinderIsNeverSentAReturn() {
+        /*
+         * It renames the selected item. This once renamed a journal and then
+         * opened it instead of the game, which is a mess to explain and a
+         * worse one to undo.
+         */
+        LoadSequence load = sequence();
+        load.next(GameSignal.NO_GAME, 0);
+        LoadSequence.Instruction name = load.next(GameSignal.NO_GAME, 100);
+        assertEquals(LoadSequence.Kind.TYPE_ONLY, name.kind);
+        // Everything typed into the game's own dialogs still ends with Return.
+        long t = 200;
+        load.next(GameSignal.NO_PARTY, t);
+        load.next(GameSignal.NO_PARTY, t += LoadSequence.READY_SETTLE + 100);
+        load.next(GameSignal.NO_PARTY, t += LoadSequence.DIALOG_SETTLE + 100);
+        assertEquals(LoadSequence.Kind.TYPE_LINE, load.next(GameSignal.NO_PARTY, t + 100).kind);
     }
 
     @Test public void anUnnamedSaveIsRefusedBeforeAnythingHappens() {

@@ -27,6 +27,12 @@ public final class LoadSequence {
         COMMAND_KEY,
         /** Type this text, then Return. */
         TYPE_LINE,
+        /**
+         * Type this text and nothing else. The Finder selects by what you
+         * type, and Return there means rename, not open -- which is exactly
+         * how this once renamed a journal and opened it instead of the game.
+         */
+        TYPE_ONLY,
         /** Send nothing; come back when something changes or time passes. */
         WAIT,
         /** The party is loaded. */
@@ -45,7 +51,7 @@ public final class LoadSequence {
         }
         @Override public String toString() {
             return kind + (kind == Kind.COMMAND_KEY ? " Cmd-" + key
-                    : kind == Kind.TYPE_LINE ? " \"" + text + "\"" : "")
+                    : text != null ? " \"" + text + "\"" : "")
                     + (message == null ? "" : ": " + message);
         }
     }
@@ -59,6 +65,15 @@ public final class LoadSequence {
     public static final long LOAD_PATIENCE = 60_000;
     /** A dialog's appearance cannot be read from the heap, so it is timed. */
     public static final long DIALOG_SETTLE = 2_500;
+    /**
+     * How long to leave the game alone after it appears.
+     *
+     * The probe sees the game's globals the moment they exist, which is well
+     * before it is drawing menus and ready to be asked for one. Sending Cmd-L
+     * into that gap loses it silently, and the sequence then waits out its
+     * patience for a dialog that was never opened.
+     */
+    public static final long READY_SETTLE = 6_000;
     public static final long TYPING_SETTLE = 2_000;
 
     private final String application, folder, save;
@@ -110,7 +125,8 @@ public final class LoadSequence {
 
             case RELAUNCH:
                 if (signal.gameRunning()) return advance(Step.OPEN_DIALOG, now);
-                if (!sent) { sent = true; return type(application); }
+                // Type-select only: no Return, which the Finder reads as rename.
+                if (!sent) { sent = true; return typeOnly(application); }
                 if (waited > RELAUNCH_PATIENCE)
                     return fail("The game did not start again. Nothing was loaded.");
                 // The Finder opens what type-select highlighted.
@@ -126,9 +142,11 @@ public final class LoadSequence {
                  */
                 if (signal == GameSignal.PARTY)
                     return fail("A game is still running, so nothing was typed.");
+                // Let it finish coming up before asking it for a menu.
+                if (waited < READY_SETTLE) return holdOn();
                 if (!sent) { sent = true; return command('L'); }
-                if (waited > DIALOG_SETTLE) return advance(Step.FOLDER, now);
-                if (waited > DIALOG_PATIENCE) return fail("The load dialog never appeared.");
+                if (waited > READY_SETTLE + DIALOG_SETTLE) return advance(Step.FOLDER, now);
+                if (waited > READY_SETTLE + DIALOG_PATIENCE) return fail("The load dialog never appeared.");
                 return holdOn();
 
             case FOLDER:
@@ -156,6 +174,7 @@ public final class LoadSequence {
     private Instruction holdOn() { return new Instruction(Kind.WAIT, ' ', null, null); }
     private Instruction command(char key) { return new Instruction(Kind.COMMAND_KEY, key, null, null); }
     private Instruction type(String text) { return new Instruction(Kind.TYPE_LINE, ' ', text, null); }
+    private Instruction typeOnly(String text) { return new Instruction(Kind.TYPE_ONLY, ' ', text, null); }
     private Instruction fail(String why) {
         step = Step.FAILED; failure = why;
         return new Instruction(Kind.FAILED, ' ', null, why);

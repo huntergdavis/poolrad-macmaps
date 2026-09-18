@@ -1089,6 +1089,27 @@ reads back correctly.
   check that no game is running by **reading it from guest memory**, not by
   looking at whether a menu item appears grey. That is the check the scripting
   harness did not have, and it is the reason it failed silently.
+- [ ] **F86 — Get the load sequence through a live machine, start to finish.**
+  F33 ships the reading, the chooser, the overlay and the guarded sequence, and
+  every guard is unit-tested. What has **not** happened is one clean run that
+  ends with a party loaded.
+
+  Two real bugs were found by trying, and both are fixed: the Finder step sent
+  Return, which renames rather than opens, and once renamed a journal and opened
+  that instead of the game; and `Cmd-L` was sent the instant the probe saw the
+  game's globals, which is well before it is drawing menus, so it was swallowed
+  and the sequence waited out its patience for a dialog nobody had opened.
+
+  Where it reaches now: the quit works, the Finder type-select selects the game
+  correctly, and the game relaunches. Whether the load dialog then opens is
+  unconfirmed. Each attempt costs a full Macintosh boot, and reinstalling the
+  app restarts the emulated machine, which confounds the run -- so this wants a
+  harness that drives the app's own menu without reinstalling, not more manual
+  attempts.
+
+  **A failure is safe:** the sequence stops, says why, and leaves the guest
+  alone. Nothing is typed once a party is seen.
+
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
