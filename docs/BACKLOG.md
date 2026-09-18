@@ -1026,7 +1026,7 @@ before anything writes. Never overwrite an existing save — construct into a ne
 file. Nothing is claimed to work until the game has loaded it and the party
 reads back correctly.
 
-- [ ] **F49 — Back up and restore saves off the disk image.** Promoted to the
+- [x] **F49 (delivered 0.42.0) — Back up and restore saves off the disk image.** Promoted to the
   front of this block and treated as a prerequisite: nothing here writes to the
   save disk until his saves exist somewhere else. At ~17 KB each this is cheap,
   and today the disk image is the only copy.

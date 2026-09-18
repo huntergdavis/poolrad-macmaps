@@ -212,6 +212,7 @@ public class EmulatorFragment extends Fragment
     private String mSelectedCompanionTab = CompanionPane.MAP;
     private ViewTreeObserver.OnPreDrawListener mPendingCompanionTool;
     private NotebookController mNotebook;
+    private SaveBackupController mSaveBackup;
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
@@ -474,6 +475,14 @@ public class EmulatorFragment extends Fragment
                 } else if (menuItem.getItemId() == R.id.action_notebooks) {
                     openCompanionTool(() -> mNotebook.chooseNotebook());
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_saved_games) {
+                    if (mSaveBackup == null) mSaveBackup = new SaveBackupController(
+                            requireActivity(), FileManager.getInstance(), () -> {
+                                Core target = mCore;
+                                return target != null && target.hasDisksInserted();
+                            });
+                    mSaveBackup.show();
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
                     ((MiniVMac) requireActivity()).captureScreenshot();
                     return true;
@@ -512,6 +521,7 @@ public class EmulatorFragment extends Fragment
         if (mCore != null) mCore.setPartySampleListener(null);
         if (mCore != null) mCore.setWheelSampleListener(null);
         if (mNotebook != null) mNotebook.dispose();
+        if (mSaveBackup != null) { mSaveBackup.dispose(); mSaveBackup = null; }
         mNotebook = null;
         if (mCompanionPane != null) {
             mCompanionPane.setOnTabSelectedListener(null);

@@ -2558,3 +2558,35 @@ during testing (exit 0, no app-crash evidence in their exit logs). The current
 AVD runs under `systemd-run --user --unit=poolrad-map-test --collect ...` so it is
 not tied to a tool terminal session. This is test infrastructure, not an APK
 dependency. Inspect it with `systemctl --user status poolrad-map-test`.
+
+
+## 0.42.0 — reading and writing the guest disk (2026-09-18)
+
+**Two harnesses, because a synthetic volume cannot prove what matters here.**
+Unit tests build a small HFS volume from the specification and check the
+reader's offsets against it (10 checks) plus the backup format (8 checks).
+Neither touches anybody's disk.
+
+What they cannot cover is a real 64 MB image with 1 KB allocation blocks, forks
+split across two extents, and a catalog spanning several nodes. Two hand-run
+harnesses do:
+
+- `tools/HfsReadCheck.java` reads a real image and prints what it finds. Run
+  against both of the owner's disks: `PoolRad Game` (1 KB blocks) listed all
+  four saved games with fork lengths agreeing with the catalog, including
+  `F7Healed`, whose data fork is in two extents; `Mini vMac Boot v2` (512-byte
+  blocks) listed the System Folder, including the Finder's 503,994-byte
+  resource fork.
+- `tools/HfsRoundTripCheck.java` backs up, scrambles, restores, and compares.
+  It refuses to open any file without "copy" in its name. Run on a copy of
+  `disk2.dsk`: **8 checks pass**, ending with the whole 64 MB image being
+  byte-for-byte identical after every saved game was backed up and restored.
+
+**A bug the synthetic volume caught that nothing else would have.** The catalog
+record's offset is inside the catalog *fork*, which is itself scattered across
+the volume — writing the updated fork length at that offset in the image would
+have put four bytes somewhere unrelated. The write now follows the catalog's own
+extents like any other fork.
+
+**Not verified here:** on-device acceptance. Nothing in this release has been
+exercised through the app's own menu on hardware; the owner does that.

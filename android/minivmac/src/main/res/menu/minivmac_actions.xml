@@ -39,6 +39,8 @@
                 android:checkable="true" />
             <item android:id="@+id/action_notebooks"
                 android:title="Notebooks" />
+            <item android:id="@+id/action_saved_games"
+                android:title="Saved games" />
             <item android:id="@+id/action_screenshot"
                 android:title="@string/screenshot_title" />
         </menu>
