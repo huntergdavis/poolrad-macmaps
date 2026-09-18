@@ -27,9 +27,14 @@ sed -i "s/versionName '$OLD_NAME'/versionName '$VERSION'/g" "$GRADLE"
 echo "== $OLD_NAME ($OLD_CODE) -> $VERSION ($NEW_CODE) =="
 
 (cd android && ./gradlew :minivmac:assembleMacIIDebug -q)
-APK="$(find android/minivmac/build/outputs/apk/macII/debug -name '*universal*.apk' -o -name '*.apk' | grep -v arm64 | head -1)"
-[ -f "$APK" ] || { echo "No universal APK produced" >&2; exit 1; }
+# The universal build, by name, and nothing else. A `find` with an ungrouped
+# -o once picked the x86_64-only APK here, and nine releases went out that the
+# owner's ARM tablet answered with "app not installed as it isn't compatible
+# with your phone". Name the file, then prove it carries ARM code.
+APK="android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk"
+[ -f "$APK" ] || { echo "No universal APK at $APK" >&2; exit 1; }
 cp "$APK" "scratch/poolrad-macmaps-$VERSION.apk"
+"$ROOT/tools/check-apk.sh" "scratch/poolrad-macmaps-$VERSION.apk"
 echo "APK: scratch/poolrad-macmaps-$VERSION.apk  $(sha256sum "scratch/poolrad-macmaps-$VERSION.apk" | cut -d' ' -f1)"
 
 git add "$GRADLE"
