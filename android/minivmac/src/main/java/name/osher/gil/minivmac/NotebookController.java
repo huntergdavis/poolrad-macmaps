@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
+import name.osher.gil.minivmac.mapper.ExplorationStyle;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.notebook.InkNote;
@@ -45,8 +46,14 @@ import name.osher.gil.minivmac.notebook.ExplorationTrail;
 /** User-owned notes only. This class has no reference to the emulator Core. */
 public final class NotebookController implements LiveMapView.Listener, JournalController.Notebooks {
     private static final String ACTIVE = "poolrad_notebook_id";
-    private static final String VISITED_ONLY = "poolrad_visited_only";
-    private static final String FOOTPRINTS = "poolrad_footprints";
+    /**
+     * The global fallbacks. Each area may override them under its own key; see
+     * {@link ExplorationStyle}. These keys keep the names they shipped with, so
+     * an existing choice survives the change to per-area switches and becomes
+     * the default every area starts from.
+     */
+    private static final String VISITED_ONLY = ExplorationStyle.FOG;
+    private static final String FOOTPRINTS = ExplorationStyle.FOOTPRINTS;
     // One ordered queue also lets an old Activity finish its saves before a new one reads them.
     static final ExecutorService IO = Executors.newSingleThreadExecutor();
     private final Activity activity;
@@ -103,7 +110,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         store = new NotebookStore(new File(activity.getFilesDir(), "notebooks"));
         exploration = new ExplorationRecorder(store);
         prefs = PreferenceManager.getDefaultSharedPreferences(activity);
-        map.setExplorationStyle(prefs.getBoolean(VISITED_ONLY, false), prefs.getBoolean(FOOTPRINTS, true));
+        applyExplorationStyle();
         map.setListener(this);
         ((MiniVMac) activity).journal().setNotebooks(this);
         IO.execute(() -> {
@@ -230,16 +237,48 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 : added.size() + " references noted in this notebook's journal list");
     }
 
+    private final ExplorationStyle.Stored stored = new ExplorationStyle.Stored() {
+        @Override public boolean has(String key) { return prefs.contains(key); }
+        @Override public boolean read(String key, boolean fallback) { return prefs.getBoolean(key, fallback); }
+    };
+
+    /** Which area's switches are in force: the one being displayed. */
+    private AreaIdentity styleArea() { return map.displayedArea(); }
+
+    private boolean fogFor(AreaIdentity area) {
+        return ExplorationStyle.resolve(stored, VISITED_ONLY, area, ExplorationStyle.FOG_DEFAULT);
+    }
+
+    private boolean footprintsFor(AreaIdentity area) {
+        return ExplorationStyle.resolve(stored, FOOTPRINTS, area, ExplorationStyle.FOOTPRINTS_DEFAULT);
+    }
+
+    /** Put this area's own answers on the map, whatever they are. */
+    private void applyExplorationStyle() {
+        AreaIdentity area = styleArea();
+        map.setExplorationStyle(fogFor(area), footprintsFor(area));
+    }
+
+    /**
+     * Remember a switch for the area it was flipped in. With no area identified
+     * there is nowhere to put it, so it becomes the global answer instead --
+     * which is what an unidentified area reads anyway.
+     */
+    private void remember(String base, boolean value) {
+        String key = ExplorationStyle.key(base, styleArea());
+        prefs.edit().putBoolean(key == null ? base : key, value).apply();
+    }
+
     /** The map's own footprint button; remembered like the Info checkbox. */
     @Override public void onFootprintsToggled(boolean shown) {
         if (disposed) return;
-        prefs.edit().putBoolean(FOOTPRINTS, shown).apply();
+        remember(FOOTPRINTS, shown);
     }
 
     /** The fog-of-war button beside it, on the same preference as the checkbox. */
     @Override public void onFogToggled(boolean visitedOnly) {
         if (disposed) return;
-        prefs.edit().putBoolean(VISITED_ONLY, visitedOnly).apply();
+        remember(VISITED_ONLY, visitedOnly);
     }
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
@@ -286,7 +325,10 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     }
 
     @Override public void onExplorationAreaChanged(AreaIdentity target) {
-        if (disposed || notebook == null || target == null) return;
+        if (disposed) return;
+        // Walking into a place brings that place's own switches with it.
+        applyExplorationStyle();
+        if (notebook == null || target == null) return;
         final NotebookStore.Notebook book = notebook;
         IO.execute(() -> {
             try {
@@ -332,10 +374,23 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         fog.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
         feet.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
         fog.setStateListAnimator(null); feet.setStateListAnimator(null);
-        fog.setChecked(prefs.getBoolean(VISITED_ONLY, false)); feet.setChecked(prefs.getBoolean(FOOTPRINTS, true));
+        fog.setChecked(fogFor(target)); feet.setChecked(footprintsFor(target));
         fog.setMinHeight(dp(48)); feet.setMinHeight(dp(48)); list.addView(fog); list.addView(feet);
         android.widget.CompoundButton.OnCheckedChangeListener style = (view, checked) -> {
-            prefs.edit().putBoolean(VISITED_ONLY, fog.isChecked()).putBoolean(FOOTPRINTS, feet.isChecked()).apply();
+            /*
+             * The dialog names the area it was opened from, so it sets that
+             * area's answer -- and the global one with it, so the next place
+             * the party walks into starts from what was last chosen rather
+             * than from what the app shipped with.
+             */
+            SharedPreferences.Editor edit = prefs.edit()
+                    .putBoolean(VISITED_ONLY, fog.isChecked())
+                    .putBoolean(FOOTPRINTS, feet.isChecked());
+            String fogKey = ExplorationStyle.key(VISITED_ONLY, target);
+            String feetKey = ExplorationStyle.key(FOOTPRINTS, target);
+            if (fogKey != null) edit.putBoolean(fogKey, fog.isChecked());
+            if (feetKey != null) edit.putBoolean(feetKey, feet.isChecked());
+            edit.apply();
             map.setExplorationStyle(fog.isChecked(), feet.isChecked());
         };
         fog.setOnCheckedChangeListener(style); feet.setOnCheckedChangeListener(style);

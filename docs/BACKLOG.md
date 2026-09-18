@@ -989,7 +989,7 @@ lands rather than at the end. The planned releases:
   while the guest is idle, and suspend the emulator when the app is
   backgrounded. Conditional on auto-resuming the moment it is foregrounded; if
   resume cannot be made reliable, drop the suspend half and keep the pause.
-- [ ] **F26 — Fog and footprints remembered per area.** Today both toggles are
+- [x] **F26 (delivered 0.39.0) — Fog and footprints remembered per area.** Today both toggles are
   one global setting. They should be per GEO area, so clearing fog in the slums
   does not clear it in the kobold caves.
 - [ ] **F54 — Show the exits you have mapped but never walked through.** The
