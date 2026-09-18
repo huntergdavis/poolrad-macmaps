@@ -1039,8 +1039,15 @@ reads back correctly.
   order once padding is accounted for, or they do not. If they do, the whole map
   is confirmed in one pass — **which unblocks F41 and F39**, both currently
   stuck on the equipment and spell sections.
-- [ ] **F78 — Decode the saved game itself:** what the data fork holds, what the
+- [x] **F78 (delivered 0.44.0) — Decode the saved game itself:** what the data fork holds, what the
   resource fork holds, and where the party, position and world state sit in it.
+- [ ] **F84 — Decode the saved game's world-state block.** Located by F78 at
+  `0x1400`–`0x31ff` in the data fork, 7.7 KB, dense in a played save and
+  entirely absent from an unplayed one. What is in it — visited squares,
+  encounter flags, what has been taken — is the obvious next question and is
+  not guessed at. Also open from F78: the framing of an item block, which is
+  roughly but not exactly 66 bytes, and whether the data fork's numbers really
+  are little-endian.
 - [ ] **F33 — Load a save from the companion,** by reading the file.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.

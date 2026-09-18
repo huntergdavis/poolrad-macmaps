@@ -1,0 +1,87 @@
+# What is inside a Macintosh Pool of Radiance saved game
+
+Work for F78, done 2026-09-18, against the three saved games on the owner's own
+game disk. Two of them are the same party in two states, which made the
+important parts fall out of a plain diff.
+
+## The shape of it
+
+A saved game is an ordinary Macintosh file with two forks, about 17 KB:
+
+| | |
+| --- | --- |
+| Data fork | **12,906 bytes** in all three. Where the party is, what the world looks like, and the party's names. |
+| Resource fork | 4.4–4.6 KB. **Who the party are** — one resource per character. |
+
+The division is the Macintosh way round, and it is the single most useful fact
+here: the characters are not in the data fork at all.
+
+## The resource fork: one character per resource
+
+A standard resource fork holding resources of type **`PoRc`**, one per party
+member, in party order, each **named with the character's own name**.
+
+**Each `PoRc` resource is the same 302-byte character record the running game
+holds in memory.** Every offset this project established by reading the game's
+own 68k code applies unchanged:
+
+| Offset | Field | How it was confirmed here |
+| --- | --- | --- |
+| `+0x00` | name, 16 bytes NUL-padded | matches the resource's own name |
+| `+0x10`–`+0x15` | the six ability scores | read as 18/15/14/17/16/16 for a fighter |
+| `+0x16` | exceptional strength | 47 on that same fighter, an 18/47 |
+| `+0x17`, 21 slots | memorised spells | zero for the fighters, set for the casters |
+| `+0x2f` | class | distinct per character, stable across saves |
+| `+0x32` | maximum hit points | never differs between two saves of one party |
+| `+0x120` | attacks remaining | differs between the two states |
+| `+0x12b` | **current hit points** | differs between the two states, and only this |
+| `+0x12c` | movement | 9 for every member, as in memory |
+
+The healed and injured saves of the same party differ inside a character
+resource at exactly the bytes the in-memory layout predicts. That is the
+confirmation that matters: the file record and the memory record are one
+layout, and [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md) therefore applies to
+saved games too.
+
+**After the record come that character's items.** A count at `+0x12f`, then that
+many blocks, each carrying the item's name as fixed-width text and a readied
+marker that reads "Yes " or "No  ". The blocks are roughly 66 bytes — the size
+the Amiga port uses — but **not exactly**, and that framing is not yet decoded.
+Five items produce tails of 330, 340 and 370 bytes in different characters, so
+something inside an item block varies.
+
+`PoRCharacters`, beside the saves, is a different thing: one `ChrL` resource
+called "CharacterList", empty on this disk.
+
+## The data fork
+
+Read as a whole it is mostly zero for a party that has not adventured. The
+`SampleParty` save has almost nothing outside two small regions; a played save
+fills 7.7 KB that the sample leaves empty.
+
+| Region | What is there |
+| --- | --- |
+| `0x0000`–`0x04ff` | sparse party-level state; a few bytes differ between the two states |
+| `0x120c` | **where the party is standing.** Two values, low byte first, reading 6,6 in one save and 9,9 in the other |
+| `0x125a` | **the last message shown**, as alternating character and zero bytes — "YOU SPY A GROUP OF SEEDY-LOOKING KOBOLDS." in one, orcs in the other |
+| `0x1400`–`0x31ff` | **the world state**, ~7.7 KB, dense in a played save and entirely absent from an unplayed one |
+| `0x3200`–`0x3269` | a short trailer, then **six 16-byte NUL-padded names in party order**, ending exactly at the end of the file |
+
+**The world-state block is located but not decoded.** Its internals are the
+obvious next question and are tracked as F84 rather than guessed at here.
+
+**One caution about the numbers.** The values at `0x120c` and the hit-point-like
+bytes elsewhere in the data fork are stored low byte first, which is not what a
+68k program usually does. Either they are byte values with padding, or the file
+kept a little-endian layout from the DOS line. It matters for the converter, and
+it is not settled — so nothing here is written as a 16-bit field.
+
+## What can be done with this now
+
+`SavedParty.parse` reads a party out of a save's resource fork, using the
+offsets above. Run against all three of the owner's saves it reports every
+member with their class, current and maximum hit points, movement, item count
+and ability scores, and correctly refuses `PoRCharacters` as holding no party.
+
+That is what F33, loading a save from the companion, needs in order to say what
+a save contains before anybody loads it.
