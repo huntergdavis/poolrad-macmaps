@@ -1029,6 +1029,11 @@ on the right side of it only because the game itself performs the action.
 - [ ] **F46 — A "Money" page:** the existing converter plus what the party
   actually holds. The purse has not been located in RAM yet.
 - [ ] **F47 — A message log.**
+- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle
+  on the options page. The Combat Message and ordinary Message TEHandles are
+  already read, so the text costs nothing to obtain; 1984 Mac type at e-ink
+  size is the hardest thing on the screen to read. An option, not a default,
+  because it covers screen the map wants.
 - [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
   time, never 24-hour. Same rule wherever else a time is shown, including the
   auto-save names in F37.
@@ -1060,6 +1065,16 @@ on the right side of it only because the game itself performs the action.
   one when you cross a boundary.
 
 ### Back of the backlog
+
+**Standing rule for `tools/play.py`:** its ability to play the game grows by
+slow iteration and always sits at the back of the backlog, behind every
+companion feature. The eventual aim is a harness that can play the game
+through unattended; that is a direction, not a milestone, and no round of work
+should trade a requested feature for it.
+
+- [ ] **F65 — Teach `tools/play.py` to reach a named area on demand,** so
+  screenshots for a feature are repeatable instead of hand-driven. Complex, and
+  filed behind everything under the standing rule above.
 
 - [ ] **F63 — One backup file for the whole companion** — notebooks, fog and
   trails together. Wanted, but by the owner's own account rarely used, so it
