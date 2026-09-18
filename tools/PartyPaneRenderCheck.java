@@ -1012,7 +1012,7 @@ public final class PartyPaneRenderCheck {
     }
 
     private static void checkWalked(LiveMapView view, int count) {
-        check(view.getContentDescription().toString().contains(" " + count + " walked squares."),
+        check(view.getContentDescription().toString().contains(count + " of 256 squares walked."),
                 "Accessible coverage count is stale: " + view.getContentDescription());
     }
 

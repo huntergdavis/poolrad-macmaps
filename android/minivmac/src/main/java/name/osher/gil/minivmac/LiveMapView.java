@@ -23,6 +23,7 @@ import name.osher.gil.minivmac.mapper.MapObservation;
 import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
+import name.osher.gil.minivmac.mapper.MapProgress;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.UnwalkedExits;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
@@ -227,8 +228,8 @@ public final class LiveMapView extends View {
         setContentDescription(status + (positionAvailable
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
-                + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
-                + " walked squares. " + unwalkedExitsLabel()
+                + notebook + ". " + flags.size() + " flags. "
+                + MapProgress.spoken(exploration.visitedCount()) + ". " + unwalkedExitsLabel()
                 + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
                 + "two buttons in the top-left corner of the map turn the footprints "
@@ -480,6 +481,16 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(14 * density);
         String title = state != null && state.area != null ? state.area.label() : "AREA MAP";
+        /*
+         * How much of this area is done, beside its name. A bare count of
+         * walked squares is a number with no scale; every local area is
+         * sixteen by sixteen, so the fraction is the thing a mapper wants --
+         * whether there is much left. Only once there is something to report,
+         * and never over a reference map, whose coverage belongs to wherever
+         * the party actually is.
+         */
+        if (state != null && state.area != null && positionAvailable && exploration.visitedCount() > 0)
+            title += " · " + MapProgress.badge(exploration.visitedCount());
         if (state != null && !positionAvailable) title += " · reference";
         if (mode == MapMode.COMBAT) title = combat == null ? "BATTLE" : "BATTLE · overview";
         /*
