@@ -24,6 +24,7 @@ import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
+import name.osher.gil.minivmac.mapper.UnwalkedExits;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.PartyRefusal;
 import name.osher.gil.minivmac.mapper.ReadingHold;
@@ -185,6 +186,17 @@ public final class LiveMapView extends View {
         refreshDescription(); invalidate();
     }
 
+    /**
+     * Doors seen from one side and never gone through. Said in words as well as
+     * drawn, because the chevron is the kind of mark that wants explaining once.
+     */
+    private String unwalkedExitsLabel() {
+        if (state == null || state.map == null) return "";
+        int exits = UnwalkedExits.count(state.map, exploration);
+        return exits == 0 ? "" : exits == 1 ? "1 door not yet gone through. "
+                : exits + " doors not yet gone through. ";
+    }
+
     private void refreshDescription() {
         String areaLabel = state == null ? "No local map yet"
                 : state.area == null ? "Unidentified area" : state.area.label();
@@ -216,7 +228,8 @@ public final class LiveMapView extends View {
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
                 + notebook + ". " + flags.size() + " flags. " + exploration.visitedCount()
-                + " walked squares. " + (visitedOnly ? "Visited-only map. " : "Full map. ")
+                + " walked squares. " + unwalkedExitsLabel()
+                + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
                 + "two buttons in the top-left corner of the map turn the footprints "
                 + "and the fog of war off and on, and a Return key in the "

@@ -992,7 +992,7 @@ lands rather than at the end. The planned releases:
 - [x] **F26 (delivered 0.39.0) — Fog and footprints remembered per area.** Today both toggles are
   one global setting. They should be per GEO area, so clearing fog in the slums
   does not clear it in the kobold caves.
-- [ ] **F54 — Show the exits you have mapped but never walked through.** The
+- [x] **F54 (delivered 0.40.0) — Show the exits you have mapped but never walked through.** The
   wall and door decoding already knows where the openings are; this is the map
   you drew telling you where you have not been. It spoils nothing, because it
   reads only squares you have already seen.

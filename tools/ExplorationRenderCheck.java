@@ -60,6 +60,7 @@ public final class ExplorationRenderCheck {
             run("original note geometry remains unchanged after live exploration rendering",ExplorationRenderCheck::legacyGeometry);
             run("door bits without wall surfaces never create phantom edges",ExplorationRenderCheck::noPhantomDoors);
             run("all real doorway states use the same neutral symbol",ExplorationRenderCheck::neutralDoors);
+            run("a door seen from one side and not gone through is marked, and only then",ExplorationRenderCheck::unwalkedExits);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
     }
@@ -167,6 +168,62 @@ public final class ExplorationRenderCheck {
             if(baseline==null)baseline=actual;
             else equal(baseline,actual,"Door state advertised an unverified lock/secret/passability claim");
         }
+    }
+
+    private static void unwalkedExits() {
+        /*
+         * DEST has a real doorway east. Standing on DEST and never on the
+         * square beyond it must draw something extra; walking through must take
+         * it away again; and never standing on DEST at all must draw nothing,
+         * because the party has not seen that door.
+         */
+        byte[] geometry=new byte[1024];
+        geometry[DEST]=0x05;                 // an east wall surface on DEST
+        geometry[768+DEST]=0x04;             // with door bits over it (direction 1)
+        GeoMap map=map(geometry);
+
+        // The same wall with no door bits: a wall is never an exit, so whatever
+        // this map does not draw and the other does is the mark itself.
+        byte[] walled=new byte[1024]; walled[DEST]=0x05;
+        GeoMap wall=map(walled);
+
+        ExplorationTrail beside=ExplorationTrail.empty().record(DEST,-1);
+        ExplorationTrail through=beside.record(DEST+1,DEST);
+        ExplorationTrail elsewhere=ExplorationTrail.empty().record(0,-1);
+
+        int besideDiff=changes(tile(render(map,beside,false,false),DEST+1,2),
+                               tile(render(wall,beside,false,false),DEST+1,2));
+        int throughDiff=changes(tile(render(map,through,false,false),DEST+1,2),
+                                tile(render(wall,through,false,false),DEST+1,2));
+        int unseenDiff=changes(tile(render(map,elsewhere,false,false),DEST+1,2),
+                               tile(render(wall,elsewhere,false,false),DEST+1,2));
+
+        check(besideDiff>throughDiff,
+                "The mark survived the party walking through the door: "
+                + besideDiff + " beside vs " + throughDiff + " through");
+        check(besideDiff>unseenDiff,
+                "A door nobody has stood beside was marked as much as one they had: "
+                + besideDiff + " beside vs " + unseenDiff + " unseen");
+
+        Bitmap marked=render(map,beside,false,false);
+        equalTile(marked,render(map,beside,false,false),DEST,"Unstable rendering of the same state");
+
+        /*
+         * Too small to be an arrow rather than a smudge, so nothing is drawn.
+         * Measured the same way: at this size having a door beside you should
+         * differ from having a wall by exactly as much as having already walked
+         * through it does -- that is, by the doorway symbol alone.
+         */
+        check(smallDiff(map,wall,beside)==smallDiff(map,wall,through),
+                "A cell too small to draw an arrow drew one anyway");
+        monochrome(marked);
+    }
+
+    private static int smallDiff(GeoMap door,GeoMap wall,ExplorationTrail trail) {
+        Bitmap withDoor=bitmap(SIZE,SIZE,Color.WHITE),withWall=bitmap(SIZE,SIZE,Color.WHITE);
+        ART.drawExploration(new Canvas(withDoor),door,trail,false,false,PAD,PAD,6,1);
+        ART.drawExploration(new Canvas(withWall),wall,trail,false,false,PAD,PAD,6,1);
+        return changes(pixels(withDoor),pixels(withWall));
     }
 
     private static void markers() {

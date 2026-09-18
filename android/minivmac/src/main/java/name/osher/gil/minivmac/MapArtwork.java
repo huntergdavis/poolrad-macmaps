@@ -11,6 +11,7 @@ import java.util.Map;
 import java.util.Set;
 
 import name.osher.gil.minivmac.mapper.GeoMap;
+import name.osher.gil.minivmac.mapper.UnwalkedExits;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
@@ -111,6 +112,7 @@ public final class MapArtwork {
             }
             TileVisibility visibility=visitedOnly ? tile -> trail!=null && trail.visited(tile) : null;
             drawGeometry(canvas,map,visibility,left,top,cell,density);
+            drawUnwalkedExits(canvas,map,trail,left,top,cell,density);
         } finally { canvas.restoreToCount(saved); }
     }
 
@@ -124,6 +126,44 @@ public final class MapArtwork {
             if(step.to>=0 && step.to<256 && step.from>=0 && step.from<256)
                 latestFrom[step.to]=step.from;
         preparedTrail=trail;
+    }
+
+    /**
+     * A chevron pointing out through every door the party has stood beside and
+     * never gone through, drawn just outside the doorway on the side they have
+     * not been.
+     *
+     * A chevron because nothing else on this map is one: walls are lines, the
+     * doorway itself is a neutral break in them, footprints are soles, visited
+     * squares are four corner dots and notes are their own symbols. It points,
+     * which is the whole message -- that way, and you have not been.
+     *
+     * It sits above the geometry so a door's own symbol does not cover it, and
+     * it is left out entirely below a size where it would be a smudge rather
+     * than an arrow. Which doors qualify is {@link UnwalkedExits}.
+     */
+    private void drawUnwalkedExits(Canvas canvas,GeoMap map,ExplorationTrail trail,
+            float left,float top,float cell,float density) {
+        if(map==null||trail==null||!(cell>0)||!(density>0)) return;
+        if(cell<11*density) return;
+        ink.setColor(Color.BLACK);
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setStrokeWidth(Math.max(1.1f*density,cell*.05f));
+        ink.setStrokeCap(Paint.Cap.ROUND);
+        final float reach=cell*.30f,spread=cell*.17f;
+        UnwalkedExits.forEach(map,trail,(x,y,direction)->{
+            // The middle of the edge in question, then straight out through it.
+            float midX=left+(x+.5f)*cell,midY=top+(y+.5f)*cell;
+            float outX=direction==1?1:direction==3?-1:0;
+            float outY=direction==2?1:direction==0?-1:0;
+            midX+=outX*cell*.5f; midY+=outY*cell*.5f;
+            float perpX=outY==0?0:1,perpY=outX==0?0:1;
+            float apexX=midX+outX*reach,apexY=midY+outY*reach;
+            float baseX=midX+outX*reach*.25f,baseY=midY+outY*reach*.25f;
+            canvas.drawLine(apexX,apexY,baseX-perpX*spread,baseY-perpY*spread,ink);
+            canvas.drawLine(apexX,apexY,baseX+perpX*spread,baseY+perpY*spread,ink);
+        });
+        ink.setStrokeCap(Paint.Cap.BUTT);
     }
 
     /** Two staggered soles with separate heels, facing north before rotation. */
