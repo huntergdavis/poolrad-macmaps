@@ -33,6 +33,9 @@ done
 
 echo "== java tests and apk =="
 (cd "$ROOT/android" && ./gradlew :minivmac:assembleMacIIDebug :minivmac:testMacIIDebugUnitTest -q)
+
+echo "== the APK that would ship =="
+"$ROOT/tools/test-apk-selection.sh"
 python3 - "$ROOT" <<'PY'
 import glob,re,sys
 n=f=e=s=0
