@@ -91,10 +91,14 @@ one the game can actually open again.
 
 ## Also offline
 
-Spells, weapons and armor, class progression and mixed-coin conversion ·
-automatic code-wheel entry with an illustrated fallback · save or share a PNG
-of the map, game and keyboard together · install alongside your existing Mini
-vMac setup.
+Everything the game expects you to look up on paper, in the app: spells, weapons
+and armor, class progression, mixed-coin conversion, the exploration trail's own
+switches, and automatic code-wheel entry with an illustrated fallback.
+
+<img src="docs/images/companion-info-panels.png" width="760" alt="The Info tab listing Exploration trail, Journal, Levels and skills, Spells, Weapons and armor, Money conversion and Code wheel">
+
+Save or share a PNG of the map, game and keyboard together · install alongside
+your existing Mini vMac setup.
 
 **Early prototype.** Verified against Macintosh Pool of Radiance v1.1 in New
 Phlan and the adjoining Slums gate round trip; other transitions, dedicated
