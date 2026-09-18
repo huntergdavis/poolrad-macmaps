@@ -1051,6 +1051,12 @@ reads back correctly.
   It reads as a variable-length stream, and the two saves that exist are of the
   same world, so there is nothing to diff.
 
+  **Attempted 2026-09-18 and blocked by F87.** The save was loaded, the game was
+  running, and every RAM snapshot came back empty, so the correspondence could
+  not be tested at all. What little was learned: none of the block appears in
+  the one good snapshot from an earlier session, but that snapshot is of a
+  different world, so it says nothing either way.
+
   **The experiment to do next is not more staring.** The character records in a
   save turned out to be the in-memory records verbatim (F78), so the obvious
   question is whether this block is a verbatim copy of a region of guest RAM
@@ -1089,6 +1095,23 @@ reads back correctly.
   check that no game is running by **reading it from guest memory**, not by
   looking at whether a menu item appears grey. That is the check the scripting
   harness did not have, and it is the reason it failed silently.
+- [ ] **F87 — The DEBUG RAM snapshot comes back empty.** Found 2026-09-18 while
+  trying the F84 experiment. Every snapshot taken today is the right size,
+  8,388,608 bytes, and almost entirely zeros: 22 pages with anything in them
+  against 861 in a snapshot from an earlier session, and low memory's
+  application-globals pointer at `0x904` reading `0xffffff` instead of a real
+  address. The game was demonstrably running at the time — `play.py state` said
+  `continue` and the companion was drawing a live map from the same machine.
+
+  So the companion's own probes are reading guest memory perfectly well while
+  the snapshot path returns nothing, which points at the snapshot path rather
+  than at the emulator. Worth finding: the probes and the snapshot should be
+  looking at the same bytes.
+
+  `tools/check-snapshot.py` now refuses an empty snapshot rather than handing
+  one back, because an empty one is the right size and looks exactly like a real
+  one until something tries to read it.
+
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
   F33 ships the reading, the chooser, the overlay and the guarded sequence, and
   every guard is unit-tested. What has **not** happened is one clean run that
