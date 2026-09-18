@@ -1042,10 +1042,23 @@ reads back correctly.
 - [x] **F78 (delivered 0.44.0) — Decode the saved game itself:** what the data fork holds, what the
   resource fork holds, and where the party, position and world state sit in it.
 - [ ] **F84 — Decode the saved game's world-state block.** Located by F78 at
-  `0x1400`–`0x31ff` in the data fork, 7.7 KB, dense in a played save and
-  entirely absent from an unplayed one. What is in it — visited squares,
-  encounter flags, what has been taken — is the obvious next question and is
-  not guessed at. Also open from F78: the framing of an item block, which is
+  `0x1400`–`0x31ff` in the data fork, exactly 7,680 bytes, dense in a played
+  save and entirely absent from an unplayed one.
+
+  **First look, 2026-09-18: it does not yield to byte-gazing.** 239 distinct
+  byte values, 6.50 bits of entropy per byte, and no repetition worth the name
+  at any stride from 16 to 3,840 — so it is not a table of fixed-size records.
+  It reads as a variable-length stream, and the two saves that exist are of the
+  same world, so there is nothing to diff.
+
+  **The experiment to do next is not more staring.** The character records in a
+  save turned out to be the in-memory records verbatim (F78), so the obvious
+  question is whether this block is a verbatim copy of a region of guest RAM
+  too. Load a save, take a full RAM snapshot with `tools/CapturePartyRam.java`,
+  and search the snapshot for these 7,680 bytes. If they are there, writing a
+  save (F79) is largely a matter of copying the right regions out, and the
+  block never needs decoding at all. If they are not, the game's own save
+  routine has to be traced in its CODE resources, which is a much larger job. Also open from F78: the framing of an item block, which is
   roughly but not exactly 66 bytes, and whether the data fork's numbers really
   are little-endian.
 - [ ] **F33 — Load a save from the companion,** by reading the file.
