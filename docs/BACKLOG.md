@@ -969,6 +969,10 @@ Nothing here is started unless it says so.
 - [ ] **F26 — Fog and footprints remembered per area.** Today both toggles are
   one global setting. They should be per GEO area, so clearing fog in the slums
   does not clear it in the kobold caves.
+- [ ] **F54 — Show the exits you have mapped but never walked through.** The
+  wall and door decoding already knows where the openings are; this is the map
+  you drew telling you where you have not been. It spoils nothing, because it
+  reads only squares you have already seen.
 
 ### In flight
 
@@ -1037,6 +1041,31 @@ on the right side of it only because the game itself performs the action.
   happened to this party, so it spoils nothing and needs no bestiary.
 - [ ] **F52 — "Rest until healed",** driving the game's own rest command until
   the party is up. Opt-in, and through the menus like F39-F41, never a write.
+- [ ] **F55 — A legend for the map's marks,** reached from a link in the
+  bottom-right of the map area. The marks have piled up — the crosses, the
+  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
+- [ ] **F56 — A note index:** every note listed by area and date, tap to open.
+  Handwriting cannot be searched, but it can be listed.
+- [ ] **F57 — Open the notebook page for the area you just entered.**
+- [ ] **F58 — An area-connection map** — which door led where, built only from
+  movement this party actually made.
+- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
+  on the info screen, not on the map. Pairs with F39 and F52.
+- [ ] **F60 — Tap the header to ping your own square,** for finding yourself on
+  a large map.
+- [ ] **F61 — Big Yes/No buttons when the game asks a yes/no question.** Same
+  family as F30, and it routes around the keyboard-focus problem that has
+  repeatedly broken the scripting harness.
+- [ ] **F62 — A stitch view:** the neighbouring area's map beside the current
+  one when you cross a boundary.
+
+### Back of the backlog
+
+- [ ] **F63 — One backup file for the whole companion** — notebooks, fog and
+  trails together. Wanted, but by the owner's own account rarely used, so it
+  sits behind everything above. Broader than F53, which is an export for
+  reading rather than a restore.
+
 - [ ] **F53 — Export the whole notebook as one file** — every map and every
   note in a campaign, not a single page, because the notes span areas.
 
