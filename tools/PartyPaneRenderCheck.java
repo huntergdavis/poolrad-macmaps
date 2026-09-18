@@ -660,18 +660,38 @@ public final class PartyPaneRenderCheck {
     }
 
     private static void emptyStatuses() {
-        LiveMapView empty = emptyView(600, 320); Set<Integer> appearances = new HashSet<>();
+        LiveMapView empty = emptyView(600, 320);
         FrameLayout parent = (FrameLayout) empty.getParent();
+        /*
+         * Before any local observation the header reads "AREA MAP" beside
+         * "Position unavailable" whatever the mode, and that is deliberate.
+         * LiveMapView.drawMap says why: the transient modes churn between
+         * Updating, Loading and Position unavailable several times a second
+         * while the game settles, and naming each one on screen made the header
+         * flash. The mode is carried in the accessible description instead,
+         * which checkStatus verifies for every mode below. Combat is the one
+         * exception, because it draws a battle screen in the map's allocation.
+         * So the rule is not that every mode looks different -- it is that
+         * combat does, and the rest hold one steady screen.
+         */
+        Integer battle = null, steady = null;
         for (MapMode mode : statusModes()) {
             applyStatus(empty, statusPacket(mode), mode); checkStatus(empty, mode, false);
             check(empty.displayedArea() == null, mode + " fabricated a map before any local observation");
             Bitmap image = render(empty); checkMonochrome(image);
-            check(appearances.add(Arrays.hashCode(pixels(image))), mode + " reused an indistinguishable empty-screen status");
+            int appearance = Arrays.hashCode(pixels(image));
+            if (mode == MapMode.COMBAT) battle = appearance;
+            else if (steady == null) steady = appearance;
+            else check(appearance == steady.intValue(),
+                    mode + " drew a settling screen of its own for the header to flash with");
             check(parent.getChildCount() == 1 && parent.getChildAt(0) == empty,
                     mode + " added a new panel instead of using the existing map allocation");
         }
+        check(battle != null && steady != null && battle.intValue() != steady.intValue(),
+                "Combat did not draw a screen distinct from the steady settling one");
         applyStatus(empty, null, MapMode.UNAVAILABLE); checkStatus(empty, MapMode.UNAVAILABLE, false);
-        check(appearances.add(Arrays.hashCode(pixels(render(empty)))), "Unavailable screen retained a named mode");
+        check(Arrays.hashCode(pixels(render(empty))) == steady.intValue(),
+                "An unnamed unavailable screen differed from the steady settling screen");
         SyntheticAreas areas = new SyntheticAreas(); MapObservation local = areas.observation(0, true, 1);
         LiveMapView narrow = view(null, 240, 280); showObservation(narrow, local);
         narrow.setExplorationStyle(true, true); narrow.showExploration(walkedTrail(), "Remembered narrow route");
@@ -1049,12 +1069,24 @@ public final class PartyPaneRenderCheck {
         try {
             check(mapChangedPixels(actual, expected, view) > 0,
                     message + " -- the local map is still on screen");
-            int drawn = darkMapPixels(actual, view), local = darkMapPixels(expected, view);
-            check(drawn < local, message + " -- combat left " + drawn
-                    + " dark map pixels, no fewer than the local map's " + local);
+            // Not a density rule: the centred explanation is denser than the
+            // map's thin walls. What must be gone is the map's own ink, so
+            // count how much of it is still drawn where it used to be.
+            int local = darkMapPixels(expected, view), kept = sharedDarkMapPixels(actual, expected, view);
+            check(kept * 2 < local, message + " -- " + kept + " of the local map's "
+                    + local + " ink pixels are still drawn in place");
             checkMonochrome(actual);
         }
         finally { actual.recycle(); expected.recycle(); BITMAPS.remove(actual); BITMAPS.remove(expected); }
+    }
+
+    /** Map ink drawn in both bitmaps at the same place. */
+    private static int sharedDarkMapPixels(Bitmap first, Bitmap second, LiveMapView view) {
+        MapViewport map = mapBounds(view); int shared = 0;
+        for (int y = (int) Math.ceil(map.top + 1); y < map.top + 16 * map.cell - 1; y++)
+            for (int x = (int) Math.ceil(map.left + 1); x < map.left + 16 * map.cell - 1; x++)
+                if (Color.red(first.getPixel(x, y)) < 128 && Color.red(second.getPixel(x, y)) < 128) shared++;
+        return shared;
     }
 
     /** Ink inside the same map bounds mapChangedPixels compares. */
