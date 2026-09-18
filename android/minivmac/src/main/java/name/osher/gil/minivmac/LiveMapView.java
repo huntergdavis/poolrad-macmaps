@@ -182,6 +182,7 @@ public final class LiveMapView extends View {
                     .append("; ").append(member.classLabel())
                     .append("; ").append(member.conditionSummary())
                     .append(member.readyToTrain() ? "; can train" : "")
+                    .append(party.slowedByLoad(member) ? "; slowed by load" : "")
                     .append(member.spellsAwaitingRestTotal() > 0 ? "; spells await rest" : "")
                     .append('.');
         if (mode == MapMode.COMBAT && combat != null)
@@ -799,8 +800,14 @@ public final class LiveMapView extends View {
             ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(density);
             canvas.drawLine(divider,p.partyTop+p.headerHeight,divider,p.partyTop+p.partyHeight,ink);
         }
+        /*
+         * "W" for a character load has slowed. The game never says so anywhere
+         * you are looking; it is the sort of thing you discover by being slow
+         * in a fight. PartyState.slowedByLoad carries the reasoning.
+         */
         for (int i=0;i<p.visibleMembers();i++) {
             PartyState.Member member=party.members.get(i);
+            boolean slowed = party.slowedByLoad(member);
             float column=p.columnLeft(i);
             float left=column+44*unit, right=column+p.columnWidth-10*unit;
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
@@ -832,7 +839,8 @@ public final class LiveMapView extends View {
              * name's, so a long name shortens rather than running into them.
              */
             String marks = (member.readyToTrain() ? "T" : "")
-                    + (member.spellsAwaitingRestTotal() > 0 ? "R" : "");
+                    + (member.spellsAwaitingRestTotal() > 0 ? "R" : "")
+                    + (slowed ? "W" : "");
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
             float marksWidth = 0;
             if (!marks.isEmpty()) {

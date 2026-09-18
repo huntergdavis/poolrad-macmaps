@@ -268,6 +268,33 @@ public final class PartyState {
 
     public List<Member> members() { return members; }
 
+    /** The fastest anyone in the party is moving, or -1 if nobody reports it. */
+    public int quickestMovement() {
+        int best = -1;
+        for (Member member : members) if (member.movementSquares > best) best = member.movementSquares;
+        return best;
+    }
+
+    /**
+     * True when load has slowed this member: either behind the rest of the
+     * party, or already down at the game's own printed floor.
+     *
+     * The first test is relative on purpose, because the app does not know what
+     * any individual's unencumbered rate should be -- in the captures every
+     * character and every orc reads 9, so 9 is normal here, but that is an
+     * observation and not a rule. Comparing within the party needs no rule and
+     * catches the case that matters: one person hauling the loot.
+     *
+     * On its own it would miss a party that is uniformly overloaded, since then
+     * nobody is behind anybody. That is what the second test is for: at or
+     * below {@link #SLOWEST_MOVEMENT} the game itself has stopped distinguishing
+     * degrees of slow, which is an absolute statement and safe to use as one.
+     */
+    public boolean slowedByLoad(Member member) {
+        if (member.movementSquares < 0) return false;
+        return member.slowedToMinimum() || member.movementSquares < quickestMovement();
+    }
+
     public boolean sameDisplay(PartyState other) {
         return other != null && Arrays.equals(packet, other.packet);
     }

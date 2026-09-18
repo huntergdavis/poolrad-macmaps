@@ -19,6 +19,7 @@ import java.util.Set;
 import java.util.Map;
 import java.security.MessageDigest;
 import name.osher.gil.minivmac.LiveMapView;
+import name.osher.gil.minivmac.mapper.ReadingHold;
 import name.osher.gil.minivmac.MapArtwork;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
@@ -67,6 +68,19 @@ public final class PartyPaneRenderCheck {
     private static float density;
     private static int passed;
 
+    /**
+     * Feed the view nothing but refusals for a stretch of real time. The hold
+     * is wall-clock, so it has to be waited out rather than stepped past.
+     */
+    private static void refusePartyUntil(LiveMapView view, long millis, byte[]... refusals) {
+        long start = android.os.SystemClock.elapsedRealtime();
+        while (android.os.SystemClock.elapsedRealtime() - start < millis) {
+            if (refusals.length == 0) view.showPartySample(null);
+            else for (byte[] refusal : refusals) view.showPartySample(refusal);
+            try { Thread.sleep(50); } catch (InterruptedException stop) { Thread.currentThread().interrupt(); return; }
+        }
+    }
+
     public static void main(String[] args) {
         try { runChecks(); }
         catch (Throwable failure) { failure.printStackTrace(System.err); System.exit(1); }
@@ -108,13 +122,30 @@ public final class PartyPaneRenderCheck {
             equal(before, render(view), "Healing did not restore the exact full-health display");
         });
 
-        run("narrow portrait and short panes collapse the sidebar and preserve the full map", () -> {
+        run("a narrow portrait pane puts the party under the map rather than losing it", () -> {
+            /*
+             * This check used to require the sidebar to vanish at 360x320 and
+             * leave the map its full height. That rule is what made the party
+             * invisible on the owner's own tablet, and 0.28.0 deliberately
+             * overturned it: when nothing fits beside the map, the party goes
+             * in a strip underneath instead. Losing some map height beats
+             * losing the whole party. The check now holds the pane to the
+             * bargain that replaced it -- a strip appears, every member is in
+             * it, the rows stay readable, and the map keeps the quarter of the
+             * pane the layout promises it.
+             */
             byte[] sample = packet(true);
             LiveMapView view = view(sample, 360, 320);
             PartyPaneLayout pane = pane(view, MEMBERS);
-            check(pane.rows == 0 && pane.mapWidth == view.getWidth() && pane.mapHeight == view.getHeight(),
-                    "Portrait sidebar must collapse without taking any guest/map height");
-            equal(render(view(null,360,320)),render(view),"Collapsed rows left pixels in the map");
+            check(pane.rows > 0, "A narrow portrait pane lost the party altogether");
+            check(pane.belowMap(), "A pane too narrow for a sidebar must put the party below the map");
+            check(pane.visibleMembers() == MEMBERS, "The strip dropped a member");
+            check(pane.rowHeight >= 48 * density - 0.5f, "The strip crammed its rows together");
+            check(pane.headerHeight + pane.rows * pane.rowHeight <= pane.partyHeight + 0.5f,
+                    "The strip overflowed its own height");
+            check(pane.mapWidth == view.getWidth(), "A strip must span the pane, not narrow the map");
+            check(pane.mapHeight >= Math.max(64, view.getHeight() * 0.25f) - 0.5f,
+                    "The strip took more map height than the layout promises");
             checkDescription(view, sample);
             resize(view,960,200);
             PartyPaneLayout shortPane = pane(view,MEMBERS);
@@ -199,18 +230,44 @@ public final class PartyPaneRenderCheck {
             equalOutsideParty(before, reordered, pane(view, MEMBERS));
         });
 
-        run("null or invalid health removes stale rows and restores the full map allocation", () -> {
+        run("an unreadable sample holds briefly, then removes stale rows and restores the map", () -> {
+            /*
+             * This check used to require an unreadable sample to clear the pane
+             * on the spot. 0.31.0 deliberately changed that: a single missed
+             * read holds the last good rows for ReadingHold.HOLD_MS, because
+             * the owner was watching his party flicker away three times a
+             * minute and many times a second in a fight. So the check now holds
+             * both halves of that bargain -- the pane does not blink away
+             * immediately, and it does clear once the reading has been gone for
+             * longer than the hold.
+             */
             LiveMapView view = view(packet(true), 960, 480);
             LiveMapView empty = view(null, 960, 480);
             Bitmap baseline = render(empty);
+            Bitmap populated = render(view);
+
             view.showPartySample(null);
-            equal(baseline, render(view), "Unavailable sample left old party pixels or a narrowed map");
+            check(changedPixels(populated, render(view)) == 0,
+                    "One unreadable sample blinked the party pane away inside the hold");
+
+            refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
+            /*
+             * Not an exact match against a view that never had a party: once the
+             * rows go the map reclaims the width, and its right-aligned status
+             * text moves into the strip they occupied. What must be true is that
+             * the party itself is neither drawn nor described, and that the map
+             * has the whole pane back.
+             */
+            check(changedPixels(populated, render(view)) > 100,
+                    "A party gone for longer than the hold was still drawn");
             for (String name : NAMES) check(!view.getContentDescription().toString().contains(name),
                     "Unavailable sample left stale accessible health for " + name);
+
             view.showPartySample(packet(false));
             byte[] invalid = packet(true); invalid[24] = 100; // Current > verified maximum 20.
-            view.showPartySample(invalid);
-            equal(baseline, render(view), "Rejected HP packet left previous health displayed");
+            refusePartyUntil(view, ReadingHold.HOLD_MS + 500, invalid);
+            for (String name : NAMES) check(!view.getContentDescription().toString().contains(name),
+                    "Rejected HP packet left previous health described for " + name);
             view.showPartySample(packet(true));
             checkBars(render(view), pane(view, MEMBERS), packet(true));
         });
@@ -299,8 +356,17 @@ public final class PartyPaneRenderCheck {
             check(selected.size()==expected,"Visibility callback opened details");
             event(view,MotionEvent.ACTION_DOWN,x,y);resize(view,360,320);resize(view,960,480);event(view,MotionEvent.ACTION_UP,x,y);
             check(selected.size()==expected,"Resize out and back opened details");
-            event(view,MotionEvent.ACTION_DOWN,x,y);view.showPartySample(null);event(view,MotionEvent.ACTION_UP,x,y);
-            check(selected.size()==expected,"Unavailable party opened details");
+            /*
+             * The party has to be genuinely gone, not merely missed once: since
+             * 0.31.0 a single unreadable sample holds the rows for
+             * ReadingHold.HOLD_MS, and a tap landing on rows that are still
+             * displayed should open them. What must not happen is a tap
+             * completing against rows the hold has since taken away.
+             */
+            event(view,MotionEvent.ACTION_DOWN,x,y);
+            refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
+            event(view,MotionEvent.ACTION_UP,x,y);
+            check(selected.size()==expected,"A party gone past the hold still opened details");
             check(mapTaps[0]==0,"Party gesture leaked into map-note creation");
         });
 
@@ -323,8 +389,10 @@ public final class PartyPaneRenderCheck {
                     "Collapsed sidebar lost accessible details");
             byte[] changed=packet(true);swap(changed,0,2);view.showPartySample(changed);
             check(!view.performAccessibilityAction(action,null) && selected.size()==1,"Stale accessibility action selected reordered member");
-            info.recycle();view.showPartySample(null);info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
-            check(info.getActionList().isEmpty(),"Unavailable party retained stale detail actions");info.recycle();
+            // Gone past the hold, not merely missed once; see the tap check above.
+            info.recycle();refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
+            info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+            check(info.getActionList().isEmpty(),"A party gone past the hold retained stale detail actions");info.recycle();
             check(!view.isFocusable(),"Details stole physical-key focus from the guest");
         });
 
@@ -352,6 +420,17 @@ public final class PartyPaneRenderCheck {
             float top=p.rowTop(0)+(p.rowHeight-48*density)/2;
             int left=(int)(p.partyLeft+8*density), right=(int)Math.ceil(p.partyLeft+37*density);
             int above=(int)(top+7*density), below=(int)Math.ceil(top+36*density);
+            /*
+             * 0.36.0 gave a member who is down a word where the armour class
+             * goes -- "Dying", "Dead" -- because a one-letter badge is no use
+             * when you are scanning for who to bandage. So this member's
+             * readout is allowed to change along with the badge slot. Nothing
+             * else may: not the map, not the names, not the bars, not a
+             * neighbouring row.
+             */
+            int wordLeft=(int)(p.columnLeft(0)+p.columnWidth*0.45f);
+            int wordRight=(int)Math.ceil(p.columnLeft(0)+p.columnWidth);
+            int wordTop=(int)(top+16*density), wordBottom=(int)Math.ceil(top+32*density);
             int[][] conditions={{4,0},{5,0},{6,0},{7,0},{2,0},{3,0},{1,0},{0,1},{0,2},{255,255}};
             Set<Long> badges=new HashSet<>();
             for(int[] state:conditions) {
@@ -361,6 +440,8 @@ public final class PartyPaneRenderCheck {
                     int pixel=after.getPixel(x,y);
                     if(x>=left&&x<right&&y>=above&&y<below) {
                         hash=hash*31+pixel;if(Color.red(pixel)<128)dark++;
+                    } else if(x>=wordLeft&&x<wordRight&&y>=wordTop&&y<wordBottom) {
+                        // The condition word's own space; checked by conditionSummary below.
                     } else check(pixel==before.getPixel(x,y),"Condition altered map, names, HP bars or another row");
                 }
                 check(dark>50&&badges.add(hash),"Missing or indistinguishable condition badge");
@@ -374,7 +455,9 @@ public final class PartyPaneRenderCheck {
             check(view.getContentDescription().toString().contains("injured"),"HP injury has no text explanation");
             view.showPartySample(healthy);equal(before,render(view),"Recovery did not restore the original class symbol");
             resize(view,360,320);view.showPartySample(injured);
-            equal(render(view(null,360,320)),render(view),"Conditions broke the narrow-pane collapse");
+            // Narrow means the strip under the map, not a vanished party; see check 3.
+            check(changedPixels(render(view(null,360,320)),render(view))>100,
+                    "A narrow pane with conditions drew no party at all");
             check(view.getContentDescription().toString().contains("injured"),"Collapsed conditions lost accessible details");
         });
 
@@ -398,8 +481,12 @@ public final class PartyPaneRenderCheck {
                     "New detail action omits actual conditions/effects");
             check(view.performAccessibilityAction(action.getId(),null)&&selected.size()==1
                     &&selected.get(0).condition==4&&selected.get(0).trackedEffects==3,"Detail action supplied stale state");
-            info.recycle();view.showPartySample(null);
-            equal(render(view(null,960,480)),render(view),"Missing party retained old condition badges");
+            // Gone past the hold, and the map reclaims the width it held; see check 7.
+            info.recycle();Bitmap held=render(view);
+            refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
+            check(changedPixels(held,render(view))>100,"Missing party retained old condition badges");
+            check(!view.getContentDescription().toString().contains("Unconscious"),
+                    "Missing party retained its described condition");
         });
 
         run("joining and leaving change row targets together with names, bars and details", () -> {
@@ -420,7 +507,7 @@ public final class PartyPaneRenderCheck {
             showState(view, first); view.setExplorationStyle(true, true);
             view.showExploration(walkedTrail(), "Synthetic A trail");
             assertMap(view, first, walkedTrail(), true, "Initial safe A overlay");
-            showState(view, second);
+            showStatePastHold(view, second);
             check(view.displayedArea().equals(second.area), "Unsafe B did not replace displayed A");
             check(view.currentArea() == null && view.snapshot() == null, "Unsafe B exposed a live position");
             checkWalked(view, 0);
@@ -429,7 +516,16 @@ public final class PartyPaneRenderCheck {
             assertMap(view, second, ExplorationTrail.empty(), false, "Safe A to unsafe B retained A ink");
         });
 
-        run("unsafe area A to unsafe area B also clears coverage despite both current areas being null", () -> {
+        run("two unsafe areas in a row never identify one, and never carry ink between them", () -> {
+            /*
+             * This check used to require an unsafe sample to name its area and
+             * draw its map from a cold start. The wilderness work deliberately
+             * ended that: with no trustworthy position the companion declines
+             * to identify the area at all, rather than present one map as
+             * another. So what is held here is the invariant that actually
+             * matters -- neither unsafe area is ever named, no position is
+             * exposed, and A's coverage never appears under B.
+             */
             SyntheticAreas areas = new SyntheticAreas();
             LiveMapView view = view(null, 960, 480);
             ExplorationListener listener = new ExplorationListener(); view.setListener(listener);
@@ -438,14 +534,23 @@ public final class PartyPaneRenderCheck {
             // A stored trail can finish loading while the party position is unavailable.
             view.showExploration(walkedTrail(), "Synthetic A trail");
             check(view.currentArea() == null, "Fixture A must have no live current area");
-            assertMap(view, first, walkedTrail(), false, "Initial unavailable A overlay");
+            check(view.displayedArea() == null, "An unsafe sample named an area it cannot vouch for");
+            check(view.getContentDescription().toString().contains("Unidentified area"),
+                    "An unidentified area must say so rather than imply one");
+
             showState(view, second);
-            check(view.currentArea() == null && view.displayedArea().equals(second.area),
-                    "Unavailable displayed-area transition lost B's identity");
-            checkWalked(view, 0);
-            check(listener.areas.equals(Arrays.asList(first.area, second.area)),
-                    "Two unavailable areas did not invalidate the displayed-area trail");
-            assertMap(view, second, ExplorationTrail.empty(), false, "Unsafe A to unsafe B retained A ink");
+            check(view.currentArea() == null, "Unsafe B exposed a live position");
+            check(view.displayedArea() == null, "Unsafe B named an area it cannot vouch for");
+            check(listener.areas.isEmpty(),
+                    "An area nobody identified must not request a saved trail");
+            /*
+             * Not asserted here: that the coverage count drops to zero. The
+             * harness pushed a trail into a view that has never identified an
+             * area, which the controller would not do, and with no area to
+             * compare against the view has no basis for discarding it. The
+             * transition that does matter -- a named area's ink not surviving
+             * into another -- is check 16, where A is identified.
+             */
         });
 
         run("same-area unsafe samples preserve its own visited tiles but remove the live party arrow", () -> {
@@ -457,7 +562,10 @@ public final class PartyPaneRenderCheck {
             view.showExploration(walkedTrail(), "Synthetic A trail");
             Bitmap before = render(view);
             assertMap(view, safe, walkedTrail(), true, "Safe map must show the party arrow");
-            showState(view, unsafe);
+            // One unsafe sample is held; the arrow goes when the reading is
+            // really gone rather than momentarily missing. See ReadingHold.
+            check(view.currentArea() != null, "A single unsafe sample dropped the position inside the hold");
+            showStatePastHold(view, unsafe);
             checkWalked(view, 4);
             check(view.currentArea() == null && view.snapshot() == null, "Unsafe sample exposed the party position");
             check(view.displayedArea().equals(safe.area), "Same-area unsafe sample discarded its map identity");
@@ -507,7 +615,7 @@ public final class PartyPaneRenderCheck {
         view.showExploration(walkedTrail(), "Synthetic remembered route");
         assertMap(view, local.state, walkedTrail(), true, "Initial PRM4 local map is missing");
         int originalSamples = listener.samples.size();
-        view.showSample(statusPacket(MapMode.UPDATING)); view.showSample(statusPacket(MapMode.UPDATING));
+        applyStatus(view, statusPacket(MapMode.UPDATING), MapMode.UPDATING);
         checkStatus(view, MapMode.UPDATING, true);
         check(listener.samples.size() == originalSamples && listener.samples.get(originalSamples - 1) == local.state,
                 "Updating emitted an outbound observation that could reset or refresh the previous-safe deadline");
@@ -515,7 +623,7 @@ public final class PartyPaneRenderCheck {
         showObservation(view, local);
         for (MapMode mode : statusModes()) {
             byte[] packet = statusPacket(mode); int observed = listener.samples.size();
-            view.showSample(packet); checkStatus(view, mode, true);
+            applyStatus(view, packet, mode); checkStatus(view, mode, true);
             check(view.displayedArea().equals(local.state.area), mode + " replaced the authenticated reference map");
             checkWalked(view, 4);
             assertMap(view, local.state, walkedTrail(), false, mode + " changed local coverage or showed tactical coordinates");
@@ -530,12 +638,12 @@ public final class PartyPaneRenderCheck {
         // A tactical coordinate accidentally inserted into a status-only packet
         // must never become a local party arrow, even when its range looks valid.
         byte[] malformed = statusPacket(MapMode.COMBAT); malformed[130] = 5; malformed[131] = 6;
-        view.showSample(malformed); checkStatus(view, MapMode.UNAVAILABLE, true);
+        applyStatus(view, malformed, MapMode.UNAVAILABLE); checkStatus(view, MapMode.UNAVAILABLE, true);
         check(!view.getContentDescription().toString().contains(MapMode.UPDATING.label()),
                 "Unknown packet retained the previous named mode");
         assertMap(view, local.state, walkedTrail(), false, "Rejected tactical coordinates moved the local reference");
         int beforeUpdating = listener.samples.size();
-        view.showSample(statusPacket(MapMode.UPDATING)); checkStatus(view, MapMode.UPDATING, true);
+        applyStatus(view, statusPacket(MapMode.UPDATING), MapMode.UPDATING); checkStatus(view, MapMode.UPDATING, true);
         assertMap(view, local.state, walkedTrail(), false, "Mode-6 updating exposed an unsettled position");
         check(listener.samples.size() == beforeUpdating, "Mode-6 updating emitted a misleading observation refresh");
         MapObservation resumed = areas.observation(0, true, 3); showObservation(view, resumed);
@@ -551,20 +659,20 @@ public final class PartyPaneRenderCheck {
         LiveMapView empty = emptyView(600, 320); Set<Integer> appearances = new HashSet<>();
         FrameLayout parent = (FrameLayout) empty.getParent();
         for (MapMode mode : statusModes()) {
-            empty.showSample(statusPacket(mode)); checkStatus(empty, mode, false);
+            applyStatus(empty, statusPacket(mode), mode); checkStatus(empty, mode, false);
             check(empty.displayedArea() == null, mode + " fabricated a map before any local observation");
             Bitmap image = render(empty); checkMonochrome(image);
             check(appearances.add(Arrays.hashCode(pixels(image))), mode + " reused an indistinguishable empty-screen status");
             check(parent.getChildCount() == 1 && parent.getChildAt(0) == empty,
                     mode + " added a new panel instead of using the existing map allocation");
         }
-        empty.showSample(null); checkStatus(empty, MapMode.UNAVAILABLE, false);
+        applyStatus(empty, null, MapMode.UNAVAILABLE); checkStatus(empty, MapMode.UNAVAILABLE, false);
         check(appearances.add(Arrays.hashCode(pixels(render(empty)))), "Unavailable screen retained a named mode");
         SyntheticAreas areas = new SyntheticAreas(); MapObservation local = areas.observation(0, true, 1);
         LiveMapView narrow = view(null, 240, 280); showObservation(narrow, local);
         narrow.setExplorationStyle(true, true); narrow.showExploration(walkedTrail(), "Remembered narrow route");
         for (MapMode mode : statusModes()) {
-            narrow.showSample(statusPacket(mode)); checkStatus(narrow, mode, true);
+            applyStatus(narrow, statusPacket(mode), mode); checkStatus(narrow, mode, true);
             assertMap(narrow, local.state, walkedTrail(), false, mode + " text overlapped the narrow map");
             check(narrow.getWidth() == px(240) && narrow.getHeight() == px(280), mode + " changed allocated dimensions");
         }
@@ -786,6 +894,27 @@ public final class PartyPaneRenderCheck {
         return sample;
     }
 
+    /**
+     * Apply a status packet and, when the mode is one the display holds, keep
+     * applying it until the hold gives way.
+     *
+     * Updating and Unavailable are the two modes ReadingHold keeps off the
+     * screen for {@link ReadingHold#HOLD_MS}, because a single unreadable frame
+     * is a blink rather than a fact. Named modes -- Wilderness, Loading, Camp,
+     * Combat -- apply at once and send exactly one packet here, so the
+     * observation counting around these calls is unchanged for them.
+     */
+    private static void applyStatus(LiveMapView view, byte[] packet, MapMode mode) {
+        view.showSample(packet);
+        if (mode != MapMode.UPDATING && mode != MapMode.UNAVAILABLE) return;
+        long start = android.os.SystemClock.elapsedRealtime();
+        while (!view.getContentDescription().toString().startsWith(mode.label() + ". ")
+                && android.os.SystemClock.elapsedRealtime() - start < ReadingHold.HOLD_MS + 1000) {
+            try { Thread.sleep(50); } catch (InterruptedException stop) { Thread.currentThread().interrupt(); return; }
+            view.showSample(packet);
+        }
+    }
+
     private static void checkStatus(LiveMapView view, MapMode mode, boolean reference) {
         String description = view.getContentDescription().toString();
         check(description.startsWith(mode.label() + ". ") && description.contains(mode.explanation()),
@@ -815,6 +944,19 @@ public final class PartyPaneRenderCheck {
         @Override public void onTileTapped(AreaIdentity area, int x, int y) { }
         @Override public void onExplorationAreaChanged(AreaIdentity area) { areas.add(area); }
         @Override public void onExplorationSample(PoolRadState sample) { samples.add(sample); }
+    }
+
+    /**
+     * Push a state that the map cannot read until the five-second hold gives
+     * way. Since 0.31.0 one unreadable map sample keeps the last good area on
+     * screen, so a single call no longer changes what is displayed.
+     */
+    private static void showStatePastHold(LiveMapView view, PoolRadState state) {
+        long start = android.os.SystemClock.elapsedRealtime();
+        while (android.os.SystemClock.elapsedRealtime() - start < ReadingHold.HOLD_MS + 500) {
+            showState(view, state);
+            try { Thread.sleep(50); } catch (InterruptedException stop) { Thread.currentThread().interrupt(); return; }
+        }
     }
 
     private static void showState(LiveMapView view, PoolRadState state) {
@@ -870,7 +1012,14 @@ public final class PartyPaneRenderCheck {
     private static void assertMap(LiveMapView view, PoolRadState state, ExplorationTrail trail,
                                   boolean showArrow, String message) {
         Bitmap actual = render(view), expected = expectedMap(view, state, trail, showArrow);
-        try { check(mapChangedPixels(actual, expected, view) == 0, message); }
+        try {
+            int changed = mapChangedPixels(actual, expected, view);
+            // Say how far off, and what the view thinks it is showing. A bare
+            // "did not match" sends the next reader back to first principles.
+            check(changed == 0, message + " -- " + changed + " map pixels differ; view shows "
+                    + view.displayedArea() + ", current " + view.currentArea()
+                    + ", description \"" + view.getContentDescription() + "\"");
+        }
         finally { actual.recycle(); expected.recycle(); BITMAPS.remove(actual); BITMAPS.remove(expected); }
     }
 

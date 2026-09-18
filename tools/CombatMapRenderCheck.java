@@ -106,6 +106,54 @@ public final class CombatMapRenderCheck {
         return b;
     }
 
+    /**
+     * A PRP7 party whose members move at the given rates. The equipment block
+     * is marked unavailable, which is the state the probe reports when the
+     * item names do not resolve; movement and carried weight are plain record
+     * fields and still read, which is exactly the case the "W" mark needs.
+     */
+    private static byte[] loadPacket(int... movement) {
+        /*
+         * Each name below is where the NEXT section begins, which is the same
+         * convention the other harnesses use and the one that has already cost
+         * this project a vanished party pane once. So: conditions live at
+         * `rows`, spells at `conditions`, equipment at `spells` (stride 68),
+         * training at `equip` (stride 23) and the quick bytes at `training`.
+         */
+        final int CONDITION_STRIDE = 2, SPELL_STRIDE = 8, EQUIP_STRIDE = 1 + 64 + 3, TRAIN_STRIDE = 1 + 4 + 18;
+        int rows = 8 + 8 * 20;
+        int conditions = rows + 8 * CONDITION_STRIDE;
+        int spells = conditions + 8 * SPELL_STRIDE;
+        int equip = spells + 8 * EQUIP_STRIDE;
+        int training = equip + 8 * TRAIN_STRIDE;
+        byte[] b = new byte[training + 8];
+        b[0]='P';b[1]='R';b[2]='P';b[3]='7';b[4]=(byte) movement.length;
+        String[] names = {"Arax","Lara","Tanarakis","Hogarth","Shara","Zarram","Ohlo","Skull"};
+        for (int i = 0; i < movement.length; i++) {
+            byte[] n = names[i].getBytes();
+            System.arraycopy(n, 0, b, 8 + i * 20, Math.min(n.length, 15));
+            b[8 + i * 20 + 16] = (byte) (7 + i);
+            b[8 + i * 20 + 17] = (byte) 20;
+            b[8 + i * 20 + 18] = (byte) 0x80;   // armour class unavailable
+            b[8 + i * 20 + 19] = (byte) 0xff;   // class unavailable
+            b[rows + i * CONDITION_STRIDE] = (byte) 0xff;
+            b[rows + i * CONDITION_STRIDE + 1] = (byte) 0xff;
+            b[conditions + i * SPELL_STRIDE] = (byte) 0xff;
+            b[spells + i * EQUIP_STRIDE] = (byte) 0xff;          // item names unavailable
+            b[spells + i * EQUIP_STRIDE + 1 + 64] = (byte) movement[i];
+            b[equip + i * TRAIN_STRIDE] = (byte) 0xff;
+            b[training + i] = 0;                                  // quick off
+        }
+        return b;
+    }
+
+    private static int mentions(LiveMapView view, String phrase) {
+        String text = String.valueOf(view.getContentDescription());
+        int found = 0, at = text.indexOf(phrase);
+        while (at >= 0) { found++; at = text.indexOf(phrase, at + phrase.length()); }
+        return found;
+    }
+
     private static LiveMapView map(Context context, int width, int height) {
         LiveMapView view = new LiveMapView(context, null);
         view.measure(View.MeasureSpec.makeMeasureSpec(width, View.MeasureSpec.EXACTLY),
@@ -301,6 +349,33 @@ public final class CombatMapRenderCheck {
                     "A held party survived the pane being put away");
             check(!String.valueOf(view.getContentDescription()).contains("Arax"),
                     "The accessible text still lists a party the pane has dropped");
+        });
+
+        run("Only the member load has slowed carries the W", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(loadPacket(9, 9, 9, 9, 9, 9));
+            int even = inkPixels(draw(view), 1000, 0, 1440, 600);
+            check(mentions(view, "slowed by load") == 0,
+                    "A party all moving alike must carry no W at all");
+
+            view.showPartySample(loadPacket(9, 9, 6, 9, 9, 9));
+            int one = inkPixels(draw(view), 1000, 0, 1440, 600);
+            check(mentions(view, "slowed by load") == 1,
+                    "Exactly the one hauling the loot should be marked");
+            check(String.valueOf(view.getContentDescription()).contains("Tanarakis"),
+                    "The marked member is not the one who is slow");
+            check(one > even, "The W added no ink to the party pane: " + even + " -> " + one);
+
+            /*
+             * The case a purely relative test would miss: nobody is behind
+             * anybody, but the game itself has stopped distinguishing degrees
+             * of slow, so every one of them is marked.
+             */
+            view.showPartySample(loadPacket(3, 3, 3, 3, 3, 3));
+            check(mentions(view, "slowed by load") == 6,
+                    "A uniformly overloaded party went unmarked");
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) > one,
+                    "Six W marks drew no more ink than one");
         });
 
         run("A fallen party member draws a cross, not a circle", () -> {
