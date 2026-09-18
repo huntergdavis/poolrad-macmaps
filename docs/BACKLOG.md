@@ -1,6 +1,6 @@
 # PoolRad Mac Maps — current backlog
 
-Updated 2026-09-14. This is the authoritative feature queue. The earlier
+Updated 2026-09-18. This is the authoritative feature queue. The earlier
 [implementation plan](PLAN.md) retains the architecture and historical proof
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
@@ -953,6 +953,78 @@ research for sources and portability limits.
 - **L5 — Fine layout preferences: CUT by the user 2026-09-14.** Adjustable
   upper-pane sizing and map zoom are not wanted; the panes are tuned by hand
   instead. Do not build.
+
+## Queue from the brainstorm rounds (2026-09-17 → 2026-09-18)
+
+Every item below was proposed in a spitball round and explicitly kept by the
+owner; ideas he skipped are not recorded here. Order is his stated priority.
+Nothing here is started unless it says so.
+
+### P0 — his designation
+
+- [ ] **F25 — Stop reading when there is nothing to read.** Pause the RAM polls
+  while the guest is idle, and suspend the emulator when the app is
+  backgrounded. Conditional on auto-resuming the moment it is foregrounded; if
+  resume cannot be made reliable, drop the suspend half and keep the pause.
+- [ ] **F26 — Fog and footprints remembered per area.** Today both toggles are
+  one global setting. They should be per GEO area, so clearing fog in the slums
+  does not clear it in the kobold caves.
+
+### In flight
+
+- [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
+  movement is below the party's best, i.e. they are carrying too much. Code is
+  written in `LiveMapView` and `PartyState.slowedByLoad`; it compiles, has no
+  tests and no render check, and is uncommitted.
+- [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
+  few seconds. Read-only: it identifies, it does not command.
+
+### The options page and what moves onto it
+
+- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map.
+- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
+- [ ] **F31 — Option: auto-skip messages.**
+- [ ] **F32 — An info panel** naming which save is loaded and how much room is
+  left on the save disk.
+
+### Save machinery
+
+A real Pool of Radiance save, measured from the owner's own `disk2.dsk` on
+2026-09-18, is a 12,906-byte data fork plus a ~4.4 KB resource fork — about
+17 KB. Everything here drives the game's own File menu at that scale. An
+emulator memory snapshot (32 MB) is not on the table and was rejected.
+
+- [ ] **F33 — Load a save from the companion.**
+- [ ] **F34 — Auto-load the last save on launch.**
+- [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
+  new notebook rather than writing into the wrong one.
+- [ ] **F36 — Answer the game's own save and overwrite prompts** as part of the
+  save flow.
+- [ ] **F37 — Periodic auto-save,** named by wall-clock date, keeping the most
+  recent 20 and rotating the oldest out so the disk cannot fill.
+- [ ] **F38 — Resume polling automatically after the guest restarts.** Today it
+  takes a tab toggle.
+
+### Driving the game's own commands
+
+All three are opt-in, and all three go through the game's menus — never a
+memory write. They sit next to the excluded auto-heal/auto-ammo line and stay
+on the right side of it only because the game itself performs the action.
+
+- [ ] **F39 — Auto-memorise after rest,** the same spells as last time.
+- [ ] **F40 — Auto-bandage when a fight exits.**
+- [ ] **F41 — Auto-equip a weapon at battle start** for anyone without one.
+
+### The rest, in order
+
+- [ ] **F42 — A citation notice opens that journal entry.**
+- [ ] **F43 — Long-press a party row, open that character's sheet in the game.**
+- [ ] **F44 — A chores tab:** "2 can train · 1 needs rest · 1 dying".
+- [ ] **F45 — Older footprints drawn slightly smaller,** so a trail reads
+  directionally. Deliberately not shading: shading does not hold up on e-ink.
+- [ ] **F46 — A "Money" page:** the existing converter plus what the party
+  actually holds. The purse has not been located in RAM yet.
+- [ ] **F47 — A message log.**
 
 ## Not in this project
 
