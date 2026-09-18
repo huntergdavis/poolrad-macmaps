@@ -13,12 +13,16 @@ cd "$ROOT"
 
 [ -n "$(git status --porcelain)" ] && { echo "Working tree is dirty; commit first." >&2; exit 1; }
 HERE="$(git rev-parse --abbrev-ref HEAD)"
-trap 'git checkout -q "$HERE"' EXIT
+
+# The checker has to outlive the checkout: these tags predate it, so checking
+# one out takes tools/check-apk.sh away with everything else added since.
+CHECK="$(mktemp)"; cp "$ROOT/tools/check-apk.sh" "$CHECK"; chmod +x "$CHECK"
+trap 'git checkout -q "$HERE"; rm -f "$CHECK"' EXIT
 
 git checkout -q "v$VERSION"
 (cd android && ./gradlew :minivmac:assembleMacIIDebug -q)
 APK=android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk
-"$ROOT/tools/check-apk.sh" "$APK"
+"$CHECK" "$APK"
 cp "$APK" "scratch/poolrad-macmaps-$VERSION.apk"
 gh release upload "v$VERSION" "scratch/poolrad-macmaps-$VERSION.apk" --clobber
 echo "replaced v$VERSION  $(sha256sum "scratch/poolrad-macmaps-$VERSION.apk" | cut -d' ' -f1)"
