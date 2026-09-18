@@ -1108,6 +1108,16 @@ reads back correctly.
   tests and no render check, and is uncommitted.
 - [ ] **F28 — Tap a combatant on the overview, highlight that party row** for a
   few seconds. Read-only: it identifies, it does not command.
+- [ ] **F83 — Finish repairing `tools/PartyPaneRenderCheck.java`.** Found
+  2026-09-18: this suite has never been run in the project's recorded history,
+  and on untouched `HEAD` it failed at its third check. Eleven of its checks
+  encoded rules that later releases deliberately overturned — the 0.28.0 strip
+  under the map, the 0.31.0 five-second reading hold, the 0.36.0 condition word
+  in the armour-class slot, and the wilderness work's refusal to name an area it
+  cannot vouch for. Nine are repaired and the file now reaches check 20, where a
+  Combat-mode reference map still differs from what the check expects. Finish
+  the remaining checks, or delete the ones whose rules no longer exist rather
+  than leaving a suite nobody can run. `tools/verify.sh` runs it.
 
 ### The options page, and the toggles that need it to exist first
 
