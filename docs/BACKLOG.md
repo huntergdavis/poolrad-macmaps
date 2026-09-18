@@ -1030,7 +1030,7 @@ reads back correctly.
   front of this block and treated as a prerequisite: nothing here writes to the
   save disk until his saves exist somewhere else. At ~17 KB each this is cheap,
   and today the disk image is the only copy.
-- [ ] **F77 — Align the Macintosh character record against the documented DOS,
+- [x] **F77 (delivered 0.43.0) — Align the Macintosh character record against the documented DOS,
   Amiga and C64 layouts.** Start here, because it is the cheapest step and the
   one that pays elsewhere: the offsets this project found independently (name
   `+0x00`, class `+0x2f`, maxHP `+0x32`, encumbrance `+0x10e`, chain `+0x110`,

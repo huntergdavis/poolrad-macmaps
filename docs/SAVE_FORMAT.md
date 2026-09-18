@@ -84,6 +84,28 @@ immediately, and with a party somebody actually played.
 That also means the format work has a second audience. Publishing the spec is
 the part that outlives this app.
 
+## F77 is answered: it is the same record
+
+Done 2026-09-18, written up in [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md). The
+Macintosh's 302-byte character record **is** the documented DOS 285-byte one,
+repadded. Both ends line up exactly and the arithmetic closes at
+`285 + 16 + 1 = 302`.
+
+Two things fell out that were worth more than the alignment. The eight bytes
+DOS calls heap are exactly where this project independently found the
+Macintosh's two memory handles — a port spending dead space on the memory model
+it actually has. And the quick flag found here by capture and diff turns out to
+be byte 3 of DOS's four-byte combat-status field, whose byte 0 is the condition
+this project also found; the two bytes between them are the first place to look
+for anything else that field carries.
+
+The middle of the record, between `+0x32` and `+0x10e`, is **not** aligned and
+is left open rather than guessed at. The offsets found there do not yet form a
+consistent picture, and insertions can only push fields later.
+
+**For F78 this is a strong prior, not an answer.** If the record in memory is
+the DOS record repadded, the record inside a save file very likely is too.
+
 ## Rules for anything that writes
 
 A bad save costs the owner his game, so these are not style preferences.
