@@ -18,10 +18,15 @@ not a port of its code or an official game release.
 ## The map draws itself
 
 Walls, doors, coordinates and your facing arrow, read live from the game's own
-memory across 29 named areas — no guessed names. Remember every walked square,
-follow directional footprints, or reveal only what you have visited. Camp,
-combat and loading states are labelled, so a reference map never lies about
-what it is showing.
+memory across 29 named areas — no guessed names. Camp, combat and loading
+states are labelled, so a reference map never lies about what it is showing.
+
+**Fog of war** hides everything you have not walked, so the map fills in the way
+you drew it. One button in the corner turns it on and off, and both it and the
+footprints are remembered **per area** — clearing the fog in the slums does not
+clear it in the caves.
+
+<img src="docs/images/fog-of-war.png" width="760" alt="The Slums of Phlan with fog of war on: only the corridor the party has actually walked is drawn, everything else a faint grid, with the party arrow and the two map buttons in the corner">
 
 ## Your party, at a glance
 
