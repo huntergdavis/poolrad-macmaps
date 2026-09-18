@@ -75,6 +75,20 @@ tappable straight into the reader.
 
 <img src="docs/images/journal-atlas.png" width="760" alt="Journal 37, a massive atlas, showing two original Moonsea map illustrations while the game below asks for a code wheel word">
 
+## Your saved games, named by who is in them
+
+`F7Healed` and `F7Injured` tell nobody anything. The companion reads the game's
+own saved games off the guest disk and lists them by party — then closes the
+game, starts it again and loads the one you picked, with the screen covered so
+you do not watch it happen. The game only offers Load before a game begins, so
+this is the only way to load at any time.
+
+<img src="docs/images/load-saved-game.png" width="600" alt="A Load which saved game? dialog listing F7Healed, F7Injured and SampleParty, each with the party inside it: Zarram, Arax the Bold and 4 others, 3 hurt">
+
+It also copies saves off the disk and puts them back. The disk image is the only
+copy those files have; a backup keeps both forks and the Finder type, so it is
+one the game can actually open again.
+
 ## Also offline
 
 Spells, weapons and armor, class progression and mixed-coin conversion ·

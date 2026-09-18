@@ -88,22 +88,33 @@ public final class SaveBackupController {
     private void showMenu(List<Found> saves, String trouble) {
         if (activity.isFinishing()) return;
         List<File> stored = backups.backups();
-        String heading = trouble != null ? "Could not read the guest disks: " + trouble
-                : saves.isEmpty() ? "No saved games found on the inserted disks."
-                : saves.size() + (saves.size() == 1 ? " saved game" : " saved games") + " on the guest disk.";
-        heading += "\n" + (stored.isEmpty() ? "No backups yet."
-                : stored.size() + (stored.size() == 1 ? " backup kept." : " backups kept."));
+
+        /*
+         * The counts belong in the actions, not in a message. An AlertDialog's
+         * message and its item list occupy the same space, so setting both
+         * showed the summary and hid every action behind it -- a dialog that
+         * said what it had found and offered nothing to do about it.
+         */
+        if (trouble != null) {
+            plainly("Could not read the guest disks: " + trouble);
+            return;
+        }
+        if (saves.isEmpty() && stored.isEmpty()) {
+            plainly("No saved games were found on the inserted disks, and there are no backups yet.");
+            return;
+        }
 
         List<String> choices = new ArrayList<>();
-        if (!saves.isEmpty()) choices.add("Back up all saved games");
-        if (!stored.isEmpty()) choices.add("Restore a backup…");
-        if (choices.isEmpty()) choices.add("Close");
+        if (!saves.isEmpty() && loader != null) choices.add("Load a saved game\u2026");
+        if (!saves.isEmpty()) choices.add("Back up all " + saves.size()
+                + (saves.size() == 1 ? " saved game" : " saved games"));
+        if (!stored.isEmpty()) choices.add("Restore one of " + stored.size()
+                + (stored.size() == 1 ? " backup\u2026" : " backups\u2026"));
 
         final List<String> options = choices;
         final List<Found> theSaves = saves;
         new AlertDialog.Builder(activity)
                 .setTitle("Saved games")
-                .setMessage(heading)
                 .setItems(options.toArray(new String[0]), (dialog, which) -> {
                     String chosen = options.get(which);
                     if (chosen.startsWith("Load")) chooseSaveToLoad(theSaves);
@@ -111,6 +122,14 @@ public final class SaveBackupController {
                     else if (chosen.startsWith("Restore")) chooseBackup();
                 })
                 .setNegativeButton("Close", null)
+                .show();
+    }
+
+    private void plainly(String message) {
+        new AlertDialog.Builder(activity)
+                .setTitle("Saved games")
+                .setMessage(message)
+                .setPositiveButton("Close", null)
                 .show();
     }
 
