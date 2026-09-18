@@ -626,7 +626,11 @@ public final class PartyPaneRenderCheck {
             applyStatus(view, packet, mode); checkStatus(view, mode, true);
             check(view.displayedArea().equals(local.state.area), mode + " replaced the authenticated reference map");
             checkWalked(view, 4);
-            assertMap(view, local.state, walkedTrail(), false, mode + " changed local coverage or showed tactical coordinates");
+            if (mode == MapMode.COMBAT)
+                assertReferenceMapReplaced(view, local.state, walkedTrail(),
+                        "Combat kept the local area map instead of drawing the tactical overview");
+            else assertMap(view, local.state, walkedTrail(), false,
+                    mode + " changed local coverage or showed tactical coordinates");
             Bitmap first = render(view); view.showSample(packet);
             if (mode == MapMode.UPDATING)
                 check(listener.samples.size() == observed, "Updating/repeated Updating refreshed the outbound observation stream");
@@ -673,7 +677,11 @@ public final class PartyPaneRenderCheck {
         narrow.setExplorationStyle(true, true); narrow.showExploration(walkedTrail(), "Remembered narrow route");
         for (MapMode mode : statusModes()) {
             applyStatus(narrow, statusPacket(mode), mode); checkStatus(narrow, mode, true);
-            assertMap(narrow, local.state, walkedTrail(), false, mode + " text overlapped the narrow map");
+            if (mode == MapMode.COMBAT)
+                assertReferenceMapReplaced(narrow, local.state, walkedTrail(),
+                        "Combat kept the local area map in a narrow pane");
+            else assertMap(narrow, local.state, walkedTrail(), false,
+                    mode + " text overlapped the narrow map");
             check(narrow.getWidth() == px(240) && narrow.getHeight() == px(280), mode + " changed allocated dimensions");
         }
         resizePixels(narrow, 1, 1); narrow.showSample(statusPacket(MapMode.LOADING));
@@ -1021,6 +1029,41 @@ public final class PartyPaneRenderCheck {
                     + ", description \"" + view.getContentDescription() + "\"");
         }
         finally { actual.recycle(); expected.recycle(); BITMAPS.remove(actual); BITMAPS.remove(expected); }
+    }
+
+    /**
+     * Combat is the one status mode that does not keep the reference map on
+     * screen. Since 0.25.0 the tactical overview is drawn in the map's own
+     * allocation -- LiveMapView.drawCombat returns before any exploration ink
+     * is laid down -- so demanding the local map here asserts a rule the app
+     * deliberately dropped. Everything combat must still honour is checked by
+     * the callers: the area identity is retained, the walked squares survive,
+     * and no local coordinate or party arrow is invented. This adds the part
+     * only the pixels can state -- that the stale local map is genuinely gone,
+     * that what replaced it is a sparser drawing rather than more ink, and that
+     * it is still bounded and monochrome.
+     */
+    private static void assertReferenceMapReplaced(LiveMapView view, PoolRadState state,
+                                                   ExplorationTrail trail, String message) {
+        Bitmap actual = render(view), expected = expectedMap(view, state, trail, false);
+        try {
+            check(mapChangedPixels(actual, expected, view) > 0,
+                    message + " -- the local map is still on screen");
+            int drawn = darkMapPixels(actual, view), local = darkMapPixels(expected, view);
+            check(drawn < local, message + " -- combat left " + drawn
+                    + " dark map pixels, no fewer than the local map's " + local);
+            checkMonochrome(actual);
+        }
+        finally { actual.recycle(); expected.recycle(); BITMAPS.remove(actual); BITMAPS.remove(expected); }
+    }
+
+    /** Ink inside the same map bounds mapChangedPixels compares. */
+    private static int darkMapPixels(Bitmap bitmap, LiveMapView view) {
+        MapViewport map = mapBounds(view); int dark = 0;
+        for (int y = (int) Math.ceil(map.top + 1); y < map.top + 16 * map.cell - 1; y++)
+            for (int x = (int) Math.ceil(map.left + 1); x < map.left + 16 * map.cell - 1; x++)
+                if (Color.red(bitmap.getPixel(x, y)) < 128) dark++;
+        return dark;
     }
 
     private static int mapChangedPixels(Bitmap first, Bitmap second, LiveMapView view) {
