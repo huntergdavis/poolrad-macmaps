@@ -57,6 +57,25 @@ public final class LiveMapView extends View {
     private boolean positionAvailable;
     /** Set only while the game is in combat; null at every other moment. */
     private CombatSnapshot combat;
+    /**
+     * The battle grid as it was last drawn, so a tap can be mapped back to the
+     * combatant under it. Zero cell means nothing is tappable there.
+     */
+    private float combatLeft, combatTop, combatCell;
+    /**
+     * Which party row a tap on the overview is pointing at, and until when.
+     *
+     * On the grid everyone is a circle; the question "which of these is
+     * Tanarakis" has no answer without counting markers against rows. Tapping
+     * one answers it. It identifies and nothing more -- no order is given, no
+     * target is chosen, and it fades on its own so the pane does not acquire a
+     * selection the player has to remember to clear.
+     */
+    private int highlightedMember = -1;
+    private long highlightUntil;
+    private int touchCombatant = -1;
+    /** Long enough to look across the pane and back, short enough to forget. */
+    private static final long HIGHLIGHT_MS = 3000;
     private MapMode mode = MapMode.UNAVAILABLE;
     private String notebook = "Loading notebook…";
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
@@ -174,7 +193,8 @@ public final class LiveMapView extends View {
                 : mode.label() + ". " + (state == null ? areaLabel : "Last local map: " + areaLabel)
                     + ". Position unavailable; party arrow hidden. " + mode.explanation();
         StringBuilder health = new StringBuilder();
-        if (party != null) for (PartyState.Member member : party.members)
+        if (party != null) for (int index = 0; index < party.members.size(); index++) {
+            PartyState.Member member = party.members.get(index);
             health.append(' ').append(member.name)
                     .append(combat != null && combat.isActing(member.name) ? " (acting): " : ": ")
                     .append(member.currentHp).append(" of ").append(member.maxHp)
@@ -183,8 +203,10 @@ public final class LiveMapView extends View {
                     .append("; ").append(member.conditionSummary())
                     .append(member.readyToTrain() ? "; can train" : "")
                     .append(party.slowedByLoad(member) ? "; slowed by load" : "")
+                    .append(highlightedMember == index && highlightShowing() ? "; tapped on the battle overview" : "")
                     .append(member.spellsAwaitingRestTotal() > 0 ? "; spells await rest" : "")
                     .append('.');
+        }
         if (mode == MapMode.COMBAT && combat != null)
             status = "Battle overview. " + combat.summary()
                     + ", between " + combat.left + "," + combat.top
@@ -275,7 +297,11 @@ public final class LiveMapView extends View {
         }
         mode = nextMode;
         // Never a stale battlefield: leaving combat drops it, hold and all.
-        if (nextMode != MapMode.COMBAT) { combat = null; combatHold.reset(); }
+        if (nextMode != MapMode.COMBAT) {
+            combat = null; combatHold.reset();
+            // A lit row must not outlive the grid that explained it.
+            highlightedMember = -1; highlightUntil = 0; combatCell = 0;
+        }
         positionAvailable = available;
         if (next != null) state = next; // Status-only packets retain a reference, not a live map.
         cancelTap(); // A press begun in one mode cannot finish in another.
@@ -308,6 +334,7 @@ public final class LiveMapView extends View {
             touchQuick = touchFootprints || touchFog || touchReturn ? -1 : quickAt(touchX, touchY);
             boolean onButton = touchFootprints || touchFog || touchReturn || touchQuick >= 0;
             touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
+            touchCombatant = onButton || touchMember >= 0 ? -1 : combatantAt(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
@@ -319,11 +346,17 @@ public final class LiveMapView extends View {
         } else if (action == MotionEvent.ACTION_UP) {
             AreaIdentity area = currentArea();
             int tile = viewport().tileAt(event.getX(), event.getY());
-            boolean valid = event.getPointerId(0) == touchPointer
+            /*
+             * Two kinds of valid. Everything that reports outward needs a
+             * listener to report to; lighting a row on the battle overview
+             * does not, because nothing leaves the view -- it is the pane
+             * answering a question about itself.
+             */
+            boolean gesture = event.getPointerId(0) == touchPointer
                     && (event.getFlags() & MotionEvent.FLAG_CANCELED) == 0
                     && Math.hypot(event.getX() - touchX, event.getY() - touchY)
-                        <= ViewConfiguration.get(getContext()).getScaledTouchSlop()
-                    && listener != null;
+                        <= ViewConfiguration.get(getContext()).getScaledTouchSlop();
+            boolean valid = gesture && listener != null;
             if (valid && touchFootprints && footprintTarget.contains(event.getX(), event.getY())) {
                 boolean shown = !footprints;
                 setExplorationStyle(visitedOnly, shown);
@@ -348,6 +381,20 @@ public final class LiveMapView extends View {
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
+            } else if (gesture && touchCombatant >= 0 && touchParty == null && party != null
+                    && combatantAt(event.getX(), event.getY()) == touchCombatant
+                    && touchCombatant < party.members.size()) {
+                highlightedMember = touchCombatant;
+                highlightUntil = now() + HIGHLIGHT_MS;
+                performClick();
+                refreshDescription();
+                // One redraw to light it and one to let it go; no animation,
+                // which an e-ink panel would smear rather than show.
+                invalidate();
+                postDelayed(() -> {
+                    highlightedMember = -1; highlightUntil = 0;
+                    refreshDescription(); invalidate();
+                }, HIGHLIGHT_MS + 50);
             } else if (valid && positionAvailable && tile >= 0 && tile == touchTile
                     && (touchArea == null ? area == null : area != null && touchArea.equals(area.id()))) {
                 performClick();
@@ -386,7 +433,7 @@ public final class LiveMapView extends View {
     private void cancelTap() {
         touchFootprints = false; touchFog = false; touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
-        touchMember = -1; touchParty = null;
+        touchMember = -1; touchParty = null; touchCombatant = -1;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
     }
 
@@ -459,7 +506,7 @@ public final class LiveMapView extends View {
         }
         MapViewport viewport = viewport();
         float top = viewport.top, cell = viewport.cell;
-        if (cell < 3) return;
+        if (cell < 3) { combatCell = 0; return; }
         float left = viewport.left;
         ink.setTextSize(Math.min(11 * density, cell * .7f));
         ink.setTextAlign(Paint.Align.CENTER);
@@ -511,6 +558,7 @@ public final class LiveMapView extends View {
         ink.setTextAlign(Paint.Align.CENTER);
         ink.setTextSize(11 * density);
         if (battle == null) {
+            combatCell = 0;
             canvas.drawText(fitHeaderText(MapMode.COMBAT.explanation(), available),
                     pane.mapWidth / 2f, pane.mapHeight / 2f, ink);
             return;
@@ -518,12 +566,13 @@ public final class LiveMapView extends View {
         float margin = 26 * density, caption = 22 * density;
         float usableWidth = pane.mapWidth - 2 * margin;
         float usableHeight = pane.mapHeight - margin - caption - 10 * density;
-        if (usableWidth <= 0 || usableHeight <= 0) return;
+        if (usableWidth <= 0 || usableHeight <= 0) { combatCell = 0; return; }
         float cell = Math.min(usableWidth / battle.width(), usableHeight / battle.height());
         cell = Math.min(cell, 34 * density);
         if (cell < 3) return;
         float gridWidth = cell * battle.width(), gridHeight = cell * battle.height();
         float left = (pane.mapWidth - gridWidth) / 2f, top = margin + (usableHeight - gridHeight) / 2f;
+        combatLeft = left; combatTop = top; combatCell = cell;
 
         ink.setColor(Color.BLACK);
         ink.setStyle(Paint.Style.STROKE);
@@ -727,6 +776,48 @@ public final class LiveMapView extends View {
         canvas.drawLine(x1, y1, x2, y2, ink);
     }
 
+    /**
+     * The party row a tap on the battle overview points at, or -1.
+     *
+     * Only the party's own markers answer: a monster has no row to light up,
+     * and pretending otherwise would be the first step towards naming one.
+     */
+    private int combatantAt(float x, float y) {
+        CombatSnapshot battle = combat;
+        if (mode != MapMode.COMBAT || battle == null || party == null || combatCell < 3) return -1;
+        int index = -1, found = -1;
+        float closest = Float.MAX_VALUE;
+        for (CombatSnapshot.Spot spot : battle.spots()) {
+            index++;
+            if (!spot.party) continue;
+            float cx = combatLeft + (spot.x - battle.left + .5f) * combatCell;
+            float cy = combatTop + (spot.y - battle.top + .5f) * combatCell;
+            float distance = (float) Math.hypot(x - cx, y - cy);
+            // Its own square, and the nearest one when squares are tiny.
+            if (distance <= combatCell * .5f && distance < closest) {
+                closest = distance; found = partyIndexOf(battle, index);
+            }
+        }
+        return found >= 0 && found < party.members.size() ? found : -1;
+    }
+
+    /** True while a tapped combatant's row is still lit. */
+    private boolean highlightShowing() {
+        return highlightedMember >= 0 && now() < highlightUntil;
+    }
+
+    /**
+     * The highlight is the one thing here that ends on a clock rather than on a
+     * reading, so the text describing it can go stale with no new sample to
+     * trigger a rebuild. Settle it before anyone reads the description.
+     */
+    @Override public CharSequence getContentDescription() {
+        if (highlightedMember >= 0 && !highlightShowing()) {
+            highlightedMember = -1; highlightUntil = 0; refreshDescription();
+        }
+        return super.getContentDescription();
+    }
+
     /** How many party spots precede this one, or -1 if it is not one of ours. */
     private int partyIndexOf(CombatSnapshot battle, int index) {
         int seen = 0;
@@ -822,6 +913,20 @@ public final class LiveMapView extends View {
                 ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
                 canvas.drawRect(column, p.rowTop(i) + 2 * unit,
                         column + 3 * unit, p.rowTop(i) + p.rowHeight - 2 * unit, ink);
+            }
+            /*
+             * The row somebody just pointed at on the battle grid. A box, not
+             * the acting character's bar and not a fill: it has to be legible
+             * next to that bar without being confused for it, and inverting a
+             * row on e-ink costs a full-row refresh to say something that lasts
+             * three seconds.
+             */
+            if (highlightedMember == i && highlightShowing()) {
+                ink.setStyle(Paint.Style.STROKE);
+                ink.setStrokeWidth(Math.max(1.5f * density, 2 * unit));
+                ink.setColor(Color.BLACK);
+                canvas.drawRect(column + 4 * unit, p.rowTop(i) + 2 * unit,
+                        column + p.columnWidth - 4 * unit, p.rowTop(i) + p.rowHeight - 2 * unit, ink);
             }
             quickSquare(p, i, unit, quickButton);
             drawQuick(canvas, quickButton, member.quick, unit);

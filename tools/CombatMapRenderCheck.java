@@ -6,8 +6,10 @@ import android.graphics.Typeface;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.view.ContextThemeWrapper;
+import android.view.MotionEvent;
 import android.view.View;
 import name.osher.gil.minivmac.LiveMapView;
+import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.ReadingHold;
 
 /**
@@ -152,6 +154,45 @@ public final class CombatMapRenderCheck {
         int found = 0, at = text.indexOf(phrase);
         while (at >= 0) { found++; at = text.indexOf(phrase, at + phrase.length()); }
         return found;
+    }
+
+    private static void tap(View view, float x, float y) {
+        long when = SystemClock.uptimeMillis();
+        MotionEvent down = MotionEvent.obtain(when, when, MotionEvent.ACTION_DOWN, x, y, 0);
+        view.dispatchTouchEvent(down); down.recycle();
+        MotionEvent up = MotionEvent.obtain(when, when + 10, MotionEvent.ACTION_UP, x, y, 0);
+        view.dispatchTouchEvent(up); up.recycle();
+    }
+
+    /**
+     * Where drawCombat puts the marker for a battle square. This repeats the
+     * production geometry, so the check that uses it first confirms there is
+     * actually ink where this says there is -- otherwise the two could drift
+     * apart and the tap would still appear to work.
+     */
+    private static float[] spotCentre(LiveMapView view, CombatSnapshotGeometry battle, int x, int y) {
+        float density = view.getResources().getDisplayMetrics().density;
+        PartyPaneLayout pane = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 6);
+        float margin = 26 * density, caption = 22 * density;
+        float usableWidth = pane.mapWidth - 2 * margin;
+        float usableHeight = pane.mapHeight - margin - caption - 10 * density;
+        float cell = Math.min(Math.min(usableWidth / battle.width, usableHeight / battle.height), 34 * density);
+        float gridWidth = cell * battle.width, gridHeight = cell * battle.height;
+        float left = (pane.mapWidth - gridWidth) / 2f, top = margin + (usableHeight - gridHeight) / 2f;
+        return new float[]{left + (x - battle.left + .5f) * cell, top + (y - battle.top + .5f) * cell, cell};
+    }
+
+    /** The bounds the overview derives from a set of rows. */
+    private static final class CombatSnapshotGeometry {
+        final int left, top, width, height;
+        CombatSnapshotGeometry(int[][] rows) {
+            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = -1, maxY = -1;
+            for (int[] row : rows) {
+                minX = Math.min(minX, row[1]); maxX = Math.max(maxX, row[1]);
+                minY = Math.min(minY, row[2]); maxY = Math.max(maxY, row[2]);
+            }
+            left = minX; top = minY; width = maxX - minX + 1; height = maxY - minY + 1;
+        }
     }
 
     private static LiveMapView map(Context context, int width, int height) {
@@ -349,6 +390,43 @@ public final class CombatMapRenderCheck {
                     "A held party survived the pane being put away");
             check(!String.valueOf(view.getContentDescription()).contains("Arax"),
                     "The accessible text still lists a party the pane has dropped");
+        });
+
+        run("Tapping a combatant lights that party row, and only for a while", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(loadPacket(9, 9, 9, 9, 9, 9));
+            view.showSample(mapPacket(2, 5));
+            view.showCombatSample(combatPacket(BATTLE));
+            draw(view); // the grid geometry is recorded as it is drawn
+
+            CombatSnapshotGeometry geometry = new CombatSnapshotGeometry(BATTLE);
+            // BATTLE's third party entry is Tanarakis, at 28,12.
+            float[] where = spotCentre(view, geometry, 28, 12);
+            check(where[2] >= 3, "The battle grid drew too small to tap");
+            Bitmap grid = draw(view);
+            check(inkPixels(grid, (int) (where[0] - where[2] * .4f), (int) (where[1] - where[2] * .4f),
+                            (int) (where[0] + where[2] * .4f), (int) (where[1] + where[2] * .4f)) > 0,
+                    "No marker where the geometry says Tanarakis stands; the check and the view have drifted");
+
+            check(mentions(view, "tapped on the battle overview") == 0, "A row was lit before anything was tapped");
+            tap(view, where[0], where[1]);
+            check(mentions(view, "tapped on the battle overview") == 1, "Tapping a combatant lit no row");
+            String described = String.valueOf(view.getContentDescription());
+            int at = described.indexOf("tapped on the battle overview");
+            check(described.lastIndexOf("Tanarakis", at) > described.lastIndexOf("Hogarth", at),
+                    "The tap lit somebody other than the combatant under it");
+            check(inkPixels(draw(view), 1000, 0, 1440, 600) > inkPixels(grid, 1000, 0, 1440, 600),
+                    "The lit row drew no box");
+
+            // It identifies; it must not command, and it must not persist.
+            idle(ReadingHold.HOLD_MS);
+            check(mentions(view, "tapped on the battle overview") == 0,
+                    "The highlight outlived its three seconds");
+
+            // A monster has no row, so tapping one lights nothing.
+            float[] monster = spotCentre(view, geometry, 20, 12);
+            tap(view, monster[0], monster[1]);
+            check(mentions(view, "tapped on the battle overview") == 0, "Tapping a monster lit a party row");
         });
 
         run("Only the member load has slowed carries the W", () -> {
