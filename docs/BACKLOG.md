@@ -1151,7 +1151,14 @@ reads back correctly.
   actually has. A prerequisite for F81 — a converter cannot adjust to limits
   nobody has written down, and these are exactly the limits a port is likely to
   have changed.
-- [ ] **F85 — Enumerate the item catalogue this version has.** Left open by
+- [ ] **F88 — Decode how an `ITEMS` record becomes a printed name.** Left open
+  by F85: the 128 sixteen-byte records in `PoolRadGen:ITEMS` are the items'
+  numbers, and the words their names are built from are in the application's
+  `STRS`, but which record picks which words is not established. Until it is,
+  the converter can say whether an item name is representable -- which is the
+  refusal F81 needs -- but not which record to write.
+
+- [x] **F85 (delivered 0.49.0) — Enumerate the item catalogue this version has.** Left open by
   F82: item names come from the game's `ITEM%d.DAX` data files rather than from
   any table in the application, so they are a separate structure from the class,
   race and spell lists. The running game's item names are already read correctly
