@@ -1079,14 +1079,41 @@ reads back correctly.
 - [ ] **F80 — Publish the format specification** once it is verified. The
   project's own reverse-engineering work, and the Macintosh piece nobody else
   has. The format only: no game assets, no disk images, no extracted content.
+- [ ] **F82 — Establish what the Macintosh version itself supports:** the level
+  cap for each class, the class and race lists, and the item and spell tables it
+  actually has. A prerequisite for F81 — a converter cannot adjust to limits
+  nobody has written down, and these are exactly the limits a port is likely to
+  have changed.
 - [ ] **F81 — A converter: any platform's save into a Macintosh one.** The
   reason for the whole block. It lets a party somebody else played, at any point
   in the game, be loaded here — which is a test fixture the scripting harness
-  cannot produce at any price. **Boundary:** a converted save
-  arrives with whatever that party legitimately earned, and converting is not
-  editing. If a value will not survive the conversion, say which one and ask —
-  the stat-editing sign-off is his to give per edit, not the converter's to
-  assume.
+  cannot produce at any price.
+
+  **The converter understands the version differences and adjusts for them.**
+  Ports are not identical: level caps differ, and a class, race, spell or item
+  present in one version may simply not exist in another. A converter that
+  copies fields across and hopes produces a party the Macintosh game cannot
+  represent, or will not load. So it must know the Macintosh limits (F82) and
+  bring the incoming party inside them.
+
+  Three rules keep that on the right side of the stat-editing line:
+
+  1. **Never adjust upward.** Bringing a level-9 fighter down to the Macintosh
+     cap is conversion. Raising anything — a score, a level, a hit point — is an
+     edit, and needs his sign-off like any other.
+  2. **Never adjust silently.** Every adjustment is named in a report shown
+     before the save is written: what was changed, from what, to what, and why.
+     A conversion that quietly loses a character's spellbook is worse than one
+     that refuses.
+  3. **Refuse rather than invent.** If something has no Macintosh equivalent and
+     no defensible substitute — a class the port does not have, an item that
+     does not exist here — stop and say what blocked it. Do not pick the nearest
+     thing and carry on.
+
+  **Boundary:** a converted save arrives with whatever that party legitimately
+  earned, and converting is not editing. Clamping down to what this version
+  supports is conversion; anything that improves a character is an edit, and the
+  sign-off for that is his to give per edit, not the converter's to assume.
 - [ ] **F36 — Answer the game's own save and overwrite prompts.** Kept, demoted:
   it is only needed on whatever paths still go through the game's own dialogs
   once F79 exists, and may turn out to be unnecessary.

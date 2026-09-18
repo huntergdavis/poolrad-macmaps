@@ -93,3 +93,33 @@ A bad save costs the owner his game, so these are not style preferences.
 2. **Never overwrite an existing save.** Construct into a new file.
 3. **Verify by loading.** No save is claimed to work until the game has loaded
    it and the party reads back correctly.
+
+
+## The converter adjusts; it does not edit
+
+Owner's requirement, 2026-09-18: "if the mac version has different level caps
+or is missing certain resources etc, the converter should understand that and
+adjust."
+
+Ports are not identical, so a converter that copies fields across and hopes will
+produce a party the Macintosh game cannot represent or will not load. It has to
+know this version's own limits — which is why F82, establishing the Macintosh
+level caps, class and race lists, and item and spell tables, comes before F81.
+
+The line between adjusting and editing is where this stays honest, and it is
+drawn three ways:
+
+1. **Never adjust upward.** Bringing a level-9 fighter down to the Macintosh cap
+   is conversion. Raising a score, a level or a hit point is an edit, and needs
+   the owner's per-edit sign-off like any other.
+2. **Never adjust silently.** Every adjustment is named in a report shown before
+   the save is written — what changed, from what, to what, and why. A conversion
+   that quietly loses a spellbook is worse than one that refuses.
+3. **Refuse rather than invent.** A class this port does not have, an item that
+   does not exist here: stop and say what blocked it. Do not substitute the
+   nearest thing and carry on.
+
+This matters beyond our own testing. If the specification is published (F80)
+and the converter with it, these adjustments are what other people's parties
+will be subjected to, and a silent one would be a bug in someone else's
+campaign rather than ours.
