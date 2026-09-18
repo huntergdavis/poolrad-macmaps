@@ -974,6 +974,12 @@ Nothing here is started unless it says so.
   you drew telling you where you have not been. It spoils nothing, because it
   reads only squares you have already seen.
 
+### P1 — his designation
+
+- [ ] **F66 — Mark which character the game has selected outside combat,** the
+  way F23 marks whose turn it is inside one. The same question — who is the
+  game waiting on — and it goes unanswered everywhere but the guest screen.
+
 ### In flight
 
 - [ ] **F27 — The `W` mark for a slowed character.** Drawn when a member's
@@ -1034,6 +1040,24 @@ on the right side of it only because the game itself performs the action.
   already read, so the text costs nothing to obtain; 1984 Mac type at e-ink
   size is the hardest thing on the screen to read. An option, not a default,
   because it covers screen the map wants.
+- [ ] **F67 — Mark NPCs in the party distinctly** from characters the player
+  rolled. The roster walk already tells them apart.
+- [ ] **F68 — Trim the on-screen keyboard to the keys the game uses,** with
+  bigger targets. Needs care rather than a fixed subset: names still have to be
+  typeable, so the full alphabet must stay reachable — most likely a compact
+  default that expands when the game is asking for text.
+- [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
+  *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
+  2.0 — there is room, and the gain is larger than the idea suggested.* A row
+  is 48dp today: name, then HP with armour class, then the health bar. At six
+  members the sidebar already fits one 432px column, so one-line rows would buy
+  the map nothing there. They pay at seven and eight members, and at any font
+  scale from 1.10 up, where `header + rows x 96px` exceeds the 684px pane and
+  the layout falls back to **two** columns: the sidebar takes 792 of 1440px and
+  the map drops from 1008px wide to 648px. One-line rows at roughly 28dp keep a
+  single column in all of those cases, so the map keeps its full width instead
+  of losing a third of it. Worth building for the eight-member and
+  large-type cases, not for the common six.
 - [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
   time, never 24-hour. Same rule wherever else a time is shown, including the
   auto-save names in F37.
