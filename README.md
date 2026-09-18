@@ -28,6 +28,13 @@ clear it in the caves.
 
 <img src="docs/images/fog-of-war.png" width="760" alt="The Slums of Phlan with fog of war on: only the corridor the party has actually walked is drawn, everything else a faint grid, with the party arrow and the two map buttons in the corner">
 
+**Directional footprints** record the way you actually walked, so a corridor you
+have been down twice looks different from one you passed once. Doors you have
+stood beside and never gone through are marked, which is your own map telling
+you where you have not been.
+
+<img src="docs/images/footprints-trail.png" width="760" alt="The same map with a trail of directional footprints along the corridor the party has just walked, the party arrow at 13,2 facing east, and every character's HP bar beside it">
+
 ## Your party, at a glance
 
 Names, HP bars, armor class and class symbols sit beside the map. Tap anyone
