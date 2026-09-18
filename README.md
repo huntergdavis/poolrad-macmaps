@@ -11,7 +11,7 @@ companion for Pool of Radiance.** Its automapping and convenience features
 sparked this project; this is an independent Macintosh/Android implementation,
 not a port of its code or an official game release.
 
-<img src="docs/images/phlan-party-sidebar.png" width="760" alt="Live New Phlan map with party health bars, armor class and class symbols while Rolf welcomes the party in the original Mac game below">
+<img src="docs/images/slums-party-quick.png" width="760" alt="Live Slums of Phlan map with walls, doors and the facing arrow, beside a party sidebar showing each character's HP bar, armour class, a Q quick-combat toggle and a T where the game will let them train, above the original Mac game">
 
 *Captured from the running app, not mockups. Game artwork belongs to its respective owners.*
 
