@@ -677,6 +677,15 @@ public class EmulatorFragment extends Fragment
     private SaveStateController saveState() {
         if (mSaveState == null) {
             mSaveState = new SaveStateController(requireActivity(), () -> mCore);
+            // Pair a save with the notebook open at save time, and bring it back on load.
+            mSaveState.setNotebookLink(new SaveStateController.NotebookLink() {
+                @Override public String currentNotebookId() {
+                    return mNotebook == null ? null : mNotebook.notebookId();
+                }
+                @Override public void selectNotebook(String notebookId) {
+                    if (mNotebook != null) mNotebook.selectNotebookById(notebookId);
+                }
+            });
         }
         return mSaveState;
     }

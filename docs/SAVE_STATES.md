@@ -103,11 +103,16 @@ Two things make it tractable:
    and a restore raises `NeedWholeScreenDraw` so the host re-blits the whole
    screen at once. A save is ~8.9 MB raw, ~1.3 MB gzipped.
 
-4. **F93 — pair each save with its notebook, by reference.** A companion save
-   records *which* notebook and area it belongs with, rather than copying the
-   ink. The notes and journals already live on disk (the notebook store); the
-   save state soft-links to them. So restoring a machine state also brings up the
-   right notebook, at ~no extra size.
+4. **F93 — pair each save with its notebook, by reference — PASSED 2026-09-19.**
+   A save records *which* notebook it belongs with, rather than copying the ink.
+   The notes and journals already live on disk (the notebook store); the save
+   keeps only the notebook's id, in a ~36-byte sidecar (`<save>.prqs.notebook`),
+   captured at save time. Loading a save opens that notebook, so restoring a
+   machine state also brings up the right campaign, at no real size cost. A save
+   whose notebook was deleted since keeps the current notebook rather than
+   failing. The sidecar is removed when its save is deleted. Verified live with
+   two notebooks: a save made under one was restored while the other was active,
+   and the active notebook switched back to the paired one.
 
 ## How this relates to the game's own save format
 

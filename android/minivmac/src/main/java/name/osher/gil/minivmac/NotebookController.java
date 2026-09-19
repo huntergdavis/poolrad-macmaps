@@ -187,6 +187,29 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     /** The selected notebook's display label, or null while none is open. */
     public String notebookLabel() { return notebook == null ? null : notebook.label(); }
 
+    /** The id of the notebook now open, or null before one is chosen. Used to pair a save state with its notebook. */
+    public String notebookId() { return notebook == null ? null : notebook.id(); }
+
+    /**
+     * Switch to a specific notebook by id, as when a save state is loaded that
+     * was paired with it. A no-op if the id is null, already open, or no longer
+     * on disk (the notebook may have been deleted since the save was made).
+     */
+    public void selectNotebookById(String id) {
+        if (id == null || disposed) return;
+        if (notebook != null && id.equals(notebook.id())) return;
+        IO.execute(() -> {
+            try {
+                for (NotebookStore.Notebook book : store.listNotebooks()) {
+                    if (book.id().equals(id)) { selectOnDisk(book); return; }
+                }
+                main.post(() -> { if (!disposed) toast("That save's notebook is no longer here; keeping the current one."); });
+            } catch (IOException | RuntimeException failure) {
+                report("Cannot open the save's notebook", failure);
+            }
+        });
+    }
+
     @Override public JournalHistory journalHistory() { return journal; }
     @Override public String areaId() { return area == null ? null : area.id(); }
     @Override public String areaLabel() { return area == null ? null : area.label(); }
@@ -591,7 +614,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 main.post(() -> {
                     opening = false; if (disposed) return;
                     LinearLayout list = column();
-                    list.addView(text("Each notebook is a separate campaign. Switching Mac saves does not switch notebooks. Old notes are kept."));
+                    list.addView(text("Each notebook is a separate campaign. Loading a save state opens the notebook it was made with. Old notes are kept."));
                     list.addView(text("Back up each notebook to a .prnb file outside the app. Uninstalling removes local notes. Restore never overwrites an existing campaign."));
                     for (NotebookStore.Notebook book : books) {
                         Button select = button(list, book.label() + (notebook != null && notebook.id().equals(book.id()) ? " · active" : ""));

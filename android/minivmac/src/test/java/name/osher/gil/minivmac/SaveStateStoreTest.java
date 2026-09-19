@@ -131,6 +131,35 @@ public class SaveStateStoreTest {
         catch (IOException expected) { }
     }
 
+    /** A save remembers which notebook it belongs with, by reference. */
+    @Test public void aSaveRemembersItsNotebook() throws IOException {
+        SaveStateStore s = store();
+        File f = s.write("Paired", machine(50000, 2));
+        assertNull("no pairing until one is written", s.readBinding(f));
+        s.writeBinding(f, "notebook-abc");
+        assertEquals("notebook-abc", s.readBinding(f));
+    }
+
+    /** A blank notebook id clears the pairing rather than writing an empty one. */
+    @Test public void aBlankNotebookClearsThePairing() throws IOException {
+        SaveStateStore s = store();
+        File f = s.write("Clear", machine(40000, 2));
+        s.writeBinding(f, "notebook-xyz");
+        s.writeBinding(f, "   ");
+        assertNull(s.readBinding(f));
+    }
+
+    /** Deleting a save also removes the notebook pairing beside it. */
+    @Test public void deletingASaveRemovesItsPairing() throws IOException {
+        SaveStateStore s = store();
+        File f = s.write("Gone", machine(40000, 2));
+        s.writeBinding(f, "notebook-1");
+        assertTrue(s.delete(f));
+        assertFalse(f.exists());
+        assertNull(s.readBinding(f));
+        assertEquals(0, s.saves().size());
+    }
+
     /** An old whole-image file (the v1 format) still loads. */
     @Test public void aLegacyWholeImageStillLoads() throws IOException {
         byte[] raw = machine(80000, 6);

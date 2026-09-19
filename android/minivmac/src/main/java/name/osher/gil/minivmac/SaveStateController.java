@@ -29,6 +29,16 @@ public final class SaveStateController {
     /** How the controller reaches the live emulator, which is recreated per session. */
     public interface CoreAccess { Core current(); }
 
+    /**
+     * The companion's notebook, so a save can be paired with the notebook that
+     * was open when it was taken (F93) and a load can bring that notebook back.
+     * Referenced by id; the notes themselves stay in the notebook store.
+     */
+    public interface NotebookLink {
+        String currentNotebookId();
+        void selectNotebook(String notebookId);
+    }
+
     private final Activity activity;
     private final CoreAccess access;
     private final SaveStateStore store;
@@ -37,11 +47,23 @@ public final class SaveStateController {
     /** Where the in-flight save should land, set before the request, read in the callback. */
     private final AtomicReference<File> pendingTarget = new AtomicReference<>();
     private final AtomicReference<String> pendingLabel = new AtomicReference<>();
+    /** The notebook to pair with the in-flight save, captured at request time. */
+    private final AtomicReference<String> pendingBinding = new AtomicReference<>();
+    private NotebookLink notebook;
 
     public SaveStateController(Activity activity, CoreAccess access) {
         this.activity = activity;
         this.access = access;
         this.store = new SaveStateStore(new File(activity.getFilesDir(), "savestates"));
+    }
+
+    /** Wire the companion's notebook so saves and loads can carry it. */
+    public void setNotebookLink(NotebookLink link) { this.notebook = link; }
+
+    private String currentNotebookId() {
+        NotebookLink link = notebook;
+        try { return link == null ? null : link.currentNotebookId(); }
+        catch (RuntimeException ignored) { return null; }
     }
 
     public void dispose() { io.shutdown(); }
@@ -50,12 +72,14 @@ public final class SaveStateController {
     public void onState(byte[] state) {
         final File target = pendingTarget.getAndSet(null);
         final String label = pendingLabel.getAndSet(null);
+        final String binding = pendingBinding.getAndSet(null);
         if (state == null) { toast("The machine could not be captured."); return; }
         final byte[] bytes = state;   // a Java array; safe to keep past the native call
         io.execute(() -> {
             String said;
             try {
                 File written = (target != null) ? writeTo(target, bytes) : store.write(label, bytes);
+                store.writeBinding(written, binding);
                 said = "Saved " + SaveStateStore.label(written);
             } catch (IOException | RuntimeException failure) {
                 said = "Could not save: " + failure.getMessage();
@@ -75,7 +99,8 @@ public final class SaveStateController {
         if (notReady(core)) return;
         pendingTarget.set(store.quickFile());
         pendingLabel.set(null);
-        if (! core.requestSaveState()) { pendingTarget.set(null); toast("The machine is not ready to save."); }
+        pendingBinding.set(currentNotebookId());
+        if (! core.requestSaveState()) { pendingTarget.set(null); pendingBinding.set(null); toast("The machine is not ready to save."); }
     }
 
     public void quickLoad() {
@@ -97,8 +122,10 @@ public final class SaveStateController {
                     String label = field.getText().toString().trim();
                     pendingTarget.set(null);
                     pendingLabel.set(label.isEmpty() ? "Save state" : label);
+                    pendingBinding.set(currentNotebookId());
                     if (! core.requestSaveState()) {
                         pendingLabel.set(null);
+                        pendingBinding.set(null);
                         toast("The machine is not ready to save.");
                     }
                 })
@@ -139,7 +166,7 @@ public final class SaveStateController {
                 .setTitle("Delete which save state?")
                 .setItems(labels, (d, which) -> {
                     File file = saves.get(which);
-                    if (file.delete()) toast("Deleted " + SaveStateStore.label(file));
+                    if (store.delete(file)) toast("Deleted " + SaveStateStore.label(file));
                     else toast("Could not delete " + SaveStateStore.label(file));
                 })
                 .setNegativeButton("Cancel", null)
@@ -153,9 +180,15 @@ public final class SaveStateController {
             String said;
             try {
                 byte[] bytes = store.read(file);
+                final String boundNotebook = store.readBinding(file);
                 main.post(() -> {
-                    if (core.restoreState(bytes)) toast("Loaded " + SaveStateStore.label(file));
-                    else toast("The machine would not accept that save.");
+                    if (core.restoreState(bytes)) {
+                        NotebookLink link = notebook;
+                        if (link != null && boundNotebook != null) link.selectNotebook(boundNotebook);
+                        toast("Loaded " + SaveStateStore.label(file));
+                    } else {
+                        toast("The machine would not accept that save.");
+                    }
                 });
                 return;
             } catch (IOException | RuntimeException failure) {

@@ -160,6 +160,49 @@ public final class SaveStateStore {
         }
     }
 
+    /* --- pairing a save with its notebook (F93) --- */
+
+    /** The sidecar that records which notebook a save belongs with, referenced not copied. */
+    private static File bindingFile(File save) { return new File(save.getPath() + ".notebook"); }
+
+    /**
+     * Record the notebook a save belongs with, alongside the save. Referenced by
+     * id, not copied: the notes and journal stay in the notebook store. A null
+     * or blank id clears any existing pairing.
+     */
+    public void writeBinding(File save, String notebookId) {
+        File sidecar = bindingFile(save);
+        if (notebookId == null || notebookId.trim().isEmpty()) { sidecar.delete(); return; }
+        File partial = new File(sidecar.getPath() + ".part");
+        try (FileOutputStream out = new FileOutputStream(partial)) {
+            out.write(notebookId.trim().getBytes("UTF-8"));
+        } catch (IOException failure) {
+            partial.delete();
+            return;   // a lost pairing is not worth failing the save over
+        }
+        if (!partial.renameTo(sidecar)) partial.delete();
+    }
+
+    /** The notebook id paired with a save, or null if none was recorded. */
+    public String readBinding(File save) {
+        File sidecar = bindingFile(save);
+        if (!sidecar.isFile() || sidecar.length() == 0 || sidecar.length() > 4096) return null;
+        try (FileInputStream in = new FileInputStream(sidecar)) {
+            byte[] all = new byte[(int) sidecar.length()];
+            readFully(in, all);
+            String id = new String(all, "UTF-8").trim();
+            return id.isEmpty() ? null : id;
+        } catch (IOException failure) {
+            return null;
+        }
+    }
+
+    /** Remove a save and any sidecar that referenced its notebook. */
+    public boolean delete(File save) {
+        bindingFile(save).delete();
+        return save.delete();
+    }
+
     /** A readable label for a save file, without its extension. */
     public static String label(File file) {
         String name = file.getName();

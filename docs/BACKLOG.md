@@ -1014,10 +1014,15 @@ lands rather than at the end. The planned releases:
   to the snapshot — the visible screen, immediately, even on a still Finder
   screen. Ships as a full-machine gzip (~1.3 MB) for now; the reference + diff
   shrink to tens of KB is still F91. See [SAVE_STATES.md](SAVE_STATES.md).
-- [ ] **F93 — Pair each save with its notebook, by reference.** A companion save
-  records which notebook and area it belongs with and soft-links to the notes
-  already on disk rather than copying them, so restoring a machine state brings
-  up the right notebook at no real size cost.
+- [x] **F93 (PASSED 2026-09-19) — Pair each save with its notebook, by
+  reference.** A save records which notebook it belongs with in a tiny sidecar
+  (the notebook's id, ~36 bytes), referencing the notes already on disk rather
+  than copying them. Loading a save opens that notebook, so a machine state and
+  its campaign come back together. Verified live with two notebooks: a save made
+  under Notebook 1 was paired with it; after switching the companion to Notebook
+  2, Quick load restored the machine and switched the active notebook back to
+  Notebook 1. A save whose notebook was since deleted loads and keeps the current
+  notebook rather than failing.
 
 - [ ] **F89 — Tapping a character in the party pane selects them in the game.**
   Owner's P0, 2026-09-19: "When you click on a character on the top, it should
