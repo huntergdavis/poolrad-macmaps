@@ -1771,3 +1771,19 @@ GLOBALPROC ICT_add(int taskid, ui5b n)
 		NextiCount = when;
 	}
 }
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC GlobGlue_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &NextiCount, sizeof(NextiCount));
+	visit(ctx, &ICTactive, sizeof(ICTactive));
+	visit(ctx, ICTwhen, sizeof(ICTwhen));
+	visit(ctx, Wires, sizeof(Wires));
+	visit(ctx, &InterruptButton, sizeof(InterruptButton));
+	/*
+		MasterMyEvtQLock and my_disk_icon_addr are deliberately not captured:
+		the first is an event-queue lock that is not execution state, the
+		second is set once and is guarded out of some variants. The timing and
+		interrupt-line state above is what a resume actually needs.
+	*/
+}

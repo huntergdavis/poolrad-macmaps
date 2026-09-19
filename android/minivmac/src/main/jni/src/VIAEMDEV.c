@@ -1253,4 +1253,18 @@ GLOBALPROC VIA1_iCB2_PulseNtfy(void)
 }
 #endif
 
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC VIA1_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &VIA1_D, sizeof(VIA1_D));
+	visit(ctx, &VIA1_T1_Active, sizeof(VIA1_T1_Active));
+	visit(ctx, &VIA1_T2_Active, sizeof(VIA1_T2_Active));
+	visit(ctx, &VIA1_T1IntReady, sizeof(VIA1_T1IntReady));
+	visit(ctx, &VIA1_T1Running, sizeof(VIA1_T1Running));
+	visit(ctx, &VIA1_T1LastTime, sizeof(VIA1_T1LastTime));
+	visit(ctx, &VIA1_T2Running, sizeof(VIA1_T2Running));
+	visit(ctx, &VIA1_T2C_ShortTime, sizeof(VIA1_T2C_ShortTime));
+	visit(ctx, &VIA1_T2LastTime, sizeof(VIA1_T2LastTime));
+}
 #endif /* EmVIA1 */

@@ -515,4 +515,11 @@ GLOBALPROC RTCdataLine_ChangeNtfy(void)
 #endif
 }
 
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC RTC_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &RTC, sizeof(RTC));
+	visit(ctx, &LastRealDate, sizeof(LastRealDate));
+}
 #endif /* EmRTC */

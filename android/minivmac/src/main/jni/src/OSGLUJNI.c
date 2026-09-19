@@ -29,9 +29,15 @@
 #include "POOLRAD_PARTY.h"
 #include "POOLRAD_MESSAGE.h"
 #include "POOLRAD_COMBAT.h"
+#include "POOLRAD_SAVESTATE.h"
 
 IMPORTFUNC ui3p GetRamForSnapshot(ui5b *size);
 IMPORTFUNC ui5r PoolRadGetAddressRegister(ui3r index);
+IMPORTPROC PoolRadSaveCPUState(ui3p buf);
+IMPORTPROC PoolRadRestoreCPUState(const ui3b *buf);
+#ifndef PoolRadCPUStateSize
+#define PoolRadCPUStateSize 128
+#endif
 
 #define BLACK 0xFF000000
 #define WHITE 0xFFFFFFFF
@@ -1224,6 +1230,123 @@ LOCALPROC CheckForSavedTasks(void)
 /* --- main program flow --- */
 
 /* UI thread queues a request; only the emulation thread copies live RAM. */
+/* ---- whole-machine save state (see POOLRAD_SAVESTATE.h) ---- */
+
+#define PRSS_MAGIC 0x50525353UL  /* "PRSS" */
+#define PRSS_VERSION 1
+#define PRSS_HEADER 16           /* magic, version, ramSize, totalLen */
+#define PRSS_CPU_AT PRSS_HEADER
+#define PRSS_BULK_AT (PRSS_HEADER + PoolRadCPUStateSize)
+
+struct PRSSCursor { ui3p buf; ui5b pos; ui5b cap; int mode; blnr ok; };
+/* mode: 0 measure, 1 save, 2 restore */
+
+LOCALPROC PRSSVisit(void *vctx, void *data, ui5b size)
+{
+	struct PRSSCursor *c = (struct PRSSCursor *)vctx;
+	if (c->mode != 0) {
+		if (c->pos + size > c->cap) { c->ok = falseblnr; return; }
+		if (c->mode == 1) {
+			memcpy(c->buf + c->pos, data, size);
+		} else {
+			memcpy(data, c->buf + c->pos, size);
+		}
+	}
+	c->pos += size;
+}
+
+/* The one ordering that save, restore and measure all walk. RAM last. */
+LOCALPROC PRSSVisitAll(PoolRadStateVisitor visit, void *ctx)
+{
+	ui5b ramSize;
+	ui3p ram = GetRamForSnapshot(&ramSize);
+	GlobGlue_VisitState(visit, ctx);
+#if EmVIA1
+	VIA1_VisitState(visit, ctx);
+#endif
+#if EmVIA2
+	VIA2_VisitState(visit, ctx);
+#endif
+#if EmRTC
+	RTC_VisitState(visit, ctx);
+#endif
+	visit(ctx, ram, ramSize);
+}
+
+LOCALPROC PRSSPut32(ui3p p, ui5b v)
+{
+	p[0] = (ui3b)(v >> 24); p[1] = (ui3b)(v >> 16);
+	p[2] = (ui3b)(v >> 8); p[3] = (ui3b)v;
+}
+
+LOCALFUNC ui5b PRSSGet32(const ui3b *p)
+{
+	return ((ui5b)p[0] << 24) | ((ui5b)p[1] << 16) | ((ui5b)p[2] << 8) | (ui5b)p[3];
+}
+
+GLOBALFUNC ui5b PoolRadSaveStateSize(void)
+{
+	struct PRSSCursor c;
+	c.buf = nullpr; c.pos = 0; c.cap = 0; c.mode = 0; c.ok = trueblnr;
+	PRSSVisitAll(PRSSVisit, &c);
+	return PRSS_BULK_AT + c.pos;
+}
+
+GLOBALFUNC ui5b PoolRadSaveState(ui3p buf, ui5b cap)
+{
+	struct PRSSCursor c;
+	ui5b ramSize;
+	ui5b total = PoolRadSaveStateSize();
+	(void) GetRamForSnapshot(&ramSize);
+	if (cap < total) { return 0; }
+	PRSSPut32(buf + 0, PRSS_MAGIC);
+	PRSSPut32(buf + 4, PRSS_VERSION);
+	PRSSPut32(buf + 8, ramSize);
+	PRSSPut32(buf + 12, total);
+	PoolRadSaveCPUState(buf + PRSS_CPU_AT);
+	c.buf = buf; c.pos = PRSS_BULK_AT; c.cap = cap; c.mode = 1; c.ok = trueblnr;
+	PRSSVisitAll(PRSSVisit, &c);
+	return c.ok ? c.pos : 0;
+}
+
+GLOBALFUNC blnr PoolRadRestoreState(const ui3b *buf, ui5b len)
+{
+	struct PRSSCursor c;
+	ui5b ramSize;
+	(void) GetRamForSnapshot(&ramSize);
+	if (len < PRSS_BULK_AT) { return falseblnr; }
+	if (PRSSGet32(buf + 0) != PRSS_MAGIC) { return falseblnr; }
+	if (PRSSGet32(buf + 4) != PRSS_VERSION) { return falseblnr; }
+	if (PRSSGet32(buf + 8) != ramSize) { return falseblnr; }
+	if (PRSSGet32(buf + 12) != len) { return falseblnr; }
+	/* RAM, devices and globals first; the CPU last, so m68k_setpc rebuilds
+	   its fetch pointers against RAM that is already in place. */
+	c.buf = (ui3p)buf; c.pos = PRSS_BULK_AT; c.cap = len; c.mode = 2; c.ok = trueblnr;
+	PRSSVisitAll(PRSSVisit, &c);
+	if (! c.ok) { return falseblnr; }
+	PoolRadRestoreCPUState(buf + PRSS_CPU_AT);
+	return trueblnr;
+}
+
+GLOBALFUNC blnr PoolRadSaveStateSelfTest(void)
+{
+	ui5b size = PoolRadSaveStateSize();
+	ui3p a = (ui3p)malloc(size);
+	ui3p b = (ui3p)malloc(size);
+	blnr ok = falseblnr;
+	if ((a != nullpr) && (b != nullpr)) {
+		if ((PoolRadSaveState(a, size) == size)
+			&& PoolRadRestoreState(a, size)
+			&& (PoolRadSaveState(b, size) == size))
+		{
+			ok = (memcmp(a, b, size) == 0) ? trueblnr : falseblnr;
+		}
+	}
+	if (a != nullpr) { free(a); }
+	if (b != nullpr) { free(b); }
+	return ok;
+}
+
 GLOBALFUNC jboolean requestRamSnapshot(void)
 {
     return atomic_exchange(&WantRamSnapshot, 1) == 0 ? JNI_TRUE : JNI_FALSE;
@@ -1243,6 +1366,15 @@ LOCALPROC DeliverRamSnapshot(void)
     }
     (*jEnv)->CallVoidMethod(jEnv, mCore, jRamSnapshot, snapshot);
     if (snapshot != NULL) (*jEnv)->DeleteLocalRef(jEnv, snapshot);
+    {
+        /* Piggy-backed on the debug RAM snapshot: report whether a save state
+           round-trips in place. A "no" means some mutable state is missing
+           from the visitor. Debug-only, logged for tools/capture-ram.sh. */
+        blnr ssok = PoolRadSaveStateSelfTest();
+        __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
+            "PoolRad save-state self-test: %s (%u bytes)",
+            ssok ? "PASS" : "FAIL", (unsigned) PoolRadSaveStateSize());
+    }
 }
 
 GLOBALFUNC jboolean requestMapSample(void)
