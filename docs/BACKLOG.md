@@ -5,7 +5,7 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
-Current published release: **0.81.0**. Releases 0.71–0.81 delivered F89, F79,
+Current published release: **0.82.0**. Releases 0.71–0.81 delivered F89, F79,
 F66, F35, F80, F29, F47, F42, F43, F72 and F67, individually. F97 awaits the
 owner's legacy-snapshot decision; independent features continue. F33/F86 below
 are withdrawn history, not pending requests to restore restart-based loading.
