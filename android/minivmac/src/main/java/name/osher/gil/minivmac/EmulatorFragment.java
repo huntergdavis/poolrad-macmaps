@@ -601,7 +601,12 @@ public class EmulatorFragment extends Fragment
                 case SPELLS: SpellReferenceDialog.show(requireActivity()); break;
                 case JOURNAL: ((MiniVMac) requireActivity()).journal().show(); break;
                 case EQUIPMENT: EquipmentReferenceDialog.show(requireActivity()); break;
-                case MONEY: MoneyReferenceDialog.show(requireActivity()); break;
+                case MONEY: LiveTextReferenceDialog.show(requireActivity(), "Money",
+                        "Current holdings · all party members",
+                        () -> name.osher.gil.minivmac.mapper.PartyMoney.describe(
+                                mLiveMap == null ? null : mLiveMap.partySnapshot()),
+                        "Gems and jewelry are counts, not appraised values. Coin value excludes them.",
+                        18, "Coin converter", () -> MoneyReferenceDialog.show(requireActivity())); break;
                 case WHEEL:
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");

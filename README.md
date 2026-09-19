@@ -53,6 +53,10 @@ first to last.
 
 <img src="docs/images/readme-marching-order.png" width="760" alt="Current party marching order, numbered first to last, above the original game">
 
+**Info → Money** shows every character’s purse and the whole party’s coin
+totals, with an exact gold equivalent. Gems and jewelry stay separate as
+counts. The same page opens the manual coin converter.
+
 ## When a fight starts
 
 A read-only overview shows every combatant's square — yours filled, everyone

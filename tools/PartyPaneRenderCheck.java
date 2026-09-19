@@ -535,7 +535,8 @@ public final class PartyPaneRenderCheck {
         });
 
         run("NPC labels appear in both layouts without changing health or tap identity", () -> {
-            byte[] sample=Arrays.copyOf(packet(true),PartyState.QUICK_PACKET_SIZE);sample[3]='9';
+            byte[] sample=Arrays.copyOf(packet(true),PartyState.PURSE_PACKET_SIZE);sample[3]='A';
+            sample[5]=2;
             for(int i=0;i<MEMBERS;i++) {
                 sample[PartyState.CONDITION_PACKET_SIZE+i*PartyState.SPELL_STRIDE]=(byte)255;
                 sample[PartyState.SPELL_PACKET_SIZE+i*PartyState.EQUIP_STRIDE]=(byte)255;
@@ -558,6 +559,7 @@ public final class PartyPaneRenderCheck {
                 check(changedPixels(before,npc)>20,"NPC name label did not draw in layout "+compact);
                 checkMonochrome(npc);
                 check(view.getContentDescription().toString().contains("NPC · "+NAMES[1]),"NPC absent from accessible party");
+                check(view.partySnapshot().selectedIndex==1,"PRPA lost selected row");
                 check(!view.getContentDescription().toString().contains("NPC · "+NAMES[0]),"Player mislabeled NPC");
                 final List<String> selected=new ArrayList<>();
                 view.setListener(new LiveMapView.Listener(){

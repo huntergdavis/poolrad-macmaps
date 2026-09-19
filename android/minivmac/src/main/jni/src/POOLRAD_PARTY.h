@@ -27,7 +27,10 @@
         + POOLRAD_PARTY_TRAIN_STRIDE * POOLRAD_PARTY_MAX_MEMBERS)
 /* PRP7 appends one quick byte per member: 0 off, 1 on, 0xff unreadable. */
 #define POOLRAD_PARTY_QUICK_UNAVAILABLE 0xff
-#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_TRAIN_SIZE + POOLRAD_PARTY_MAX_MEMBERS)
+#define POOLRAD_PARTY_QUICK_SIZE (POOLRAD_PARTY_TRAIN_SIZE + POOLRAD_PARTY_MAX_MEMBERS)
+/* PRPA adds availability plus seven signed nonnegative word counts per member. */
+#define POOLRAD_PARTY_PURSE_STRIDE 15
+#define POOLRAD_PARTY_SIZE (POOLRAD_PARTY_QUICK_SIZE + POOLRAD_PARTY_MAX_MEMBERS * POOLRAD_PARTY_PURSE_STRIDE)
 #define POOLRAD_PARTY_HEAD_BACK 20894
 /* CODE7 +0x1ebc allocates 0x12e bytes and +0x1ee6 clears exactly that many. */
 #define POOLRAD_PARTY_RECORD_SIZE 302
@@ -462,6 +465,21 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
                     (quick == POOLRAD_PARTY_QUICK_OFF || quick == POOLRAD_PARTY_QUICK_ON)
                         ? quick : POOLRAD_PARTY_QUICK_UNAVAILABLE;
         }
+        {
+            /* CODE3 +412c reads seven words at +8c and names them using
+             * A5-5df2: copper, silver, electrum, gold, platinum, gems, jewelry.
+             * Its formatter uses signed %d. Refuse negative counts as a whole
+             * purse; never turn them into large unsigned wealth or zero. */
+            unsigned char *purse = packet + POOLRAD_PARTY_QUICK_SIZE
+                    + count * POOLRAD_PARTY_PURSE_STRIDE;
+            int valid = 1;
+            for (unsigned i = 0; i < 7; i++)
+                if (ram[record + 0x8c + 2 * i] & 0x80) valid = 0;
+            if (valid) {
+                purse[0] = 1;
+                memcpy(purse + 1, ram + record + 0x8c, 14);
+            }
+        }
         /* PRP8 byte5: zero means unknown; otherwise one-based emitted row. */
         if (selected == handles[links - 1]) packet[5] = (unsigned char)(count + 1);
         if (ram[record + POOLRAD_PARTY_NPC_OFFSET] > 0x7f)
@@ -469,7 +487,7 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
         count++;
     }
     if (count == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_EMPTY);
-    memcpy(packet, "PRP9", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRPA", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

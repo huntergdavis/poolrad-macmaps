@@ -5,9 +5,10 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
-Current published release: **0.82.0**. Releases 0.71–0.81 delivered F89, F79,
-F66, F35, F80, F29, F47, F42, F43, F72 and F67, individually. F97 awaits the
-owner's legacy-snapshot decision; independent features continue. F33/F86 below
+Current published release: **0.82.0**. Releases 0.71–0.82 delivered F89, F79,
+F66, F35, F80, F29, F47, F42, F43, F72, F67 and F48, individually. F46 Money
+is verified for 0.83.0. F97 is next: require the new disk-verified format and
+refuse older snapshots, following the owner's pre-1.0 decision. F33/F86 below
 are withdrawn history, not pending requests to restore restart-based loading.
 README screenshots are refreshed as their pictured features change and must
 remain within three releases; see [README_SCREENSHOTS.md](README_SCREENSHOTS.md).
@@ -1005,9 +1006,12 @@ lands rather than at the end. The planned releases:
   Keep original disks and independent backups. The local play helper no longer
   force-stops the guest just to reach the title screen; corruption prevention
   itself remains unverified.
-  **Pending owner answer, 2026-09-19:** existing snapshots have no disk identity.
-  Should they remain loadable after an explicit warning, or be refused by the
-  new guard? Asked in the active backlog session; work moved to F89 while waiting.
+  **Owner decision, 2026-09-19:** require the new disk-verified snapshot
+  format and refuse older unverified snapshots. No compatibility mode or
+  warning override: “let's not overcomplicate by supporting older saves,
+  this is still in active development pre version 1.” This applies to F97's
+  emulator snapshots. Show a clear unsupported-format message when refused.
+  F97 is next after the Money release, 0.83.0.
   Audit also found `SaveStateStore` attempts fsync after gzip closes its stream;
   fix that durability ordering as part of this item.
 
@@ -1590,8 +1594,15 @@ needed. Confirmed 2026-09-18.
 
 ### Remaining
 
-- [ ] **F46 — A "Money" page:** the existing converter plus what the party
-  actually holds. The purse has not been located in RAM yet.
+- [x] **F46 (delivered 0.83.0) — A "Money" page.** Info → Money now reads
+  all seven purse fields, shows each character and the complete party total,
+  and opens the existing manual converter. Exact gold value excludes
+  unappraised gems/jewelry; unreadable purses never become zero or partial totals.
+  Six live purses matched 7 gold and 26 platinum (137 gp); original Arax/Lara
+  sheets corroborated their holdings. Selection, long-press sheets, NPC labels
+  and Marching order remain intact. 663 Java tests, native sanitizer checks,
+  28 party rendering checks and nine companion checks passed.
+  See [PARTY_MONEY.md](PARTY_MONEY.md).
 - [x] **F48 (delivered 0.82.0) — The game's own clock in the header.**
   PRM6 carries validated original-game counters as a one-based day and am/pm
   time, within the existing header height. Loading clears it; camp, combat and

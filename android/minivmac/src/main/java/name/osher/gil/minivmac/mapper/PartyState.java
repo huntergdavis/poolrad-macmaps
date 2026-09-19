@@ -25,6 +25,8 @@ public final class PartyState {
     public static final int TRAIN_PACKET_SIZE = EQUIP_PACKET_SIZE + MAX_MEMBERS * TRAIN_STRIDE;
     /** PRP7 appends one quick byte per member: 0 off, 1 on, 0xff unreadable. */
     public static final int QUICK_PACKET_SIZE = TRAIN_PACKET_SIZE + MAX_MEMBERS;
+    public static final int PURSE_STRIDE = 15;
+    public static final int PURSE_PACKET_SIZE = QUICK_PACKET_SIZE + MAX_MEMBERS * PURSE_STRIDE;
     public static final int QUICK_UNAVAILABLE = 0xff;
     public static final int POISONED = 1, HELPLESS = 2;
     private static final String[] CONDITION_LABELS = {
@@ -77,6 +79,8 @@ public final class PartyState {
         public final Boolean quick;
         /** NPC according to the game's flag; null for packets older than PRP9. */
         public final Boolean npc;
+        /** Null means unreadable, never an empty purse. */
+        public final PartyMoney.Purse purse;
         /** Labels may mark NPCs, but identity matching always uses the original name. */
         public String displayName() { return Boolean.TRUE.equals(npc) ? "NPC · " + name : name; }
         public String characterKindLabel() {
@@ -100,8 +104,8 @@ public final class PartyState {
                        int condition, int trackedEffects, boolean hasConditionSample,
                        int[] ready, int[] awaitingRest, String readiedWeapon, String readiedArmor,
                        int movementSquares, int carriedWeight, int experience, int[][] classes,
-                       Boolean quick, Boolean npc) {
-            this.quick = quick; this.npc = npc;
+                       Boolean quick, Boolean npc, PartyMoney.Purse purse) {
+            this.quick = quick; this.npc = npc; this.purse = purse;
             this.experience = experience; this.classes = classes;
             this.readiedWeapon = readiedWeapon; this.readiedArmor = readiedArmor;
             this.movementSquares = movementSquares; this.carriedWeight = carriedWeight;
@@ -271,7 +275,8 @@ public final class PartyState {
     private final byte[] packet;
 
     private PartyState(List<Member> members, byte[] packet) {
-        selectedIndex = (packet[3] == '8' || packet[3] == '9') ? (packet[5] & 255) - 1 : -1;
+        selectedIndex = (packet[3] == '8' || packet[3] == '9' || packet[3] == 'A')
+                ? (packet[5] & 255) - 1 : -1;
         this.members = Collections.unmodifiableList(members);
         this.packet = packet.clone();
     }
@@ -337,15 +342,16 @@ public final class PartyState {
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
                 || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
-                    && data[3] != '5' && data[3] != '6' && data[3] != '7' && data[3] != '8' && data[3] != '9')) return null;
-        boolean npcFlags = data[3] == '9';
+                    && data[3] != '5' && data[3] != '6' && data[3] != '7' && data[3] != '8' && data[3] != '9' && data[3] != 'A')) return null;
+        boolean purses = data[3] == 'A';
+        boolean npcFlags = purses || data[3] == '9';
         boolean selection = npcFlags || data[3] == '8';
         boolean quickFlags = selection || data[3] == '7';
         boolean training = quickFlags || data[3] == '6';
         boolean equipment = training || data[3] == '5';
         boolean spells = equipment || data[3] == '4';
         boolean conditions = spells || data[3] == '3';
-        if (data.length != (quickFlags ? QUICK_PACKET_SIZE : training ? TRAIN_PACKET_SIZE
+        if (data.length != (purses ? PURSE_PACKET_SIZE : quickFlags ? QUICK_PACKET_SIZE : training ? TRAIN_PACKET_SIZE
                 : equipment ? EQUIP_PACKET_SIZE : spells ? SPELL_PACKET_SIZE
                 : conditions ? CONDITION_PACKET_SIZE : PACKET_SIZE))
             return null;
@@ -367,6 +373,8 @@ public final class PartyState {
                 if (training) for (int offset = 0; offset < TRAIN_STRIDE; offset++)
                     if (data[EQUIP_PACKET_SIZE + index * TRAIN_STRIDE + offset] != 0) return null;
                 if (quickFlags && data[TRAIN_PACKET_SIZE + index] != 0) return null;
+                if (purses) for (int offset = 0; offset < PURSE_STRIDE; offset++)
+                    if (data[QUICK_PACKET_SIZE + index * PURSE_STRIDE + offset] != 0) return null;
                 continue;
             }
             int length = 0;
@@ -487,10 +495,25 @@ public final class PartyState {
                 // null, so the pane shows unknown rather than a confident "off".
                 if (flag == 0 || flag == 1) quick = flag == 1;
             }
+            PartyMoney.Purse purse = null;
+            if (purses) {
+                int at = QUICK_PACKET_SIZE + index * PURSE_STRIDE;
+                if (data[at] != 0 && data[at] != 1) return null;
+                if (data[at] == 0) {
+                    for (int j = 1; j < PURSE_STRIDE; j++) if (data[at+j] != 0) return null;
+                } else {
+                    int[] counts = new int[7];
+                    for (int j = 0; j < 7; j++) {
+                        counts[j] = ((data[at+1+2*j] & 255) << 8) | (data[at+2+2*j] & 255);
+                        if (counts[j] > 32767) return null;
+                    }
+                    purse = new PartyMoney.Purse(counts);
+                }
+            }
             members.add(new Member(name, current, maximum, armorClass, characterClass,
                     condition, effects, conditions, ready, awaitingRest, readiedWeapon, readiedArmor,
                     movementSquares, carriedWeight, experience, classes, quick,
-                    npcFlags ? Boolean.valueOf((data[6] & (1 << index)) != 0) : null));
+                    npcFlags ? Boolean.valueOf((data[6] & (1 << index)) != 0) : null, purse));
         }
         return new PartyState(members, data);
     }

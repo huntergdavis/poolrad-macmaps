@@ -26,7 +26,7 @@ public class PartyStateTest {
      * "unavailable" -- or the parser rejects the packet before ever reaching
      * the quick bytes, which is how the first version of this fixture failed.
      */
-    private static byte[] quickPacket(int count, int... flags) {
+    static byte[] quickPacket(int count, int... flags) {
         byte[] packet = new byte[PartyState.QUICK_PACKET_SIZE];
         System.arraycopy(new byte[] {'P', 'R', 'P', '7'}, 0, packet, 0, 4);
         packet[4] = (byte) count;

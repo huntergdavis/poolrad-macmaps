@@ -41,6 +41,45 @@ static void fixture(uint32_t a5, uint32_t handles, uint32_t records, unsigned co
     }
 }
 
+static void purse_tests(void) {
+    fixture(0xe000,0x2000,0x3000,8);
+    unsigned char original[sizeof(ram)];
+    for(unsigned member=0;member<8;member++) for(unsigned coin=0;coin<7;coin++)
+        ram[member_record(member)+0x8d+2*coin]=member*10+coin;
+    memcpy(original,ram,sizeof(ram));
+    assert(poolrad_party_probe(ram,sizeof(ram),output));
+    assert(memcmp(original,ram,sizeof(ram))==0);
+    for(unsigned member=0;member<8;member++) {
+        unsigned at=POOLRAD_PARTY_QUICK_SIZE+member*POOLRAD_PARTY_PURSE_STRIDE;
+        assert(output[at]==1);
+        for(unsigned coin=0;coin<7;coin++) assert(output[at+2+coin*2]==member*10+coin);
+    }
+    /* Chain order, not numeric slot, owns the purse. */
+    put32(fixture_a5-POOLRAD_PARTY_HEAD_BACK,member_handle(7));
+    put32(member_record(7)+POOLRAD_PARTY_NEXT_OFFSET,member_handle(0));
+    put32(member_record(6)+POOLRAD_PARTY_NEXT_OFFSET,0);
+    assert(poolrad_party_probe(ram,sizeof(ram),output));
+    assert(output[POOLRAD_PARTY_QUICK_SIZE+2]==70);
+    assert(output[POOLRAD_PARTY_QUICK_SIZE+POOLRAD_PARTY_PURSE_STRIDE+2]==0);
+    for(unsigned coin=0;coin<7;coin++) {
+        unsigned values[]={0,1,32767,32768,65535};
+        for(unsigned i=0;i<5;i++) {
+            fixture(0xe000,0x2000,0x3000,1);
+            ram[member_record(0)+0x8c+coin*2]=values[i]>>8;
+            ram[member_record(0)+0x8d+coin*2]=values[i];
+            assert(poolrad_party_probe(ram,sizeof(ram),output));
+            unsigned at=POOLRAD_PARTY_QUICK_SIZE;
+            assert(output[at]==(values[i]<=32767));
+            if(values[i]>32767) for(unsigned j=1;j<POOLRAD_PARTY_PURSE_STRIDE;j++)
+                assert(output[at+j]==0);
+            else assert((((unsigned)output[at+1+coin*2]<<8)|output[at+2+coin*2])==values[i]);
+            for(unsigned j=at+POOLRAD_PARTY_PURSE_STRIDE;j<POOLRAD_PARTY_SIZE;j++)
+                assert(output[j]==0);
+        }
+    }
+    puts("Purses: all denominations, signed boundaries, chain order, empty rows and unchanged RAM passed.");
+}
+
 static void unavailable(void) {
     memset(output, 0xff, sizeof(output));
     assert(!poolrad_party_probe(ram, sizeof(ram), output));
@@ -202,7 +241,7 @@ static void tests(void) {
     assert(poolrad_party_probe(ram, sizeof(ram), output) && output[5] == 0);
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP9", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRPA", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -248,7 +287,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     for (unsigned i = 0; i < 6; i++) put32(member_record(i) - 8, 0x80000136);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP9", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRPA", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++)
         assert(memcmp(output + 8 + i * POOLRAD_PARTY_ROW_SIZE, ram + member_record(i), 6) == 0);
     // An odd physical size is still not a block, whatever the correction says.
@@ -898,6 +937,7 @@ static int replay(const char *path) {
 }
 
 int main(int argc, char **argv) {
+    purse_tests();
     if (argc == 1) { tests(); return 0; }
     if (argc == 2) return replay(argv[1]);
     fprintf(stderr, "Usage: test-party-probe [private-capture.ram]\n");
