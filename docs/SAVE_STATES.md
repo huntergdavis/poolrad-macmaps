@@ -55,11 +55,16 @@ Two things make it tractable:
 
 ## The sequence — do not skip Phase 1
 
-1. **F90 — round-trip the whole machine at full size.** Capture RAM + CPU +
-   every device global to a file; restore it; resume; confirm the game carries
-   on correctly. No reference, no diff, no compression. **This is make-or-break.**
-   If the machine will not resume cleanly from its own full snapshot, nothing
-   else in this line matters, and we learn that first and cheaply.
+1. **F90 — round-trip the whole machine — PASSED 2026-09-19.** The whole
+   machine (RAM + CPU + VIA1 + VIA2 + RTC + timing + interrupt state, 8,388,816
+   bytes) captures and restores. Two proofs on the running Mac II: the in-place
+   self-test is byte-identical, and the behavioural test is decisive — saved at
+   *Party at 0, 4 W*, walked the party to *15, 4 W*, restored, and the party
+   snapped back to *0, 4 W* with the game still live (it went on to raise a
+   random orc encounter, which only a running CPU can do). Serial and sound are
+   deferred and did not stop the resume; whether ADB (keyboard) state needs
+   adding will be settled when F92 gives a clean on-demand trigger to test
+   repeatedly. **The make-or-break is behind us: the approach works.**
 
 2. **F91 — the reference and the diff.** Bake R in, store saves as R + delta,
    compress. Purely a space optimization on top of a proven round-trip.

@@ -1367,13 +1367,28 @@ LOCALPROC DeliverRamSnapshot(void)
     (*jEnv)->CallVoidMethod(jEnv, mCore, jRamSnapshot, snapshot);
     if (snapshot != NULL) (*jEnv)->DeleteLocalRef(jEnv, snapshot);
     {
-        /* Piggy-backed on the debug RAM snapshot: report whether a save state
-           round-trips in place. A "no" means some mutable state is missing
-           from the visitor. Debug-only, logged for tools/capture-ram.sh. */
-        blnr ssok = PoolRadSaveStateSelfTest();
-        __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
-            "PoolRad save-state self-test: %s (%u bytes)",
-            ssok ? "PASS" : "FAIL", (unsigned) PoolRadSaveStateSize());
+        /*
+           Behavioural save-state test, driven off the debug snapshot trigger
+           at this safe between-batch boundary. The first trigger saves the
+           whole machine to a buffer; the next restores it and frees the
+           buffer. So: trigger, walk the party, trigger again -- and the party
+           must snap back to where it was. Debug-only; the real feature (F92)
+           will save and restore through the app rather than this hook.
+        */
+        static ui3p qsBuf = nullpr;
+        static ui5b qsLen = 0;
+        if (qsBuf == nullpr) {
+            ui5b sz = PoolRadSaveStateSize();
+            qsBuf = (ui3p) malloc(sz);
+            qsLen = (qsBuf != nullpr) ? PoolRadSaveState(qsBuf, sz) : 0;
+            __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
+                "PoolRad quick-save: captured %u bytes", (unsigned) qsLen);
+        } else {
+            blnr ok = PoolRadRestoreState(qsBuf, qsLen);
+            __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
+                "PoolRad quick-restore: %s", ok ? "applied" : "failed");
+            free(qsBuf); qsBuf = nullpr; qsLen = 0;
+        }
     }
 }
 

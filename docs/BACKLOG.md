@@ -985,7 +985,7 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
-- [ ] **F90 — Round-trip the whole emulated machine (the make-or-break spike).**
+- [x] **F90 (PASSED 2026-09-19) — the whole emulated machine round-trips.**
   Capture RAM + 68k registers + every device global at a controlled boundary,
   restore it, resume, and confirm the game carries on correctly. Full size, no
   reference, no diff, no compression. If the machine will not resume from its
