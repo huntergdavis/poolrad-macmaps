@@ -991,10 +991,19 @@ lands rather than at the end. The planned releases:
   reference, no diff, no compression. If the machine will not resume from its
   own snapshot, the whole save-state line stops here and we know it cheaply.
   See [SAVE_STATES.md](SAVE_STATES.md).
-- [ ] **F91 — Bake a reference state in, store saves as reference + diff.** The
-  space optimization on top of a proven round-trip: ~1–2 MB reference in the
-  APK, saves as a compressed delta of tens of KB, an 8 MB reference RAM held
-  resident so save and restore never touch a file mid-operation.
+- [x] **F91 (PASSED 2026-09-19) — a reference template, saves as reference +
+  diff.** The owner's design: "a single first save state template, and all our
+  save states are just the diff versus that first one." The reference cannot be
+  baked into the APK — a machine image depends on the player's own ROM, system
+  and game, which the app never ships — so the *first* save becomes the local
+  reference template, kept once (gzipped, ~0.7–1.3 MB), and every later save is
+  a byte-wise XOR against it, gzipped. Where a save matches the reference the
+  XOR is zero and compresses away, so a typical save is tens of KB. All in
+  `SaveStateStore`, so the emulator core is untouched. Verified live: the first
+  quick save wrote a 713 KB reference and an 8.7 KB diff; both the diff and a
+  wholly-different later save reconstructed byte-exactly and restored on the
+  running machine, screen included. Reconstruction is exact regardless of how
+  similar the reference is; a CRC pins each diff to its reference.
 - [x] **F92 (PASSED 2026-09-19) — Save and load from the companion, outside the
   game.** Quick save, Quick load, and Save states… (name / list / delete) live
   on the PoolRad menu, driving the F90 round-trip asynchronously off the

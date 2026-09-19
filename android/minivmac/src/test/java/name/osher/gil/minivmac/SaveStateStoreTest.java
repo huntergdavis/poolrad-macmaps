@@ -89,4 +89,56 @@ public class SaveStateStoreTest {
     @Test public void labelStripsTheExtension() {
         assertEquals("Kuto's Well", SaveStateStore.label(new File("/x/Kuto's Well" + SaveStateStore.EXTENSION)));
     }
+
+    /** A save that barely differs from the reference is a tiny fraction of a whole image. */
+    @Test public void aLaterSaveIsFarSmallerThanTheImage() throws IOException {
+        SaveStateStore s = store();
+        byte[] first = machine(2_000_000, 1);      // becomes the reference template
+        s.write("First", first);
+        byte[] second = first.clone();
+        for (int i = 0; i < 500; i++) second[i * 37 % second.length] ^= 0x5a;  // a few changes
+        File f = s.write("Second", second);
+        assertTrue("a near-identical save should be a small diff, was " + f.length(),
+                f.length() < second.length / 20);
+        assertArrayEquals(second, s.read(f));
+    }
+
+    /** Different images both reconstruct exactly through the one shared reference. */
+    @Test public void severalImagesRoundTripThroughOneReference() throws IOException {
+        SaveStateStore s = store();
+        byte[] a = machine(300000, 1);
+        byte[] b = machine(300000, 99);
+        File fa = s.write("A", a);
+        File fb = s.write("B", b);
+        assertArrayEquals(a, s.read(fa));
+        assertArrayEquals(b, s.read(fb));
+    }
+
+    /** A fresh store reading files written by an earlier one still finds the reference on disk. */
+    @Test public void aDiffReadsBackAfterAColdStart() throws IOException {
+        byte[] raw = machine(250000, 4);
+        File f = store().write("Cold", raw);       // one store writes it
+        assertArrayEquals(raw, store().read(f));    // a brand-new store reads it
+    }
+
+    /** Losing the reference makes a diff unreadable rather than silently wrong. */
+    @Test public void aDiffWithoutItsReferenceIsRefused() throws IOException {
+        SaveStateStore writer = store();
+        File f = writer.write("Orphan", machine(120000, 8));
+        // Delete the reference template that the diff depends on.
+        for (File ref : tmp.getRoot().listFiles()) if (ref.getName().endsWith(".prqref")) assertTrue(ref.delete());
+        try { store().read(f); fail("read a diff with no reference"); }
+        catch (IOException expected) { }
+    }
+
+    /** An old whole-image file (the v1 format) still loads. */
+    @Test public void aLegacyWholeImageStillLoads() throws IOException {
+        byte[] raw = machine(80000, 6);
+        File legacy = new File(tmp.getRoot(), "legacy" + SaveStateStore.EXTENSION);
+        java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
+        body.write(new byte[]{'P', 'R', 'Q', 'S', '1', '\n'});
+        try (java.util.zip.GZIPOutputStream gz = new java.util.zip.GZIPOutputStream(body)) { gz.write(raw); }
+        java.nio.file.Files.write(legacy.toPath(), body.toByteArray());
+        assertArrayEquals(raw, store().read(legacy));
+    }
 }

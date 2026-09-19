@@ -66,8 +66,23 @@ Two things make it tractable:
    adding will be settled when F92 gives a clean on-demand trigger to test
    repeatedly. **The make-or-break is behind us: the approach works.**
 
-2. **F91 — the reference and the diff.** Bake R in, store saves as R + delta,
-   compress. Purely a space optimization on top of a proven round-trip.
+2. **F91 — the reference and the diff — PASSED 2026-09-19.** The space
+   optimization on top of a proven round-trip. One correction to the theory
+   below: **R cannot be baked into the APK.** A machine image depends on the
+   player's own ROM, system and game, none of which the app ships, so there is
+   no build-time image to bake. Instead the **first save becomes the local
+   reference template** — exactly the owner's words, "the first one" — written
+   once and kept (gzipped, ~0.7–1.3 MB), and every later save is a byte-wise XOR
+   against it, gzipped. Where a save matches the reference the XOR is zero and
+   compresses to almost nothing, so an unchanged save is ~8.7 KB and a typical
+   save is tens of KB.
+
+   All of this lives in `SaveStateStore` — the emulator core is untouched. XOR
+   reconstruction is exact no matter how similar the reference is (the image is
+   always `reference XOR (reference XOR image)`); the only requirement is the
+   same reference bytes at save and load, which a persistent file and a CRC
+   check guarantee. A save whose reference is missing or mismatched is refused
+   rather than reconstructed wrongly, and old whole-image files still load.
 
 3. **F92 — save and load from the companion — PASSED 2026-09-19.** Outside the
    game entirely: Quick save, Quick load, and Save states… (name / list /
