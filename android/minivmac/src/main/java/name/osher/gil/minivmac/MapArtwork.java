@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.Map;
 import java.util.Set;
 
+import name.osher.gil.minivmac.mapper.FootprintAge;
 import name.osher.gil.minivmac.mapper.GeoMap;
 import name.osher.gil.minivmac.mapper.UnwalkedExits;
 import name.osher.gil.minivmac.mapper.PoolRadState;
@@ -22,6 +23,8 @@ public final class MapArtwork {
     private final Path arrow = new Path();
     private ExplorationTrail preparedTrail;
     private final int[] latestFrom = new int[GeoMap.WIDTH * GeoMap.WIDTH];
+    /** How recently each square was walked, as a size for its prints. */
+    private final FootprintAge footprintAge = new FootprintAge();
 
     public interface TileVisibility { boolean visible(int tile); }
 
@@ -100,13 +103,17 @@ public final class MapArtwork {
                 }
                 if(footprints && cell>=12*density) {
                     prepareTrail(trail);
+                    footprintAge.prepare(trail);
                     for(int tile=0;tile<256;tile++) {
                         int from=latestFrom[tile];
                         if(from<0 || !trail.visited(tile)) continue;
                         int dx=tile%16-from%16,dy=tile/16-from/16;
                         if(Math.abs(dx)+Math.abs(dy)!=1) continue; // No row-wrap or gap arrows.
                         float degrees=dx==1 ? 90 : dx==-1 ? 270 : dy==1 ? 180 : 0;
-                        drawFeet(canvas,left+(tile%16+.5f)*cell,top+(tile/16+.5f)*cell,cell,degrees);
+                        // Older prints are drawn smaller, which puts the order
+                        // of a walk back into a trail of identical marks.
+                        drawFeet(canvas,left+(tile%16+.5f)*cell,top+(tile/16+.5f)*cell,
+                                cell*footprintAge.scale(tile),degrees);
                     }
                 }
             }

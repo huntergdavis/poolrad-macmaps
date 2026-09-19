@@ -61,6 +61,7 @@ public final class ExplorationRenderCheck {
             run("door bits without wall surfaces never create phantom edges",ExplorationRenderCheck::noPhantomDoors);
             run("all real doorway states use the same neutral symbol",ExplorationRenderCheck::neutralDoors);
             run("a door seen from one side and not gone through is marked, and only then",ExplorationRenderCheck::unwalkedExits);
+            run("older footprints are drawn smaller, and standing still changes nothing",ExplorationRenderCheck::footprintAges);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
     }
@@ -168,6 +169,35 @@ public final class ExplorationRenderCheck {
             if(baseline==null)baseline=actual;
             else equal(baseline,actual,"Door state advertised an unverified lock/secret/passability claim");
         }
+    }
+
+    private static void footprintAges() {
+        /*
+         * A long walk should not draw identical prints: the earliest square of
+         * the walk carries less ink than the latest. Measured on the tiles
+         * themselves rather than on a scale factor, so it is the drawing being
+         * checked and not the arithmetic.
+         */
+        byte[] geometry=new byte[1024];
+        GeoMap map=map(geometry);
+        int first=DEST, second=DEST+1, third=DEST+2, fourth=DEST+3;
+        ExplorationTrail walk=ExplorationTrail.empty().record(first,-1)
+                .record(second,first).record(third,second).record(fourth,third);
+        Bitmap drawn=render(map,walk,false,true);
+        int oldest=dark(tile(drawn,second,2)), newest=dark(tile(drawn,fourth,2));
+        check(oldest>0 && newest>0,"A walked square drew no footprint at all");
+        check(newest>oldest,"The newest footprint should carry more ink than the oldest: "
+                + oldest + " then " + newest);
+
+        // Standing still is an observation, not travel, and must change nothing.
+        ExplorationTrail stood=walk.record(fourth,-1).record(fourth,-1);
+        equal(drawn,render(map,stood,false,true),"Standing still resized the footprints");
+
+        // And walking back over a square makes it the newest again.
+        ExplorationTrail back=walk.record(third,fourth);
+        check(dark(tile(render(map,back,false,true),third,2))>dark(tile(drawn,third,2)),
+                "Walking a square again did not make its footprint the newest");
+        monochrome(drawn);
     }
 
     private static void unwalkedExits() {

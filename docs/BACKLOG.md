@@ -1345,7 +1345,7 @@ quick-flag write.
   an open chest, and so on. User-visible history, not a spoiler: it records
   only what this party already found.
 - [x] **F50 (delivered 0.50.0) — Area progress on the map header** — "explored 62 of 256 squares".
-- [ ] **F45 — Older footprints drawn slightly smaller,** so a trail reads
+- [x] **F45 (delivered 0.51.0) — Older footprints drawn slightly smaller,** so a trail reads
   directionally. Deliberately not shading: shading does not hold up on e-ink.
 - [ ] **F60 — Tap the header to ping your own square,** for finding yourself on
   a large map.
