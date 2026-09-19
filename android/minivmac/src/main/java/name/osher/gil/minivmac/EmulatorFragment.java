@@ -368,6 +368,7 @@ public class EmulatorFragment extends Fragment
             LoadSequence.Instruction step = load.next(guestSignal(), SystemClock.elapsedRealtime());
             showBusy(load.describe());
             switch (step.kind) {
+                case RESTART_GUEST: initEmulator(); break;
                 case COMMAND_KEY: sendCommandKey(step.key); break;
                 case TYPE_LINE: sendGuestLine(step.text, true); break;
                 case TYPE_ONLY: sendGuestLine(step.text, false); break;

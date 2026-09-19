@@ -33,6 +33,15 @@ public final class LoadSequence {
          * how this once renamed a journal and opened it instead of the game.
          */
         TYPE_ONLY,
+        /**
+         * Restart the emulated machine.
+         *
+         * Rather than quitting the game, which asks "Do you really want to
+         * quit?" in a dialog with no default button -- so Return does nothing
+         * and confirming it would mean clicking at a measured coordinate,
+         * which is the fragility this whole sequence exists to avoid.
+         */
+        RESTART_GUEST,
         /** Send nothing; come back when something changes or time passes. */
         WAIT,
         /** The party is loaded. */
@@ -56,10 +65,18 @@ public final class LoadSequence {
         }
     }
 
-    private enum Step { QUIT, RELAUNCH, OPEN_DIALOG, FOLDER, SAVE, DONE, FAILED }
+    private enum Step { RESTART, OPEN_DIALOG, FOLDER, SAVE, DONE, FAILED }
 
     /** How long each step may take before the sequence gives up. */
     public static final long QUIT_PATIENCE = 20_000;
+    /**
+     * How long to let the machine come back up on its own.
+     *
+     * A Macintosh boot is slow, and a disk that launches the game from its
+     * Startup Items gets there without help. Only after this does the sequence
+     * assume it has landed at the Finder and go looking for the application.
+     */
+    public static final long BOOT_PATIENCE = 150_000;
     public static final long RELAUNCH_PATIENCE = 60_000;
     public static final long DIALOG_PATIENCE = 8_000;
     public static final long LOAD_PATIENCE = 60_000;
@@ -77,7 +94,7 @@ public final class LoadSequence {
     public static final long TYPING_SETTLE = 2_000;
 
     private final String application, folder, save;
-    private Step step = Step.QUIT;
+    private Step step = Step.RESTART;
     private long stepBegan = Long.MIN_VALUE;
     private boolean sent;
     private String failure;
@@ -95,9 +112,9 @@ public final class LoadSequence {
     /** For a progress line: what is happening now, in plain words. */
     public String describe() {
         switch (step) {
-            case QUIT: return "Closing the game";
-            case RELAUNCH: return "Starting the game again";
-            case OPEN_DIALOG: case FOLDER: case SAVE: return "Loading " + save;
+            case RESTART: return "Restarting the machine";
+            case OPEN_DIALOG: return "Waiting for the game";
+            case FOLDER: case SAVE: return "Loading " + save;
             case DONE: return "Loaded " + save;
             default: return failure == null ? "Stopped" : failure;
         }
@@ -114,23 +131,30 @@ public final class LoadSequence {
         long waited = Math.max(0, now - stepBegan);
 
         switch (step) {
-            case QUIT:
-                // Already at the Finder: nothing to quit.
-                if (signal == GameSignal.NO_GAME) return advance(Step.RELAUNCH, now);
-                if (!sent) { sent = true; return command('Q'); }
-                if (waited > QUIT_PATIENCE)
-                    return fail("The game did not close. It may be asking something on screen; "
-                            + "nothing else was sent.");
-                return holdOn();
-
-            case RELAUNCH:
+            case RESTART:
+                /*
+                 * Restarting is unconditional, even from the Finder. It costs a
+                 * boot, but it is the one way to reach a state this sequence
+                 * understands from any state at all -- and the game's own Quit
+                 * asks a question that cannot be answered from the keyboard.
+                 */
+                if (!sent) { sent = true; return new Instruction(Kind.RESTART_GUEST, ' ', null, null); }
+                // The game launches itself from the disk's Startup Items.
                 if (signal.gameRunning()) return advance(Step.OPEN_DIALOG, now);
-                // Type-select only: no Return, which the Finder reads as rename.
-                if (!sent) { sent = true; return typeOnly(application); }
-                if (waited > RELAUNCH_PATIENCE)
-                    return fail("The game did not start again. Nothing was loaded.");
-                // The Finder opens what type-select highlighted.
-                if (waited > TYPING_SETTLE) return command('O');
+                /*
+                 * If it does not, this stops rather than going looking for it.
+                 *
+                 * Driving the Finder by typing was tried and is not safe: the
+                 * application has to be in the frontmost window for type-select
+                 * to find it, and when it is not, the typing selects whatever
+                 * else begins with those letters and Cmd-O opens that. One run
+                 * renamed a journal; another opened Apple Extras. Guessing at
+                 * somebody's desktop is not worth a saved game.
+                 */
+                if (waited > BOOT_PATIENCE)
+                    return fail("The machine restarted but " + application + " did not start "
+                            + "itself. Put it in the startup disk's Startup Items, or start it "
+                            + "yourself, and try again.");
                 return holdOn();
 
             case OPEN_DIALOG:

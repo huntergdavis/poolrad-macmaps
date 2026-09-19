@@ -1099,26 +1099,31 @@ reads back correctly.
   capture until the companion can say where the party is, because a capture
   taken in any other state proves nothing.
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
-  F33 ships the reading, the chooser, the overlay and the guarded sequence, and
-  every guard is unit-tested. What has **not** happened is one clean run that
-  ends with a party loaded.
+  **Debugged 2026-09-18; the cause was found and two bad designs removed, but
+  it has still not completed here.**
 
-  Two real bugs were found by trying, and both are fixed: the Finder step sent
-  Return, which renames rather than opens, and once renamed a journal and opened
-  that instead of the game; and `Cmd-L` was sent the instant the probe saw the
-  game's globals, which is well before it is drawing menus, so it was swallowed
-  and the sequence waited out its patience for a dialog nobody had opened.
+  The cause of the original stall: `Cmd-Q` does not quit. It asks *"Do you
+  really want to quit?"* in a dialog whose buttons carry no default outline, so
+  Return does nothing and confirming it would mean clicking a measured
+  coordinate — the exact fragility the sequence exists to avoid. The sequence's
+  own error message, "it may be asking something on screen", turned out to be
+  right.
 
-  Where it reaches now: the quit works, the Finder type-select selects the game
-  correctly, and the game relaunches. Whether the load dialog then opens is
-  unconfirmed. Each attempt costs a full Macintosh boot, and reinstalling the
-  app restarts the emulated machine, which confounds the run -- so this wants a
-  harness that drives the app's own menu without reinstalling, not more manual
-  attempts.
+  So it no longer quits: it restarts the emulated machine, which the app can
+  already do and which asks nothing.
 
-  **A failure is safe:** the sequence stops, says why, and leaves the guest
-  alone. Nothing is typed once a party is seen.
+  The second bad design, also removed: when the machine came back up at the
+  Finder, the sequence typed the application's name to select it and pressed
+  `Cmd-O`. Type-select only works if the application is in the frontmost
+  window. When it is not, the typing lands on whatever else begins with those
+  letters — one run renamed "Adventurer's Journal Part 1", another opened
+  "Apple Extras". It now stops and says so instead.
 
+  **What remains:** the emulator used for testing has a disk set whose game does
+  not launch itself, so the sequence correctly reports that and stops. Proving
+  the rest needs a startup disk that launches the game — the owner's documented
+  combined test disk does, and `scratch/minivmacandpools.dsk` is that disk. Boot
+  from it and run the load.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
