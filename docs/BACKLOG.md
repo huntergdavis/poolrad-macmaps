@@ -1536,9 +1536,11 @@ quick-flag write.
   NPC in it to diff against. Either trace the code behind either of those two
   strings, or capture a save with an NPC in the party and diff it against one
   without — the second is much the cheaper if such a save can be made.
-- [ ] **F72 — Show the marching order.** Wanted, with a design caution from the
-  owner: the row is already carrying a badge, a name, HP, armour class, a bar,
-  T/R/W and Q, and this must not make it busy.
+- [x] **F72 (delivered 0.80.0) — Show the marching order.**
+  Info → Marching order gives the validated party order its own numbered page,
+  respecting the owner's caution about already busy map rows. It follows the
+  retained party reading and clears unavailable data. Live six-member and
+  original-game reorder checks passed; see [MARCHING_ORDER.md](MARCHING_ORDER.md).
 - [x] **F43 (delivered 0.79.0) — Long-press a party row for the game sheet.**
   Selects the exact character through the Information window, confirms the
   fresh selection, then sends the verified plain V command in an authenticated

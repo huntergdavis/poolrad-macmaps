@@ -184,6 +184,7 @@ public final class LiveMapView extends View {
         mapHold.reset(); partyHold.reset(); combatHold.reset();
         showSample(null); showPartySample(null);
     }
+    public PartyState partySnapshot() { return party; }
     public AreaIdentity currentArea() { return positionAvailable && state != null ? state.area : null; }
     public AreaIdentity displayedArea() { return state == null ? null : state.area; }
     public PoolRadState snapshot() { return positionAvailable ? state : null; }

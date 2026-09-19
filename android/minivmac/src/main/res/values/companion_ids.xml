@@ -20,4 +20,5 @@
     <item type="id" name="companion_citation_notice" />
     <item type="id" name="companion_citation_open" />
     <item type="id" name="companion_citation_dismiss" />
+    <item type="id" name="companion_tool_party_order" />
 </resources>
