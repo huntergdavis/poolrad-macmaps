@@ -55,6 +55,12 @@
 			app:summary="@string/pref_scroll_summ"
 			app:icon="@drawable/ic_scroll"
 			app:defaultValue="false" />
+	    <SwitchPreferenceCompat
+			app:key="pref_oneline_party"
+			app:title="@string/pref_oneline_party"
+			app:summary="@string/pref_oneline_party_summ"
+			app:icon="@drawable/ic_scale"
+			app:defaultValue="false" />
     </PreferenceCategory>
     <PreferenceCategory
 		app:title="@string/pref_control_title"

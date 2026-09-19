@@ -1341,6 +1341,17 @@ reads back correctly.
   single column in all of those cases, so the map keeps its full width instead
   of losing a third of it. Worth building for the eight-member and large-type
   cases, not for the common six.
+
+  **Delivered 2026-09-19.** Opt-in (Settings → View → One-line party rows,
+  default off), so the two-line default is untouched. A compact ~30dp row draws
+  the class icon, name, HP and armour class on one line with a thin health bar
+  along the bottom edge; the acting bar, pointed-at box, Q, and T/R/W marks are
+  kept. `PartyPaneLayout` takes an additive one-line flag that swaps the 48dp
+  row for 30dp in every fitting branch. Verified with the render-check harness:
+  all 24 two-line checks unchanged, and a new case proves an eight-member party
+  that falls back to two columns in two-line mode stays a single column in
+  one-line mode — every row drawn, tappable and monochrome — so the map keeps
+  its full width. A rendered bitmap confirmed it visually.
 - [ ] **F32 — An info panel** naming which save is loaded and how much room is
   left on the save disk.
 - [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept

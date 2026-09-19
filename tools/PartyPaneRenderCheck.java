@@ -236,6 +236,44 @@ public final class PartyPaneRenderCheck {
             check(view.getContentDescription().toString().contains("HP"), "Eight-member pane lost its accessible text");
         });
 
+        run("one-line rows keep a big party in one column and give the map its width (F69)", () -> {
+            byte[] sample = packet(true);
+            sample[4] = 8;
+            for (int i = MEMBERS; i < 8; i++) {
+                System.arraycopy(sample, 8, sample, 8 + i*20, 20);
+                sample[8 + i*20] = (byte) ('U' + i);
+            }
+            LiveMapView view = view(sample, 960, 352);
+            // In two-line mode this same pane must fall back to two columns.
+            PartyPaneLayout twoLine = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 8, 1f, false);
+            check(twoLine.columns == 2, "Fixture is meant to be a two-column case in two-line mode");
+            // One-line keeps a single column, so the map keeps its full width.
+            view.setOneLineParty(true);
+            PartyPaneLayout oneLine = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 8, 1f, true);
+            check(oneLine.columns == 1 && oneLine.rows == 8, "One-line did not keep eight members in one column");
+            check(oneLine.visibleMembers() == 8, "One-line dropped a member");
+            check(oneLine.mapWidth >= twoLine.mapWidth, "One-line gave the map less width than two-line");
+            check(oneLine.rowHeight < 48 * density, "One-line rows are not compact");
+            check(oneLine.headerHeight + oneLine.rows * oneLine.rowHeight <= oneLine.partyHeight + 0.5f,
+                    "One-line rows overflow the party region");
+            Bitmap drawn = render(view);
+            for (int i = 0; i < 8; i++) {
+                check(oneLine.memberAt(oneLine.columnLeft(i)+2, oneLine.rowTop(i)+oneLine.rowHeight/2) == i,
+                        "One-line member " + i + " is not tappable where it is drawn");
+                int dark = 0;
+                for (int y = (int)oneLine.rowTop(i); y < (int)(oneLine.rowTop(i)+oneLine.rowHeight); y++)
+                    for (int x = (int)oneLine.columnLeft(i); x < (int)(oneLine.columnLeft(i)+oneLine.columnWidth); x++)
+                        if (Color.red(drawn.getPixel(Math.min(x, drawn.getWidth()-1),
+                                Math.min(y, drawn.getHeight()-1))) < 128) dark++;
+                check(dark > 50, "One-line member " + i + " row rendered blank");
+            }
+            checkMonochrome(drawn);
+            check(view.getContentDescription().toString().contains("HP"), "One-line pane lost its accessible text");
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream("/data/local/tmp/oneline-party.png")) {
+                drawn.compress(Bitmap.CompressFormat.PNG, 100, out);
+            } catch (Exception ignored) { }
+        });
+
         run("actual map taps follow the resized viewport and party taps create no flag", () -> {
             LiveMapView view = view(packet(true), 960, 480);
             final int[] tapped = {-1, 0};

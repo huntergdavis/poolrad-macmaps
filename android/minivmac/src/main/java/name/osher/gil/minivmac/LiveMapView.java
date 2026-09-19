@@ -97,6 +97,8 @@ public final class LiveMapView extends View {
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
     private ExplorationTrail exploration = ExplorationTrail.empty();
     private boolean visitedOnly, footprints = true;
+    /** F69: compact one-line party rows, so a big party keeps one column and the map keeps its width. */
+    private boolean oneLineParty;
     private String explorationStatus = "";
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
@@ -184,7 +186,7 @@ public final class LiveMapView extends View {
             partyActions.put(0x03000000 | View.generateViewId(), member);
         refreshDescription(); invalidate();
     }
-    private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size(), textScale); }
+    private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size(), textScale, oneLineParty); }
     private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth,p.mapHeight,density); }
     public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
         Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
@@ -195,6 +197,12 @@ public final class LiveMapView extends View {
     public void setExplorationStyle(boolean fog, boolean feet) {
         if (visitedOnly == fog && footprints == feet) return;
         visitedOnly = fog; footprints = feet; refreshDescription(); invalidate();
+    }
+
+    /** Turn compact one-line party rows on or off (F69). */
+    public void setOneLineParty(boolean on) {
+        if (oneLineParty == on) return;
+        oneLineParty = on; invalidate();
     }
 
     public void showExploration(ExplorationTrail trail, String status) {
@@ -938,8 +946,10 @@ public final class LiveMapView extends View {
     private void quickSquare(PartyPaneLayout p, int index, float unit, android.graphics.RectF into) {
         float column = p.columnLeft(index);
         float right = column + p.columnWidth - 10 * unit;
-        float top = p.rowTop(index) + (p.rowHeight - 48 * unit) / 2;
         float size = 16 * unit;
+        float top = oneLineParty
+                ? p.rowTop(index) + (p.rowHeight - size) / 2
+                : p.rowTop(index) + (p.rowHeight - 48 * unit) / 2;
         into.set(right - size, top, right, top + size);
     }
 
@@ -997,6 +1007,7 @@ public final class LiveMapView extends View {
             boolean slowed = party.slowedByLoad(member);
             float column=p.columnLeft(i);
             float left=column+44*unit, right=column+p.columnWidth-10*unit;
+            if (oneLineParty) { drawOneLineRow(canvas, p, i, member, slowed, unit, column); continue; }
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
             if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
             else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);
@@ -1087,6 +1098,79 @@ public final class LiveMapView extends View {
             if(fraction>0)canvas.drawRect(left,barTop,left+(right-left)*fraction,barBottom,ink);
         }
         canvas.restore();
+    }
+
+    /**
+     * A compact one-line party row (F69): class icon, name, HP (and armour
+     * class where it fits) on a single line, with a thin health bar along the
+     * bottom edge. Same information as the two-line row, in about 30dp, so a big
+     * party keeps one column and the map keeps its full width. Opt-in.
+     */
+    private final android.graphics.RectF oneLineQuick = new android.graphics.RectF();
+    private void drawOneLineRow(Canvas canvas, PartyPaneLayout p, int i,
+            PartyState.Member member, boolean slowed, float unit, float column) {
+        float rowTop = p.rowTop(i), rowBottom = rowTop + p.rowHeight;
+        float colRight = column + p.columnWidth;
+        // The acting character's bar and a pointed-at row's box, as in two-line.
+        if (combat != null && combat.isActing(member.name)) {
+            ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
+            canvas.drawRect(column, rowTop + 2 * unit, column + 3 * unit, rowBottom - 2 * unit, ink);
+        }
+        if (highlightedMember == i && highlightShowing()) {
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setStrokeWidth(Math.max(1.5f * density, 2 * unit)); ink.setColor(Color.BLACK);
+            canvas.drawRect(column + 4 * unit, rowTop + 2 * unit, colRight - 4 * unit, rowBottom - 2 * unit, ink);
+        }
+        // A small class symbol or condition badge, vertically centred.
+        float icon = Math.min(20 * unit, p.rowHeight - 6 * unit);
+        float iconTop = rowTop + (p.rowHeight - icon) / 2;
+        if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column + 5 * unit, iconTop, icon);
+        else drawConditionBadge(canvas, member.badge(), column + 5 * unit, iconTop, icon);
+
+        float left = column + 9 * unit + icon;
+        float right = colRight - 10 * unit;
+        // The quick square sits at the right, then the T/R/W marks to its left.
+        quickSquare(p, i, unit, oneLineQuick);
+        drawQuick(canvas, oneLineQuick, member.quick, unit);
+        // Text baseline centred in the space above the bottom bar.
+        ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.FILL);
+        ink.setTextSize(11 * unit);
+        Paint.FontMetrics fm = ink.getFontMetrics();
+        float baseline = rowTop + (p.rowHeight - 5 * unit) / 2 - (fm.ascent + fm.descent) / 2;
+
+        float cursor = oneLineQuick.left - 4 * unit;
+        String marks = (member.readyToTrain() ? "T" : "")
+                + (member.spellsAwaitingRestTotal() > 0 ? "R" : "")
+                + (slowed ? "W" : "");
+        if (!marks.isEmpty()) {
+            ink.setTextSize(10 * unit); ink.setTextAlign(Paint.Align.RIGHT);
+            canvas.drawText(marks, cursor, baseline, ink);
+            cursor -= ink.measureText(marks) + 4 * unit;
+        }
+        // HP, and armour class when there is room; a down word takes AC's place.
+        ink.setTextSize(11 * unit); ink.setTextAlign(Paint.Align.RIGHT);
+        String down = member.downLabel();
+        String hp = member.currentHp + "/" + member.maxHp;
+        String ac = down != null ? down
+                : (p.columnWidth >= PartyPaneLayout.COMPACT_COLUMN * unit
+                        ? "AC " + (member.armorClass == null ? "—" : member.armorClass) : null);
+        if (ac != null) { canvas.drawText(ac, cursor, baseline, ink); cursor -= ink.measureText(ac) + 6 * unit; }
+        canvas.drawText(hp, cursor, baseline, ink);
+        cursor -= ink.measureText(hp) + 6 * unit;
+        // The name fills what is left, truncated with an ellipsis.
+        ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(13 * unit);
+        float room = Math.max(0, cursor - left);
+        int chars = ink.breakText(member.name, true, room, null);
+        String name = chars == member.name.length() ? member.name
+                : chars > 1 ? member.name.substring(0, chars - 1) + "…" : "";
+        canvas.drawText(name, left, baseline, ink);
+        // A thin health bar along the bottom edge of the row.
+        float barTop = rowBottom - 4 * unit, barBottom = rowBottom - 1.5f * unit;
+        ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
+        canvas.drawRect(left, barTop, right, barBottom, ink);
+        ink.setStyle(Paint.Style.FILL);
+        float fraction = Math.max(0, Math.min(1, member.healthFraction()));
+        if (fraction > 0) canvas.drawRect(left, barTop, left + (right - left) * fraction, barBottom, ink);
     }
 
     /** One high-contrast condition mark in the existing class-icon slot; details explain it. */

@@ -14,11 +14,18 @@ public final class PartyPaneLayout {
     public static final float COMPACT_COLUMN = 150;
     private final int members;
 
+    /** Two-line row height in dp; the one-line option (F69) uses this instead of 48. */
+    private static final float ONE_LINE_ROW = 30;
+
     public PartyPaneLayout(int width, int height, float density, int count) {
         this(width, height, density, count, 1);
     }
 
     public PartyPaneLayout(int width, int height, float density, int count, float fontScale) {
+        this(width, height, density, count, fontScale, false);
+    }
+
+    public PartyPaneLayout(int width, int height, float density, int count, float fontScale, boolean oneLine) {
         if (width < 0 || height < 0 || Float.isNaN(density) || Float.isInfinite(density) || density <= 0 || count < 0 || count > 8)
             throw new IllegalArgumentException("Invalid companion pane bounds");
         if (Float.isNaN(fontScale) || Float.isInfinite(fontScale) || fontScale <= 0)
@@ -64,7 +71,7 @@ public final class PartyPaneLayout {
             int preferred = (int) Math.ceil(216 * density * scale);
             int narrowest = (int) Math.ceil(150 * density * scale);
             header = 24 * density * scale;
-            float minimumRow = 48 * density * scale;
+            float minimumRow = (oneLine ? ONE_LINE_ROW : 48) * density * scale;
             wanted = 0; perColumn = 0; chosen = 0;
             stripColumns = 0; stripRows = 0; stripWidth = 0; stripHeight = 0;
             for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
@@ -102,7 +109,7 @@ public final class PartyPaneLayout {
                     float least = header + rowsPerColumn * minimumRow;
                     if (least > height * 0.75f || height - least < mapKeeps) continue;
                     // Grow the rows toward comfortable only while the map can spare it.
-                    float roomy = Math.min(height * 0.75f, header + rowsPerColumn * 64 * density * scale);
+                    float roomy = Math.min(height * 0.75f, header + rowsPerColumn * (oneLine ? ONE_LINE_ROW : 64) * density * scale);
                     stripColumns = tryColumns; stripRows = rowsPerColumn; stripWidth = each;
                     stripHeight = height - roomy >= mapKeeps ? roomy : least;
                 }
@@ -127,7 +134,7 @@ public final class PartyPaneLayout {
             partyWidth=chosen*wanted;partyHeight=height;
             mapWidth=width-partyWidth;mapHeight=height;partyLeft=mapWidth;partyTop=0;
             headerHeight=header;
-            rowHeight=Math.min(64*density*scale, (height-header)/perColumn);
+            rowHeight=Math.min((oneLine ? ONE_LINE_ROW : 64)*density*scale, (height-header)/perColumn);
         }
     }
 

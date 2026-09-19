@@ -514,6 +514,15 @@ public class EmulatorFragment extends Fragment
         saveState().autoSave();
     }
 
+    /** Push the one-line party-row preference to the map (F69); applied on resume so returning from Settings takes effect. */
+    private void applyOneLinePartyPref() {
+        if (mLiveMap == null) return;
+        try {
+            mLiveMap.setOneLineParty(PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
+        } catch (RuntimeException ignored) { }
+    }
+
     private boolean autoSaveEnabled() {
         try {
             return PreferenceManager.getDefaultSharedPreferences(requireContext())
@@ -1330,6 +1339,7 @@ public class EmulatorFragment extends Fragment
         startMapPolling();
         startWheelPolling();
         startAutoSave();
+        applyOneLinePartyPref();
 
         if (mCore != null) {
             mCore.resumeEmulation();
