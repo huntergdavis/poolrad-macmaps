@@ -534,6 +534,7 @@ public class EmulatorFragment extends Fragment
                     if (getChildFragmentManager().findFragmentByTag("code-wheel") == null)
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
                     break;
+                case LEGEND: MapLegendDialog.show(requireActivity()); break;
             }
         });
     }

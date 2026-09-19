@@ -13,4 +13,5 @@
     <item type="id" name="companion_tool_equipment" />
     <item type="id" name="companion_tool_money" />
     <item type="id" name="companion_tool_wheel" />
+    <item type="id" name="companion_tool_legend" />
 </resources>

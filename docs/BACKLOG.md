@@ -1312,9 +1312,17 @@ reads back correctly.
 
 - [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map,
   and everything below in this block lands on it.
-- [ ] **F55 — A legend for the map's marks,** reached from a link in the
-  bottom-right of the map area. The marks have piled up — the crosses, the
-  daggers, T, R, W, Q and the acting ring — and e-ink has no colour to lean on.
+- [x] **F55 (delivered 2026-09-19) — A legend for the map's marks.** Every mark
+  drawn with the shape it explains: on the map (party arrow, unwalked-exit
+  chevron, struck-through fight, note flag, footprints, fog); in a fight (your
+  filled circle, the open-square foe, the diagonal down-but-savable cross, the
+  upright dead/petrified cross, the acting ring); and on the party rows (Q, T, R,
+  W and the acting bar). It sits with the other offline references on the Info
+  tab as **Map legend** rather than a map-corner link — the established home for
+  references (Levels, Spells, Equipment…), so it is where a reader already looks;
+  the map-corner entry point can follow if wanted. `MapLegendDialog` reads
+  nothing and changes nothing. Verified live: the dialog opens and every glyph
+  renders and scrolls.
 - [ ] **F31 — Option: auto-skip messages.**
 - [ ] **F64 — Mirror the game's message window in larger type,** as a toggle.
   The Combat Message and ordinary Message TEHandles are already read, so the
