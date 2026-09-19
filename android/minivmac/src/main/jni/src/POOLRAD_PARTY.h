@@ -325,7 +325,7 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
         unsigned char *out, unsigned char *why) {
     unsigned char map_sample[POOLRAD_PROBE_SIZE], packet[POOLRAD_PARTY_SIZE] = {0};
     uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
-    uint32_t a5, head_address, handle;
+    uint32_t a5, head_address, handle, selected = 0;
     unsigned count = 0, links = 0, combatants = 0, occupied_slots = 0;
     if (out == NULL) return 0;
     if (why != NULL) memset(why, 0, 6);
@@ -338,6 +338,11 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
     if (a5 < POOLRAD_PARTY_HEAD_BACK) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_NO_A5, a5);
     head_address = a5 - POOLRAD_PARTY_HEAD_BACK;
     if (!poolrad_range(head_address, 4, size)) POOLRAD_PARTY_GIVE_UP_AT(POOLRAD_PARTY_WHY_HEAD_RANGE, head_address);
+    /* CODE2 Information click handler; independently verified by F89 captures.
+     * Match only handles from the fully validated roster. Never dereference an
+     * untrusted selected pointer or turn a selected monster into a party row. */
+    if (a5 >= 0x51a2 && poolrad_range(a5 - 0x51a2, 4, size))
+        selected = poolrad_u32(ram + a5 - 0x51a2) & 0xffffff;
     handle = poolrad_u32(ram + head_address) & 0x00ffffff;
     // No loaded party is unavailable, not an empty live row.
     if (handle == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_NO_ROSTER);
@@ -456,10 +461,12 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
                     (quick == POOLRAD_PARTY_QUICK_OFF || quick == POOLRAD_PARTY_QUICK_ON)
                         ? quick : POOLRAD_PARTY_QUICK_UNAVAILABLE;
         }
+        /* PRP8 byte5: zero means unknown; otherwise one-based emitted row. */
+        if (selected == handles[links - 1]) packet[5] = (unsigned char)(count + 1);
         count++;
     }
     if (count == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_EMPTY);
-    memcpy(packet, "PRP7", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP8", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

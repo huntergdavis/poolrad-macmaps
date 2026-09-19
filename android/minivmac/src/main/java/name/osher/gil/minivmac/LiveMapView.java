@@ -275,7 +275,8 @@ public final class LiveMapView extends View {
         if (party != null) for (int index = 0; index < party.members.size(); index++) {
             PartyState.Member member = party.members.get(index);
             health.append(' ').append(member.name)
-                    .append(combat != null && combat.isActing(member.name) ? " (acting): " : ": ")
+                    .append(mode == MapMode.COMBAT && combat != null && combat.isActing(member.name)
+                            ? " (acting): " : selectedOutsideCombat(index) ? " (selected): " : ": ")
                     .append(member.currentHp).append(" of ").append(member.maxHp)
                     .append(" HP; AC ").append(member.armorClass == null ? "unavailable" : member.armorClass)
                     .append("; ").append(member.classLabel())
@@ -1076,6 +1077,16 @@ public final class LiveMapView extends View {
         return -1;
     }
 
+    private boolean selectedOutsideCombat(int index) {
+        return party != null && party.selectedIndex == index
+                && (mode == MapMode.EXPLORATION || mode == MapMode.CAMP || mode == MapMode.WILDERNESS);
+    }
+
+    private boolean markedPartyRow(int index, PartyState.Member member) {
+        return mode == MapMode.COMBAT ? combat != null && combat.isActing(member.name)
+                : selectedOutsideCombat(index);
+    }
+
     private void drawParty(Canvas canvas, PartyPaneLayout p) {
         if (party == null || p.rows == 0) return;
         canvas.save(); canvas.clipRect(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop+p.partyHeight);
@@ -1115,11 +1126,11 @@ public final class LiveMapView extends View {
             if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
             else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);
             /*
-             * The acting character's row, marked with a bar down its left edge.
+             * The selected/acting character's row, marked with a left-edge bar.
              * In a fight the question is not who is hurt but who the game is
              * waiting for, and the name is in the Combat Message window.
              */
-            if (combat != null && combat.isActing(member.name)) {
+            if (markedPartyRow(i, member)) {
                 ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
                 canvas.drawRect(column, p.rowTop(i) + 2 * unit,
                         column + 3 * unit, p.rowTop(i) + p.rowHeight - 2 * unit, ink);
@@ -1216,7 +1227,7 @@ public final class LiveMapView extends View {
         float rowTop = p.rowTop(i), rowBottom = rowTop + p.rowHeight;
         float colRight = column + p.columnWidth;
         // The acting character's bar and a pointed-at row's box, as in two-line.
-        if (combat != null && combat.isActing(member.name)) {
+        if (markedPartyRow(i, member)) {
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.BLACK);
             canvas.drawRect(column, rowTop + 2 * unit, column + 3 * unit, rowBottom - 2 * unit, ink);
         }

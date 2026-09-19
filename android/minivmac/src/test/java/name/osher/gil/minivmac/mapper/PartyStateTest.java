@@ -56,6 +56,33 @@ public class PartyStateTest {
         assertEquals(Boolean.TRUE, party.members.get(2).quick);
     }
 
+    @Test public void selectionIsBoundedAndLegacyPacketsHaveNone() {
+        assertEquals(-1, PartyState.parse(quickPacket(3)).selectedIndex);
+        assertEquals(-1, PartyState.parse(packet(3)).selectedIndex);
+        byte[] sample = quickPacket(3); sample[3] = '8';
+        for (int value = 0; value <= 255; value++) {
+            sample[5] = (byte) value;
+            PartyState parsed = PartyState.parse(sample);
+            if (value <= 3) {
+                assertNotNull(parsed); assertEquals(value - 1, parsed.selectedIndex);
+            } else assertNull(parsed);
+        }
+        sample[5] = 1;
+        sample[3] = '7'; assertNull(PartyState.parse(sample));
+    }
+
+    @Test public void selectionChangesTriggerARedrawAndAreImmutable() {
+        byte[] sample = quickPacket(3); sample[3] = '8'; sample[5] = 1;
+        PartyState first = PartyState.parse(sample);
+        assertTrue(first.sameDisplay(PartyState.parse(sample.clone())));
+        sample[5] = 3;
+        assertEquals(0, first.selectedIndex);
+        assertFalse(first.sameDisplay(PartyState.parse(sample)));
+        sample[5] = 0;
+        assertEquals(-1, PartyState.parse(sample).selectedIndex);
+        assertFalse(first.sameDisplay(PartyState.parse(sample)));
+    }
+
     @Test public void anUnreadableQuickFlagIsUnknownRatherThanOff() {
         // The probe sends 0xff when the byte holds a value the field is not
         // allowed to have. That must never be drawn as a confident "off".

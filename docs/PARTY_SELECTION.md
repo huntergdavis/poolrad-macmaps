@@ -67,3 +67,36 @@ actual handle, at the new window position. Private captures are
 window-rectangle comparison. No physical tablet acceptance is claimed.
 
 ![Zarram selected in the moved guest window, with companion details above](images/party-selection.png)
+
+## Selected-character marker — F66, 0.73.0
+
+The party pane marks the game's selected character with the same narrow black
+left-edge bar used for the acting combatant. Both normal and compact party rows
+support it. The accessibility description says “selected” outside combat and
+“acting” during combat. Loading/updating/unavailable modes show no selection bar.
+
+The existing verified selected handle at `A5−0x51a2` is compared against the
+complete validated party chain. A null, unmatched, or monster handle produces
+no marker. It is never dereferenced independently. `PRP8` uses header byte 5:
+zero means unknown, otherwise the value is the one-based emitted party row.
+Packet size and all PRP7 fields are unchanged. The Java parser accepts versions
+1–7 with selection unknown, bounds the new index by party count, and includes
+selection changes in display equality. Combat continues to use its own actor
+reading and takes precedence over the general selected handle.
+
+The research lead was recalled from Deja session
+`1d01c279-196b-4165-83cb-2031016bb071`; the pointer evidence below was measured
+independently for F89. Tests cover every selection-byte value, legacy packets,
+selection-only redraws, stale handles and selected monsters.
+
+Live on `emulator-5586`, the installed F66 build loaded `ExportProof`, marked
+Arax, then moved the bar to Lara when the companion row selected her in the
+original game. The guest bolded Lara and accessibility explicitly reported
+“Lara Spellsword (selected).” Enabling one-line party rows retained the correct
+marker. Screenshots were inspected in both layouts. Native party and selection
+suites passed under address/undefined-behavior sanitizers; 636 Java tests passed
+with no failures, errors or skips. No new physical-tablet test is claimed.
+All 16 Android combat/party render checks passed, including both selected-row
+layouts, combat actor precedence, and removal of selection wording during loading.
+
+![Selected Lara in the compact party layout](images/party-selected-compact.png)

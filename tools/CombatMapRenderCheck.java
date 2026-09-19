@@ -232,6 +232,38 @@ public final class CombatMapRenderCheck {
         Context app = system.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY);
         Context context = new ContextThemeWrapper(app, android.R.style.Theme_Material_Light_NoActionBar);
 
+        run("Selection marks both row layouts and combat actor takes precedence", () -> {
+            for (boolean compact : new boolean[]{false, true}) {
+                LiveMapView view = map(context, 1440, 600);
+                view.setOneLineParty(compact);
+                view.showSample(mapPacket(3, 2)); // camp is outside combat
+                byte[] party = loadPacket(9, 9, 9, 9, 9, 9); party[3] = '8';
+                view.showPartySample(party);
+                int unselected = inkPixels(draw(view), 1000, 0, 1440, 600);
+                party[5] = 2; view.showPartySample(party);
+                check(String.valueOf(view.getContentDescription()).contains("Lara (selected)"),
+                        "Selected Lara was not described");
+                check(inkPixels(draw(view), 1000, 0, 1440, 600) > unselected,
+                        "Selection drew no marker, compact=" + compact);
+                view.showSample(mapPacket(2, 5));
+                byte[] battle = combatPacket(BATTLE);
+                System.arraycopy(new byte[]{'A','r','a','x'}, 0, battle, CombatSnapshot.ENTRIES_SIZE, 4);
+                view.showCombatSample(battle);
+                check(String.valueOf(view.getContentDescription()).contains("Arax (acting)"),
+                        "Combat actor was not described");
+                check(!String.valueOf(view.getContentDescription()).contains("(selected)"),
+                        "General selection competed with combat actor");
+                int acting = inkPixels(draw(view), 1000, 0, 1440, 600);
+                party[5] = 0; view.showPartySample(party);
+                check(inkPixels(draw(view), 1000, 0, 1440, 600) == acting,
+                        "Combat marker depended on general selection");
+                party[5] = 2; view.showPartySample(party);
+                view.showSample(mapPacket(5, 4)); // loading
+                check(!String.valueOf(view.getContentDescription()).contains("(selected)"),
+                        "Loading retained a selected marker");
+            }
+        });
+
         run("A battle draws an overview that an empty battle does not", () -> {
             LiveMapView empty = map(context, 900, 520);
             empty.showSample(mapPacket(2, 5));

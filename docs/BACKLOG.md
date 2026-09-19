@@ -1333,9 +1333,11 @@ reads back correctly.
 
 ### P1 — his designation
 
-- [ ] **F66 — Mark which character the game has selected outside combat,** the
-  way F23 marks whose turn it is inside one. The same question — who is the
-  game waiting on — and it goes unanswered everywhere but the guest screen.
+- [x] **F66 (delivered 0.73.0) — Mark which character the game has selected outside combat.**
+  A narrow bar follows the validated guest selection in normal and compact
+  party rows, and accessibility names the selected member. Combat retains its
+  separate actor marker. Live Arax → Lara selection and both layouts passed;
+  see [PARTY_SELECTION.md](PARTY_SELECTION.md).
 
 ### In flight — finish before starting anything below
 

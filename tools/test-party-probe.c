@@ -164,9 +164,21 @@ static void refuses(unsigned code, unsigned links, uint32_t detail) {
 }
 
 static void tests(void) {
+    /* The selected handle must belong to the fully validated emitted roster. */
+    fixture(0xe000, 0x2000, 0x3000, 6);
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[5] == 0);
+    for (unsigned i = 0; i < 6; i++) {
+        put32(fixture_a5 - 0x51a2, member_handle(i));
+        assert(poolrad_party_probe(ram, sizeof(ram), output) && output[5] == i + 1);
+    }
+    put32(fixture_a5 - 0x51a2, 0xffffff);
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[5] == 0);
+    combat_fixture(6, 3);
+    put32(fixture_a5 - 0x51a2, member_handle(7));
+    assert(poolrad_party_probe(ram, sizeof(ram), output) && output[5] == 0);
     fixture(0xe000, 0x2000, 0x3000, 6);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP7", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP8", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++) {
         unsigned row = 8 + i * POOLRAD_PARTY_ROW_SIZE;
         assert(memcmp(output + row, ram + member_record(i), 6) == 0);
@@ -212,7 +224,7 @@ static void tests(void) {
     fixture(0xe000, 0x2000, 0x3000, 6);
     for (unsigned i = 0; i < 6; i++) put32(member_record(i) - 8, 0x80000136);
     assert(poolrad_party_probe(ram, sizeof(ram), output));
-    assert(memcmp(output, "PRP7", 4) == 0 && output[4] == 6);
+    assert(memcmp(output, "PRP8", 4) == 0 && output[4] == 6);
     for (unsigned i = 0; i < 6; i++)
         assert(memcmp(output + 8 + i * POOLRAD_PARTY_ROW_SIZE, ram + member_record(i), 6) == 0);
     // An odd physical size is still not a block, whatever the correction says.

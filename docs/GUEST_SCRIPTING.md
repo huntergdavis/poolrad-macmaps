@@ -186,3 +186,11 @@ Load dialog on the isolated F89 emulator, 2026-09-19.
 data directory and installing a public APK with copies of supplied private
 ROM/disk inputs. It refuses existing directories and in-use emulator ports.
 Normal Mac shutdown is still required before replacing an installed APK.
+
+For repeated emulator tests, `python3 tools/shutdown-test-guest.py emulator-5586
+scratch/shutdown-evidence` performs that normal shutdown. The evidence directory
+must be new. It uses the existing timed Command-Q/Return input, OCR checks the
+quit question and Finder labels, chooses the visible Special → Shut Down,
+then requires the stopped-emulator screen and no open disk-image descriptors.
+It retains screenshots and OCR output, refuses unexpected screens, and never
+force-stops the app. Requires `tesseract`; test emulators only.

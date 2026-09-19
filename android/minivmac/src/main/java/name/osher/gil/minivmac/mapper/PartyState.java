@@ -259,9 +259,12 @@ public final class PartyState {
     }
 
     public final List<Member> members;
+    /** Selected guest row, or -1 when absent/unmatched or from a legacy packet. */
+    public final int selectedIndex;
     private final byte[] packet;
 
     private PartyState(List<Member> members, byte[] packet) {
+        selectedIndex = packet[3] == '8' ? (packet[5] & 255) - 1 : -1;
         this.members = Collections.unmodifiableList(members);
         this.packet = packet.clone();
     }
@@ -327,8 +330,9 @@ public final class PartyState {
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
                 || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
-                    && data[3] != '5' && data[3] != '6' && data[3] != '7')) return null;
-        boolean quickFlags = data[3] == '7';
+                    && data[3] != '5' && data[3] != '6' && data[3] != '7' && data[3] != '8')) return null;
+        boolean selection = data[3] == '8';
+        boolean quickFlags = selection || data[3] == '7';
         boolean training = quickFlags || data[3] == '6';
         boolean equipment = training || data[3] == '5';
         boolean spells = equipment || data[3] == '4';
@@ -339,7 +343,8 @@ public final class PartyState {
             return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
-        if (count < 1 || count > MAX_MEMBERS || data[5] != 0 || data[6] != 0 || data[7] != 0) return null;
+        if (count < 1 || count > MAX_MEMBERS || data[6] != 0 || data[7] != 0) return null;
+        if (selection ? (data[5] & 255) > count : data[5] != 0) return null;
         List<Member> members = new ArrayList<>(count);
         for (int index = 0; index < MAX_MEMBERS; index++) {
             int start = 8 + index * ROW_SIZE;
