@@ -402,3 +402,11 @@ See the existing [Gold Box Explorer license](../licenses/GoldBoxExplorer-MIT.txt
 The Mac offsets, list behavior and unsigned interpretation above were verified
 independently in the supplied executable using read-only Capstone disassembly.
 No original executable bytes, game records, saves or RAM are published here.
+
+### NPC identity — F67, 0.81.0
+
+PRP9 adds an NPC mask in header byte 6, in emitted chain order; packet length
+and selected-row byte 5 are unchanged. Character +0x87 >127 is the game's own
+NPC test, verified independently in its printed-name and Modify Character
+paths. See [NPC_MARKER.md](NPC_MARKER.md) for exact evidence, compatibility,
+monochrome render fixtures and acceptance scope.

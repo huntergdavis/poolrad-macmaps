@@ -48,6 +48,44 @@ public class PartyStateTest {
         return packet;
     }
 
+    @Test public void npcMaskFollowsEachEmittedRowAndIsBounded() {
+        for (int count=1; count<=8; count++) for (int mask=0; mask<256; mask++) {
+            byte[] sample=quickPacket(count); sample[3]='9'; sample[6]=(byte)mask; sample[5]=(byte)count;
+            PartyState party=PartyState.parse(sample);
+            if (mask >= (1 << count)) { assertNull(party); continue; }
+            assertNotNull(party); assertEquals(count-1,party.selectedIndex);
+            for (int i=0; i<count; i++) {
+                PartyState.Member member=party.members.get(i);
+                assertEquals(Boolean.valueOf((mask & (1 << i)) != 0), member.npc);
+                assertEquals("Hero "+(i+1), member.name);
+                assertEquals((member.npc ? "NPC · " : "")+member.name, member.displayName());
+            }
+        }
+    }
+
+    @Test public void legacyNpcStatusStaysUnknownAndReservedBytesAreRejected() {
+        assertNull(PartyState.parse(packet(2)).members.get(0).npc);
+        byte[] sample=quickPacket(2);
+        assertNull(PartyState.parse(sample).members.get(0).npc);
+        sample[3]='8'; sample[5]=1;
+        assertNull(PartyState.parse(sample).members.get(0).npc);
+        sample[6]=1; assertNull(PartyState.parse(sample));
+        sample[3]='9'; assertNotNull(PartyState.parse(sample));
+        sample[7]=1; assertNull(PartyState.parse(sample));
+    }
+
+    @Test public void npcOnlyChangesRedrawWithoutChangingTheCharacterIdentity() {
+        byte[] sample=quickPacket(2); sample[3]='9';
+        PartyState player=PartyState.parse(sample);
+        sample[6]=1; PartyState npc=PartyState.parse(sample);
+        assertFalse(player.sameDisplay(npc));
+        assertEquals(player.members.get(0).name,npc.members.get(0).name);
+        assertEquals("Player character",player.members.get(0).characterKindLabel());
+        assertEquals("NPC companion",npc.members.get(0).characterKindLabel());
+        sample[6]=0; assertEquals(Boolean.TRUE,npc.members.get(0).npc);
+        assertEquals("NPC status unavailable",PartyState.parse(packet(1)).members.get(0).characterKindLabel());
+    }
+
     @Test public void theQuickFlagIsReadPerMember() {
         PartyState party = PartyState.parse(quickPacket(3, 1, 0, 1));
         assertNotNull(party);

@@ -44,7 +44,7 @@ public final class PartyOrderDialog {
                     StringBuilder rows = new StringBuilder();
                     for (int i = 0; i < party.members.size(); i++) {
                         if (i > 0) rows.append("\n");
-                        rows.append(i + 1).append(". ").append(party.members.get(i).name);
+                        rows.append(i + 1).append(". ").append(party.members.get(i).displayName());
                     }
                     value = rows.toString();
                 }

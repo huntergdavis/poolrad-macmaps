@@ -75,6 +75,13 @@ public final class PartyState {
          * null when it does not. Null is drawn as unknown, never as off.
          */
         public final Boolean quick;
+        /** NPC according to the game's flag; null for packets older than PRP9. */
+        public final Boolean npc;
+        /** Labels may mark NPCs, but identity matching always uses the original name. */
+        public String displayName() { return Boolean.TRUE.equals(npc) ? "NPC · " + name : name; }
+        public String characterKindLabel() {
+            return npc == null ? "NPC status unavailable" : npc ? "NPC companion" : "Player character";
+        }
         private final int[][] classes;
 
         /** One class the character holds: its slot, level, and next threshold. */
@@ -93,8 +100,8 @@ public final class PartyState {
                        int condition, int trackedEffects, boolean hasConditionSample,
                        int[] ready, int[] awaitingRest, String readiedWeapon, String readiedArmor,
                        int movementSquares, int carriedWeight, int experience, int[][] classes,
-                       Boolean quick) {
-            this.quick = quick;
+                       Boolean quick, Boolean npc) {
+            this.quick = quick; this.npc = npc;
             this.experience = experience; this.classes = classes;
             this.readiedWeapon = readiedWeapon; this.readiedArmor = readiedArmor;
             this.movementSquares = movementSquares; this.carriedWeight = carriedWeight;
@@ -264,7 +271,7 @@ public final class PartyState {
     private final byte[] packet;
 
     private PartyState(List<Member> members, byte[] packet) {
-        selectedIndex = packet[3] == '8' ? (packet[5] & 255) - 1 : -1;
+        selectedIndex = (packet[3] == '8' || packet[3] == '9') ? (packet[5] & 255) - 1 : -1;
         this.members = Collections.unmodifiableList(members);
         this.packet = packet.clone();
     }
@@ -330,8 +337,9 @@ public final class PartyState {
     public static PartyState parse(byte[] data) {
         if (data == null || data.length < 8 || data[0] != 'P' || data[1] != 'R' || data[2] != 'P'
                 || (data[3] != '1' && data[3] != '2' && data[3] != '3' && data[3] != '4'
-                    && data[3] != '5' && data[3] != '6' && data[3] != '7' && data[3] != '8')) return null;
-        boolean selection = data[3] == '8';
+                    && data[3] != '5' && data[3] != '6' && data[3] != '7' && data[3] != '8' && data[3] != '9')) return null;
+        boolean npcFlags = data[3] == '9';
+        boolean selection = npcFlags || data[3] == '8';
         boolean quickFlags = selection || data[3] == '7';
         boolean training = quickFlags || data[3] == '6';
         boolean equipment = training || data[3] == '5';
@@ -343,7 +351,8 @@ public final class PartyState {
             return null;
         boolean details = data[3] != '1';
         int count = data[4] & 255;
-        if (count < 1 || count > MAX_MEMBERS || data[6] != 0 || data[7] != 0) return null;
+        if (count < 1 || count > MAX_MEMBERS || data[7] != 0) return null;
+        if (npcFlags ? ((data[6] & 255) & ~((1 << count) - 1)) != 0 : data[6] != 0) return null;
         if (selection ? (data[5] & 255) > count : data[5] != 0) return null;
         List<Member> members = new ArrayList<>(count);
         for (int index = 0; index < MAX_MEMBERS; index++) {
@@ -480,7 +489,8 @@ public final class PartyState {
             }
             members.add(new Member(name, current, maximum, armorClass, characterClass,
                     condition, effects, conditions, ready, awaitingRest, readiedWeapon, readiedArmor,
-                    movementSquares, carriedWeight, experience, classes, quick));
+                    movementSquares, carriedWeight, experience, classes, quick,
+                    npcFlags ? Boolean.valueOf((data[6] & (1 << index)) != 0) : null));
         }
         return new PartyState(members, data);
     }

@@ -1521,21 +1521,14 @@ quick-flag write.
 
 ### The party list
 
-- [ ] **F67 — Mark NPCs in the party distinctly** from characters the player
-  rolled. **Blocked on one offset, 2026-09-18.** The claim that "the roster walk
-  already tells them apart" was wrong: it does not.
-
-  What is established, from the game's own `STRS`: the concept exists and the
-  game acts on it. It appends the literal `"  (NPC)"` to a character's name when
-  it prints one, and it refuses the Modify Character command with `"NPCs can't
-  be modified."` So there is a field, and at least two pieces of the game's code
-  test it.
-
-  What is missing is where. The suffix is appended at print time, so the name in
-  the record does not carry it, and none of the owner's three saved games has an
-  NPC in it to diff against. Either trace the code behind either of those two
-  strings, or capture a save with an NPC in the party and diff it against one
-  without — the second is much the cheaper if such a save can be made.
+- [x] **F67 (delivered 0.81.0) — Mark NPCs distinctly.**
+  The missing flag is decoded: character +0x87 >127, independently verified in
+  the original NPC-name suffix and Modify Character refusal paths. PRP9 carries
+  its emitted-row mask without changing packet size. NPC prefixes appear in
+  both row layouts, details, marching order and accessibility, while action
+  identity keeps the original name. Native, parser and synthetic render checks
+  passed; the live six-player case stays unmarked. See [NPC_MARKER.md](NPC_MARKER.md)
+  for evidence and the explicit absence of newly recruited live-NPC acceptance.
 - [x] **F72 (delivered 0.80.0) — Show the marching order.**
   Info → Marching order gives the validated party order its own numbered page,
   respecting the owner's caution about already busy map rows. It follows the

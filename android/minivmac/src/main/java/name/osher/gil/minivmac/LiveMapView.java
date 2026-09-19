@@ -268,7 +268,7 @@ public final class LiveMapView extends View {
             health.append(' ').append(PartyChores.summary(party)).append('.');
         if (party != null) for (int index = 0; index < party.members.size(); index++) {
             PartyState.Member member = party.members.get(index);
-            health.append(' ').append(member.name)
+            health.append(' ').append(member.displayName())
                     .append(mode == MapMode.COMBAT && combat != null && combat.isActing(member.name)
                             ? " (acting): " : selectedOutsideCombat(index) ? " (selected): " : ": ")
                     .append(member.currentHp).append(" of ").append(member.maxHp)
@@ -515,11 +515,11 @@ public final class LiveMapView extends View {
         if (listener != null) for (int i = 0; i < partyActions.size(); i++) {
             PartyState.Member member = partyActions.valueAt(i);
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partyActions.keyAt(i),
-                    "Details for " + member.name + ", " + member.classLabel() + ", " + member.conditionSummary()));
+                    "Details for " + member.displayName() + ", " + member.classLabel() + ", " + member.conditionSummary()));
         }
         if (listener != null) for (int i = 0; i < partySheetActions.size(); i++)
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partySheetActions.keyAt(i),
-                    "Open game sheet for " + partySheetActions.valueAt(i).name));
+                    "Open game sheet for " + partySheetActions.valueAt(i).displayName()));
     }
 
     @Override public boolean performAccessibilityAction(int action, Bundle args) {
@@ -1103,8 +1103,9 @@ public final class LiveMapView extends View {
             }
             ink.setTextSize(13*unit);
             float available=Math.max(0,right-left-quickButton.width()-marksWidth-6*unit);
-            int chars=ink.breakText(member.name,true,available,null);
-            String name=chars==member.name.length()?member.name:chars>1?member.name.substring(0,chars-1)+"…":"";
+            String label = member.displayName();
+            int chars=ink.breakText(label,true,available,null);
+            String name=chars==label.length()?label:chars>1?label.substring(0,chars-1)+"…":"";
             ink.setTextAlign(Paint.Align.LEFT);canvas.drawText(name,left,top+14*unit,ink);
             ink.setTextSize(11*unit);
             // A narrow strip cell has no room for both readouts; health wins.
@@ -1199,9 +1200,10 @@ public final class LiveMapView extends View {
         // The name fills what is left, truncated with an ellipsis.
         ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(13 * unit);
         float room = Math.max(0, cursor - left);
-        int chars = ink.breakText(member.name, true, room, null);
-        String name = chars == member.name.length() ? member.name
-                : chars > 1 ? member.name.substring(0, chars - 1) + "…" : "";
+        String label = member.displayName();
+        int chars = ink.breakText(label, true, room, null);
+        String name = chars == label.length() ? label
+                : chars > 1 ? label.substring(0, chars - 1) + "…" : "";
         canvas.drawText(name, left, baseline, ink);
         // A thin health bar along the bottom edge of the row.
         float barTop = rowBottom - 4 * unit, barBottom = rowBottom - 1.5f * unit;

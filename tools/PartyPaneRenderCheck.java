@@ -67,6 +67,7 @@ public final class PartyPaneRenderCheck {
     private static Context context;
     private static float density;
     private static int passed;
+    private static String npcOutputPrefix;
 
     /**
      * Feed the view nothing but refusals for a stretch of real time. The hold
@@ -82,6 +83,7 @@ public final class PartyPaneRenderCheck {
     }
 
     public static void main(String[] args) {
+        if (args.length == 1) npcOutputPrefix = args[0];
         try { runChecks(); }
         catch (Throwable failure) { failure.printStackTrace(System.err); System.exit(1); }
     }
@@ -530,6 +532,49 @@ public final class PartyPaneRenderCheck {
             info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
             check(info.getActionList().isEmpty(),"A party gone past the hold retained stale detail actions");info.recycle();
             check(!view.isFocusable(),"Details stole physical-key focus from the guest");
+        });
+
+        run("NPC labels appear in both layouts without changing health or tap identity", () -> {
+            byte[] sample=Arrays.copyOf(packet(true),PartyState.QUICK_PACKET_SIZE);sample[3]='9';
+            for(int i=0;i<MEMBERS;i++) {
+                sample[PartyState.CONDITION_PACKET_SIZE+i*PartyState.SPELL_STRIDE]=(byte)255;
+                sample[PartyState.SPELL_PACKET_SIZE+i*PartyState.EQUIP_STRIDE]=(byte)255;
+                sample[PartyState.EQUIP_PACKET_SIZE+i*PartyState.TRAIN_STRIDE]=(byte)255;
+            }
+            for(boolean compact:new boolean[]{false,true}) {
+                sample[6]=0;
+                LiveMapView view=view(sample,960,480);view.setOneLineParty(compact);
+                Bitmap before=render(view);
+                sample[6]=2;view.showPartySample(sample);
+                Bitmap npc=render(view);
+                if(npcOutputPrefix!=null) {
+                    try(java.io.FileOutputStream stream=new java.io.FileOutputStream(
+                            npcOutputPrefix+(compact?"-compact.png":"-normal.png"))) {
+                        npc.compress(Bitmap.CompressFormat.PNG,100,stream);
+                    } catch(java.io.IOException failure) { throw new RuntimeException(failure); }
+                }
+                PartyPaneLayout p=new PartyPaneLayout(view.getWidth(),view.getHeight(),density,MEMBERS,1,compact);
+                equalOutsideParty(before,npc,p);
+                check(changedPixels(before,npc)>20,"NPC name label did not draw in layout "+compact);
+                checkMonochrome(npc);
+                check(view.getContentDescription().toString().contains("NPC · "+NAMES[1]),"NPC absent from accessible party");
+                check(!view.getContentDescription().toString().contains("NPC · "+NAMES[0]),"Player mislabeled NPC");
+                final List<String> selected=new ArrayList<>();
+                view.setListener(new LiveMapView.Listener(){
+                    @Override public void onAreaChanged(AreaIdentity area){}
+                    @Override public void onTileTapped(AreaIdentity area,int x,int y){}
+                    @Override public void onPartyMemberTapped(PartyState.Member member){selected.add(member.name);}
+                });
+                tap(view,p.partyLeft+p.partyWidth/2f,p.rowTop(1)+p.rowHeight/2);
+                check(selected.equals(Collections.singletonList(NAMES[1])),"NPC label changed tap identity");
+                AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+                boolean found=false;
+                for(AccessibilityNodeInfo.AccessibilityAction action:info.getActionList())
+                    if(("Open game sheet for NPC · "+NAMES[1]).contentEquals(action.getLabel())) found=true;
+                check(found,"NPC missing from accessible game-sheet action");info.recycle();
+                sample[6]=0;view.showPartySample(sample);
+                equal(before,render(view),"Clearing NPC flag changed other row data");
+            }
         });
 
         run("all 18 verified classes have distinct original monochrome symbols and unknown stays honest", () -> {

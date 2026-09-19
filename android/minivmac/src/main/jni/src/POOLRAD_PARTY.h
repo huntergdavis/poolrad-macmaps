@@ -37,6 +37,7 @@
 #define POOLRAD_PARTY_SLOT_OFFSET 0xc9
 #define POOLRAD_PARTY_AC_OFFSET 0x11d
 #define POOLRAD_PARTY_CLASS_OFFSET 0x2f
+#define POOLRAD_PARTY_NPC_OFFSET 0x87 /* CODE3 +3910 and CODE7 +4294: unsigned byte >127. */
 #define POOLRAD_PARTY_UNKNOWN_AC 0x80
 #define POOLRAD_PARTY_UNKNOWN_CLASS 0xff
 #define POOLRAD_PARTY_LAST_CLASS 17
@@ -463,10 +464,12 @@ static int poolrad_party_probe_why(const unsigned char *ram, size_t size,
         }
         /* PRP8 byte5: zero means unknown; otherwise one-based emitted row. */
         if (selected == handles[links - 1]) packet[5] = (unsigned char)(count + 1);
+        if (ram[record + POOLRAD_PARTY_NPC_OFFSET] > 0x7f)
+            packet[6] |= (unsigned char)(1u << count);
         count++;
     }
     if (count == 0) POOLRAD_PARTY_GIVE_UP(POOLRAD_PARTY_WHY_EMPTY);
-    memcpy(packet, "PRP8", 4); packet[4] = (unsigned char) count;
+    memcpy(packet, "PRP9", 4); packet[4] = (unsigned char) count;
     memcpy(out, packet, sizeof(packet));
     return 1;
 }

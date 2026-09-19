@@ -20,6 +20,7 @@ public final class PartyDetailsDialog {
         column.setPadding(inset, 0, inset, inset);
         column.setBackgroundColor(Color.WHITE);
         line(activity, column, member.classLabel(), 18);
+        line(activity, column, member.characterKindLabel(), 16);
         line(activity, column, "Health: " + member.currentHp + " / " + member.maxHp + " HP", 18);
         line(activity, column, "Condition: " + member.conditionLabel() + (member.injured() ? " · injured" : ""), 18);
         line(activity, column, member.effectsLabel(), 18);
@@ -46,7 +47,7 @@ public final class PartyDetailsDialog {
         ScrollView scroll = new ScrollView(activity);
         scroll.setFillViewport(true);
         scroll.addView(column);
-        return UpperHalfReferenceDialog.show(activity, member.name, scroll, onDismiss);
+        return UpperHalfReferenceDialog.show(activity, member.displayName(), scroll, onDismiss);
     }
 
     private static void line(Activity activity, LinearLayout column, String value, int size) {
