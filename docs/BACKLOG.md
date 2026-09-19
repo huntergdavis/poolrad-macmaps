@@ -1376,7 +1376,7 @@ quick-flag write.
   owner: the row is already carrying a badge, a name, HP, armour class, a bar,
   T/R/W and Q, and this must not make it busy.
 - [ ] **F43 — Long-press a party row, open that character's sheet in the game.**
-- [ ] **F44 — A chores tab:** "2 can train · 1 needs rest · 1 dying".
+- [x] **F44 (delivered 0.55.0) — A chores tab:** "2 can train · 1 needs rest · 1 dying".
 
 ### The notebook
 

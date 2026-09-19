@@ -474,6 +474,12 @@ public final class PartyPaneRenderCheck {
             int wordLeft=(int)(p.columnLeft(0)+p.columnWidth*0.45f);
             int wordRight=(int)Math.ceil(p.columnLeft(0)+p.columnWidth);
             int wordTop=(int)(top+16*density), wordBottom=(int)Math.ceil(top+32*density);
+            /*
+             * The pane's heading counts who is down and who is hurt, so a
+             * condition change is meant to rewrite it. Everything below the
+             * heading still has to stay put.
+             */
+            int headTop=(int)p.partyTop, headBottom=(int)Math.ceil(p.partyTop+p.headerHeight);
             int[][] conditions={{4,0},{5,0},{6,0},{7,0},{2,0},{3,0},{1,0},{0,1},{0,2},{255,255}};
             Set<Long> badges=new HashSet<>();
             for(int[] state:conditions) {
@@ -485,6 +491,8 @@ public final class PartyPaneRenderCheck {
                         hash=hash*31+pixel;if(Color.red(pixel)<128)dark++;
                     } else if(x>=wordLeft&&x<wordRight&&y>=wordTop&&y<wordBottom) {
                         // The condition word's own space; checked by conditionSummary below.
+                    } else if(x>=p.partyLeft&&y>=headTop&&y<headBottom) {
+                        // The chores heading, which counts conditions on purpose.
                     } else check(pixel==before.getPixel(x,y),"Condition altered map, names, HP bars or another row");
                 }
                 check(dark>50&&badges.add(hash),"Missing or indistinguishable condition badge");

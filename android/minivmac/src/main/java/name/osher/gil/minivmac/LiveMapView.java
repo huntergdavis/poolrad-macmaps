@@ -25,6 +25,7 @@ import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.MapProgress;
+import name.osher.gil.minivmac.mapper.PartyChores;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.UnwalkedExits;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
@@ -221,6 +222,8 @@ public final class LiveMapView extends View {
                 : mode.label() + ". " + (state == null ? areaLabel : "Last local map: " + areaLabel)
                     + ". Position unavailable; party arrow hidden. " + mode.explanation();
         StringBuilder health = new StringBuilder();
+        if (party != null && !PartyChores.NOTHING.equals(PartyChores.summary(party)))
+            health.append(' ').append(PartyChores.summary(party)).append('.');
         if (party != null) for (int index = 0; index < party.members.size(); index++) {
             PartyState.Member member = party.members.get(index);
             health.append(' ').append(member.name)
@@ -971,7 +974,14 @@ public final class LiveMapView extends View {
         if (p.belowMap()) canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft+p.partyWidth,p.partyTop,ink);
         else canvas.drawLine(p.partyLeft,p.partyTop,p.partyLeft,p.partyTop+p.partyHeight,ink);
         ink.setStyle(Paint.Style.FILL); ink.setTextAlign(Paint.Align.LEFT); ink.setTextSize(10*unit);
-        canvas.drawText("PARTY · TAP FOR DETAILS",p.partyLeft+10*unit,p.partyTop+16*unit,ink);
+        /*
+         * The heading says what the party is waiting on, when it is waiting on
+         * anything. All of it is already in the rows below -- a T here, a word
+         * there, a bar shorter than it was -- and all of it is easy to miss
+         * when six rows compete for one glance.
+         */
+        canvas.drawText(fitHeaderText(PartyChores.summary(party), p.columnWidth - 20 * unit),
+                p.partyLeft + 10 * unit, p.partyTop + 16 * unit, ink);
         for (int i=1;i<p.columns;i++) {
             float divider=p.partyLeft+i*p.columnWidth;
             ink.setStyle(Paint.Style.STROKE);ink.setStrokeWidth(density);
