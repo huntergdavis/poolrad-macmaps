@@ -44,6 +44,7 @@ typedef jint (*GetSpeedType)();
 typedef jboolean (*RequestRamSnapshotType)(void);
 /** The only call that changes the running game; everything else here reads. */
 typedef jboolean (*SetPartyQuickType)(jint slot, jboolean on);
+typedef jboolean (*RequestRestoreStateType)(const unsigned char *data, unsigned int len);
 
 // Global variables to keep the current variant handle and function pointer.
 static void* variantHandle = NULL;
@@ -81,11 +82,15 @@ static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
 static RequestRamSnapshotType requestMessageSamplePtr = NULL;
 static SetPartyQuickType setPartyQuickPtr = NULL;
+static RequestRamSnapshotType requestSaveStatePtr = NULL;
+static RequestRestoreStateType requestRestoreStatePtr = NULL;
 static RequestRamSnapshotType requestCombatSamplePtr = NULL;
 
 // Helper: Unload any currently loaded variant library.
 void unloadCurrentVariant() {
     requestRamSnapshotPtr = NULL;
+    requestSaveStatePtr = NULL;
+    requestRestoreStatePtr = NULL;
     requestMapSamplePtr = NULL;
     requestWheelSamplePtr = NULL;
     requestPartySamplePtr = NULL;
@@ -183,6 +188,8 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
     requestMessageSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMessageSample");
     setPartyQuickPtr = (SetPartyQuickType)dlsym(variantHandle, "setPartyQuick");
+    requestSaveStatePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestSaveState");
+    requestRestoreStatePtr = (RequestRestoreStateType)dlsym(variantHandle, "requestRestoreState");
     requestCombatSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestCombatSample");
 
     const char* error = dlerror();
@@ -194,6 +201,8 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         requestMessageSamplePtr = NULL;
         requestCombatSamplePtr = NULL;
         setPartyQuickPtr = NULL;
+        requestSaveStatePtr = NULL;
+        requestRestoreStatePtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -283,6 +292,31 @@ JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_setPartyQuickNative(JNIEnv *env, jclass cls,
                                                       jint slot, jboolean on) {
     return setPartyQuickPtr ? setPartyQuickPtr(slot, on) : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestSaveStateNative(JNIEnv *env, jclass cls) {
+    (void) env; (void) cls;
+    return requestSaveStatePtr ? requestSaveStatePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_name_osher_gil_minivmac_Core_requestRestoreStateNative(JNIEnv *env, jclass cls,
+                                                            jbyteArray data) {
+    jsize len;
+    jbyte *bytes;
+    jboolean result = JNI_FALSE;
+    (void) cls;
+    if ((data == NULL) || (requestRestoreStatePtr == NULL)) {
+        return JNI_FALSE;
+    }
+    len = (*env)->GetArrayLength(env, data);
+    bytes = (*env)->GetByteArrayElements(env, data, NULL);
+    if (bytes != NULL) {
+        result = requestRestoreStatePtr((const unsigned char *) bytes, (unsigned int) len);
+        (*env)->ReleaseByteArrayElements(env, data, bytes, JNI_ABORT);
+    }
+    return result;
 }
 
 /*

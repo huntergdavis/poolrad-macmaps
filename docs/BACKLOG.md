@@ -995,10 +995,16 @@ lands rather than at the end. The planned releases:
   space optimization on top of a proven round-trip: ~1–2 MB reference in the
   APK, saves as a compressed delta of tens of KB, an 8 MB reference RAM held
   resident so save and restore never touch a file mid-operation.
-- [ ] **F92 — Save and load from the companion, outside the game.** Name a save,
-  list saves, restore one — near-instant, because restore is a memcpy and a
-  small delta rather than the game's own disk grind. Cannot strand the machine:
-  no game menus, no restart. This is the killer feature the line exists for.
+- [x] **F92 (PASSED 2026-09-19) — Save and load from the companion, outside the
+  game.** Quick save, Quick load, and Save states… (name / list / delete) live
+  on the PoolRad menu, driving the F90 round-trip asynchronously off the
+  emulation thread. Cannot strand the machine: no game menus, no restart.
+  Verified live end-to-end: Quick save wrote a valid full-machine file (magic
+  `PRQS1`, decompresses to the exact machine image); after a change, Quick load
+  reverted both the logical state and — once the Mac II video buffer was added
+  to the snapshot — the visible screen, immediately, even on a still Finder
+  screen. Ships as a full-machine gzip (~1.3 MB) for now; the reference + diff
+  shrink to tens of KB is still F91. See [SAVE_STATES.md](SAVE_STATES.md).
 - [ ] **F93 — Pair each save with its notebook, by reference.** A companion save
   records which notebook and area it belongs with and soft-links to the notes
   already on disk rather than copying them, so restoring a machine state brings

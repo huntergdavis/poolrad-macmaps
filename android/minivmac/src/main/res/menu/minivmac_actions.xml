@@ -39,6 +39,12 @@
                 android:checkable="true" />
             <item android:id="@+id/action_notebooks"
                 android:title="Notebooks" />
+            <item android:id="@+id/action_quick_save"
+                android:title="Quick save" />
+            <item android:id="@+id/action_quick_load"
+                android:title="Quick load" />
+            <item android:id="@+id/action_save_states"
+                android:title="Save states…" />
             <item android:id="@+id/action_saved_games"
                 android:title="Saved games" />
             <item android:id="@+id/action_screenshot"

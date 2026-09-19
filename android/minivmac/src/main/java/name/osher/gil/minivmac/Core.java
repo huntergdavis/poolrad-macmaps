@@ -129,6 +129,30 @@ public class Core {
 		if (mRamSnapshotListener != null) mRamSnapshotListener.onSnapshot(ram);
 	}
 
+	/*
+	 * Whole-machine save states -- the companion's own fast save/load, which
+	 * never touches the game's menus and never restarts the machine. Unlike
+	 * the RAM snapshot above this is a real feature, not DEBUG-only.
+	 */
+	public interface SaveStateListener { void onState(byte[] state); }
+	private SaveStateListener mSaveStateListener;
+	public void setSaveStateListener(SaveStateListener listener) { mSaveStateListener = listener; }
+
+	/** Ask the emulation thread to capture the machine; the bytes arrive at onSaveState. */
+	public boolean requestSaveState() { return initOk && requestSaveStateNative(); }
+	private static native boolean requestSaveStateNative();
+
+	/** Hand a raw save-state blob back to be applied at the next safe boundary. */
+	public boolean restoreState(byte[] state) {
+		return initOk && state != null && requestRestoreStateNative(state);
+	}
+	private static native boolean requestRestoreStateNative(byte[] state);
+
+	/** Called from native with the captured machine state. */
+	public void onSaveState(byte[] state) {
+		if (mSaveStateListener != null) mSaveStateListener.onState(state);
+	}
+
 	private static volatile boolean mIsInitialized = false;
 
 	private static String mModuleName;

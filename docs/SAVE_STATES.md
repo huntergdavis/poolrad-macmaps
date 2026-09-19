@@ -69,10 +69,24 @@ Two things make it tractable:
 2. **F91 — the reference and the diff.** Bake R in, store saves as R + delta,
    compress. Purely a space optimization on top of a proven round-trip.
 
-3. **F92 — save and load from the companion**, outside the game entirely: name a
-   save, list saves, restore one. This is the feature the owner actually wants,
-   and it cannot strand the machine because it never uses the game's menus and
-   never restarts.
+3. **F92 — save and load from the companion — PASSED 2026-09-19.** Outside the
+   game entirely: Quick save, Quick load, and Save states… (name / list /
+   delete) on the PoolRad menu. The save is asynchronous — the request returns
+   at once and the machine image arrives later on the emulation thread, where it
+   is gzipped and written atomically off-thread; load is the mirror. It cannot
+   strand the machine because it never uses the game's menus and never restarts.
+
+   Verified live on the running Mac II: Quick save wrote a valid file (store
+   magic `PRQS1`, gzip of the whole-machine image); after a visible change, Quick
+   load reverted the state, confirmed both logically (a text field's real content
+   snapped back) and visually (a Finder selection re-appeared on a still screen).
+
+   **The video buffer had to join the snapshot.** The Mac II keeps its screen in
+   a separate 512 KB video buffer (`VidMem`), not in main RAM, so the first cut
+   restored the machine correctly but left stale pixels on any screen the game
+   was not already repainting. `VidMem` is now captured in `GlobGlue_VisitState`,
+   and a restore raises `NeedWholeScreenDraw` so the host re-blits the whole
+   screen at once. A save is ~8.9 MB raw, ~1.3 MB gzipped.
 
 4. **F93 — pair each save with its notebook, by reference.** A companion save
    records *which* notebook and area it belongs with, rather than copying the

@@ -1780,6 +1780,15 @@ EXPORTPROC GlobGlue_VisitState(PoolRadStateVisitor visit, void *ctx)
 	visit(ctx, ICTwhen, sizeof(ICTwhen));
 	visit(ctx, Wires, sizeof(Wires));
 	visit(ctx, &InterruptButton, sizeof(InterruptButton));
+#if IncludeVidMem
+	/*
+		The Mac II keeps its screen in a separate video buffer, not in main
+		RAM, so it must be captured too. Without it a restore leaves stale
+		pixels on any still screen -- the game repaints a moving map on its
+		own, but not a static dialog.
+	*/
+	visit(ctx, VidMem, (ui5b)kVidMemRAM_Size);
+#endif
 	/*
 		MasterMyEvtQLock and my_disk_icon_addr are deliberately not captured:
 		the first is an event-queue lock that is not execution state, the

@@ -62,7 +62,12 @@ jmethodID jInitScreen, jUpdateScreen;
 jmethodID jMySoundInit, jMySoundUnInit, jPlaySound, jMySoundStart, jMySoundStop;
 jmethodID jGetClipboardText, jSetClipboardText;
 jmethodID jRamSnapshot;
+jmethodID jSaveState;
 LOCALVAR atomic_int WantRamSnapshot = 0;
+LOCALVAR atomic_int WantSaveState = 0;
+LOCALVAR atomic_int WantRestoreState = 0;
+LOCALVAR ui3p gRestoreBuf = nullpr;   /* raw save-state bytes waiting to apply */
+LOCALVAR ui5b gRestoreLen = 0;
 jmethodID jMapSample;
 LOCALVAR atomic_int WantMapSample = 0;
 LOCALVAR poolrad_walk_tracker MapWalkTracker = {0};
@@ -1233,7 +1238,7 @@ LOCALPROC CheckForSavedTasks(void)
 /* ---- whole-machine save state (see POOLRAD_SAVESTATE.h) ---- */
 
 #define PRSS_MAGIC 0x50525353UL  /* "PRSS" */
-#define PRSS_VERSION 1
+#define PRSS_VERSION 2
 #define PRSS_HEADER 16           /* magic, version, ramSize, totalLen */
 #define PRSS_CPU_AT PRSS_HEADER
 #define PRSS_BULK_AT (PRSS_HEADER + PoolRadCPUStateSize)
@@ -1270,6 +1275,8 @@ LOCALPROC PRSSVisitAll(PoolRadStateVisitor visit, void *ctx)
 #if EmRTC
 	RTC_VisitState(visit, ctx);
 #endif
+	/* GlobGlue_VisitState also captures the Mac II's separate video buffer,
+	   which is not part of main RAM; see GLOBGLUE.c. */
 	visit(ctx, ram, ramSize);
 }
 
@@ -1347,6 +1354,66 @@ GLOBALFUNC blnr PoolRadSaveStateSelfTest(void)
 	return ok;
 }
 
+/* ---- save/load, the real feature (F92) ---- */
+
+/* UI thread asks; the emulation thread saves at the safe boundary below. */
+GLOBALFUNC jboolean requestSaveState(void)
+{
+	return atomic_exchange(&WantSaveState, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+}
+
+/* UI thread hands over a raw save-state blob; copied here and applied at the
+   boundary. One restore may be pending at a time. */
+GLOBALFUNC jboolean requestRestoreState(const ui3b *data, ui5b len)
+{
+	if ((data == nullpr) || (len < 16) || (gRestoreBuf != nullpr)) {
+		return JNI_FALSE;
+	}
+	gRestoreBuf = (ui3p) malloc(len);
+	if (gRestoreBuf == nullpr) {
+		return JNI_FALSE;
+	}
+	memcpy(gRestoreBuf, data, len);
+	gRestoreLen = len;
+	atomic_store(&WantRestoreState, 1);
+	return JNI_TRUE;
+}
+
+LOCALPROC DeliverSaveState(void)
+{
+	ui5b sz;
+	ui3p buf;
+	jbyteArray arr = NULL;
+	if (atomic_exchange(&WantSaveState, 0) == 0) return;
+	sz = PoolRadSaveStateSize();
+	buf = (ui3p) malloc(sz);
+	if (buf != nullpr) {
+		ui5b n = PoolRadSaveState(buf, sz);
+		arr = (*jEnv)->NewByteArray(jEnv, n);
+		if (arr != NULL) {
+			(*jEnv)->SetByteArrayRegion(jEnv, arr, 0, n, (const jbyte *) buf);
+		} else {
+			(*jEnv)->ExceptionClear(jEnv);
+		}
+		free(buf);
+	}
+	(*jEnv)->CallVoidMethod(jEnv, mCore, jSaveState, arr);
+	if (arr != NULL) { (*jEnv)->DeleteLocalRef(jEnv, arr); }
+}
+
+LOCALPROC DeliverRestoreState(void)
+{
+	if (atomic_exchange(&WantRestoreState, 0) == 0) return;
+	if (gRestoreBuf != nullpr) {
+		if (PoolRadRestoreState(gRestoreBuf, gRestoreLen)) {
+			/* Repaint the whole screen from the restored video buffer, so a
+			   load is visible at once even on a still screen. */
+			NeedWholeScreenDraw = trueblnr;
+		}
+		free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
+	}
+}
+
 GLOBALFUNC jboolean requestRamSnapshot(void)
 {
     return atomic_exchange(&WantRamSnapshot, 1) == 0 ? JNI_TRUE : JNI_FALSE;
@@ -1366,30 +1433,6 @@ LOCALPROC DeliverRamSnapshot(void)
     }
     (*jEnv)->CallVoidMethod(jEnv, mCore, jRamSnapshot, snapshot);
     if (snapshot != NULL) (*jEnv)->DeleteLocalRef(jEnv, snapshot);
-    {
-        /*
-           Behavioural save-state test, driven off the debug snapshot trigger
-           at this safe between-batch boundary. The first trigger saves the
-           whole machine to a buffer; the next restores it and frees the
-           buffer. So: trigger, walk the party, trigger again -- and the party
-           must snap back to where it was. Debug-only; the real feature (F92)
-           will save and restore through the app rather than this hook.
-        */
-        static ui3p qsBuf = nullpr;
-        static ui5b qsLen = 0;
-        if (qsBuf == nullpr) {
-            ui5b sz = PoolRadSaveStateSize();
-            qsBuf = (ui3p) malloc(sz);
-            qsLen = (qsBuf != nullpr) ? PoolRadSaveState(qsBuf, sz) : 0;
-            __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
-                "PoolRad quick-save: captured %u bytes", (unsigned) qsLen);
-        } else {
-            blnr ok = PoolRadRestoreState(qsBuf, qsLen);
-            __android_log_print(ANDROID_LOG_INFO, "Mini vMac",
-                "PoolRad quick-restore: %s", ok ? "applied" : "failed");
-            free(qsBuf); qsBuf = nullpr; qsLen = 0;
-        }
-    }
 }
 
 GLOBALFUNC jboolean requestMapSample(void)
@@ -1571,6 +1614,8 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     }
 
     DeliverRamSnapshot();
+    DeliverRestoreState();
+    DeliverSaveState();
     DeliverMapSample();
     DeliverWheelSample();
     DeliverPartySample();
@@ -1629,6 +1674,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 
     ForceMacOff = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
+    atomic_store(&WantSaveState, 0);
+    atomic_store(&WantRestoreState, 0);
     atomic_store(&WantMapSample, 0);
     poolrad_walk_reset(&MapWalkTracker);
     atomic_store(&WantWheelSample, 0);
@@ -1655,6 +1702,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jGetClipboardText = (*env)->GetMethodID(env, this, "getClipboardText", "()Ljava/lang/String;");
     jSetClipboardText = (*env)->GetMethodID(env, this, "setClipboardText", "(Ljava/lang/String;)V");
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
+    jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B)V");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");

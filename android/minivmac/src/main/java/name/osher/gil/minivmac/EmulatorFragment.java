@@ -216,6 +216,7 @@ public class EmulatorFragment extends Fragment
     private ViewTreeObserver.OnPreDrawListener mPendingCompanionTool;
     private NotebookController mNotebook;
     private SaveBackupController mSaveBackup;
+    private SaveStateController mSaveState;
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
@@ -623,6 +624,15 @@ public class EmulatorFragment extends Fragment
                 } else if (menuItem.getItemId() == R.id.action_notebooks) {
                     openCompanionTool(() -> mNotebook.chooseNotebook());
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_quick_save) {
+                    saveState().quickSave();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_quick_load) {
+                    saveState().quickLoad();
+                    return true;
+                } else if (menuItem.getItemId() == R.id.action_save_states) {
+                    saveState().chooseSave();
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_saved_games) {
                     if (mSaveBackup == null) {
                         mSaveBackup = new SaveBackupController(
@@ -664,6 +674,13 @@ public class EmulatorFragment extends Fragment
         return root;
     }
 
+    private SaveStateController saveState() {
+        if (mSaveState == null) {
+            mSaveState = new SaveStateController(requireActivity(), () -> mCore);
+        }
+        return mSaveState;
+    }
+
     @Override
     public void onDestroyView() {
         cancelPendingCompanionTool();
@@ -674,6 +691,7 @@ public class EmulatorFragment extends Fragment
         if (mCore != null) mCore.setWheelSampleListener(null);
         if (mNotebook != null) mNotebook.dispose();
         if (mSaveBackup != null) { mSaveBackup.dispose(); mSaveBackup = null; }
+        if (mSaveState != null) { mSaveState.dispose(); mSaveState = null; }
         mNotebook = null;
         if (mCompanionPane != null) {
             mCompanionPane.setOnTabSelectedListener(null);
@@ -775,6 +793,7 @@ public class EmulatorFragment extends Fragment
                         mLiveMap.showSample(sample);
                 });
             });
+            mCore.setSaveStateListener(state -> saveState().onState(state));
             mCore.setPartySampleListener(sample -> {
                 final int generation = mMapGeneration;
                 // Kept whatever the companion is doing: this is how the load
