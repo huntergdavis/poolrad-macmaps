@@ -143,4 +143,17 @@ a save converted from another platform (F81) may hold a value the Macintosh
 record cannot represent. Correcting that is a conversion problem, not a licence
 to edit — say what could not be represented and ask.
 
+### Saved games may be kept in the repository for testing
+
+Owner decision, 2026-09-18: "those are user generated content and not covered by
+copyright, we are safe to include them in repo for testing purposes under a
+testing directory."
+
+So saved games — the owner's own, and other people's collected for the converter
+to be tried against — belong under a `testing/` directory. They are somebody's
+party, not the publisher's work.
+
+This does not widen anything else. The game's own data files, disk images and
+artwork stay out, as they always have.
+
 The ordered, checkable implementation queue is [BACKLOG.md](BACKLOG.md).
