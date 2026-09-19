@@ -2,6 +2,7 @@ package name.osher.gil.minivmac;
 
 import android.app.Activity;
 import android.view.View;
+import android.view.WindowManager;
 import androidx.appcompat.app.AlertDialog;
 import androidx.lifecycle.Lifecycle;
 import androidx.lifecycle.LifecycleEventObserver;
@@ -27,7 +28,17 @@ public final class UpperHalfReferenceDialog {
         return present(activity, new AlertDialog.Builder(activity).setView(content).create(), onDismiss);
     }
 
+    /** An automatic notebook page must leave the game's mouse and keyboard available. */
+    public static AlertDialog showFollowingEditor(Activity activity, View content, Runnable onDismiss) {
+        return present(activity, new AlertDialog.Builder(activity).setView(content).create(), onDismiss, true);
+    }
+
     private static AlertDialog present(Activity activity, AlertDialog dialog, Runnable onDismiss) {
+        return present(activity, dialog, onDismiss, false);
+    }
+
+    private static AlertDialog present(Activity activity, AlertDialog dialog, Runnable onDismiss,
+            boolean keepGameInput) {
         CompanionDialogBounds.Binding[] binding = new CompanionDialogBounds.Binding[1];
         LifecycleEventObserver lifecycle = (owner, event) -> {
             if (event == Lifecycle.Event.ON_DESTROY) dialog.dismiss();
@@ -45,6 +56,8 @@ public final class UpperHalfReferenceDialog {
             onDismiss.run();
             return dialog;
         }
+        if (keepGameInput) dialog.getWindow().addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+                | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
         dialog.show();
         binding[0] = CompanionDialogBounds.track(activity, dialog);
         if (activity instanceof LifecycleOwner)

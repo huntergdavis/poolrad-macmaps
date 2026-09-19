@@ -127,6 +127,8 @@ public final class InkSheetView extends View {
         if (history.redo()) changed();
     }
 
+    public boolean isDrawing() { return history.isDrawing(); }
+
     public void cancelActiveStroke() {
         history.cancelStroke();
         activePointer = MotionEvent.INVALID_POINTER_ID;

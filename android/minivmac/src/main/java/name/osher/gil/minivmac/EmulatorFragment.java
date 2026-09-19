@@ -1451,6 +1451,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public boolean onKeyDown (int keyCode, @NonNull KeyEvent event) {
+        if (mNotebook != null && mNotebook.onEditorKey(event)) return true;
         cancelAutomaticWheel();
         if (mScreenView != null && mScreenView.isScroll()) {
             switch(keyCode) {
@@ -1486,6 +1487,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public boolean onKeyUp (int keyCode, @NonNull KeyEvent event) {
+        if (mNotebook != null && mNotebook.onEditorKey(event)) return true;
         int macKey = translateKeyCode(keyCode);
         Core target = mCore;
         if (macKey >= 0) {

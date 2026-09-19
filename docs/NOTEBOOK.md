@@ -20,6 +20,20 @@ Original game artwork belongs to its respective owners.*
 There is no annotation toggle or separate map-drawing action. Each flag owns
 its own [map-plus-writing page](MAP_INK.md), not a shared area-wide overlay.
 
+When the party enters an identified area, its last-opened note appears
+automatically. If no page has been opened there, the arrival square gets a
+page ready for writing. The last-opened square is remembered separately for
+each campaign and area, including after restarting the app. A deleted page
+falls back to the arrival square.
+
+A page being read follows the party into the next area. Once you start writing,
+erasing or changing its symbol, it stays on that page until **Close & save**;
+then the latest area's note opens. An unfinished stroke is never interrupted
+by an area change. Walking within the same area, camp and temporary unreadable
+map readings do not reopen a page you closed.
+Automatically opened pages leave the game's mouse and keyboard controls
+available below them; Android Back still closes and saves the page.
+
 The note sheet stays above the screen midpoint and does not dim the game. Its
 fixed-aspect paper keeps handwriting in proportion when the window changes size.
 An interrupted, unfinished stroke is cancelled rather than joined to the next one.
@@ -45,8 +59,8 @@ A missing remembered notebook is an error, not permission to open another run.
 ## Area identity
 
 Flags use `(notebook UUID, verified area identity, tile x, tile y)`, never a heap
-address or the party's changing position. An open sheet keeps the area and tile
-that you tapped, even if the game moves while it is open.
+address or the party's changing position. Edited sheets keep their original
+area and tile even when the party moves elsewhere; ink always saves there.
 
 The supported Macintosh v1.1 profile matches exact full-geometry fingerprints
 against 29 independently decoded records. Unknown or changed geometry disables

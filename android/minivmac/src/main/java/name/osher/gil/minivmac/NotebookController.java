@@ -48,6 +48,7 @@ import name.osher.gil.minivmac.journal.MessageHistory;
 import name.osher.gil.minivmac.journal.GameMessage;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
+import name.osher.gil.minivmac.notebook.AreaNoteFollow;
 import name.osher.gil.minivmac.notebook.ExplorationRecorder;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
@@ -77,6 +78,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private boolean disposed, opening, flagsReady;
     private int generation;
     private Session session;
+    private final AreaNoteFollow areaFollow = new AreaNoteFollow();
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
@@ -191,6 +193,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             if (finishRestore) restoringNotebook = false;
             citationNotice.accept(Collections.emptyList());
             notebook = selected; journal = loadedJournal; messages = loadedMessages;
+            areaFollow.reset();
+            observeNoteArea();
             messagesDirty = false; messageSaveFailed = false; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
             map.showExploration(ExplorationTrail.empty(), "Loading trail");
@@ -403,6 +407,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                         view.setAdjustViewBounds(true);
                         view.setImageBitmap(page);
                         UpperHalfReferenceDialog.show(activity, title, view);
+                        prefs.edit().putInt(AreaNoteFollow.preferenceKey(book.id(), entry.areaId),
+                                entry.y() * 16 + entry.x()).apply();
                     } catch (RuntimeException failure) {
                         toast("Cannot draw that note.");
                     }
@@ -660,7 +666,73 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         });
     }
 
-    @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
+    @Override public void onAreaChanged(AreaIdentity next) {
+        area = next;
+        observeNoteArea();
+        refreshFlags();
+    }
+
+    private void observeNoteArea() {
+        PoolRadState sample = map.snapshot();
+        if (area != null && sample != null && sample.area != null
+                && area.id().equals(sample.area.id()))
+            areaFollow.observe(area.id(), sample.y * 16 + sample.x);
+    }
+
+    private boolean editingNote() {
+        return session != null && (session.revision != 0 || session.sheet.isDrawing()
+                || session.closing || session.deleting);
+    }
+
+    /** Physical Back/Escape reach the Activity when a following page leaves game focus intact. */
+    public boolean onEditorKey(KeyEvent event) {
+        if (session == null || !session.following || (event.getKeyCode() != KeyEvent.KEYCODE_BACK
+                && event.getKeyCode() != KeyEvent.KEYCODE_ESCAPE)) return false;
+        if (event.getAction() == KeyEvent.ACTION_UP) save(session, true);
+        return true;
+    }
+
+    private void followNoteArea() {
+        if (disposed || opening || restoringNotebook || notebook == null || area == null
+                || !flagsReady || !areaFollow.pending(area.id())) return;
+        if (session != null && session.book == notebook && session.area.id().equals(area.id())) {
+            areaFollow.opened(area.id());
+            return;
+        }
+        if (editingNote() || (picker != null && picker.isShowing())) return;
+        final PoolRadState pinned = map.snapshot();
+        if (pinned == null || pinned.area == null || !area.id().equals(pinned.area.id())) return;
+        final NotebookStore.Notebook book = notebook;
+        final AreaIdentity target = area;
+        final int request = generation;
+        int remembered = prefs.getInt(AreaNoteFollow.preferenceKey(book.id(), target.id()), -1);
+        // A deleted note must not reappear merely because it was last viewed.
+        final int tile = areaFollow.tile(flags.containsKey(remembered) ? remembered : -1);
+        final Map<Integer, NoteIcon> symbols = new HashMap<>(flags);
+        opening = true;
+        IO.execute(() -> {
+            try {
+                InkNote note = store.read(book.id(), target.id(), tile % 16, tile / 16);
+                NoteIcon icon = store.readIcon(book.id(), target.id(), tile % 16, tile / 16);
+                main.post(() -> {
+                    opening = false;
+                    if (disposed) return;
+                    if (request != generation || notebook != book || area == null
+                            || !target.id().equals(area.id())) { followNoteArea(); return; }
+                    // Recheck after I/O: the player may have begun a stroke meanwhile.
+                    if (editingNote() || (picker != null && picker.isShowing())) return;
+                    if (session != null) session.dialog.dismiss();
+                    symbols.put(tile, icon);
+                    showSheet(book, target, tile % 16, tile / 16, note, pinned, symbols, true);
+                    // Create an arrival-square flag only after the request is accepted.
+                    if (!flags.containsKey(tile) && session != null) save(session, false);
+                });
+            } catch (IOException | RuntimeException failure) {
+                main.post(() -> { opening = false; areaFollow.opened(target.id()); });
+                report("Cannot open this area's note", failure);
+            }
+        });
+    }
 
     /** The last square the party was certainly standing on, and where. */
     private int lastTile = -1;
@@ -668,6 +740,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     @Override public void onExplorationSample(PoolRadState sample) {
         if (disposed) return;
+        followNoteArea();
         // A normal step clears the input-wait tag while it updates the map.
         // Do not record that transient position or mistake it for a reload.
         // The next settled sample still needs the same epoch and a short gap.
@@ -823,6 +896,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 main.post(() -> {
                     if (disposed || request != generation) return;
                     flags = loaded; flagsReady = true; map.showNotebook(notebook.label(), loaded);
+                    followNoteArea();
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> {
@@ -1012,7 +1086,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         Map<Integer, NoteIcon> symbols;
         NoteIcon icon;
         int x, y, revision;
-        boolean closing, deleting;
+        boolean closing, deleting, following;
         InkSheetView sheet;
         TextView status;
         Button pen, eraser, undo, redo, symbol, journal, delete, fit, close;
@@ -1021,7 +1095,15 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     private void showSheet(NotebookStore.Notebook book, AreaIdentity target, int x, int y, InkNote note,
             PoolRadState pinned, Map<Integer, NoteIcon> symbols) {
+        showSheet(book, target, x, y, note, pinned, symbols, false);
+    }
+
+    private void showSheet(NotebookStore.Notebook book, AreaIdentity target, int x, int y, InkNote note,
+            PoolRadState pinned, Map<Integer, NoteIcon> symbols, boolean following) {
         Session current = new Session(); session = current;
+        current.following = following;
+        areaFollow.opened(target.id());
+        prefs.edit().putInt(AreaNoteFollow.preferenceKey(book.id(), target.id()), y * 16 + x).apply();
         current.book = book; current.area = target; current.x = x; current.y = y;
         current.snapshot = pinned; current.symbols = new HashMap<>(symbols); current.icon = symbols.get(y * 16 + x);
         NoteEditorLayout content = new NoteEditorLayout(activity, x + ", " + y + " · " + target.label());
@@ -1034,16 +1116,24 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         current.status = content.status; current.status.setText("Saved locally · " + book.label());
         current.sheet = content.sheet;
         current.sheet.setMap(pinned, symbols, x, y); current.sheet.setNote(note);
-        current.dialog = UpperHalfReferenceDialog.showEditor(activity, content, () -> {
+        Runnable dismissed = () -> {
                     current.sheet.cancelActiveStroke();
                     if (session == current) session = null;
-                });
+                    main.post(this::followNoteArea);
+                };
+        current.dialog = following
+                ? UpperHalfReferenceDialog.showFollowingEditor(activity, content, dismissed)
+                : UpperHalfReferenceDialog.showEditor(activity, content, dismissed);
         // Never let platform/predictive Back dismiss an unsaved sheet. The explicit
         // Close action (and key Back where delivered) finishes the save first.
         current.dialog.setCancelable(false);
         current.dialog.getOnBackPressedDispatcher().addCallback(current.dialog, new OnBackPressedCallback(true) {
             @Override public void handleOnBackPressed() { save(current, true); }
         });
+        if (following) ((MiniVMac) activity).getOnBackPressedDispatcher().addCallback(current.dialog,
+                new OnBackPressedCallback(true) {
+                    @Override public void handleOnBackPressed() { save(current, true); }
+                });
         current.close.setOnClickListener(v -> save(current, true));
         current.dialog.setOnKeyListener((dialog, code, event) -> {
             if (code != KeyEvent.KEYCODE_BACK && code != KeyEvent.KEYCODE_ESCAPE) return false;
