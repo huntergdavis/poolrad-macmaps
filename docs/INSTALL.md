@@ -48,9 +48,9 @@ dimming or covering the game. Close returns to the selected tab.
 When recognized party records are available, names, current/max HP and black
 health bars appear beside the map. Unknown health is not guessed or retained.
 
-**Info → Exploration trail** controls visited-only fog and directional feet,
-and lists recent return directions. The full map is the default; walked tiles
-are remembered per notebook and area, starting with this version. Turning in
+**Info → Options** controls visited-only fog and directional footprints.
+**Info → Exploration trail** lists recent return directions. The full map is
+the default; walked tiles are remembered per notebook and area. Turning in
 place is not walking. Missing observations start separate segments, never
 guessed connecting paths. Tracking continues on Info or with the pane hidden
 while the app is resumed. Clear footprints or reset one walked map explicitly;
@@ -64,8 +64,9 @@ the picture. Unsaved captures are temporary; use Save for pictures you want to k
 **PoolRad → Quick save** retains ten snapshots. **Quick load** immediately restores
 the newest quick save without a picker or confirmation. **Load…** opens all quick,
 named and automatic states as dated thumbnails above the game; tap one for its
-larger preview and Load confirmation. Saves made before 0.85.0
-have no preview but remain loadable; the old quick slot ages out normally.
+larger preview and Load confirmation. Snapshots made before 0.85.0 are
+unsupported. Loading requires the mounted disks to match the snapshot exactly.
+Original-game saves are unaffected.
 
 **Settings → Back up / restore game saves…** copies the original game's save
 files. Notebook exports do not include emulator snapshots or guest disks.
@@ -74,8 +75,9 @@ Snapshots do not rewind disk contents or guarantee protection from an interrupte
 disk write. Quit the game and use the Mac's **Special → Shut Down** before
 replacing disks or intentionally stopping the emulator. Do not use Force Power Off.
 
-**Levels & skills**, **Spells**, **Weapons & armor**, and **Money conversion** are offline
-tools on the **Info** tab. Their touch controls stay above the game; they never edit your
+**Levels & skills**, **Spells**, and **Weapons & armor** are offline
+tools on the **Info** tab. **Money** shows the party's purses and opens the manual
+coin converter. Their touch controls stay above the game; they never edit your
 characters. Sources and any unverified Macintosh-specific values are identified.
 Spells and equipment use finite browsable lists, not text search or a keyboard.
 Equipment details distinguish the printed rules from the Macintosh item values.
