@@ -13,14 +13,17 @@ mkdir -p "$OUT"
 tap() { adb shell input tap "$1" "$2"; sleep "${3:-3}"; }
 say() { echo "== $* =="; }
 
+HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+find_and_tap() { "$HERE/tap-text.sh" "$SERIAL" "$1" "${2:-8}"; sleep "${3:-4}"; }
+
 say "PoolRad menu -> Saved games -> Load a saved game"
-tap 1078 70 3
-tap 1035 191 8
-tap 312 745 7
-say "choosing the first save"
-tap 300 745 5
+find_and_tap "POOLRAD" 8 3
+find_and_tap "Saved games" 8 8
+find_and_tap "Load a saved game" 8 7
+say "choosing the save"
+find_and_tap "${SAVE:-SampleParty}" 8 5
 say "confirming"
-tap 957 852 2
+find_and_tap "LOAD" 8 2
 
 for i in $(seq 1 ${WATCH:-60}); do
   sleep 5

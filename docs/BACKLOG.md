@@ -985,6 +985,17 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
+- [ ] **F89 — Tapping a character in the party pane selects them in the game.**
+  Owner's P0, 2026-09-19: "When you click on a character on the top, it should
+  click on the character in the game (like on the 'information window'). It
+  makes it highlight that character and make them selected for spells and
+  such." Today a tap opens the companion's own details sheet; the game's own
+  selection — the one Cast, View and the rest act on — stays where it was. The
+  tap should land a click on that character's row in the game's Information
+  window, so the pane becomes the way you pick who acts. Needs the window's
+  position read from the guest rather than remembered, because Options →
+  Reset Window Locations exists precisely because windows move.
+
 - [x] **F25 (delivered 0.41.0) — Stop reading when there is nothing to read.** Pause the RAM polls
   while the guest is idle, and suspend the emulator when the app is
   backgrounded. Conditional on auto-resuming the moment it is foregrounded; if
