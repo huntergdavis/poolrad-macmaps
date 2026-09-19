@@ -1041,32 +1041,21 @@ reads back correctly.
   stuck on the equipment and spell sections.
 - [x] **F78 (delivered 0.44.0) — Decode the saved game itself:** what the data fork holds, what the
   resource fork holds, and where the party, position and world state sit in it.
-- [ ] **F84 — Decode the saved game's world-state block.** Located by F78 at
-  `0x1400`–`0x31ff` in the data fork, exactly 7,680 bytes, dense in a played
-  save and entirely absent from an unplayed one.
+- [x] **F84 (answered 2026-09-18): the world-state block is a copy of memory,
+  so it never needs decoding.** Loaded `F7Injured`, walked the party out into
+  the Slums of Phlan, captured 8 MB of live RAM and searched it for the block.
+  It is there, contiguous and verbatim: **7,679 of 7,680 bytes match**, the one
+  exception being the first, and the party had walked a dozen squares since the
+  save was written.
 
-  **First look, 2026-09-18: it does not yield to byte-gazing.** 239 distinct
-  byte values, 6.50 bits of entropy per byte, and no repetition worth the name
-  at any stride from 16 to 3,840 — so it is not a table of fixed-size records.
-  It reads as a variable-length stream, and the two saves that exist are of the
-  same world, so there is nothing to diff.
+  Writing a save therefore means copying the right region out, not
+  understanding what is in it. That is F79's job now.
 
-  **Attempted 2026-09-18 and blocked by F87.** The save was loaded, the game was
-  running, and every RAM snapshot came back empty, so the correspondence could
-  not be tested at all. What little was learned: none of the block appears in
-  the one good snapshot from an earlier session, but that snapshot is of a
-  different world, so it says nothing either way.
-
-  **The experiment to do next is not more staring.** The character records in a
-  save turned out to be the in-memory records verbatim (F78), so the obvious
-  question is whether this block is a verbatim copy of a region of guest RAM
-  too. Load a save, take a full RAM snapshot with `tools/CapturePartyRam.java`,
-  and search the snapshot for these 7,680 bytes. If they are there, writing a
-  save (F79) is largely a matter of copying the right regions out, and the
-  block never needs decoding at all. If they are not, the game's own save
-  routine has to be traced in its CODE resources, which is a much larger job. Also open from F78: the framing of an item block, which is
-  roughly but not exactly 66 bytes, and whether the data fork's numbers really
-  are little-endian.
+  **The caveat:** in the session measured the block sat at `A5 − 0x76a75`, about
+  475 KB below the application globals, which is heap rather than an A5-relative
+  global. The address will move between runs and must not be hard-coded; the
+  stable way to reach it is the handle the game keeps for it, the same way this
+  project already follows the roster.
 - [x] **F33 (delivered 0.47.0) — Load a save from the companion,** by reading the file.
   **PAUSED 2026-09-18, one question for the owner.** Reading a save is done —
   `SavedParty.parse` already says who is in one, so the companion can show what
@@ -1095,38 +1084,20 @@ reads back correctly.
   check that no game is running by **reading it from guest memory**, not by
   looking at whether a menu item appears grey. That is the check the scripting
   harness did not have, and it is the reason it failed silently.
-- [ ] **F87 — RAM snapshots come back empty, and the first diagnosis was wrong.**
-  Found 2026-09-18. Snapshots are the right size, 8,388,608 bytes, and almost
-  entirely zeros: 22 pages with anything in them against 861 in one from an
-  earlier session, with low memory's application-globals pointer at `0x904`
-  reading `0xffffff`.
+- [x] **F87 (closed 2026-09-18 — not a bug, and it was my sequencing).** Every
+  empty snapshot was taken of a machine with nothing loaded: at a Continue
+  prompt, at the title with no party, or after the game had quit to the Finder.
+  "Position unavailable" is the correct display in all of those, which is
+  exactly what made it look like a fault.
 
-  **The first write-up of this said the probes were reading fine while the
-  snapshot was empty, and that was wrong.** They cannot disagree:
-  `DeliverRamSnapshot` and `DeliverMapSample` both call the same
-  `GetRamForSnapshot`, which returns the one `RAM` pointer and `kRAM_Size`. When
-  the snapshot is empty the companion shows "Position unavailable" at the same
-  moment, which is the probes finding nothing too.
+  Captured with the party demonstrably in the Slums of Phlan — the companion
+  naming the area and the coordinates — the snapshot is entirely healthy: `A5`
+  at `0x76b2ac` and 886 pages in use. The probes were never broken.
 
-  So the real question is why the app reads an empty guest while the emulated
-  Macintosh is visibly running on screen — a more serious question than a broken
-  snapshot path, and worth answering before anything else needs a capture.
-
-  **What makes this hard to pin down:** every attempt costs a multi-minute boot,
-  and the machine kept drifting between steps — at a Continue prompt, at the
-  title with no party, quit to the Finder. "Position unavailable" is the
-  *correct* display in all of those, so it proves nothing on its own. What is
-  needed is one capture taken with the party demonstrably walking around, and
-  `tools/snapshot-with-save.sh` now boots, loads, checks the state, captures and
-  checks the state again in one go so that the reading means something. It has
-  not yet caught the machine in play.
-
-  `tools/check-snapshot.py` refuses an empty snapshot rather than handing one
-  back, because an empty one is the right size and looks exactly like a real one
-  until something tries to read it.
-
-  **Blocks F84**, which cannot be tested without a snapshot of a played game.
-
+  What was worth keeping: `tools/check-snapshot.py` refuses an empty snapshot
+  rather than handing one back, and `tools/snapshot-with-save.sh` will not
+  capture until the companion can say where the party is, because a capture
+  taken in any other state proves nothing.
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
   F33 ships the reading, the chooser, the overlay and the guarded sequence, and
   every guard is unit-tested. What has **not** happened is one clean run that

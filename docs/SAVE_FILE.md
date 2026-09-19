@@ -67,8 +67,22 @@ fills 7.7 KB that the sample leaves empty.
 | `0x1400`–`0x31ff` | **the world state**, ~7.7 KB, dense in a played save and entirely absent from an unplayed one |
 | `0x3200`–`0x3269` | a short trailer, then **six 16-byte NUL-padded names in party order**, ending exactly at the end of the file |
 
-**The world-state block is located but not decoded.** Its internals are the
-obvious next question and are tracked as F84 rather than guessed at here.
+**The world-state block does not need decoding: it is a copy of memory.**
+Answered 2026-09-18 by loading `F7Injured`, walking the party out into the
+Slums of Phlan, and searching a full RAM capture for the block. It is there,
+contiguous and verbatim — **7,679 of its 7,680 bytes match**, the one exception
+being the very first, and the party had walked a dozen squares since the save
+was written.
+
+So writing a save does not require understanding what is in this block. It
+requires copying the right region out, which is what F79 now has to do.
+
+**One caveat that matters.** In the session measured, the block sat at
+`A5 − 0x76a75`, about 475 KB below the application globals. That is heap
+territory, not an A5-relative global, so the address will move between runs and
+must not be hard-coded. The stable way to reach it is whatever handle the game
+keeps for it — the same shape of problem as the roster, which this project
+already follows by handle rather than by address.
 
 **One caution about the numbers.** The values at `0x120c` and the hit-point-like
 bytes elsewhere in the data fork are stored low byte first, which is not what a
