@@ -1,8 +1,8 @@
 {
   "docs/images/readme-map.png": {
-    "captured_at": "2026-09-19T19:33:20.299167+00:00",
-    "release": "0.82.0",
-    "sha256": "45cf6dcec9d99b667bdb04ba486cbafc468c7aefa758df9f2dc4ab77c6c20307"
+    "captured_at": "2026-09-19T19:58:58.938842+00:00",
+    "release": "0.83.0",
+    "sha256": "136c1a089a6da28096fcfbc16c2cc09706bf9140f76bbb2fe82505816a0b8039"
   },
   "docs/images/readme-marching-order.png": {
     "captured_at": "2026-09-19T19:10:31.186323+00:00",
@@ -13,6 +13,11 @@
     "captured_at": "2026-09-19T19:11:09.697549+00:00",
     "release": "0.81.0",
     "sha256": "18d695e2060e23f9daea5a3d91f9a83c0e3e14a953d22257c0b26312585f9c10"
+  },
+  "docs/images/readme-money.png": {
+    "captured_at": "2026-09-19T19:59:13.254153+00:00",
+    "release": "0.83.0",
+    "sha256": "3a9feec3ef2763ffa070a582809b616de7aa49f9344a77e1d9fc0524d57b7b63"
   },
   "docs/images/readme-options.png": {
     "captured_at": "2026-09-19T19:10:21.040890+00:00",

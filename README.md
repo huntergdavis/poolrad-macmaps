@@ -57,6 +57,8 @@ first to last.
 totals, with an exact gold equivalent. Gems and jewelry stay separate as
 counts. The same page opens the manual coin converter.
 
+<img src="docs/images/readme-money.png" width="760" alt="Live Money page showing party coin totals and each character's purse above the original game">
+
 ## When a fight starts
 
 A read-only overview shows every combatant's square — yours filled, everyone
