@@ -220,6 +220,56 @@ See [the disk-safety audit](DISK_SAFETY.md) for the implementation, evidence and
 remaining limitations. Notebook ZIP exports contain notebooks/trails/fog,
 not these state files or the shared reference.
 
+## F98 — Info → Saves
+
+**Info → Saves** answers two questions at a glance without opening Load…:
+which snapshot the game is running from, and how much room is left.
+
+- **Active save**: the quick, named or automatic snapshot most recently
+  loaded (including the automatic launch restore), or the quick/named save
+  made after it, with the time. Autosaves never become the active save, so
+  the name stays the one the player chose. A normal Mac boot says so plainly.
+  If the active file has since been deleted or rotated out, the page still
+  names it and says so.
+- **Saves stored**: total count and bytes on disk (snapshots, sidecars and the
+  shared reference), split into quick (newest 10 kept), automatic (newest 20
+  kept) and named (kept until deleted).
+- **Room left**: free space on the device and roughly how many more saves fit
+  at the current average snapshot size, keeping a 64 MB floor. Under that
+  floor the page says to delete old saves in Load… instead of estimating.
+  A brand-new player sees "No saves yet" and an estimate that reserves the
+  first save's reference template.
+
+The text is pure Java (`SaveStatus`, `SaveStateStore.usage()`) and refreshes
+once a second while open, bounded above the guest like Money and Marching
+order. **Load…** on the page opens the existing picker, whose Delete… is the
+cleanup path. Nothing in the guest or on any disk is changed.
+
+### F98 acceptance — 2026-09-19
+
+On the disposable sandbox emulator-5586 (0.85.0 → this build, installed after
+a normal Mac shutdown with `tools/update-test-app.py`, then ExportProof loaded
+through the original game's picker):
+
+- Normal boot: "None this session. The game is running from a normal Mac
+  boot, not a snapshot." with 38 saves · 38.6 MB, 9 quick / 20 automatic /
+  9 named, 5.4 GB free and a rounded estimate of more saves. The page sat
+  entirely above the guest with **LOAD…** and **CLOSE**.
+- After PoolRad → Quick save: "Quick save Sep 19 '26 · 4:11:25 PM PDT /
+  Saved 4:11 PM", 39 saves, 10 quick.
+- After **LOAD…** → that quick save → Load (native "Restore completed:
+  true"): the same name with "Loaded 4:12 PM". An autosave that landed in
+  between did not change the active save.
+- Brand-new player: with the save folder briefly moved aside (restored intact,
+  82 entries, no autosave fell in the window), the page showed "Saves stored /
+  No saves yet." and the estimate reserving the reference; the active save was
+  still named with the "since been deleted or rotated out" note, which is the
+  correct reading for that state. The true fresh-install "None yet." text is
+  covered by `SaveStatusTest`.
+
+688 Java tests passed. No physical device was used; nothing in the guest or on
+any disk image was changed by the page.
+
 ## How this relates to the game's own save format
 
 The record and save-file work already done (F77, F78, F82, F85) is **not

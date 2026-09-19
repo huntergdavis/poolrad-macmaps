@@ -64,7 +64,7 @@ the picture. Unsaved captures are temporary; use Save for pictures you want to k
 **PoolRad → Quick save** retains ten snapshots. **Quick load** immediately restores
 the newest quick save without a picker or confirmation. **Load…** opens all quick,
 named and automatic states as dated thumbnails above the game; tap one for its
-larger preview and Load confirmation. Snapshots made before 0.85.0 are
+larger preview and Load confirmation. Snapshots made before version 0.85 are
 unsupported. Loading requires the mounted disks to match the snapshot exactly.
 Original-game saves are unaffected.
 

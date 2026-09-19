@@ -8,6 +8,9 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F98 shipped in 0.86.0: Info → Saves names the active snapshot (loaded or
+  the later manual save) and the room left; `SaveStatus` is pure Java. Live
+  checks ran on emulator-5586 via `tools/update-test-app.py`.
 - F97 awaits an answer: should old snapshots without disk-verification data
   load after an explicit warning, or be refused? Do not silently choose.
   The existing save/reference fsync runs after gzip closed the descriptor.

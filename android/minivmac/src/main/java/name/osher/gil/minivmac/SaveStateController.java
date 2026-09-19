@@ -41,6 +41,8 @@ public final class SaveStateController {
         void finish(boolean restored, Runnable finished);
     }
     private static final String TAG = "PoolRad.SaveState";
+    /** Automatic saves kept, newest first; the Info → Saves page quotes this. */
+    static final int AUTO_KEEP = 20;
     private static final String LOAD_WARNING = "Replaces the running session; unsaved progress is lost. The mounted disks must match the snapshot. Older snapshots are unsupported.";
     private final Activity activity;
     private final CoreAccess access;
@@ -48,6 +50,7 @@ public final class SaveStateController {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final SaveRequestGate requests = new SaveRequestGate();
+    private final SaveStatus status = new SaveStatus();
     private volatile boolean disposed;
     private boolean loading;
     private NotebookLink notebook;
@@ -90,7 +93,7 @@ public final class SaveStateController {
                     if (request.kind == SaveRequestGate.Kind.QUICK) written = store.writeQuick(state, capturedAt, fingerprint);
                     else if (request.kind == SaveRequestGate.Kind.AUTO) {
                         String stamp = new SimpleDateFormat("MMM d h-mm-ss a", Locale.US).format(new Date(capturedAt));
-                        written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, 20, fingerprint);
+                        written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, AUTO_KEEP, fingerprint);
                     } else written = store.write(request.label, state, fingerprint);
                     store.writeBinding(written, request.notebook);
                     store.rememberLatest(written);
@@ -106,6 +109,7 @@ public final class SaveStateController {
                             + (SystemClock.elapsedRealtime() - began) + "ms, preview="
                             + (SystemClock.elapsedRealtime() - previewStart) + "ms");
                     if (request.kind != SaveRequestGate.Kind.AUTO) {
+                        status.saved(written, capturedAt);
                         final String message = "Saved " + SaveStateStore.displayLabel(written)
                                 + (preview ? "" : " (preview unavailable)");
                         main.post(() -> toast(message));
@@ -240,6 +244,22 @@ public final class SaveStateController {
                     main.post(() -> { toast(deleted ? "Save deleted" : "Could not delete save"); if (alive()) chooseSave(); });
                 })).setNegativeButton("Cancel", null));
     }
+    /** Info → Saves: the active snapshot and the room left, refreshed while open. */
+    public void showStatus() {
+        if (disposed) return;
+        LiveTextReferenceDialog.show(activity, "Saves", "Which snapshot the game is running from, and how much room is left.",
+                this::describeStatus,
+                "Quick and automatic saves rotate by themselves. Named saves stay until you delete them from Load….",
+                18, "Load…", this::chooseSave);
+    }
+
+    String describeStatus() {
+        long free;
+        try { free = new android.os.StatFs(activity.getFilesDir().getPath()).getAvailableBytes(); }
+        catch (RuntimeException unavailable) { free = -1; }
+        return status.describe(store.usage(), free);
+    }
+
     /** First guest tick is held by Core until this one launch attempt queues or declines. */
     public void autoLoadLatest(Core core) {
         StartupRestoreGate gate = core.startupGate();
@@ -339,6 +359,7 @@ public final class SaveStateController {
                     loading = false;
                     if (!alive()) return;
                     if (restored) {
+                        status.loaded(file, System.currentTimeMillis());
                         io.execute(() -> {
                             if (!store.writeBinding(file, transition.notebookId()))
                                 main.post(() -> toast("Loaded, but notebook pairing could not be saved."));

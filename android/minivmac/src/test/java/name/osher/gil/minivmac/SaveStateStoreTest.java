@@ -28,6 +28,27 @@ public class SaveStateStoreTest {
         assertArrayEquals(raw, s.read(f));
     }
 
+    @Test public void usageCountsEachKindAndEveryByteInTheFolder() throws IOException {
+        SaveStateStore s = store();
+        SaveStateStore.Usage empty = s.usage();
+        assertEquals(0, empty.total()); assertEquals(0, empty.totalBytes);
+        File named = s.write("Camp", machine(40_000, 1), DiskSnapshotGuard.Fingerprint.empty());
+        File auto = s.writeAuto(SaveStateStore.AUTO_PREFIX + "Sep 1", machine(40_000, 2), 20, DiskSnapshotGuard.Fingerprint.empty());
+        File quick = s.writeQuick(machine(40_000, 3), 1_700_000_000_000L, DiskSnapshotGuard.Fingerprint.empty());
+        assertTrue(s.writeBinding(named, "notebook-1"));
+        byte[] png = {(byte) 137, 'P', 'N', 'G', 13, 10, 26, 10};
+        s.writePreview(quick, png);
+        SaveStateStore.Usage usage = s.usage();
+        assertEquals(1, usage.named); assertEquals(1, usage.auto); assertEquals(1, usage.quick);
+        assertEquals(3, usage.total());
+        assertEquals(named.length() + auto.length() + quick.length(), usage.saveBytes);
+        long expected = usage.saveBytes + "notebook-1".length() + png.length
+                + new File(tmp.getRoot(), "reference.prqref").length()
+                + new File(tmp.getRoot(), "latest-snapshot").length();
+        assertEquals(expected, usage.totalBytes);
+        assertTrue(usage.totalBytes > usage.saveBytes);
+    }
+
     @Test public void compressionActuallyShrinksATypicalImage() throws IOException {
         SaveStateStore s = store();
         byte[] raw = machine(1_000_000, 3);

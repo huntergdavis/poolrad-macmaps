@@ -144,6 +144,38 @@ public final class SaveStateStore {
                 + "\n" + timestamp(save);
     }
 
+    /** Counts and bytes for the Info → Saves page. Sidecars and the reference count toward bytes. */
+    public static final class Usage {
+        public final int quick, auto, named;
+        public final long saveBytes, totalBytes;
+        public Usage(int quick, int auto, int named, long saveBytes, long totalBytes) {
+            this.quick = quick; this.auto = auto; this.named = named;
+            this.saveBytes = saveBytes; this.totalBytes = totalBytes;
+        }
+        public int saves() { return quick + auto + named; }
+        public int total() { return saves(); }
+    }
+
+    public Usage usage() {
+        int quick = 0, auto = 0, named = 0; long saveBytes = 0, totalBytes = 0;
+        for (File f : saves()) {
+            long length = f.length();
+            saveBytes += length;
+            if (quickMetadata(f) != null || f.equals(quickFile())) quick++;
+            else if (label(f).startsWith(AUTO_PREFIX)) auto++;
+            else named++;
+        }
+        totalBytes += folderBytes(directory) + folderBytes(quickDirectory());
+        return new Usage(quick, auto, named, saveBytes, totalBytes);
+    }
+
+    private static long folderBytes(File folder) {
+        File[] found = folder.listFiles();
+        long total = 0;
+        if (found != null) for (File f : found) if (f.isFile()) total += f.length();
+        return total;
+    }
+
     /** Every saved state, newest first. The reference template is not one of these. */
     public List<File> saves() {
         File[] found = directory.listFiles((dir, name) -> name.endsWith(EXTENSION));

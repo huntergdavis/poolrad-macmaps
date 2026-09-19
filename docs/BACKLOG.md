@@ -995,6 +995,17 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
+- [x] **F98 — Info → Saves: the active snapshot and the room left (0.86.0).**
+  A quick-glance page, not a new screen: which quick, named or automatic
+  snapshot the game is running from (loaded, or the later manual save),
+  how many saves are stored by kind with their rotation limits, the device's
+  free space, and a plain estimate of how many more saves fit at the current
+  average size. A normal boot says so instead of naming a save; a brand-new
+  player sees "No saves yet". Below 64 MB free it says to delete old saves,
+  and **Load…** opens the existing picker to do that. Automatic saves count
+  toward storage but never become the active save. Pure-Java text with
+  688 Java tests; live emulator acceptance in
+  [SAVE_STATES.md](SAVE_STATES.md#f98--info--saves).
 - [x] **F97 — Disk-safety audit for hard quits and snapshot restores (0.84.0).**
   Disposable comparisons reproduced persistent HFS metadata errors after an
   idle hard quit and a missing newer save with orphaned blocks after restoring

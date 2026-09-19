@@ -18,4 +18,5 @@
     <string name="companion_citation_read">Read reference</string>
     <string name="companion_citation_dismiss">Dismiss</string>
     <string name="companion_tool_party_order">Marching order</string>
+    <string name="companion_tool_saves">Saves</string>
 </resources>
