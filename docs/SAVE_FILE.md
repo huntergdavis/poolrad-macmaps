@@ -43,12 +43,11 @@ confirmation that matters: the file record and the memory record are one
 layout, and [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md) therefore applies to
 saved games too.
 
-**After the record come that character's items.** A count at `+0x12f`, then that
-many blocks, each carrying the item's name as fixed-width text and a readied
-marker that reads "Yes " or "No  ". The blocks are roughly 66 bytes — the size
-the Amiga port uses — but **not exactly**, and that framing is not yet decoded.
-Five items produce tails of 330, 340 and 370 bytes in different characters, so
-something inside an item block varies.
+**After the record come that character's items.** F79 resolved the framing:
+a big-endian 16-bit count at `+0x12e`, then exactly 66 bytes per item, then
+another big-endian 16-bit count and exactly 10 bytes per effect. The extra
+bytes previously attributed to variable item sizes belong to effects.
+See [SAVE_WRITER.md](SAVE_WRITER.md) for disassembly and live-load evidence.
 
 `PoRCharacters`, beside the saves, is a different thing: one `ChrL` resource
 called "CharacterList", empty on this disk.
@@ -80,9 +79,8 @@ requires copying the right region out, which is what F79 now has to do.
 **One caveat that matters.** In the session measured, the block sat at
 `A5 − 0x76a75`, about 475 KB below the application globals. That is heap
 territory, not an A5-relative global, so the address will move between runs and
-must not be hard-coded. The stable way to reach it is whatever handle the game
-keeps for it — the same shape of problem as the roster, which this project
-already follows by handle rather than by address.
+must not be hard-coded. F79 traced the stable handle to `A5−0x5ea6` and verified
+its exact 7,680-byte logical allocation before copying it.
 
 **One caution about the numbers.** The values at `0x120c` and the hit-point-like
 bytes elsewhere in the data fork are stored low byte first, which is not what a

@@ -2660,3 +2660,11 @@ extents like any other fork.
 
 **Not verified here:** on-device acceptance. Nothing in this release has been
 exercised through the app's own menu on hardware; the owner does that.
+# Original-game save writer — 0.72.0
+
+F79's generated `ExportProof` loaded through the original Macintosh game on
+`emulator-5586`. All six complete character resources matched after loading;
+position was New Phlan 15,1 W. See [SAVE_WRITER.md](SAVE_WRITER.md) for the
+readback evidence, synthetic tests, clean-disk procedure, and exact limitations.
+`tools/verify.sh --fast` passed; the two optional Python module skips are listed
+there. No new physical-tablet acceptance is claimed.

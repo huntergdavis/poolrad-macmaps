@@ -1242,8 +1242,13 @@ reads back correctly.
 
   **A failure is still safe:** the sequence stops, says why, and leaves the guest
   alone.
-- [ ] **F79 — Write a save the game will load.** Verified the only way that
-  counts: the game loads it and the party reads back correctly.
+- [x] **F79 (delivered 0.72.0) — Write a save the game will load.**
+  `tools/write-game-save.py` writes both original-game forks from a validated
+  RAM capture, with MacBinary and `.prsv` containers. The original game loaded
+  the newly generated `ExportProof` on a disposable disk at New Phlan 15,1 W.
+  All six complete character resources, including 34 items and seven effects,
+  read back byte-for-byte identical. No guest memory or original disk is written.
+  This release exposes the writer as a host tool; see [SAVE_WRITER.md](SAVE_WRITER.md).
 - [ ] **F34 — Auto-load the last save on launch.**
 - [x] **F37 (delivered 2026-09-19) — Periodic auto-save,** via save states now
   that they exist, so it is safe and never restarts anything. Every five minutes,

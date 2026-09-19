@@ -11,9 +11,12 @@ the older d4 reference below for the active run.
 - F97 awaits an answer: should old snapshots without disk-verification data
   load after an explicit warning, or be refused? Do not silently choose.
   The existing save/reference fsync runs after gzip closed the descriptor.
-- F89 is verified and prepared for 0.71.0. Native selection tests and 634 Java
+- F89 shipped in 0.71.0. Native selection tests and 634 Java
   tests pass; live Lara selection and moved-window Zarram selection passed.
-  See `docs/PARTY_SELECTION.md`. Publish before starting the next feature.
+  See `docs/PARTY_SELECTION.md`.
+- F79 is verified for 0.72.0: the original game loaded a new generated save;
+  every complete character resource matched after loading. See `docs/SAVE_WRITER.md`.
+  Publish this release before starting the next feature.
 - Existing `emulator-5584` did not respond to guest input even though its core
   reported running and two disks mounted. It was left intact, then backgrounded
   normally. Do not replace its APK or force-stop it.
