@@ -109,8 +109,8 @@ Two things make it tractable:
    keeps only the notebook's id, in a ~36-byte sidecar (`<save>.prqs.notebook`),
    captured at save time. Loading a save opens that notebook, so restoring a
    machine state also brings up the right campaign, at no real size cost. A save
-   whose notebook was deleted since keeps the current notebook rather than
-   failing. The sidecar is removed when its save is deleted. Verified live with
+   whose notebook was deleted originally kept the current notebook; F35 below
+   replaces that unsafe fallback. The sidecar is removed when its save is deleted. Verified live with
    two notebooks: a save made under one was restored while the other was active,
    and the active notebook switched back to the paired one.
 
@@ -134,6 +134,51 @@ as the machine snapshot. PNG encoding and all file I/O run on the controller's
 single worker, not the emulation/UI thread. The existing reference/diff format
 is unchanged. One request retains its own destination and notebook through
 publication, preventing a manual save and autosave from exchanging metadata.
+
+## F35 — unknown campaigns and restore completion
+
+A state with an existing notebook binding prepares that exact notebook. A
+missing, deleted or absent binding offers **Create separate notebook and load**
+or **Cancel load**, before changing the guest. Cancel preserves the current
+game and campaign. An accepted new notebook is paired back to that save, so
+later loads return to the same campaign rather than repeatedly creating books.
+
+Notebook recording pauses before the native restore request. During the
+transition there is no active notebook or journal, old map readings are cleared,
+and the trail recorder forgets its previous continuity. The native core now
+reports actual success/failure at the emulation boundary. Success opens the
+prepared campaign; rejection restores the previous notebook. Newly created
+campaigns do not inherit legacy unassigned journal entries.
+
+The persisted selection is marked pending during this transition. If the app
+is interrupted before it completes, notebook initialization refuses to fall
+back to another campaign; open Notebooks to choose one explicitly. Notebook
+storage errors similarly leave recording unavailable rather than use the wrong
+campaign. Binding-write failures are reported and preserve the previous sidecar.
+
+Native state length is checked against the current complete machine layout
+before any fields are changed. This fixes partial application of a truncated
+body; it does not resolve the separate disk-content problem below.
+
+### F35 acceptance — 2026-09-19
+
+On the disposable emulator, an unbound quick save offered a separate notebook;
+Cancel kept Lara selected and every original notebook file unchanged. A missing
+binding then created Notebook 2, restored Arax, and remembered that pairing.
+Notebook 2 began with one walked square; Notebook 1 retained its 49-square
+trail and byte-identical files. A repeated quick load reused Notebook 2 without
+another prompt. A known Notebook 1 binding switched back to that campaign.
+
+A valid container with a deliberately truncated native body reached the core,
+reported actual restore failure, and preserved the verified Lara selection
+and Notebook 1 even though the fixture named Notebook 2. The reusable private
+fixture generator is `tools/MakeRejectedState.java`. The first selection
+precondition did not take effect; the decisive retry checked it before loading.
+638 Java tests passed, including absent/deleted bindings and failed sidecar
+replacement. The universal Android build passed. No physical-device retest
+or disk-mismatch fix is claimed.
+
+![Separate notebook offered before loading](images/save-notebook-choice.png)
 
 ## Disk-safety limitation (open F97)
 

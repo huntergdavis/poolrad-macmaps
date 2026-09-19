@@ -136,8 +136,20 @@ public class SaveStateStoreTest {
         SaveStateStore s = store();
         File f = s.write("Paired", machine(50000, 2));
         assertNull("no pairing until one is written", s.readBinding(f));
-        s.writeBinding(f, "notebook-abc");
+        assertTrue(s.writeBinding(f, "notebook-abc"));
         assertEquals("notebook-abc", s.readBinding(f));
+    }
+
+    @Test public void aFailedRebindingPreservesThePreviousPairing() throws IOException {
+        SaveStateStore s = store();
+        File f = s.write("Pair failure", machine(50000, 2));
+        assertTrue(s.writeBinding(f, "original-notebook"));
+        File blocked = new File(f.getPath() + ".notebook.part");
+        assertTrue(blocked.mkdir());
+        assertTrue(new File(blocked, "keep").createNewFile());
+        assertFalse(s.writeBinding(f, "replacement-notebook"));
+        assertEquals("original-notebook", s.readBinding(f));
+        assertTrue(new File(blocked, "keep").exists());
     }
 
     /** A blank notebook id clears the pairing rather than writing an empty one. */

@@ -78,6 +78,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
+    private final Object notebookSwitch = new Object();
+    private volatile boolean restoringNotebook;
 
     /**
      * What the map's Return key should do. The notebook owns the map listener,
@@ -154,16 +156,29 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     }
 
     private void selectOnDisk(NotebookStore.Notebook selected) throws IOException {
-        if (!prefs.edit().putString(ACTIVE, selected.id()).commit()) throw new IOException("Notebook selection could not be saved");
+        selectOnDisk(selected, false, null);
+    }
+
+    private void selectOnDisk(NotebookStore.Notebook selected, boolean finishRestore, Runnable finished) throws IOException {
+        synchronized (notebookSwitch) {
+            if (restoringNotebook && !finishRestore) return;
+            if (!prefs.edit().putString(ACTIVE, selected.id()).commit()) throw new IOException("Notebook selection could not be saved");
+        }
         exploration.forget();
-        final JournalHistory loadedJournal = loadOrMigrateJournal(selected.id());
+        final JournalHistory loadedJournal = finishRestore
+                ? store.loadJournal(selected.id()) : loadOrMigrateJournal(selected.id());
         main.post(() -> {
-            if (disposed) return;
+            if (disposed || (restoringNotebook && !finishRestore)) {
+                if (finished != null) finished.run();
+                return;
+            }
+            if (finishRestore) restoringNotebook = false;
             notebook = selected; journal = loadedJournal; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
             map.showExploration(ExplorationTrail.empty(), "Loading trail");
             onExplorationAreaChanged(map.displayedArea());
             onExplorationSample(map.snapshot());
+            if (finished != null) finished.run();
         });
     }
 
@@ -196,22 +211,101 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     /** The id of the notebook now open, or null before one is chosen. Used to pair a save state with its notebook. */
     public String notebookId() { return notebook == null ? null : notebook.id(); }
 
-    /**
-     * Switch to a specific notebook by id, as when a save state is loaded that
-     * was paired with it. A no-op if the id is null, already open, or no longer
-     * on disk (the notebook may have been deleted since the save was made).
-     */
-    public void selectNotebookById(String id) {
-        if (id == null || disposed) return;
-        if (notebook != null && id.equals(notebook.id())) return;
+    /** Resolve or explicitly create a campaign before changing the running game. */
+    public void prepareStateLoad(String id,
+            java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+        if (disposed || opening || session != null || restoringNotebook || (picker != null && picker.isShowing())) {
+            toast("Close the notebook window before loading a save."); ready.accept(null); return;
+        }
+        opening = true;
         IO.execute(() -> {
             try {
-                for (NotebookStore.Notebook book : store.listNotebooks()) {
-                    if (book.id().equals(id)) { selectOnDisk(book); return; }
-                }
-                main.post(() -> { if (!disposed) toast("That save's notebook is no longer here; keeping the current one."); });
+                NotebookStore.Notebook selected = NotebookSelection.forSave(store.listNotebooks(), id);
+                main.post(() -> {
+                    if (disposed) { ready.accept(null); return; }
+                    if (selected != null) preparedStateNotebook(selected, ready);
+                    else offerStateNotebook(id, ready);
+                });
             } catch (IOException | RuntimeException failure) {
-                report("Cannot open the save's notebook", failure);
+                main.post(() -> { opening = false; ready.accept(null); });
+                report("Cannot check the save's notebook", failure);
+            }
+        });
+    }
+
+    private void offerStateNotebook(String id,
+            java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+        final boolean[] chosen = {false};
+        LinearLayout content = column();
+        content.addView(text(id == null ? "This save has no notebook pairing. Create a separate notebook for its campaign?"
+                : "This save's notebook is no longer here. Create a separate notebook for its campaign?"));
+        content.addView(text("Your existing notebooks are kept. Cancel leaves the running game unchanged."));
+        Button create = button(content, "Create separate notebook and load");
+        Button cancel = button(content, "Cancel load");
+        picker = UpperHalfReferenceDialog.show(activity, "Notebook for this save", content, () -> {
+            if (!chosen[0]) { opening = false; ready.accept(null); }
+        });
+        cancel.setOnClickListener(v -> picker.dismiss());
+        create.setOnClickListener(v -> {
+            if (chosen[0]) return;
+            chosen[0] = true; picker.dismiss();
+            IO.execute(() -> {
+                try {
+                    NotebookStore.Notebook created = store.createNotebook();
+                    main.post(() -> preparedStateNotebook(created, ready));
+                } catch (IOException | RuntimeException failure) {
+                    main.post(() -> { opening = false; ready.accept(null); });
+                    report("Cannot create a separate notebook", failure);
+                }
+            });
+        });
+    }
+
+    private void preparedStateNotebook(NotebookStore.Notebook selected,
+            java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+        opening = false;
+        if (disposed) { ready.accept(null); return; }
+        ready.accept(new SaveStateController.NotebookRestore() {
+            private NotebookStore.Notebook previous;
+            private String previousId;
+            private boolean begun, finished;
+            @Override public String notebookId() { return selected.id(); }
+            @Override public boolean begin() {
+                if (disposed || opening || session != null || restoringNotebook) return false;
+                previous = notebook; previousId = prefs.getString(ACTIVE, "");
+                synchronized (notebookSwitch) {
+                    restoringNotebook = true;
+                    // Recreating the activity mid-load must never reopen the old campaign by default.
+                    if (!prefs.edit().putString(ACTIVE, "pending-state-load").commit()) {
+                        restoringNotebook = false; toast("Cannot pause notebook recording; save was not loaded."); return false;
+                    }
+                }
+                begun = true; opening = true; notebook = null; journal = null;
+                lastArea = null; lastTile = -1; explorationInterrupted = true;
+                map.clearReadings(); refreshFlags();
+                map.showExploration(ExplorationTrail.empty(), "Loading campaign");
+                IO.execute(exploration::forget);
+                return true;
+            }
+            @Override public void finish(boolean restored, Runnable done) {
+                if (!begun || finished) return;
+                finished = true;
+                // Old queued samples preceded the native completion callback. Drop their held views.
+                map.clearReadings();
+                NotebookStore.Notebook target = restored ? selected : previous;
+                IO.execute(() -> {
+                    try {
+                        if (target != null) selectOnDisk(target, true, done);
+                        else {
+                            if (!prefs.edit().putString(ACTIVE, previousId).commit())
+                                throw new IOException("Could not restore notebook selection");
+                            main.post(() -> { restoringNotebook = false; opening = false; done.run(); });
+                        }
+                    } catch (IOException | RuntimeException failure) {
+                        main.post(() -> { restoringNotebook = false; opening = false; done.run(); });
+                        report("Notebook unavailable; open Notebooks to choose one", failure);
+                    }
+                });
             }
         });
     }

@@ -21,4 +21,15 @@ public class NotebookSelectionTest {
         try { NotebookSelection.choose(store.listNotebooks(), "gone"); fail(); } catch (IOException expected) { }
         try { NotebookSelection.choose(Collections.emptyList(), "gone"); fail(); } catch (IOException expected) { }
     }
+    @Test public void saveBindingsRequireAnExactExistingNotebook() throws Exception {
+        NotebookStore store = new NotebookStore(temp.newFolder());
+        NotebookStore.Notebook first = store.createNotebook(), second = store.createNotebook();
+        assertEquals(second.id(), NotebookSelection.forSave(store.listNotebooks(), second.id()).id());
+        assertNull(NotebookSelection.forSave(store.listNotebooks(), null));
+        assertNull(NotebookSelection.forSave(store.listNotebooks(), ""));
+        assertNull(NotebookSelection.forSave(store.listNotebooks(), "missing"));
+        store.deleteNotebook(second.id());
+        assertNull(NotebookSelection.forSave(store.listNotebooks(), second.id()));
+        assertEquals(first.id(), NotebookSelection.forSave(store.listNotebooks(), first.id()).id());
+    }
 }

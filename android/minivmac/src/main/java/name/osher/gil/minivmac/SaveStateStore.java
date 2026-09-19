@@ -268,17 +268,19 @@ public final class SaveStateStore {
      * id, not copied: the notes and journal stay in the notebook store. A null
      * or blank id clears any existing pairing.
      */
-    public void writeBinding(File save, String notebookId) {
+    public boolean writeBinding(File save, String notebookId) {
         File sidecar = bindingFile(save);
-        if (notebookId == null || notebookId.trim().isEmpty()) { sidecar.delete(); return; }
+        if (notebookId == null || notebookId.trim().isEmpty()) return !sidecar.exists() || sidecar.delete();
         File partial = new File(sidecar.getPath() + ".part");
         try (FileOutputStream out = new FileOutputStream(partial)) {
             out.write(notebookId.trim().getBytes("UTF-8"));
+            out.getFD().sync();
         } catch (IOException failure) {
             partial.delete();
-            return;   // a lost pairing is not worth failing the save over
+            return false;   // the save itself remains available
         }
-        if (!partial.renameTo(sidecar)) partial.delete();
+        if (!partial.renameTo(sidecar)) { partial.delete(); return false; }
+        return true;
     }
 
     /** The notebook id paired with a save, or null if none was recorded. */

@@ -64,6 +64,7 @@ jmethodID jMySoundInit, jMySoundUnInit, jPlaySound, jMySoundStart, jMySoundStop;
 jmethodID jGetClipboardText, jSetClipboardText;
 jmethodID jRamSnapshot;
 jmethodID jSaveState;
+jmethodID jStateRestored;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 LOCALVAR atomic_int WantSaveState = 0;
 LOCALVAR atomic_int WantRestoreState = 0;
@@ -1327,6 +1328,8 @@ GLOBALFUNC blnr PoolRadRestoreState(const ui3b *buf, ui5b len)
 	if (PRSSGet32(buf + 4) != PRSS_VERSION) { return falseblnr; }
 	if (PRSSGet32(buf + 8) != ramSize) { return falseblnr; }
 	if (PRSSGet32(buf + 12) != len) { return falseblnr; }
+	/* A truncated body must be refused before PRSSVisitAll changes any field. */
+	if (len != PoolRadSaveStateSize()) { return falseblnr; }
 	/* RAM, devices and globals first; the CPU last, so m68k_setpc rebuilds
 	   its fetch pointers against RAM that is already in place. */
 	c.buf = (ui3p)buf; c.pos = PRSS_BULK_AT; c.cap = len; c.mode = 2; c.ok = trueblnr;
@@ -1348,6 +1351,14 @@ GLOBALFUNC blnr PoolRadSaveStateSelfTest(void)
 			&& (PoolRadSaveState(b, size) == size))
 		{
 			ok = (memcmp(a, b, size) == 0) ? trueblnr : falseblnr;
+			/* A self-consistent header with a short body used to begin changing
+			   RAM before the visitor discovered the missing tail. Refuse first. */
+			if (ok) {
+				PRSSPut32(b + 12, size - 1);
+				ok = !PoolRadRestoreState(b, size - 1)
+					&& PoolRadSaveState(b, size) == size
+					&& memcmp(a, b, size) == 0;
+			}
 		}
 	}
 	if (a != nullpr) { free(a); }
@@ -1435,15 +1446,18 @@ LOCALPROC DeliverSaveState(void)
 
 LOCALPROC DeliverRestoreState(void)
 {
+	jboolean restored = JNI_FALSE;
 	if (atomic_exchange(&WantRestoreState, 0) == 0) return;
 	if (gRestoreBuf != nullpr) {
 		if (PoolRadRestoreState(gRestoreBuf, gRestoreLen)) {
+			restored = JNI_TRUE;
 			/* Repaint the whole screen from the restored video buffer, so a
 			   load is visible at once even on a still screen. */
 			NeedWholeScreenDraw = trueblnr;
 		}
 		free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
 	}
+	(*jEnv)->CallVoidMethod(jEnv, mCore, jStateRestored, restored);
 }
 
 GLOBALFUNC jboolean requestRamSnapshot(void)
@@ -1718,6 +1732,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     atomic_store(&WantRamSnapshot, 0);
     atomic_store(&WantSaveState, 0);
     atomic_store(&WantRestoreState, 0);
+    if (gRestoreBuf != nullpr) { free(gRestoreBuf); gRestoreBuf = nullpr; }
+    gRestoreLen = 0;
     atomic_store(&WantMapSample, 0);
     poolrad_walk_reset(&MapWalkTracker);
     atomic_store(&WantWheelSample, 0);
@@ -1744,7 +1760,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jGetClipboardText = (*env)->GetMethodID(env, this, "getClipboardText", "()Ljava/lang/String;");
     jSetClipboardText = (*env)->GetMethodID(env, this, "setClipboardText", "(Ljava/lang/String;)V");
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
-    jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
+	jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
+	jStateRestored = (*env)->GetMethodID(env, this, "onStateRestored", "(Z)V");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");

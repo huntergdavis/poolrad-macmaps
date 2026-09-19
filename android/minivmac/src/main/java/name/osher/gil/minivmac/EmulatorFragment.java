@@ -798,8 +798,10 @@ public class EmulatorFragment extends Fragment
                 @Override public String currentNotebookId() {
                     return mNotebook == null ? null : mNotebook.notebookId();
                 }
-                @Override public void selectNotebook(String notebookId) {
-                    if (mNotebook != null) mNotebook.selectNotebookById(notebookId);
+                @Override public void prepareLoad(String notebookId,
+                        java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+                    if (mNotebook != null) mNotebook.prepareStateLoad(notebookId, ready);
+                    else ready.accept(null);
                 }
             });
         }

@@ -16,9 +16,12 @@ the older d4 reference below for the active run.
   See `docs/PARTY_SELECTION.md`.
 - F79 shipped in 0.72.0: the original game loaded a new generated save;
   every complete character resource matched after loading. See `docs/SAVE_WRITER.md`.
-- F66 is verified for 0.73.0: guest selection is marked in both party layouts.
-  Publish before starting the next feature. `tools/shutdown-test-guest.py` now
+- F66 shipped in 0.73.0: guest selection is marked in both party layouts. `tools/shutdown-test-guest.py` now
   automates normal, OCR-guarded test shutdown and verifies closed disk handles.
+- F35 is verified for 0.74.0: unknown saves offer a new notebook, recording
+  waits for native completion, and rejected loads restore the previous campaign.
+  638 Java tests and live cancel/create/repeat/known/rejected loads passed.
+  Publish this feature before F80. F97's legacy-snapshot question remains open.
 - Existing `emulator-5584` did not respond to guest input even though its core
   reported running and two disks mounted. It was left intact, then backgrounded
   normally. Do not replace its APK or force-stop it.

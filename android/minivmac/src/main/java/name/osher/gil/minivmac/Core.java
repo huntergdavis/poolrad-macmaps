@@ -192,11 +192,28 @@ public class Core {
 
 	/** Hand a raw save-state blob back to be applied at the next safe boundary. */
 	public boolean restoreState(byte[] state) {
+		return restoreState(state, restored -> { });
+	}
+	public interface RestoreListener { void completed(boolean restored); }
+	private final java.util.concurrent.atomic.AtomicReference<RestoreListener> restoreListener =
+			new java.util.concurrent.atomic.AtomicReference<>();
+
+	/** Completion runs on the emulation thread after the actual restore attempt. */
+	public boolean restoreState(byte[] state, RestoreListener listener) {
+		if (!initOk || state == null || listener == null || !restoreListener.compareAndSet(null, listener)) return false;
 		selection.set(null);
 		quickQueue.clear(); // Do not apply an old session's queued preferences to a restored machine.
-		return initOk && state != null && requestRestoreStateNative(state);
+		if (requestRestoreStateNative(state)) return true;
+		restoreListener.compareAndSet(listener, null);
+		return false;
 	}
 	private static native boolean requestRestoreStateNative(byte[] state);
+
+	@SuppressWarnings("unused") // Called at the native safe boundary, before new samples.
+	public void onStateRestored(boolean restored) {
+		RestoreListener listener = restoreListener.getAndSet(null);
+		if (listener != null) listener.completed(restored);
+	}
 
 	/** Called from native with the captured machine state. */
 	public void onSaveState(byte[] state, int[] preview, int width, int height) {
@@ -272,6 +289,8 @@ public class Core {
 		} finally {
 			emulationEnded = true;
 			mIsInitialized = false;
+			initOk = false;
+			onStateRestored(false); // A queued restore cannot complete after the core has ended.
 		}
 	}
 

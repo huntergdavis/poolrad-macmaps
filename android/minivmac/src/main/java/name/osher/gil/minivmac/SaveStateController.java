@@ -31,7 +31,12 @@ public final class SaveStateController {
     public interface CoreAccess { Core current(); }
     public interface NotebookLink {
         String currentNotebookId();
-        void selectNotebook(String notebookId);
+        void prepareLoad(String notebookId, java.util.function.Consumer<NotebookRestore> ready);
+    }
+    public interface NotebookRestore {
+        String notebookId();
+        boolean begin();
+        void finish(boolean restored, Runnable finished);
     }
     private static final String TAG = "PoolRad.SaveState";
     private static final String LOAD_WARNING = "Replaces the running session; unsaved progress is lost. Disk files are not rewound.";
@@ -238,12 +243,28 @@ public final class SaveStateController {
             try {
                 byte[] bytes = store.read(file); String binding = store.readBinding(file);
                 main.post(() -> {
-                    loading = false;
-                    if (!alive() || core != access.current()) return;
-                    if (core.restoreState(bytes)) {
-                        if (notebook != null && binding != null) notebook.selectNotebook(binding);
-                        toast("Loaded " + SaveStateStore.displayLabel(file));
-                    } else toast("The machine would not accept that save.");
+                    if (!alive() || core != access.current()) { loading = false; return; }
+                    if (notebook == null) { loading = false; toast("Open the companion notebook before loading."); return; }
+                    notebook.prepareLoad(binding, transition -> {
+                        if (transition == null || !alive() || core != access.current()) { loading = false; return; }
+                        if (!transition.begin()) { loading = false; return; }
+                        Core.RestoreListener completed = restored -> main.post(() -> {
+                            Log.i(TAG, "Restore completed: " + restored);
+                            transition.finish(restored, () -> {
+                                loading = false;
+                                if (!alive()) return;
+                                if (restored) {
+                                    // Remember a notebook explicitly created for an unbound/orphaned save.
+                                    io.execute(() -> {
+                                        if (!store.writeBinding(file, transition.notebookId()))
+                                            main.post(() -> toast("Loaded, but notebook pairing could not be saved."));
+                                    });
+                                    toast("Loaded " + SaveStateStore.displayLabel(file));
+                                } else toast("The machine would not accept that save.");
+                            });
+                        });
+                        if (!core.restoreState(bytes, completed)) completed.completed(false);
+                    });
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> { loading = false; toast("Could not load: " + failure.getMessage()); });

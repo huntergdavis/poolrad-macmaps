@@ -64,7 +64,7 @@ def main():
     if find(rows, 'Restart Emulator') is None:
         log('Requesting normal game quit')
         command('quit')
-        wait_for('Do you really want to quit?', 11)
+        wait_for('you really want to quit?', 11)
         command('text', '')  # Return: normal dialog acceptance, never a guest-memory write.
         rows, special = wait_for('Special', 11)
         if not all(find(rows, word) for word in ('File', 'Edit', 'Label')):

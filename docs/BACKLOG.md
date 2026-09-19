@@ -1265,8 +1265,12 @@ reads back correctly.
   an auto-save with a party actually in the world — that step is gated only by
   the tap-driven game-menu navigation the harness still struggles with (the same
   limitation noted under F86), not by this code.
-- [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
-  new notebook rather than writing into the wrong one.
+- [x] **F35 (delivered 0.74.0) — Notebooks follow save states.** Unknown or
+  deleted pairings offer a separate notebook before loading. Cancel preserves
+  the game and existing notebooks; successful loads remember the new pairing.
+  Recording pauses until native restore completion, and rejection restores the
+  previous notebook. Live cancel/create/repeat/known-binding/rejection checks
+  passed; see [SAVE_STATES.md](SAVE_STATES.md).
 - [x] **F38 (delivered 0.45.0) — Resume polling automatically after the guest restarts.** Today it
   takes a tab toggle.
 - [ ] **F80 — Publish the format specification** once it is verified. The
