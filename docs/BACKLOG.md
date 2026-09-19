@@ -1358,7 +1358,20 @@ quick-flag write.
 ### The party list
 
 - [ ] **F67 — Mark NPCs in the party distinctly** from characters the player
-  rolled. The roster walk already tells them apart.
+  rolled. **Blocked on one offset, 2026-09-18.** The claim that "the roster walk
+  already tells them apart" was wrong: it does not.
+
+  What is established, from the game's own `STRS`: the concept exists and the
+  game acts on it. It appends the literal `"  (NPC)"` to a character's name when
+  it prints one, and it refuses the Modify Character command with `"NPCs can't
+  be modified."` So there is a field, and at least two pieces of the game's code
+  test it.
+
+  What is missing is where. The suffix is appended at print time, so the name in
+  the record does not carry it, and none of the owner's three saved games has an
+  NPC in it to diff against. Either trace the code behind either of those two
+  strings, or capture a save with an NPC in the party and diff it against one
+  without — the second is much the cheaper if such a save can be made.
 - [ ] **F72 — Show the marching order.** Wanted, with a design caution from the
   owner: the row is already carrying a badge, a name, HP, armour class, a bar,
   T/R/W and Q, and this must not make it busy.
