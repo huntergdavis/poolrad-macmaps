@@ -105,7 +105,16 @@ public final class SaveBackupController {
         }
 
         List<String> choices = new ArrayList<>();
-        if (!saves.isEmpty() && loader != null) choices.add("Load a saved game\u2026");
+        /*
+         * Load is withdrawn (2026-09-19). The sequence restarts the emulated
+         * machine to reach a state where the game offers Load, and a restart
+         * that did not come back cleanly left the owner's emulator wedged badly
+         * enough to need a force-reboot. Backing up and restoring the save
+         * files is untouched -- that never restarts anything. The loader
+         * plumbing is kept but not offered, so it can be finished under F86
+         * without re-adding a menu item by hand.
+         */
+        // if (!saves.isEmpty() && loader != null) choices.add("Load a saved game\u2026");
         if (!saves.isEmpty()) choices.add("Back up all " + saves.size()
                 + (saves.size() == 1 ? " saved game" : " saved games"));
         if (!stored.isEmpty()) choices.add("Restore one of " + stored.size()

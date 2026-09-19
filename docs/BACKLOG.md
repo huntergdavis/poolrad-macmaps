@@ -1067,7 +1067,7 @@ reads back correctly.
   global. The address will move between runs and must not be hard-coded; the
   stable way to reach it is the handle the game keeps for it, the same way this
   project already follows the roster.
-- [x] **F33 (delivered 0.47.0) — Load a save from the companion,** by reading the file.
+- [~] **F33 (delivered 0.47.0, WITHDRAWN 2026-09-19) — Load a save from the companion,** by reading the file.
   **PAUSED 2026-09-18, one question for the owner.** Reading a save is done —
   `SavedParty.parse` already says who is in one, so the companion can show what
   each save holds. Making the game *load* it is the part that needs a decision,
@@ -1109,7 +1109,18 @@ reads back correctly.
   rather than handing one back, and `tools/snapshot-with-save.sh` will not
   capture until the companion can say where the party is, because a capture
   taken in any other state proves nothing.
-- [ ] **F86 — Get the load sequence through a live machine, start to finish.**
+- [ ] **F86 — Get the load sequence working safely, then bring Load back.**
+  **Load was removed from the app on 2026-09-19.** It restarts the emulated
+  machine to reach a state where the game offers Load, and on the owner's device
+  a restart that did not come back cleanly wedged the emulator so badly it needed
+  a force-reboot. That is far too destructive to leave in front of anyone. The
+  menu item is gone; the `LoadSequence` state machine and its tests stay, and
+  the backup/restore of save *files* is untouched because it never restarts
+  anything.
+
+  Before Load returns, the restart it depends on has to be proven to always come
+  back — or the whole approach abandoned for one that does not restart the guest
+  at all. The original notes on getting the sequence to complete:
   **2026-09-18. The disk blocker is gone; the remaining obstacle is the test
   harness, not the feature.**
 
