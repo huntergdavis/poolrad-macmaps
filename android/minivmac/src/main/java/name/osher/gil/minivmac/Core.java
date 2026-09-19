@@ -204,6 +204,27 @@ public class Core {
 	}
 
 	public boolean isReady() { return initOk; }
+    private Runnable startupRestore;
+    private StartupRestoreGate startupGate;
+    void setStartupRestore(Runnable start) {
+        startupRestore = start;
+        startupGate = start == null ? null : new StartupRestoreGate();
+    }
+    StartupRestoreGate startupGate() { return startupGate; }
+    /** Called before the first guest tick; later polls only wait for this attempt. */
+    @SuppressWarnings("unused")
+    public boolean pollStartupRestore() {
+        if (startupGate == null) return false;
+        if (startupGate.start()) {
+            try { startupRestore.run(); }
+            catch (RuntimeException failure) {
+                startupGate.cancel();
+                Log.w(TAG, "Could not start automatic snapshot load", failure);
+            }
+        }
+        return startupGate.held();
+    }
+
 
 	private static native boolean requestRamSnapshotNative();
 
@@ -222,7 +243,7 @@ public class Core {
 	public void setSaveStateListener(SaveStateListener listener) { mSaveStateListener = listener; }
 
 	/** Ask the emulation thread to capture the machine; the bytes arrive at onSaveState. */
-	public boolean requestSaveState() { return initOk && requestSaveStateNative(); }
+	public boolean requestSaveState() { return initOk && (startupGate == null || !startupGate.held()) && requestSaveStateNative(); }
 	private static native boolean requestSaveStateNative();
 
 	public interface RestoreListener { void completed(boolean restored); }
@@ -423,14 +444,17 @@ public class Core {
 	@SuppressWarnings("unused") private native static boolean getMouseButton();
 
 	public void setMousePosition(int x, int y) {
+        if (startupGate != null && startupGate.held()) return;
 		setMousePos(x, y);
 	}
 
 	public void setMouseBtn(Boolean down) {
+        if (startupGate != null && startupGate.held()) return;
 		setMouseButton(down);
 	}
 
 	public void setMoveMouse(int dx, int dy) {
+        if (startupGate != null && startupGate.held()) return;
 		moveMouse(dx, dy);
 	}
 	
@@ -439,10 +463,12 @@ public class Core {
 	private native static void setKeyUp(int scancode);
 
 	public void keyDown(int scancode) {
+        if (startupGate != null && startupGate.held()) return;
 		setKeyDown(scancode);
 	}
 
 	public void keyUp(int scancode) {
+        if (startupGate != null && startupGate.held()) return;
 		setKeyUp(scancode);
 	}
 	

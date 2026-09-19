@@ -133,6 +133,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         applyExplorationStyle();
         map.setListener(this);
         ((MiniVMac) activity).journal().setNotebooks(this);
+        opening = true;
         IO.execute(() -> {
             try {
                 List<NotebookStore.Notebook> books = store.listNotebooks();
@@ -141,7 +142,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 if (selected == null) selected = store.createNotebook();
                 selectOnDisk(selected);
             } catch (IOException | RuntimeException failure) {
-                main.post(() -> { if (!disposed) map.showNotebook("Notebook unavailable · choose Notebooks", Collections.emptyMap()); });
+                main.post(() -> { opening = false; if (!disposed) map.showNotebook("Notebook unavailable · choose Notebooks", Collections.emptyMap()); });
                 report("Cannot open selected notebook; choose Notebooks", failure);
             }
         });
@@ -228,10 +229,20 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     /** The id of the notebook now open, or null before one is chosen. Used to pair a save state with its notebook. */
     public String notebookId() { return notebook == null ? null : notebook.id(); }
 
+    public boolean readyForStateLoad() {
+        return !disposed && !opening && session == null && !restoringNotebook
+                && (picker == null || !picker.isShowing());
+    }
+
     /** Resolve or explicitly create a campaign before changing the running game. */
     public void prepareStateLoad(String id,
             java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
-        if (disposed || opening || session != null || restoringNotebook || (picker != null && picker.isShowing())) {
+        prepareStateLoad(id, true, ready);
+    }
+
+    public void prepareStateLoad(String id, boolean offerCreation,
+            java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+        if (!readyForStateLoad()) {
             toast("Close the notebook window before loading a save."); ready.accept(null); return;
         }
         opening = true;
@@ -241,7 +252,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 main.post(() -> {
                     if (disposed) { ready.accept(null); return; }
                     if (selected != null) preparedStateNotebook(selected, ready);
-                    else offerStateNotebook(id, ready);
+                    else if (offerCreation) offerStateNotebook(id, ready);
+                    else { opening = false; ready.accept(null); }
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> { opening = false; ready.accept(null); });

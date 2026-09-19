@@ -66,6 +66,8 @@ jmethodID jRamSnapshot;
 jmethodID jSaveState;
 jmethodID jStateRestored;
 jmethodID jCanRestoreState;
+jmethodID jPollStartupRestore;
+LOCALVAR blnr StartupRestoreFinished = falseblnr;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 LOCALVAR atomic_int WantSaveState = 0;
 LOCALVAR atomic_int WantRestoreState = 0;
@@ -1241,13 +1243,13 @@ LOCALPROC CheckForSavedTasks(void)
 /* ---- whole-machine save state (see POOLRAD_SAVESTATE.h) ---- */
 
 #define PRSS_MAGIC 0x50525353UL  /* "PRSS" */
-#define PRSS_VERSION 2
-#define PRSS_HEADER 16           /* magic, version, ramSize, totalLen */
+#define PRSS_VERSION 3
+#define PRSS_HEADER 24           /* magic, version, ramSize, totalLen, model, ROM checksum */
 #define PRSS_CPU_AT PRSS_HEADER
 #define PRSS_BULK_AT (PRSS_HEADER + PoolRadCPUStateSize)
 
 struct PRSSCursor { ui3p buf; ui5b pos; ui5b cap; int mode; blnr ok; };
-/* mode: 0 measure, 1 save, 2 restore */
+/* mode: 0 measure, 1 save, 2 restore, 3 validate bounded device fields */
 
 LOCALPROC PRSSVisit(void *vctx, void *data, ui5b size)
 {
@@ -1256,9 +1258,11 @@ LOCALPROC PRSSVisit(void *vctx, void *data, ui5b size)
 		if (c->pos + size > c->cap) { c->ok = falseblnr; return; }
 		if (c->mode == 1) {
 			memcpy(c->buf + c->pos, data, size);
-		} else {
+		} else if (c->mode == 2) {
 			memcpy(data, c->buf + c->pos, size);
-		}
+		} else if (!SCC_ValidateSnapshotField(data, c->buf + c->pos)) {
+            c->ok = falseblnr;
+        }
 	}
 	c->pos += size;
 }
@@ -1269,15 +1273,7 @@ LOCALPROC PRSSVisitAll(PoolRadStateVisitor visit, void *ctx)
 	ui5b ramSize;
 	ui3p ram = GetRamForSnapshot(&ramSize);
 	GlobGlue_VisitState(visit, ctx);
-#if EmVIA1
-	VIA1_VisitState(visit, ctx);
-#endif
-#if EmVIA2
-	VIA2_VisitState(visit, ctx);
-#endif
-#if EmRTC
-	RTC_VisitState(visit, ctx);
-#endif
+	GlobGlue_VisitDevices(visit, ctx);
 	/* GlobGlue_VisitState also captures the Mac II's separate video buffer,
 	   which is not part of main RAM; see GLOBGLUE.c. */
 	visit(ctx, ram, ramSize);
@@ -1308,11 +1304,13 @@ GLOBALFUNC ui5b PoolRadSaveState(ui3p buf, ui5b cap)
 	ui5b ramSize;
 	ui5b total = PoolRadSaveStateSize();
 	(void) GetRamForSnapshot(&ramSize);
-	if (cap < total) { return 0; }
+	if (cap < total || !SCC_PrepareSnapshot()) { return 0; }
 	PRSSPut32(buf + 0, PRSS_MAGIC);
 	PRSSPut32(buf + 4, PRSS_VERSION);
 	PRSSPut32(buf + 8, ramSize);
 	PRSSPut32(buf + 12, total);
+	PRSSPut32(buf + 16, PoolRadMachineModel());
+	PRSSPut32(buf + 20, PRSSGet32(ROM));
 	PoolRadSaveCPUState(buf + PRSS_CPU_AT);
 	c.buf = buf; c.pos = PRSS_BULK_AT; c.cap = cap; c.mode = 1; c.ok = trueblnr;
 	PRSSVisitAll(PRSSVisit, &c);
@@ -1329,13 +1327,23 @@ GLOBALFUNC blnr PoolRadRestoreState(const ui3b *buf, ui5b len)
 	if (PRSSGet32(buf + 4) != PRSS_VERSION) { return falseblnr; }
 	if (PRSSGet32(buf + 8) != ramSize) { return falseblnr; }
 	if (PRSSGet32(buf + 12) != len) { return falseblnr; }
+    if (PRSSGet32(buf + 16) != PoolRadMachineModel() || PRSSGet32(buf + 20) != PRSSGet32(ROM))
+        return falseblnr;
 	/* A truncated body must be refused before PRSSVisitAll changes any field. */
 	if (len != PoolRadSaveStateSize()) { return falseblnr; }
+    c.buf = (ui3p)buf; c.pos = PRSS_BULK_AT; c.cap = len; c.mode = 3; c.ok = trueblnr;
+    PRSSVisitAll(PRSSVisit, &c);
+    if (!c.ok) return falseblnr;
 	/* RAM, devices and globals first; the CPU last, so m68k_setpc rebuilds
 	   its fetch pointers against RAM that is already in place. */
 	c.buf = (ui3p)buf; c.pos = PRSS_BULK_AT; c.cap = len; c.mode = 2; c.ok = trueblnr;
 	PRSSVisitAll(PRSSVisit, &c);
 	if (! c.ok) { return falseblnr; }
+    SCC_AfterRestore();
+    GlobGlue_AfterRestore();
+#if 0 != vMacScreenDepth
+    ColorMappingChanged = trueblnr;
+#endif
 	PoolRadRestoreCPUState(buf + PRSS_CPU_AT);
 	return trueblnr;
 }
@@ -1684,6 +1692,13 @@ GLOBALOSGLUPROC WaitForNextTick(void)
         return;
     }
 
+    if (! StartupRestoreFinished) {
+        jboolean held = (*jEnv)->CallBooleanMethod(jEnv, mCore, jPollStartupRestore);
+        if ((*jEnv)->ExceptionCheck(jEnv)) {
+            (*jEnv)->ExceptionClear(jEnv); held = JNI_FALSE;
+        }
+        if (! held) StartupRestoreFinished = trueblnr;
+    }
     DeliverRamSnapshot();
     DeliverRestoreState();
     DeliverSaveState();
@@ -1692,6 +1707,13 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     DeliverPartySample();
     DeliverMessageSample();
     DeliverCombatSample();
+
+    if (! StartupRestoreFinished) {
+        struct timespec wait = {0, 10000000};
+        DoneWithDrawingForTick();
+        nanosleep(&wait, NULL);
+        goto label_retry;
+    }
 
     if (CurSpeedStopped) {
         DoneWithDrawingForTick();
@@ -1744,6 +1766,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     //ZapWinStateVars();
 
     ForceMacOff = falseblnr;
+    StartupRestoreFinished = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
     atomic_store(&WantSaveState, 0);
     atomic_store(&WantRestoreState, 0);
@@ -1778,6 +1801,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 	jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
 	jStateRestored = (*env)->GetMethodID(env, this, "onStateRestored", "(Z)V");
 	jCanRestoreState = (*env)->GetMethodID(env, this, "canRestoreState", "()Z");
+	jPollStartupRestore = (*env)->GetMethodID(env, this, "pollStartupRestore", "()Z");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");

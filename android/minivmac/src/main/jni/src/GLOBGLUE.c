@@ -1780,6 +1780,7 @@ EXPORTPROC GlobGlue_VisitState(PoolRadStateVisitor visit, void *ctx)
 	visit(ctx, ICTwhen, sizeof(ICTwhen));
 	visit(ctx, Wires, sizeof(Wires));
 	visit(ctx, &InterruptButton, sizeof(InterruptButton));
+	visit(ctx, &CurIPL, sizeof(CurIPL));
 #if IncludeVidMem
 	/*
 		The Mac II keeps its screen in a separate video buffer, not in main
@@ -1795,4 +1796,43 @@ EXPORTPROC GlobGlue_VisitState(PoolRadStateVisitor visit, void *ctx)
 		second is set once and is guarded out of some variants. The timing and
 		interrupt-line state above is what a resume actually needs.
 	*/
+}
+
+
+// Derived address tables hold host pointers and must be rebuilt in this process.
+EXPORTPROC GlobGlue_AfterRestore(void)
+{
+    SetUpMemBanks();
+}
+
+EXPORTFUNC ui5b PoolRadMachineModel(void)
+{
+    return CurEmMd;
+}
+
+/* Device flags live in CNFUDPIC.h, which OS glue does not include.
+ * Keep conditional traversal beside the model configuration. */
+EXPORTPROC GlobGlue_VisitDevices(PoolRadStateVisitor visit, void *ctx)
+{
+#if EmVIA1
+	VIA1_VisitState(visit, ctx);
+#endif
+#if EmVIA2
+	VIA2_VisitState(visit, ctx);
+#endif
+#if EmRTC
+	RTC_VisitState(visit, ctx);
+#endif
+    Sony_VisitState(visit, ctx);
+    SCC_VisitState(visit, ctx);
+    IWM_VisitState(visit, ctx);
+#if EmADB
+    ADB_VisitState(visit, ctx);
+#endif
+#if EmASC
+    Sound_VisitState(visit, ctx);
+#endif
+#if EmVidCard
+    Video_VisitState(visit, ctx);
+#endif
 }

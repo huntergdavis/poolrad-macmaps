@@ -210,4 +210,22 @@ GLOBALPROC ADB_Update(void)
 	}
 }
 
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC ADB_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &ADB_ListenDatBuf, sizeof(ADB_ListenDatBuf));
+	visit(ctx, &ADB_IndexDatBuf, sizeof(ADB_IndexDatBuf));
+	visit(ctx, &ADB_SzDatBuf, sizeof(ADB_SzDatBuf));
+	visit(ctx, &ADB_TalkDatBuf, sizeof(ADB_TalkDatBuf));
+	visit(ctx, &ADB_DatBuf, sizeof(ADB_DatBuf));
+	visit(ctx, &ADB_CurCmd, sizeof(ADB_CurCmd));
+	visit(ctx, &NotSoRandAddr, sizeof(NotSoRandAddr));
+	visit(ctx, &MouseADBAddress, sizeof(MouseADBAddress));
+	visit(ctx, &SavedCurMouseButton, sizeof(SavedCurMouseButton));
+	visit(ctx, &MouseADBDeltaH, sizeof(MouseADBDeltaH));
+	visit(ctx, &MouseADBDeltaV, sizeof(MouseADBDeltaV));
+	visit(ctx, &KeyboardADBAddress, sizeof(KeyboardADBAddress));
+}
+
 #endif /* EmADB */

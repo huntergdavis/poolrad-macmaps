@@ -29,6 +29,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 	public static final String KEY_PREF_MOUSE = "pref_mouse";
 	public static final String KEY_PREF_SCALE = "pref_scale";
 	public static final String KEY_PREF_SCROLL = "pref_scroll";
+	public static final String KEY_PREF_AUTOLOAD = "pref_autoload";
 	public static final String KEY_PREF_AUTOSAVE = "pref_autosave";
 	public static final String KEY_PREF_ONELINE_PARTY = "pref_oneline_party";
 	public static final String KEY_PREF_MIRROR_MESSAGE = "pref_mirror_message";

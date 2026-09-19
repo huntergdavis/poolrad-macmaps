@@ -1683,3 +1683,21 @@ GLOBALPROC ExtnSony_Access(CPTR p)
 
 	put_vm_word(p + ExtnDat_result, result);
 }
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC Sony_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &vSonyMountedMask, sizeof(vSonyMountedMask));
+	visit(ctx, &ImageDataOffset, sizeof(ImageDataOffset));
+	visit(ctx, &ImageDataSize, sizeof(ImageDataSize));
+	visit(ctx, &DelayUntilNextInsert, sizeof(DelayUntilNextInsert));
+	visit(ctx, &MountCallBack, sizeof(MountCallBack));
+	visit(ctx, &QuitOnEject, sizeof(QuitOnEject));
+#if Sony_SupportTags
+    visit(ctx, &ImageTagOffset, sizeof(ImageTagOffset));
+    visit(ctx, &TheTagBuffer, sizeof(TheTagBuffer));
+#endif
+#if IncludeSonyRawMode
+    visit(ctx, &vSonyRawMode, sizeof(vSonyRawMode));
+#endif
+}

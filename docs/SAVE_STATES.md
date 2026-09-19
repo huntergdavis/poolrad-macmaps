@@ -1,10 +1,17 @@
 # Save states: real save/load outside the game
 
-Current format: **PRQS3**, with required mounted-disk verification. PRQS1 and
-PRQS2 snapshots are unsupported. Original-game saves are unaffected.
+Current 0.85.0 format: **PRQS4 / PRSS3**, with model-aware device traversal
+and required mounted-disk verification. PRQS1, PRQS2 and PRQS3 emulator
+snapshots are unsupported. Original-game saves are unaffected.
+[Automatic launch restore](AUTO_LOAD.md) describes F34 and its acceptance checks.
 
 The earlier sections retain the implementation history; F97 below describes
-the current disk-consistency requirements.
+the disk-consistency requirements. F34 testing found that the old OS-glue
+coordinator did not see model-specific device flags, so its VIA/RTC calls were
+compiled out despite the earlier description. Those tests proved specific
+in-process behavior, not complete device capture or a fresh-process resume.
+The coordinator now runs inside model-aware GLOBGLUE and has an independent
+device-inclusion regression test.
 
 ## Why
 

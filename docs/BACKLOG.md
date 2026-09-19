@@ -1264,7 +1264,14 @@ reads back correctly.
   All six complete character resources, including 34 items and seven effects,
   read back byte-for-byte identical. No guest memory or original disk is written.
   This release exposes the writer as a host tool; see [SAVE_WRITER.md](SAVE_WRITER.md).
-- [ ] **F34 — Auto-load the last save on launch.**
+- [x] **F34 (delivered 0.85.0) — Auto-load the last save on launch.**
+  The latest completed quick, named or automatic snapshot is attempted before
+  the first guest tick. Default-on option, Start normally cancellation, exact
+  disk verification and existing notebook binding; refusal continues normal
+  boot. PRQS4 / PRSS3 captures configured devices for a new-process resume.
+  Fresh-process color/input/save-I/O checks, launch fallbacks, native rejection,
+  681 Java tests and native sanitizer regressions passed.
+  See [AUTO_LOAD.md](AUTO_LOAD.md).
 - [x] **F37 (delivered 2026-09-19) — Periodic auto-save,** via save states now
   that they exist, so it is safe and never restarts anything. Every five minutes,
   while a party is in the world, a state is captured to its own rotating "Auto "

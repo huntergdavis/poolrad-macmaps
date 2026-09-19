@@ -23,6 +23,7 @@ flock -n 9 || { echo "Another release is running" >&2; exit 1; }
 [ -f "docs/releases/$VERSION.md" ] || { echo "Write docs/releases/$VERSION.md first." >&2; exit 1; }
 git rev-parse "v$VERSION" >/dev/null 2>&1 && { echo "v$VERSION already exists." >&2; exit 1; }
 python3 tools/readme-screenshots.py check "$VERSION"
+bash tools/test-snapshot-native.sh
 
 GRADLE=android/minivmac/build.gradle
 OLD_CODE="$(grep -oP 'versionCode \K[0-9]+' "$GRADLE" | head -1)"

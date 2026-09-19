@@ -1000,4 +1000,17 @@ GLOBALPROC ExtnVideo_Access(CPTR p)
 	put_vm_word(p + ExtnDat_result, result);
 }
 
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC Video_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &UseGrayTones, sizeof(UseGrayTones));
+#if 0 != vMacScreenDepth
+    visit(ctx, &UseColorMode, sizeof(UseColorMode));
+    visit(ctx, CLUT_reds, sizeof(CLUT_reds));
+    visit(ctx, CLUT_greens, sizeof(CLUT_greens));
+    visit(ctx, CLUT_blues, sizeof(CLUT_blues));
+#endif
+}
+
 #endif /* EmVidCard */

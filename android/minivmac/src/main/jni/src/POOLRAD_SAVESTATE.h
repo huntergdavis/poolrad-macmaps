@@ -10,8 +10,9 @@
 	the sizes. Because there is only one ordering, save and restore cannot drift
 	apart -- the classic way a hand-written save state corrupts a resume.
 
-	Completeness (did we name every mutable byte?) is the only remaining risk,
-	and it is checked at runtime by PoolRadSaveStateSelfTest.
+	Completeness needs device-state review and behavioural resume tests.
+	PoolRadSaveStateSelfTest checks round-trip equality of the included fields;
+	it cannot detect state that was omitted from both captures.
 
 	A save state is tied to this exact emulator build and its disks, which is
 	inherent to save states and fine for a single-purpose app.
@@ -32,10 +33,19 @@ typedef void (*PoolRadStateVisitor)(void *ctx, void *data, ui5b size);
 EXPORTPROC VIA1_VisitState(PoolRadStateVisitor visit, void *ctx);
 EXPORTPROC VIA2_VisitState(PoolRadStateVisitor visit, void *ctx);
 EXPORTPROC RTC_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTFUNC blnr SCC_PrepareSnapshot(void);
+EXPORTPROC SCC_AfterRestore(void);
+EXPORTFUNC blnr SCC_ValidateSnapshotField(void *field, const ui3b *bytes);
 EXPORTPROC SCC_VisitState(PoolRadStateVisitor visit, void *ctx);
 EXPORTPROC Sound_VisitState(PoolRadStateVisitor visit, void *ctx);
 EXPORTPROC Sony_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTPROC ADB_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTPROC Video_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTPROC IWM_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTPROC GlobGlue_AfterRestore(void);
+EXPORTFUNC ui5b PoolRadMachineModel(void);
 EXPORTPROC GlobGlue_VisitState(PoolRadStateVisitor visit, void *ctx);
+EXPORTPROC GlobGlue_VisitDevices(PoolRadStateVisitor visit, void *ctx);
 
 /*
 	How many bytes a save state occupies, including the fixed header, the CPU
@@ -58,8 +68,8 @@ EXPORTFUNC blnr PoolRadRestoreState(const ui3b *buf, ui5b len);
 
 /*
 	Capture the machine, restore it in place, and capture again; return
-	trueblnr when the two captures are byte-identical. A mismatch means some
-	mutable state was left out of the visitor. Debug builds only.
+	trueblnr when the two captures are byte-identical. A mismatch means the included state did not round-trip exactly.
+	Equality alone does not establish completeness. Debug builds only.
 */
 EXPORTFUNC blnr PoolRadSaveStateSelfTest(void);
 

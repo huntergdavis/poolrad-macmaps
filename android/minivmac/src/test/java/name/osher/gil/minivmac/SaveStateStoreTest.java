@@ -226,12 +226,13 @@ public class SaveStateStoreTest {
         assertEquals("two auto-saves kept", 2, s.autoSaves().size());
     }
 
-    @Test public void olderUnverifiedFormatsAreExplicitlyRefused() throws IOException {
-        for (char version : new char[]{'1', '2'}) {
+    @Test public void olderFormatsAreExplicitlyRefused() throws IOException {
+        for (char version : new char[]{'1', '2', '3'}) {
             File legacy = new File(tmp.getRoot(), "legacy-" + version + SaveStateStore.EXTENSION);
             java.io.ByteArrayOutputStream body = new java.io.ByteArrayOutputStream();
             body.write(new byte[]{'P', 'R', 'Q', 'S', (byte)version, '\n'});
-            if (version == '2') body.write(0);
+            if (version == '3') body.write(0); // empty disk fingerprint
+            if (version != '1') body.write(0);
             try (java.util.zip.GZIPOutputStream gz = new java.util.zip.GZIPOutputStream(body)) {
                 gz.write(machine(80000, 6));
             }

@@ -31,6 +31,8 @@ public final class SaveStateController {
     public interface CoreAccess { Core current(); }
     public interface NotebookLink {
         String currentNotebookId();
+        boolean readyForLoad();
+        void prepareAutoLoad(String notebookId, java.util.function.Consumer<NotebookRestore> ready);
         void prepareLoad(String notebookId, java.util.function.Consumer<NotebookRestore> ready);
     }
     public interface NotebookRestore {
@@ -50,6 +52,7 @@ public final class SaveStateController {
     private boolean loading;
     private NotebookLink notebook;
     private AlertDialog picker;
+    private StartupLoad startup;
 
     public SaveStateController(Activity activity, CoreAccess access) {
         this.activity = activity; this.access = access;
@@ -61,6 +64,7 @@ public final class SaveStateController {
         catch (RuntimeException ignored) { return null; }
     }
     public void dispose() {
+        if (startup != null) startup.cancel(null);
         disposed = true;
         if (picker != null) picker.dismiss();
         io.shutdown(); // An accepted write may finish; late native callbacks are ignored.
@@ -89,6 +93,7 @@ public final class SaveStateController {
                         written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, 20, fingerprint);
                     } else written = store.write(request.label, state, fingerprint);
                     store.writeBinding(written, request.notebook);
+                    store.rememberLatest(written);
                     long previewStart = SystemClock.elapsedRealtime();
                     boolean preview = false;
                     try {
@@ -235,44 +240,118 @@ public final class SaveStateController {
                     main.post(() -> { toast(deleted ? "Save deleted" : "Could not delete save"); if (alive()) chooseSave(); });
                 })).setNegativeButton("Cancel", null));
     }
+    /** First guest tick is held by Core until this one launch attempt queues or declines. */
+    public void autoLoadLatest(Core core) {
+        StartupRestoreGate gate = core.startupGate();
+        if (gate == null) return;
+        if (!alive() || core != access.current() || loading || requests.busy()) {
+            gate.cancel(); return;
+        }
+        loading = true;
+        StartupLoad launch = new StartupLoad(core, gate);
+        startup = launch;
+        launch.dialog = showPicker(new AlertDialog.Builder(activity)
+                .setTitle("Resuming last snapshot")
+                .setMessage("Checking the saved machine and mounted disks…")
+                .setCancelable(false)
+                .setNegativeButton("Start normally", (d,w) -> launch.cancel("Automatic load skipped.")));
+        main.postDelayed(launch.timeout, 30000);
+        io.execute(() -> {
+            try {
+                File file = store.latestSave();
+                if (file == null) main.post(() -> launch.cancel(null));
+                else readForLoad(file, core, launch);
+            } catch (IOException | RuntimeException failure) {
+                main.post(() -> launch.cancel("Auto-load skipped: " + failure.getMessage()));
+            }
+        });
+    }
+
+    private final class StartupLoad {
+        final Core core;
+        final StartupRestoreGate gate;
+        AlertDialog dialog;
+        final Runnable timeout = () -> cancel("Auto-load timed out; starting normally.");
+        StartupLoad(Core core, StartupRestoreGate gate) { this.core = core; this.gate = gate; }
+        boolean active() { return startup == this && gate.waiting() && alive() && core == access.current(); }
+        void close() {
+            main.removeCallbacks(timeout);
+            if (dialog != null) dialog.dismiss();
+            if (startup == this) startup = null;
+        }
+        void cancel(String reason) {
+            if (!gate.cancel()) return; // Once application begins, its real completion owns the outcome.
+            close(); loading = false;
+            Log.i(TAG, reason == null ? "No automatic launch restore" : reason);
+            toast(reason);
+        }
+        void queued() { gate.release(); close(); }
+    }
+
     private void load(File file) {
         Core core = access.current();
         if (!alive() || core == null || !core.isReady()) { toast("The emulator is not running."); return; }
         if (loading || requests.busy()) { toast("Finishing the current save/load…"); return; }
         loading = true;
-        io.execute(() -> {
-            try {
-                SaveStateStore.Snapshot snapshot = store.readSnapshot(file);
-                DiskSnapshotGuard.Verified disks = core.verifySnapshotDisks(snapshot.disks);
-                String binding = store.readBinding(file);
-                main.post(() -> {
-                    if (!alive() || core != access.current()) { loading = false; return; }
-                    if (notebook == null) { loading = false; toast("Open the companion notebook before loading."); return; }
-                    notebook.prepareLoad(binding, transition -> {
-                        if (transition == null || !alive() || core != access.current()) { loading = false; return; }
-                        if (!transition.begin()) { loading = false; return; }
-                        Core.RestoreListener completed = restored -> main.post(() -> {
-                            Log.i(TAG, "Restore completed: " + restored);
-                            transition.finish(restored, () -> {
-                                loading = false;
-                                if (!alive()) return;
-                                if (restored) {
-                                    // Remember a notebook explicitly created for an unbound/orphaned save.
-                                    io.execute(() -> {
-                                        if (!store.writeBinding(file, transition.notebookId()))
-                                            main.post(() -> toast("Loaded, but notebook pairing could not be saved."));
-                                    });
-                                    toast("Loaded " + SaveStateStore.displayLabel(file));
-                                } else toast("Snapshot refused: the machine or mounted disks changed. Try loading an original game save.");
-                            });
-                        });
-                        if (!core.restoreState(snapshot.state, disks, completed)) completed.completed(false);
-                    });
-                });
-            } catch (IOException | RuntimeException failure) {
-                main.post(() -> { loading = false; toast("Could not load: " + failure.getMessage()); });
+        io.execute(() -> readForLoad(file, core, null));
+    }
+
+    /** Shared manual/launch path: exact disk verification before any notebook transition. */
+    private void readForLoad(File file, Core core, StartupLoad launch) {
+        try {
+            SaveStateStore.Snapshot snapshot = store.readSnapshot(file);
+            DiskSnapshotGuard.Verified disks = core.verifySnapshotDisks(snapshot.disks);
+            String binding = store.readBinding(file);
+            main.post(() -> prepareLoad(file, core, snapshot, disks, binding, launch));
+        } catch (IOException | RuntimeException failure) {
+            main.post(() -> {
+                if (launch != null) launch.cancel("Auto-load skipped: " + failure.getMessage());
+                else { loading = false; toast("Could not load: " + failure.getMessage()); }
+            });
+        }
+    }
+
+    private void prepareLoad(File file, Core core, SaveStateStore.Snapshot snapshot,
+            DiskSnapshotGuard.Verified disks, String binding, StartupLoad launch) {
+        if (launch != null && !launch.active()) { launch.cancel(null); return; }
+        if (!alive() || core != access.current()) { loading = false; return; }
+        if (notebook == null || (launch != null && !notebook.readyForLoad())) {
+            if (launch != null) main.postDelayed(
+                    () -> prepareLoad(file, core, snapshot, disks, binding, launch), 100);
+            else { loading = false; toast("Open the companion notebook before loading."); }
+            return;
+        }
+        java.util.function.Consumer<NotebookRestore> ready = transition -> {
+            if (launch != null && !launch.active()) { launch.cancel(null); return; }
+            if (transition == null || !alive() || core != access.current()) {
+                if (launch != null) launch.cancel("Auto-load skipped: notebook unavailable. Load the snapshot manually to choose its campaign.");
+                else loading = false;
+                return;
             }
-        });
+            if (launch != null && !launch.gate.beginApply()) return;
+            if (!transition.begin()) {
+                if (launch != null) launch.queued();
+                loading = false; return;
+            }
+            Core.RestoreListener completed = restored -> main.post(() -> {
+                Log.i(TAG, (launch == null ? "Restore completed: " : "Launch restore completed: ") + restored);
+                transition.finish(restored, () -> {
+                    loading = false;
+                    if (!alive()) return;
+                    if (restored) {
+                        io.execute(() -> {
+                            if (!store.writeBinding(file, transition.notebookId()))
+                                main.post(() -> toast("Loaded, but notebook pairing could not be saved."));
+                        });
+                        toast("Loaded " + SaveStateStore.displayLabel(file));
+                    } else toast("Snapshot refused: the machine or mounted disks changed. Try loading an original game save.");
+                });
+            });
+            if (!core.restoreState(snapshot.state, disks, completed)) completed.completed(false);
+            if (launch != null) launch.queued();
+        };
+        if (launch == null) notebook.prepareLoad(binding, ready);
+        else notebook.prepareAutoLoad(binding, ready);
     }
     private int dp(int value) { return Math.round(value * activity.getResources().getDisplayMetrics().density); }
     private boolean alive() { return !disposed && !activity.isFinishing(); }

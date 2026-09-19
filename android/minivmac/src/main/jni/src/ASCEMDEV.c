@@ -870,4 +870,22 @@ label_retry:
 #endif
 }
 
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC Sound_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &SoundReg801, sizeof(SoundReg801));
+	visit(ctx, &SoundReg802, sizeof(SoundReg802));
+	visit(ctx, &SoundReg803, sizeof(SoundReg803));
+	visit(ctx, &SoundReg804, sizeof(SoundReg804));
+	visit(ctx, &SoundReg805, sizeof(SoundReg805));
+	visit(ctx, &SoundReg_Volume, sizeof(SoundReg_Volume));
+	visit(ctx, &ASC_SampBuff, sizeof(ASC_SampBuff));
+	visit(ctx, &ASC_ChanA, sizeof(ASC_ChanA));
+	visit(ctx, &ASC_FIFO_Out, sizeof(ASC_FIFO_Out));
+	visit(ctx, &ASC_FIFO_InA, sizeof(ASC_FIFO_InA));
+	visit(ctx, &ASC_FIFO_InB, sizeof(ASC_FIFO_InB));
+	visit(ctx, &ASC_Playing, sizeof(ASC_Playing));
+}
+
 #endif /* EmASC */

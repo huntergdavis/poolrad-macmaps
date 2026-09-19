@@ -2973,3 +2973,77 @@ GLOBALFUNC ui5b SCC_Access(ui5b Data, blnr WriteMem, CPTR addr)
 
 	return Data;
 }
+
+#include "POOLRAD_SAVESTATE.h"
+#include <string.h>
+#if EmLocalTalk
+LOCALVAR ui3b SnapshotTx[LT_TxBfMxSz], SnapshotRx[LT_TxBfMxSz];
+LOCALVAR ui5b SnapshotRxSize;
+LOCALVAR ui3b SnapshotHasRx;
+#endif
+
+EXPORTFUNC blnr SCC_PrepareSnapshot(void)
+{
+#if EmLocalTalk
+    if (LT_TxBuffSz > LT_TxBfMxSz || (LT_TxBuffSz && LT_TxBuffer == nullpr)
+            || (LT_RxBuffer != nullpr && LT_RxBuffSz > LT_TxBfMxSz))
+        return falseblnr;
+    if (LT_TxBuffSz) memcpy(SnapshotTx, LT_TxBuffer, LT_TxBuffSz);
+    memset(SnapshotTx + LT_TxBuffSz, 0, LT_TxBfMxSz - LT_TxBuffSz);
+    SnapshotHasRx = LT_RxBuffer != nullpr;
+    SnapshotRxSize = SnapshotHasRx ? LT_RxBuffSz : 0;
+    /* A restored receive pointer can already refer to SnapshotRx. */
+    if (SnapshotRxSize) memmove(SnapshotRx, LT_RxBuffer, SnapshotRxSize);
+    memset(SnapshotRx + SnapshotRxSize, 0, LT_TxBfMxSz - SnapshotRxSize);
+#endif
+    return trueblnr;
+}
+
+EXPORTPROC SCC_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+    visit(ctx, &SCC, sizeof(SCC));
+#if EmLocalTalk
+    visit(ctx, &CTSpacketPending, sizeof(CTSpacketPending));
+    visit(ctx, &CTSpacketRxDA, sizeof(CTSpacketRxDA));
+    visit(ctx, &CTSpacketRxSA, sizeof(CTSpacketRxSA));
+    visit(ctx, &IsFindingNode, sizeof(IsFindingNode));
+    visit(ctx, &my_node_address, sizeof(my_node_address));
+    visit(ctx, &LTAddrSrchMd, sizeof(LTAddrSrchMd));
+    visit(ctx, &rx_data_offset, sizeof(rx_data_offset));
+    visit(ctx, &LT_NodeHint, sizeof(LT_NodeHint));
+#if LT_MayHaveEcho
+    visit(ctx, &CertainlyNotMyPacket, sizeof(CertainlyNotMyPacket));
+#endif
+    visit(ctx, &LT_TxBuffSz, sizeof(LT_TxBuffSz));
+    visit(ctx, &SnapshotHasRx, sizeof(SnapshotHasRx));
+    visit(ctx, &SnapshotRxSize, sizeof(SnapshotRxSize));
+    visit(ctx, SnapshotTx, sizeof(SnapshotTx));
+    visit(ctx, SnapshotRx, sizeof(SnapshotRx));
+#endif
+}
+
+EXPORTFUNC blnr SCC_ValidateSnapshotField(void *field, const ui3b *bytes)
+{
+#if EmLocalTalk
+    if (field == &LT_TxBuffSz) {
+        ui4r size; memcpy(&size, bytes, sizeof(size)); return size <= LT_TxBfMxSz;
+    }
+    if (field == &SnapshotRxSize) {
+        ui5b size; memcpy(&size, bytes, sizeof(size)); return size <= LT_TxBfMxSz;
+    }
+    if (field == &SnapshotHasRx) return bytes[0] <= 1;
+#else
+    (void)field; (void)bytes;
+#endif
+    return trueblnr;
+}
+
+EXPORTPROC SCC_AfterRestore(void)
+{
+#if EmLocalTalk
+    /* Never restore sockets or raw host addresses from another process. */
+    if (LT_TxBuffer != nullpr) memcpy(LT_TxBuffer, SnapshotTx, LT_TxBfMxSz);
+    LT_RxBuffer = SnapshotHasRx ? SnapshotRx : nullpr;
+    LT_RxBuffSz = SnapshotHasRx ? SnapshotRxSize : 0;
+#endif
+}

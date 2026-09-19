@@ -29,8 +29,6 @@ footprints are remembered **per area** — clearing the fog in the slums does no
 clear it in the caves. The same page controls compact party rows, larger
 messages and automatic snapshots.
 
-<img src="docs/images/readme-options.png" width="760" alt="Companion Options page with map, party and message controls">
-
 **Directional footprints** record the way you actually walked, so a corridor you
 have been down twice looks different from one you passed once. Doors you have
 stood beside and never gone through are marked, which is your own map telling
@@ -98,7 +96,10 @@ The small previews are encoded in the background, and each snapshot remembers
 its notebook. Snapshots now require disk verification: older emulator snapshots
 are unsupported. A missing picture does not block a valid new snapshot.
 
-<img src="docs/images/readme-save-preview.png" width="760" alt="Dated quick-save preview explaining required disk matching and refusal of older snapshots">
+**Resume on launch:** the app tries your last completed quick, named or automatic
+snapshot. It resumes when the mounted disks match and the paired notebook still
+exists. **Start normally** skips the attempt; **Info → Options** can turn it off.
+If a snapshot cannot be used, the Mac boots normally.
 
 Original-game save-file backups live under **Settings → Back up / restore game
 saves…**. These are separate from emulator snapshots and notebook exports.

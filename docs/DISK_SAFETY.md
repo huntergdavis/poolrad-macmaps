@@ -7,7 +7,11 @@ Restoring cached HFS metadata against newer disk contents can lose files or
 damage the filesystem. F97 requires the exact mounted disk contents from the
 capture and refuses a mismatch.
 
-## Verified format
+F34 (0.85.0) extends the native machine body in PRQS4 and rejects PRQS1–3.
+The disk-fingerprint layout and verification described below are retained.
+See [AUTO_LOAD.md](AUTO_LOAD.md) for fresh-process and disk-I/O acceptance.
+
+## Verified format (published 0.84.0)
 
 PRQS3 stores a bounded disk fingerprint before the existing full/diff mode and
 gzip payload. Each disk entry records its drive slot, write protection, byte

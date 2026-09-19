@@ -50,7 +50,8 @@ public final class SaveStateStore {
     /** The reference template every diff is measured against; kept, never listed. */
     private static final String REFERENCE_NAME = "reference.prqref";
 
-    /** v3 requires disk verification; older unverified snapshots are deliberately refused. */
+    /** v4 requires complete launch-resumable machine state plus disk verification. */
+    private static final byte[] MAGIC4 = {'P', 'R', 'Q', 'S', '4', '\n'};
     private static final byte[] MAGIC3 = {'P', 'R', 'Q', 'S', '3', '\n'};
     private static final byte[] MAGIC2 = {'P', 'R', 'Q', 'S', '2', '\n'};
     private static final byte[] MAGIC1 = {'P', 'R', 'Q', 'S', '1', '\n'};
@@ -153,6 +154,48 @@ public final class SaveStateStore {
         return files;
     }
 
+    /** Remember successful publication independently of the device's wall clock. Worker only. */
+    public void rememberLatest(File save) throws IOException {
+        File actual = save.getCanonicalFile();
+        File root = directory.getCanonicalFile();
+        File parent = actual.getParentFile();
+        if (!actual.isFile() || !actual.getName().endsWith(EXTENSION)
+                || !(root.equals(parent) || quickDirectory().getCanonicalFile().equals(parent)))
+            throw new IOException("Latest snapshot must be in the save folder");
+        String relative = root.equals(parent) ? actual.getName() : "quick-history/" + actual.getName();
+        File partial = new File(directory, "latest-snapshot.part");
+        File target = new File(directory, "latest-snapshot");
+        try {
+            try (FileOutputStream out = new FileOutputStream(partial)) {
+                out.write(relative.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                out.getFD().sync();
+            }
+            if (!partial.renameTo(target)) throw new IOException("Could not remember latest snapshot");
+        } finally { partial.delete(); }
+    }
+
+    /** First-use fallback uses the existing browser order; never skips a corrupt newest save. */
+    public File latestSave() throws IOException {
+        File index = new File(directory, "latest-snapshot");
+        if (index.isFile()) {
+            if (index.length() < 1 || index.length() > 1024)
+                throw new IOException("Latest snapshot record is invalid");
+            byte[] bytes = new byte[(int)index.length()];
+            try (FileInputStream in = new FileInputStream(index)) { readFully(in, bytes); }
+            String relative = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+            File candidate = new File(directory, relative).getCanonicalFile();
+            File root = directory.getCanonicalFile(), parent = candidate.getParentFile();
+            if (!candidate.getName().endsWith(EXTENSION)
+                    || !(root.equals(parent) || quickDirectory().getCanonicalFile().equals(parent))
+                    || !(relative.equals(candidate.getName())
+                         || relative.equals("quick-history/" + candidate.getName())))
+                throw new IOException("Latest snapshot record points outside the save folder");
+            if (candidate.isFile()) return candidate;
+        }
+        List<File> all = saves();
+        return all.isEmpty() ? null : all.get(0);
+    }
+
     /** Compress a machine image to `target` as a diff against the reference, never overwriting in place. */
     public void write(File target, byte[] rawState, DiskSnapshotGuard.Fingerprint disks) throws IOException {
         if (disks == null) throw new IOException("Snapshot has no disk verification");
@@ -178,7 +221,7 @@ public final class SaveStateStore {
         File partial = new File(target.getPath() + ".part");
         try {
             try (FileOutputStream out = new FileOutputStream(partial)) {
-                out.write(MAGIC3);
+                out.write(MAGIC4);
                 disks.writeTo(out);
                 out.write(mode);
                 if (mode == MODE_DIFF) {
@@ -241,9 +284,9 @@ public final class SaveStateStore {
         try (FileInputStream in = new FileInputStream(file)) {
             byte[] header = new byte[MAGIC2.length];
             readFully(in, header);
-            if (matches(header, MAGIC1) || matches(header, MAGIC2))
-                throw new IOException("Unsupported older snapshot format: disk verification is required. Create a new snapshot.");
-            if (!matches(header, MAGIC3)) throw new IOException("Not a PoolRad save state");
+            if (matches(header, MAGIC1) || matches(header, MAGIC2) || matches(header, MAGIC3))
+                throw new IOException("Unsupported older snapshot format: create a new snapshot with this version.");
+            if (!matches(header, MAGIC4)) throw new IOException("Not a PoolRad save state");
             DiskSnapshotGuard.Fingerprint disks = DiskSnapshotGuard.Fingerprint.readFrom(in);
             int mode = readByte(in);
             if (mode == MODE_FULL) {

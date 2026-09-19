@@ -32,6 +32,9 @@ final class CompanionOptionsDialog {
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_MIRROR_MESSAGE,
                 "Large message text", false, changed);
         label(activity, list, "Save states");
+        preference(activity, list, prefs, SettingsFragment.KEY_PREF_AUTOLOAD,
+                "Load last snapshot when the app starts", true, changed);
+        label(activity, list, "Requires matching disks and an existing notebook. Start normally skips the launch attempt.");
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_AUTOSAVE,
                 "Auto-save every five minutes", true, changed);
         label(activity, list, "Keeps the latest 20 automatic states while a party is in the world.");

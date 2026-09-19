@@ -212,3 +212,9 @@ GLOBALFUNC ui5b IWM_Access(ui5b Data, blnr WriteMem, CPTR addr)
 
 	return Data;
 }
+
+#include "POOLRAD_SAVESTATE.h"
+EXPORTPROC IWM_VisitState(PoolRadStateVisitor visit, void *ctx)
+{
+	visit(ctx, &IWM, sizeof(IWM));
+}

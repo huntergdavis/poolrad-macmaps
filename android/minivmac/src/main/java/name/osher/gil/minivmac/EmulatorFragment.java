@@ -826,6 +826,14 @@ public class EmulatorFragment extends Fragment
                 @Override public String currentNotebookId() {
                     return mNotebook == null ? null : mNotebook.notebookId();
                 }
+                @Override public boolean readyForLoad() {
+                    return mNotebook != null && mNotebook.readyForStateLoad();
+                }
+                @Override public void prepareAutoLoad(String notebookId,
+                        java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
+                    if (mNotebook != null) mNotebook.prepareStateLoad(notebookId, false, ready);
+                    else ready.accept(null);
+                }
                 @Override public void prepareLoad(String notebookId,
                         java.util.function.Consumer<SaveStateController.NotebookRestore> ready) {
                     if (mNotebook != null) mNotebook.prepareStateLoad(notebookId, ready);
@@ -937,6 +945,9 @@ public class EmulatorFragment extends Fragment
             mRestartLayout.setVisibility(View.VISIBLE);
             return;
         }
+        final boolean restoreOnLaunch = !mEmulatorStarted
+                && PreferenceManager.getDefaultSharedPreferences(requireContext())
+                .getBoolean(SettingsFragment.KEY_PREF_AUTOLOAD, true);
         Thread emulation = new Thread(() -> {
             Core sessionCore = null;
             try {
@@ -961,6 +972,8 @@ public class EmulatorFragment extends Fragment
             });
             final SaveStateController stateController = saveState();
             mCore.setSaveStateListener(stateController::onState);
+            if (restoreOnLaunch) mapCore.setStartupRestore(() ->
+                    mUIHandler.post(() -> stateController.autoLoadLatest(mapCore)));
             mCore.setPartySampleListener(sample -> {
                 final int generation = mMapGeneration;
                 // Kept whatever the companion is doing: this is how the load
