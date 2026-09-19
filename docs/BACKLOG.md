@@ -1099,29 +1099,32 @@ reads back correctly.
   capture until the companion can say where the party is, because a capture
   taken in any other state proves nothing.
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
-  **Much further, still not there. 2026-09-18.**
+  **2026-09-18. The disk blocker is gone; the remaining obstacle is the test
+  harness, not the feature.**
 
-  The blocker named last time is gone: the owner's `scratch/poolrad-slim-boot.dsk`
-  launches the game from an alias in Startup Items, and with it mounted the
-  machine comes back up running the game every time — confirmed repeatedly, the
-  game reaching its Continue prompt within seconds of the boot finishing. How to
-  make such a disk is now [BOOT_DISK.md](BOOT_DISK.md).
+  With the owner's `scratch/poolrad-slim-boot.dsk` the machine comes back up
+  running the game every time — an alias in Startup Items, written up in
+  [BOOT_DISK.md](BOOT_DISK.md). The sequence then restarts, the game launches
+  itself, and the companion reports **"the original game is loading or preparing
+  a party"**. No party arrives.
 
-  With that in place the sequence gets: restart → the game launches itself →
-  `Cmd-L` → the companion reporting **"the original game is loading or preparing
-  a party"** for over two minutes. And then no party. The game is left running
-  with its menu bar up and no windows, which is what it looks like before a game
-  is loaded.
+  **Ruled out:** two volumes both carrying a `PoolRadSave` folder. Parking the
+  second disk and running again gave exactly the same result.
 
-  **The next lead, untested:** both mounted disks have a
-  `Pool Of Radiance:PoolRadSave` folder. The sequence types `PoolRadSave` into
-  the Standard File dialog and presses Return, and type-select there navigates
-  within whatever folder the dialog happens to be showing. With two volumes
-  carrying the same folder name, which one it lands in is not something the
-  sequence controls or checks. Worth trying with a single disk mounted before
-  anything more elaborate.
+  **What is actually in the way now.** `tools/watch-load.sh` drives the
+  companion's own dialogs by tapping fixed coordinates, which were measured when
+  three saved games were listed. With a different number of entries, or a
+  different dialog height, those taps land somewhere else — and nothing in the
+  harness notices, so every run looks like the feature failing when some of them
+  are the harness missing a button.
 
-  **A failure is still safe:** it stops, says why, and leaves the guest alone.
+  Before anything else is concluded about this feature, the harness should find
+  the dialogs by reading them: `uiautomator dump` already reports each element's
+  text and bounds, so tapping the middle of the element whose text is "Load a
+  saved game…" costs nothing and cannot drift.
+
+  **A failure is still safe:** the sequence stops, says why, and leaves the guest
+  alone.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
