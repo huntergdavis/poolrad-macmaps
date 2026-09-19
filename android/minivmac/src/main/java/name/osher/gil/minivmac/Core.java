@@ -60,21 +60,35 @@ public class Core {
 	}
 	public Boolean pendingQuick(name.osher.gil.minivmac.mapper.PartyState.Member member) { return quickQueue.pending(member); }
 	private static native boolean setPartyQuickNative(int slot, boolean on);
-	private static native int partyTargetNative(int member);
+	private static native int partyTargetNative(int member, boolean forSheet);
 	private final java.util.concurrent.atomic.AtomicReference<PartySelection> selection =
 			new java.util.concurrent.atomic.AtomicReference<>();
 	private volatile boolean selectionHeld;
+	private final java.util.concurrent.atomic.AtomicInteger selectionEpoch = new java.util.concurrent.atomic.AtomicInteger();
+	public void cancelPartySelection() {
+		selectionEpoch.incrementAndGet();
+		selection.set(null); confirmingSelection.set(null);
+	}
+	private final java.util.concurrent.atomic.AtomicReference<PartySelection> confirmingSelection =
+			new java.util.concurrent.atomic.AtomicReference<>();
 	private static final class PartySelection {
 		final name.osher.gil.minivmac.mapper.PartyState.Member member;
-		final Runnable refused;
+		final Runnable refused, selected;
+		final int epoch;
 		final long time = android.os.SystemClock.elapsedRealtime();
-		PartySelection(name.osher.gil.minivmac.mapper.PartyState.Member member, Runnable refused) {
-			this.member = member; this.refused = refused;
+		PartySelection(name.osher.gil.minivmac.mapper.PartyState.Member member, Runnable refused, Runnable selected, int epoch) {
+			this.epoch = epoch;
+			this.member = member; this.refused = refused; this.selected = selected;
 		}
 	}
 	public boolean selectPartyMember(name.osher.gil.minivmac.mapper.PartyState.Member member, Runnable refused) {
-		if (!initOk || member == null || selectionHeld) return false;
-		if (!selection.compareAndSet(null, new PartySelection(member, refused))) return false;
+		return selectPartyMember(member, refused, null);
+	}
+	/** A follow-up is allowed only after a fresh sample confirms the requested selection. */
+	public boolean selectPartyMember(name.osher.gil.minivmac.mapper.PartyState.Member member,
+			Runnable refused, Runnable selected) {
+		if (!initOk || member == null || selectionHeld || confirmingSelection.get() != null) return false;
+		if (!selection.compareAndSet(null, new PartySelection(member, refused, selected, selectionEpoch.get()))) return false;
 		requestPartySample();
 		return true;
 	}
@@ -83,18 +97,38 @@ public class Core {
 		if (intent == null) return;
 		int index = PartySelectionTarget.index(name.osher.gil.minivmac.mapper.PartyState.parse(sample), intent.member);
 		int target = index < 0 || android.os.SystemClock.elapsedRealtime() - intent.time > 1000
-				? -1 : partyTargetNative(index);
+				? -1 : partyTargetNative(index, intent.selected != null);
 		if (target < 0) { if (intent.refused != null) quickRetry.post(intent.refused); return; }
 		setMousePosition(target >>> 16, target & 0xffff);
 		selectionHeld = true;
+		if (intent.selected != null) {
+			confirmingSelection.set(intent);
+			quickRetry.postDelayed(() -> {
+				if (confirmingSelection.compareAndSet(intent, null) && intent.refused != null) intent.refused.run();
+			}, 2000);
+		}
 		setMouseBtn(true);
 		quickRetry.postDelayed(() -> {
 			if (isReady()) setMouseBtn(false);
 			selectionHeld = false;
+			if (intent.selected != null) requestPartySample();
 		}, 100);
+	}
+	private void confirmPartySelection(byte[] sample) {
+		PartySelection intent = confirmingSelection.get();
+		if (intent == null || selectionHeld) return;
+		name.osher.gil.minivmac.mapper.PartyState current = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
+		if (android.os.SystemClock.elapsedRealtime() - intent.time > 2000) return;
+		int index = PartySelectionTarget.confirmedIndex(current, intent.member);
+		// Recheck the native input/window guard after the click, including modal occlusion.
+		if (index >= 0 && partyTargetNative(index, true) >= 0 && confirmingSelection.compareAndSet(intent, null))
+			quickRetry.post(() -> {
+				if (intent.epoch == selectionEpoch.get() && isReady()) intent.selected.run();
+			});
 	}
 	@SuppressWarnings("unused") // Read-only compact sample delivered on emulation thread.
 	public void onPartySample(byte[] sample) {
+		confirmPartySelection(sample);
 		deliverPartySelection(sample);
 		if (quickQueue.busy()) {
 			boolean written = quickQueue.drain(name.osher.gil.minivmac.mapper.PartyState.parse(sample), Core::setPartyQuickNative);
@@ -201,7 +235,7 @@ public class Core {
 	/** Completion runs on the emulation thread after the actual restore attempt. */
 	public boolean restoreState(byte[] state, RestoreListener listener) {
 		if (!initOk || state == null || listener == null || !restoreListener.compareAndSet(null, listener)) return false;
-		selection.set(null);
+		cancelPartySelection();
 		quickQueue.clear(); // Do not apply an old session's queued preferences to a restored machine.
 		if (requestRestoreStateNative(state)) return true;
 		restoreListener.compareAndSet(listener, null);

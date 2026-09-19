@@ -1539,7 +1539,12 @@ quick-flag write.
 - [ ] **F72 — Show the marching order.** Wanted, with a design caution from the
   owner: the row is already carrying a badge, a name, HP, armour class, a bar,
   T/R/W and Q, and this must not make it busy.
-- [ ] **F43 — Long-press a party row, open that character's sheet in the game.**
+- [x] **F43 (delivered 0.79.0) — Long-press a party row for the game sheet.**
+  Selects the exact character through the Information window, confirms the
+  fresh selection, then sends the verified plain V command in an authenticated
+  idle exploration/camp context. Short taps retain companion details; named
+  accessibility actions also open sheets. Live Lara/Zarram and modal-refusal
+  checks passed; see [PARTY_SELECTION.md](PARTY_SELECTION.md).
 - [x] **F44 (delivered 0.55.0) — A chores tab:** "2 can train · 1 needs rest · 1 dying".
 
 ### The notebook

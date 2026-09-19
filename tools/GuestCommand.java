@@ -5,14 +5,16 @@ import com.sun.jdi.request.*;
 import java.util.*;
 
 /** Invoke the app's normal timed Command-key input, via local debug access.
- * No guest-memory edits. Usage: GuestCommand PORT load|quit|begin|view|save.
+ * No guest-memory edits. Usage: GuestCommand PORT load|quit|begin|view|save|text|key [TEXT].
+ * view is the Character menu Cmd-E; use key V for the active exploration/camp View.
  */
 public class GuestCommand {
     public static void main(String[] args) throws Exception {
         Map<String,Character> keys=Map.of("load",'L',"quit",'Q',"begin",'B',"view",'E',"save",'S');
         Character key=keys.get(args[1]);
+        boolean single=args[1].equals("key") && args.length==3 && args[2].matches("[A-Za-z0-9]");
         boolean text=args[1].equals("text") && args.length==3 && args[2].matches("[A-Za-z0-9 .]{0,64}");
-        if(key==null && !text) throw new IllegalArgumentException("Expected load, quit, begin, view, save, or text STRING");
+        if(key==null && !text && !single) throw new IllegalArgumentException("Expected load, quit, begin, view, save, text STRING, or key LETTER");
         AttachingConnector c=Bootstrap.virtualMachineManager().attachingConnectors().stream()
                 .filter(x -> x.name().equals("com.sun.jdi.SocketAttach")).findFirst().orElseThrow();
         Map<String,Connector.Argument> opts=c.defaultArguments();
@@ -35,8 +37,8 @@ public class GuestCommand {
                         ObjectReference currentCore=hit.thread().frame(0).thisObject();
                         for(ObjectReference instance:fragment.instances(8)) {
                             if(!currentCore.equals(instance.getValue(fragment.fieldByName("mCore")))) continue;
-                            if(text) instance.invokeMethod(hit.thread(),fragment.methodsByName("sendGuestLine").get(0),
-                                    List.of(vm.mirrorOf(args[2]),vm.mirrorOf(true)),ObjectReference.INVOKE_SINGLE_THREADED);
+                            if(text || single) instance.invokeMethod(hit.thread(),fragment.methodsByName("sendGuestLine").get(0),
+                                    List.of(vm.mirrorOf(args[2]),vm.mirrorOf(!single)),ObjectReference.INVOKE_SINGLE_THREADED);
                             else instance.invokeMethod(hit.thread(),fragment.methodsByName("sendCommandKey").get(0),
                                     List.of(vm.mirrorOf(key.charValue())),ObjectReference.INVOKE_SINGLE_THREADED);
                             sent=true; break;

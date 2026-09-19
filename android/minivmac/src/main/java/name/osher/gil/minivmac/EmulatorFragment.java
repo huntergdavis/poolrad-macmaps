@@ -663,6 +663,18 @@ public class EmulatorFragment extends Fragment
             if (!queued) refused.run();
             return queued;
         });
+        mNotebook.setPartySheet(member -> {
+            Core core = mCore;
+            Runnable refused = () -> {
+                if (isAdded()) android.widget.Toast.makeText(requireContext(),
+                        "The game cannot open that character's sheet right now.", android.widget.Toast.LENGTH_SHORT).show();
+            };
+            boolean queued = core != null && core.selectPartyMember(member, refused, () -> {
+                if (mCore == core && core.isReady() && isResumed()) tapGuestKey(translateKeyCode(KeyEvent.KEYCODE_V));
+            });
+            if (!queued) refused.run();
+            return queued;
+        });
         mLiveMap.setQuickPending(member -> mCore == null ? null : mCore.pendingQuick(member));
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
@@ -1346,6 +1358,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public void onPause () {
+        if (mCore != null) mCore.cancelPartySelection();
         stopMapPolling();
         stopWheelPolling();
         stopAutoSave();

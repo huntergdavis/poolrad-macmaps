@@ -100,3 +100,55 @@ All 16 Android combat/party render checks passed, including both selected-row
 layouts, combat actor precedence, and removal of selection wording during loading.
 
 ![Selected Lara in the compact party layout](images/party-selected-compact.png)
+
+## Long-press the original character sheet — F43
+
+Hold a party row to select that character and open the original game's
+**View Character** sheet. A short tap still selects the character and shows
+companion details. Named **Open game sheet for …** accessibility actions
+provide the same operation without requiring a long press.
+
+The gesture cancels on movement, another pointer, a changed party, resize,
+focus loss or hiding the pane. Releasing a completed long press does not also
+open companion details. It uses the existing guarded Information-window click.
+Only after the mouse is released and a fresh party packet confirms the exact,
+unique requested identity as selected does the app send the game's verified plain **V** command. It rechecks the native input/window guard, including modal occlusion,
+and refuses after a bounded timeout. Pause and snapshot restore invalidate
+pending work, including a confirmation callback already queued for the UI.
+
+No character field is written. The game decides whether its View command is
+available in the current context. Disabled, hidden or covered Information
+windows are refused rather than assigned guessed click coordinates.
+
+Live correction: Command-E from the Character menu is disabled while adventuring.
+Plain V opened Lara's sheet. Captures of exploration and camp both showed
+engine 4/2, input tag 0x56, menu state 2, and zero pending-input/startup/load/
+relocation flags. An open character sheet changed the input tag to zero.
+The native View gate checks this authenticated context before and after selecting;
+combat, setup, transitions and the observed sheet state refuse input.
+
+Research reused: Deja session 1d01c279-196b-4165-83cb-2031016bb071 and the menu
+resource evidence in GUEST_MENU_KEYS.md (corrected by the live check above); F89's verified selection path above
+provides the ordinary guest click.
+
+### F43 acceptance — 2026-09-19
+
+The corrected build passed 647 Java tests and native bounds/context tests under
+address and undefined-behavior sanitizers. All 27 actual Android party-view
+checks passed, including one-shot long press, stale/drag/focus cancellation,
+unchanged tap behavior and named sheet accessibility actions.
+
+On disposable emulator-5586, the original game loaded ExportProof at New Phlan
+15,1 W. With Arax selected, a long press on Lara opened her original sheet
+(Female Elf, Fighter/Magic-User, Long Sword). A long press on Hogarth while
+that modal sheet remained open left Lara's sheet unchanged. After closing it
+and entering camp normally, a long press on Zarram opened his sheet (Male Human,
+Cleric, Flail). No guest RAM writes or physical-tablet acceptance are claimed.
+
+The first development build selected Lara correctly but used disabled Cmd-E;
+the shipped implementation uses the subsequently verified plain V command.
+The test loader also stopped safely during startup before typing filenames.
+Its readiness checks now wait for settled menus and exclude the observed
+“Loading… Please Wait” screen; the complete settled-start load path passed.
+
+![Lara selected by a companion long press, with her original-game sheet open](images/party-game-sheet.png)

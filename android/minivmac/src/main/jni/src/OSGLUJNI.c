@@ -1568,11 +1568,12 @@ LOCALPROC DeliverPartySample(void)
  * see docs/DESIGN.md for what that does and does not cover.
  */
 /* Called synchronously from Core.onPartySample on this same core thread. */
-GLOBALFUNC jint partyTarget(jint member)
+GLOBALFUNC jint partyTarget(jint member, jboolean forSheet)
 {
     ui5b size; int x, y;
     ui3p ram = GetRamForSnapshot(&size);
-    if (CurMouseButton || member < 0 || !poolrad_party_target(ram, size, (unsigned)member,
+    if (CurMouseButton || member < 0 || (forSheet && !poolrad_party_view_available(ram, size))
+            || !poolrad_party_target(ram, size, (unsigned)member,
             vMacScreenWidth, vMacScreenHeight, &x, &y)) return -1;
     return (x << 16) | y;
 }

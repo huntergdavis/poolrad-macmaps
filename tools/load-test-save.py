@@ -43,16 +43,18 @@ def main():
         image.with_suffix('.txt').write_text(text)
         return set(re.findall(r'[a-z0-9]+', text.casefold()))
 
-    def wait_for(required, label):
-        deadline = time.monotonic() + 45
+    def wait_for(required, label, timeout=45, forbidden=(), consecutive=1):
+        matches = 0
+        deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             words = screen()
-            if set(required) <= words: return words
+            matches = matches + 1 if set(required) <= words and not set(forbidden) & words else 0
+            if matches >= consecutive: return words
             time.sleep(1)
         raise RuntimeError('Expected screen not found: ' + label)
 
-    words = screen()
-    if not {'file', 'edit', 'character', 'windows'} <= words or 'information' in words:
+    words = wait_for(['file', 'edit', 'character', 'windows'], 'settled original game menus', timeout=90, forbidden=['please', 'welcome'], consecutive=2)
+    if 'information' in words:
         raise RuntimeError('Expected the original game before a party is loaded')
     if {'cancel', 'desktop', 'eject'} <= words:
         log('Using the already-open game file picker')
@@ -69,7 +71,7 @@ def main():
         words = wait_for(['poolradsave', a.name.casefold(), 'cancel', 'desktop'], 'named save in PoolRadSave')
     log('Loading verified visible save: ' + a.name)
     run('bash', str(helper), a.serial, 'text', a.name)
-    wait_for(['information', 'message', 'encamp'], 'loaded party windows')
+    wait_for(['information', 'encamp', 'search', 'look'], 'loaded party windows')
     log('Original game shows a loaded party; inspect retained screenshots to verify party and location')
 
 

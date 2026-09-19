@@ -4,6 +4,11 @@ import name.osher.gil.minivmac.mapper.PartyState;
 
 /** Resolve the tapped identity against the fresh frame, refusing ambiguous names/classes. */
 final class PartySelectionTarget {
+    static int confirmedIndex(PartyState current, PartyState.Member requested) {
+        int index = index(current, requested);
+        return index >= 0 && current.selectedIndex == index ? index : -1;
+    }
+
     static int index(PartyState current, PartyState.Member requested) {
         if (current == null || requested == null) return -1;
         int found = -1;

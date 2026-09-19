@@ -53,11 +53,36 @@ int main(int argc, char **argv) {
     assert(!poolrad_party_target(ram, sizeof(ram), 0, 200, 50, &x, &y));
     window_fixture(); ram[member_record(0) + POOLRAD_PARTY_SLOT_OFFSET] = 8;
     assert(!poolrad_party_target(ram, sizeof(ram), 0, 640, 480, &x, &y));
+    window_fixture();
+    put32(0xe000 - POOLRAD_STATE_BACK, 0x1800); put32(0x1800, 0x9000);
+    put32(0x8ff8, 0x80000808);
+    ram[0xe000 - POOLRAD_ENGINE_BACK] = 4;
+    ram[0xe000 - POOLRAD_INPUT_TAG_BACK] = 0x56;
+    word(0xe000 - POOLRAD_MENU_STATE_BACK, 2);
+    assert(poolrad_party_view_available(ram, sizeof(ram)));
+    ram[0xe000 - POOLRAD_ENGINE_BACK] = 2;
+    assert(poolrad_party_view_available(ram, sizeof(ram)));
+    for (unsigned engine = 0; engine < 256; engine++) {
+        ram[0xe000 - POOLRAD_ENGINE_BACK] = engine;
+        assert(poolrad_party_view_available(ram, sizeof(ram)) == (engine == 2 || engine == 4));
+    }
+    ram[0xe000 - POOLRAD_ENGINE_BACK] = 4;
+    const unsigned zero_fields[] = { POOLRAD_PENDING_INPUT_BACK, POOLRAD_STARTUP_BACK,
+        POOLRAD_LOADED_BACK, POOLRAD_RELOCATION_BACK, POOLRAD_MENU_STATE_BACK };
+    for (unsigned i = 0; i < sizeof(zero_fields)/sizeof(zero_fields[0]); i++) {
+        ram[0xe000 - zero_fields[i]] = 1;
+        assert(!poolrad_party_view_available(ram, sizeof(ram)));
+        ram[0xe000 - zero_fields[i]] = 0;
+    }
+    ram[0xe000 - POOLRAD_INPUT_TAG_BACK] = 0;
+    assert(!poolrad_party_view_available(ram, sizeof(ram)));
+    assert(!poolrad_party_view_available(NULL, 0));
     if (argc == 2) {
         FILE *f = fopen(argv[1], "rb"); assert(f);
         fseek(f, 0, SEEK_END); long n = ftell(f); rewind(f);
         unsigned char *capture = malloc(n); assert(capture);
         assert(fread(capture, 1, n, f) == (size_t)n); fclose(f);
+        printf("capture View context: %s\n", poolrad_party_view_available(capture, n) ? "available" : "refused");
         for (unsigned i = 0; i < 6; i++) {
             int ok = poolrad_party_target(capture, n, i, 640, 480, &x, &y);
             printf("capture row %u: %s (%d,%d)\n", i, ok ? "available" : "refused", x, y);

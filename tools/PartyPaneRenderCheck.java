@@ -471,6 +471,41 @@ public final class PartyPaneRenderCheck {
             check(mapTaps[0]==0,"Party gesture leaked into map-note creation");
         });
 
+        run("long press opens one exact game sheet, cancels stale gestures, and exposes named accessibility", () -> {
+            LiveMapView view=view(packet(true),960,480);
+            final List<String> sheets=new ArrayList<>(); final int[] taps={0};
+            view.setListener(new LiveMapView.Listener(){
+                @Override public void onAreaChanged(AreaIdentity area){}
+                @Override public void onTileTapped(AreaIdentity area,int x,int y){taps[0]++;}
+                @Override public void onPartyMemberTapped(PartyState.Member member){taps[0]++;}
+                @Override public void onPartyMemberLongPressed(PartyState.Member member){sheets.add(member.name);}
+            });
+            PartyPaneLayout p=pane(view,MEMBERS);
+            float x=p.partyLeft+p.partyWidth/2f,y=p.rowTop(1)+p.rowHeight/2;
+            event(view,MotionEvent.ACTION_DOWN,x,y);
+            check(view.performLongClick(),"Long press refused current row");
+            event(view,MotionEvent.ACTION_UP,x,y);
+            check(sheets.equals(Collections.singletonList(NAMES[1])) && taps[0]==0,"Long press also tapped or opened wrong sheet");
+            check(!view.performLongClick(),"Released long press ran twice");
+            event(view,MotionEvent.ACTION_DOWN,x,y);
+            event(view,MotionEvent.ACTION_MOVE,x+100*density,y);
+            check(!view.performLongClick(),"Dragged row opened sheet");
+            event(view,MotionEvent.ACTION_DOWN,x,y);
+            byte[] changed=packet(true);swap(changed,0,1);view.showPartySample(changed);
+            check(!view.performLongClick(),"Changed party opened stale sheet");
+            event(view,MotionEvent.ACTION_DOWN,x,y);view.onWindowFocusChanged(false);
+            check(!view.performLongClick(),"Focus loss opened sheet");
+            AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
+            int action=0;
+            for(AccessibilityNodeInfo.AccessibilityAction a:info.getActionList())
+                if(("Open game sheet for "+NAMES[3]).contentEquals(a.getLabel())) action=a.getId();
+            check(action!=0 && view.performAccessibilityAction(action,null),"Named sheet action missing");
+            check(sheets.size()==2 && sheets.get(1).equals(NAMES[3]),"Accessible sheet identity wrong");
+            view.showPartySample(packet(true));
+            check(!view.performAccessibilityAction(action,null),"Stale sheet action accepted");
+            info.recycle();
+        });
+
         run("named accessibility detail actions stay available when collapsed and reject stale IDs", () -> {
             LiveMapView view=view(packet(true),360,320); final List<String> selected=new ArrayList<>();
             view.setListener(new LiveMapView.Listener(){
@@ -483,7 +518,7 @@ public final class PartyPaneRenderCheck {
             AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();
             view.onInitializeAccessibilityNodeInfo(info);
             List<AccessibilityNodeInfo.AccessibilityAction> actions=info.getActionList();
-            check(actions.size()==MEMBERS,"Expected one named action per member");
+            check(actions.size()==2*MEMBERS,"Expected details and game-sheet actions per member");
             int action=actions.get(2).getId();
             check(actions.get(2).getLabel().toString().contains(NAMES[2]),"Missing member label on accessible action");
             check(view.performAccessibilityAction(action,null) && selected.equals(Collections.singletonList(NAMES[2])),

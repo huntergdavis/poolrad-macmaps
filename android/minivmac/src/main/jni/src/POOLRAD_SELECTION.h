@@ -3,6 +3,23 @@
 #define POOLRAD_SELECTION_H
 #include "POOLRAD_PARTY.h"
 
+/* Plain V is the live View command; Cmd-E is disabled during adventuring.
+ * Read-only captures: docs/PARTY_SELECTION.md. Require the authenticated idle
+ * exploration/camp input context; never send V into setup, combat or a sheet. */
+static inline int poolrad_party_view_available(const unsigned char *ram, size_t size) {
+    uint32_t a5;
+    if (!poolrad_mode_profile(ram, size, &a5)) return 0;
+    unsigned engine = ram[a5 - POOLRAD_ENGINE_BACK];
+    return (engine == 4 || engine == 2)
+        && ram[a5 - POOLRAD_INPUT_TAG_BACK] == 0x56
+        && ram[a5 - POOLRAD_PENDING_INPUT_BACK] == 0
+        && ram[a5 - POOLRAD_STARTUP_BACK] == 0
+        && ram[a5 - POOLRAD_LOADED_BACK] == 0
+        && ram[a5 - POOLRAD_RELOCATION_BACK] == 0
+        && ram[a5 - POOLRAD_MENU_STATE_BACK] == 0
+        && ram[a5 - POOLRAD_MENU_STATE_BACK + 1] == 2;
+}
+
 static unsigned poolrad_selection_u16(const unsigned char *p) {
     return ((unsigned)p[0] << 8) | p[1];
 }

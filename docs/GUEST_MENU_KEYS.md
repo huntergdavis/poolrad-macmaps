@@ -43,7 +43,9 @@ still needs the menu itself.
 
 - **F33 and F34 (loading)** need `Cmd-Q` then `Cmd-L`, and no coordinates.
 - **F37 (auto-save)** needs `Cmd-S`.
-- **F43 (long-press a row for the character sheet)** is `Cmd-E`.
+- **F43 (long-press a row for the character sheet)** uses plain `V` during
+  adventuring/camp. Live testing on 2026-09-19 proved `Cmd-E` is disabled in
+  those contexts; see [PARTY_SELECTION.md](PARTY_SELECTION.md).
 - **F39 and F52 (memorise, rest)** reach the training and camp screens the same
   way where a menu is involved.
 

@@ -97,6 +97,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
      */
     public interface PartySelector { boolean select(PartyState.Member member); }
     private PartySelector partySelector = member -> false;
+    private PartySelector partySheet = member -> false;
+    public void setPartySheet(PartySelector selector) { partySheet = selector; }
     public void setPartySelector(PartySelector selector) { partySelector = selector; }
     private Runnable returnKey = () -> { };
 
@@ -790,6 +792,11 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         opening = true;
         partySelector.select(member);
         picker = PartyDetailsDialog.show(activity, member, () -> opening = false);
+    }
+
+    @Override public void onPartyMemberLongPressed(PartyState.Member member) {
+        if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
+        partySheet.select(member);
     }
 
     private void refreshFlags() {

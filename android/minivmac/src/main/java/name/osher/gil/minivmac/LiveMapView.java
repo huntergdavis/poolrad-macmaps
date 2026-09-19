@@ -56,6 +56,7 @@ public final class LiveMapView extends View {
     private final ReadingHold partyHold = new ReadingHold();
     private final ReadingHold combatHold = new ReadingHold();
     private final SparseArray<PartyState.Member> partyActions = new SparseArray<>();
+    private final SparseArray<PartyState.Member> partySheetActions = new SparseArray<>();
     private PoolRadState state;
     private PartyState party;
     private boolean positionAvailable;
@@ -123,6 +124,7 @@ public final class LiveMapView extends View {
     private boolean preciseTouch;
     private PartyState touchParty;
     private int touchMember = -1;
+    private final Runnable partyLongPress = this::performLongClick;
 
     public interface Listener {
         void onAreaChanged(AreaIdentity area);
@@ -131,6 +133,7 @@ public final class LiveMapView extends View {
             onTileTapped(area, x, y);
         }
         default void onPartyMemberTapped(PartyState.Member member) { }
+        default void onPartyMemberLongPressed(PartyState.Member member) { }
         default void onExplorationSample(PoolRadState sample) { }
         default void onExplorationAreaChanged(AreaIdentity area) { }
         /** The player tapped the Return key in the map's corner. */
@@ -195,9 +198,11 @@ public final class LiveMapView extends View {
         partyRefusal = reason;
         if (same) return;
         party = next; cancelTap();
-        partyActions.clear();
-        if (party != null) for (PartyState.Member member : party.members)
+        partyActions.clear(); partySheetActions.clear();
+        if (party != null) for (PartyState.Member member : party.members) {
             partyActions.put(0x03000000 | View.generateViewId(), member);
+            partySheetActions.put(0x03000000 | View.generateViewId(), member);
+        }
         refreshDescription(); invalidate();
     }
     private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size(), textScale, oneLineParty); }
@@ -416,6 +421,7 @@ public final class LiveMapView extends View {
             touchHeader = !onButton && touchMember < 0 && touchCombatant < 0
                     && headerTarget.contains(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
+            if (touchMember >= 0) postDelayed(partyLongPress, ViewConfiguration.getLongPressTimeout());
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -493,6 +499,16 @@ public final class LiveMapView extends View {
 
     @Override public boolean performClick() { super.performClick(); return true; }
 
+    @Override public boolean performLongClick() {
+        if (listener == null || touchMember < 0 || party == null || touchParty != party
+                || touchMember >= party.members.size()) return false;
+        PartyState.Member member = party.members.get(touchMember);
+        cancelTap();
+        performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+        listener.onPartyMemberLongPressed(member);
+        return true;
+    }
+
     @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
         if (listener != null) for (int i = 0; i < partyActions.size(); i++) {
@@ -500,9 +516,16 @@ public final class LiveMapView extends View {
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partyActions.keyAt(i),
                     "Details for " + member.name + ", " + member.classLabel() + ", " + member.conditionSummary()));
         }
+        if (listener != null) for (int i = 0; i < partySheetActions.size(); i++)
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partySheetActions.keyAt(i),
+                    "Open game sheet for " + partySheetActions.valueAt(i).name));
     }
 
     @Override public boolean performAccessibilityAction(int action, Bundle args) {
+        PartyState.Member sheet = partySheetActions.get(action);
+        if (sheet != null && listener != null) {
+            cancelTap(); listener.onPartyMemberLongPressed(sheet); return true;
+        }
         PartyState.Member member = partyActions.get(action);
         if (member != null && listener != null) {
             cancelTap(); listener.onPartyMemberTapped(member); return true;
@@ -511,6 +534,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
+        removeCallbacks(partyLongPress);
         touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null; touchCombatant = -1; touchHeader = false;

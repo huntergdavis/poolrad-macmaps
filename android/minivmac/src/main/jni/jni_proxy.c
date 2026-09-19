@@ -82,7 +82,7 @@ static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
 static RequestRamSnapshotType requestMessageSamplePtr = NULL;
 static SetPartyQuickType setPartyQuickPtr = NULL;
-typedef jint (*PartyTargetType)(jint);
+typedef jint (*PartyTargetType)(jint, jboolean);
 static PartyTargetType partyTargetPtr = NULL;
 static RequestRamSnapshotType requestSaveStatePtr = NULL;
 static RequestRestoreStateType requestRestoreStatePtr = NULL;
@@ -294,9 +294,9 @@ Java_name_osher_gil_minivmac_Core_requestCombatSampleNative(JNIEnv *env, jclass 
 }
 
 JNIEXPORT jint JNICALL
-Java_name_osher_gil_minivmac_Core_partyTargetNative(JNIEnv *env, jclass cls, jint member) {
+Java_name_osher_gil_minivmac_Core_partyTargetNative(JNIEnv *env, jclass cls, jint member, jboolean forSheet) {
     (void)env; (void)cls;
-    return partyTargetPtr ? partyTargetPtr(member) : -1;
+    return partyTargetPtr ? partyTargetPtr(member, forSheet) : -1;
 }
 
 JNIEXPORT jboolean JNICALL
