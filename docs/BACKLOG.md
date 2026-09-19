@@ -1189,9 +1189,21 @@ reads back correctly.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
-- [ ] **F37 — Periodic auto-save,** named by wall-clock date in am/pm form,
-  keeping the most recent 20 and rotating the oldest out. **The rotation is the
-  point:** an automatic save must never overwrite a save the player made.
+- [x] **F37 (delivered 2026-09-19) — Periodic auto-save,** via save states now
+  that they exist, so it is safe and never restarts anything. Every five minutes,
+  while a party is in the world, a state is captured to its own rotating "Auto "
+  set, named by wall-clock date in am/pm, colon-free form. **The rotation is the
+  point:** it keeps the most recent 20 and never touches the quick slot or a save
+  the player named. A settings toggle turns it off (default on).
+
+  Verified live that the timer fires and the gate holds: with no party loaded
+  (boot dialog / Finder) it ran for over two intervals and correctly wrote
+  nothing — no snapshot of the desktop. The rotation, am/pm naming, exact
+  round-trip and sidecar handling are covered by unit tests, and the
+  capture-and-write path is the same one F92 proved live. Not yet watched writing
+  an auto-save with a party actually in the world — that step is gated only by
+  the tap-driven game-menu navigation the harness still struggles with (the same
+  limitation noted under F86), not by this code.
 - [ ] **F35 — Notebooks follow save states,** and an unknown campaign offers a
   new notebook rather than writing into the wrong one.
 - [x] **F38 (delivered 0.45.0) — Resume polling automatically after the guest restarts.** Today it

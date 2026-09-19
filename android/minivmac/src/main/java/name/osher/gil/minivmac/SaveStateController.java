@@ -9,9 +9,13 @@ import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -49,7 +53,14 @@ public final class SaveStateController {
     private final AtomicReference<String> pendingLabel = new AtomicReference<>();
     /** The notebook to pair with the in-flight save, captured at request time. */
     private final AtomicReference<String> pendingBinding = new AtomicReference<>();
+    /** Whether the in-flight save is an automatic one (rotated, silent). */
+    private final AtomicBoolean pendingAuto = new AtomicBoolean(false);
     private NotebookLink notebook;
+
+    /** How many automatic saves to keep before rotating the oldest out. */
+    private static final int AUTO_KEEP = 20;
+    /** A readable, am/pm, colon-free label for an automatic save. */
+    private static final SimpleDateFormat AUTO_STAMP = new SimpleDateFormat("MMM d h-mm a", Locale.US);
 
     public SaveStateController(Activity activity, CoreAccess access) {
         this.activity = activity;
@@ -73,20 +84,37 @@ public final class SaveStateController {
         final File target = pendingTarget.getAndSet(null);
         final String label = pendingLabel.getAndSet(null);
         final String binding = pendingBinding.getAndSet(null);
-        if (state == null) { toast("The machine could not be captured."); return; }
+        final boolean auto = pendingAuto.getAndSet(false);
+        if (state == null) { if (!auto) toast("The machine could not be captured."); return; }
         final byte[] bytes = state;   // a Java array; safe to keep past the native call
         io.execute(() -> {
             String said;
             try {
-                File written = (target != null) ? writeTo(target, bytes) : store.write(label, bytes);
+                File written;
+                if (auto) written = store.writeAuto(label, bytes, AUTO_KEEP);
+                else written = (target != null) ? writeTo(target, bytes) : store.write(label, bytes);
                 store.writeBinding(written, binding);
-                said = "Saved " + SaveStateStore.label(written);
+                said = auto ? null : "Saved " + SaveStateStore.label(written);
             } catch (IOException | RuntimeException failure) {
-                said = "Could not save: " + failure.getMessage();
+                said = auto ? null : "Could not save: " + failure.getMessage();
             }
-            final String message = said;
-            main.post(() -> toast(message));
+            final String message = said;   // auto-saves are silent
+            if (message != null) main.post(() -> toast(message));
         });
+    }
+
+    /**
+     * Capture an automatic, rotated save without a word to the player. A no-op
+     * if the machine is not ready, so the caller can fire it on a plain timer.
+     */
+    public void autoSave() {
+        Core core = access.current();
+        if (core == null || ! core.isReady()) return;
+        pendingTarget.set(null);
+        pendingLabel.set(SaveStateStore.AUTO_PREFIX + AUTO_STAMP.format(new Date()));
+        pendingBinding.set(currentNotebookId());
+        pendingAuto.set(true);
+        if (! core.requestSaveState()) { pendingAuto.set(false); pendingLabel.set(null); pendingBinding.set(null); }
     }
 
     private File writeTo(File target, byte[] bytes) throws IOException {

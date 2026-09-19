@@ -419,6 +419,53 @@ public class EmulatorFragment extends Fragment
         return isResumed() && mLiveMap != null && mCompanionPane != null;
     }
 
+    /* --- automatic save states (F37) --- */
+
+    /** How often an automatic save is taken while a party is in the world. */
+    private static final long AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
+    private boolean mAutoSaving;
+    private final Runnable mAutoSaveTick = new Runnable() {
+        @Override public void run() {
+            if (!mAutoSaving) return;
+            maybeAutoSave();
+            if (mUIHandler != null) mUIHandler.postDelayed(this, AUTOSAVE_INTERVAL_MS);
+        }
+    };
+
+    private void startAutoSave() {
+        stopAutoSave();
+        mAutoSaving = true;
+        if (mUIHandler != null) mUIHandler.postDelayed(mAutoSaveTick, AUTOSAVE_INTERVAL_MS);
+    }
+
+    private void stopAutoSave() {
+        mAutoSaving = false;
+        if (mUIHandler != null) mUIHandler.removeCallbacks(mAutoSaveTick);
+    }
+
+    /**
+     * Take an automatic save only when it is worth taking: the app is in front,
+     * the machine is running, the player has turned auto-save on, and a party is
+     * actually in the world (so we never rotate the boot screen or the Finder
+     * over a real save). The save itself is silent and rotates its own set.
+     */
+    private void maybeAutoSave() {
+        if (!isResumed() || !autoSaveEnabled()) return;
+        Core core = mCore;
+        if (core == null || !core.isReady()) return;
+        if (mLiveMap == null || mLiveMap.snapshot() == null) return;
+        saveState().autoSave();
+    }
+
+    private boolean autoSaveEnabled() {
+        try {
+            return PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getBoolean(SettingsFragment.KEY_PREF_AUTOSAVE, true);
+        } catch (RuntimeException notAttached) {
+            return false;
+        }
+    }
+
     String selectedCompanionTab() { return mSelectedCompanionTab; }
 
     private void onCompanionTabSelected(String tab) {
@@ -695,6 +742,7 @@ public class EmulatorFragment extends Fragment
         cancelPendingCompanionTool();
         stopMapPolling();
         stopWheelPolling();
+        stopAutoSave();
         if (mCore != null) mCore.setMapSampleListener(null);
         if (mCore != null) mCore.setPartySampleListener(null);
         if (mCore != null) mCore.setWheelSampleListener(null);
@@ -1200,6 +1248,7 @@ public class EmulatorFragment extends Fragment
     public void onPause () {
         stopMapPolling();
         stopWheelPolling();
+        stopAutoSave();
         cancelCodeEntry();
         if (mCore != null) {
             mCore.pauseEmulation();
@@ -1217,6 +1266,7 @@ public class EmulatorFragment extends Fragment
         super.onResume();
         startMapPolling();
         startWheelPolling();
+        startAutoSave();
 
         if (mCore != null) {
             mCore.resumeEmulation();

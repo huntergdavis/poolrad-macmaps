@@ -160,6 +160,60 @@ public class SaveStateStoreTest {
         assertEquals(0, s.saves().size());
     }
 
+    /** An auto-save round-trips and is listed among auto-saves. */
+    @Test public void anAutoSaveRoundTrips() throws IOException {
+        SaveStateStore s = store();
+        byte[] raw = machine(60000, 3);
+        File f = s.writeAuto(SaveStateStore.AUTO_PREFIX + "Sep 19 3-45 PM", raw, 20);
+        assertTrue(SaveStateStore.label(f).startsWith(SaveStateStore.AUTO_PREFIX));
+        assertArrayEquals(raw, s.read(f));
+        assertEquals(1, s.autoSaves().size());
+    }
+
+    /** Auto-saves rotate: only the newest `keep` survive, oldest first out. */
+    @Test public void autoSavesRotateToTheLimit() throws IOException {
+        SaveStateStore s = store();
+        // Five older auto-saves with distinct, increasing timestamps; keep high so none prune yet.
+        File[] old = new File[5];
+        for (int i = 0; i < 5; i++) {
+            old[i] = s.writeAuto(SaveStateStore.AUTO_PREFIX + "old " + i, machine(20000, i), 100);
+            old[i].setLastModified(1000L + i);
+        }
+        // One more with keep=3: its real (now) timestamp is newest, so it and the two newest olds stay.
+        File newest = s.writeAuto(SaveStateStore.AUTO_PREFIX + "newest", machine(20000, 9), 3);
+        assertEquals("only the limit is kept", 3, s.autoSaves().size());
+        assertTrue(newest.exists());
+        assertTrue("second-newest kept", old[4].exists());
+        assertTrue("third-newest kept", old[3].exists());
+        assertFalse("oldest rotated out", old[0].exists());
+        assertFalse(old[1].exists());
+    }
+
+    /** Rotating an auto-save away also removes its notebook sidecar. */
+    @Test public void rotatingAnAutoSaveClearsItsSidecar() throws IOException {
+        SaveStateStore s = store();
+        File oldest = s.writeAuto(SaveStateStore.AUTO_PREFIX + "old", machine(20000, 1), 10);
+        s.writeBinding(oldest, "notebook-old");
+        oldest.setLastModified(1000L);
+        for (int i = 0; i < 3; i++) {
+            File f = s.writeAuto(SaveStateStore.AUTO_PREFIX + "new " + i, machine(20000, i + 2), 1);
+            f.setLastModified(2000L + i);
+        }
+        assertFalse("oldest auto-save rotated out", oldest.exists());
+        assertNull("its sidecar went with it", s.readBinding(oldest));
+    }
+
+    /** Auto-saves do not disturb the quick slot or the player's named saves. */
+    @Test public void autoSavesLeaveNamedSavesAlone() throws IOException {
+        SaveStateStore s = store();
+        File named = s.write("My camp", machine(20000, 1));
+        s.write(s.quickFile(), machine(20000, 2));
+        for (int i = 0; i < 4; i++) s.writeAuto(SaveStateStore.AUTO_PREFIX + "a " + i, machine(20000, i), 2);
+        assertTrue("named save survives", named.exists());
+        assertTrue("quick slot survives", s.quickFile().exists());
+        assertEquals("two auto-saves kept", 2, s.autoSaves().size());
+    }
+
     /** An old whole-image file (the v1 format) still loads. */
     @Test public void aLegacyWholeImageStillLoads() throws IOException {
         byte[] raw = machine(80000, 6);

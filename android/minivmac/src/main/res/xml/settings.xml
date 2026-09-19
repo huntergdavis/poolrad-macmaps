@@ -68,6 +68,12 @@
 			app:entries="@array/speed_entries"
 			app:entryValues="@array/speed_values">
 		</ListPreference>
+	    <SwitchPreferenceCompat
+			app:key="pref_autosave"
+			app:title="@string/pref_autosave"
+			app:summary="@string/pref_autosave_summ"
+			app:icon="@drawable/ic_floppy"
+			app:defaultValue="true" />
 	    <Preference
 			app:key="pref_reset"
 			app:title="@string/prefs_reset"

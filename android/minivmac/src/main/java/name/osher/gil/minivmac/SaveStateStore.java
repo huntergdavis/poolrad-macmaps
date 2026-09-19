@@ -40,6 +40,8 @@ import java.util.zip.GZIPOutputStream;
 public final class SaveStateStore {
     public static final String EXTENSION = ".prqs";  /* PoolRad quick state */
     public static final String QUICK_NAME = "Quick save";
+    /** Auto-saves are named with this prefix so they can be listed and rotated apart from the player's own. */
+    public static final String AUTO_PREFIX = "Auto ";
     /** The reference template every diff is measured against; kept, never listed. */
     private static final String REFERENCE_NAME = "reference.prqref";
 
@@ -126,6 +128,35 @@ public final class SaveStateStore {
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
         write(target, rawState);
         return target;
+    }
+
+    /**
+     * Write an automatic save and rotate the oldest out, keeping the newest
+     * `keep`. Auto-saves are their own set (the "Auto " prefix) so this never
+     * touches the quick slot or a save the player named.
+     */
+    public File writeAuto(String label, byte[] rawState, int keep) throws IOException {
+        String base = safe(label);
+        if (!base.startsWith(AUTO_PREFIX)) base = AUTO_PREFIX + base;
+        File target = new File(directory, base + EXTENSION);
+        for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
+        write(target, rawState);
+        pruneAuto(keep);
+        return target;
+    }
+
+    /** Every automatic save, newest first. */
+    public List<File> autoSaves() {
+        List<File> autos = new ArrayList<>();
+        for (File f : saves()) if (label(f).startsWith(AUTO_PREFIX)) autos.add(f);
+        return autos;   // saves() is already newest-first
+    }
+
+    /** Delete automatic saves beyond the newest `keep`, sidecars and all. */
+    private void pruneAuto(int keep) {
+        if (keep < 0) keep = 0;
+        List<File> autos = autoSaves();
+        for (int i = keep; i < autos.size(); i++) delete(autos.get(i));
     }
 
     /** Read a save file back to its raw machine image. */

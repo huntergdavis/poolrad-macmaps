@@ -78,6 +78,8 @@
 	<string name="pref_scale_summ">Fit target screen to host screen</string>
 	<string name="pref_scroll">Scroll</string>
 	<string name="pref_scroll_summ">Use the arrow keys to scroll the screen</string>
+	<string name="pref_autosave">Auto-save</string>
+	<string name="pref_autosave_summ">Every few minutes, save a state while a party is in the world; keeps the last 20</string>
 	<string name="pref_control_title">Control</string>
 	<string name="prefs_speed">Speed&#8230;</string>
 	<string name="prefs_speed_title">Select Speed:</string>
