@@ -1,0 +1,22 @@
+{
+  "docs/images/readme-map.png": {
+    "captured_at": "2026-09-19T19:11:31.775312+00:00",
+    "release": "0.81.0",
+    "sha256": "eb3d30eb49d9a23d0ca3d77f725c8e4394797c5c4a62da042258c3050013698f"
+  },
+  "docs/images/readme-marching-order.png": {
+    "captured_at": "2026-09-19T19:10:31.186323+00:00",
+    "release": "0.81.0",
+    "sha256": "8cfa8d8af4af1e923502051b1e7546f7a334801473320c334ae91c342585b8f3"
+  },
+  "docs/images/readme-message-log.png": {
+    "captured_at": "2026-09-19T19:11:09.697549+00:00",
+    "release": "0.81.0",
+    "sha256": "18d695e2060e23f9daea5a3d91f9a83c0e3e14a953d22257c0b26312585f9c10"
+  },
+  "docs/images/readme-options.png": {
+    "captured_at": "2026-09-19T19:10:21.040890+00:00",
+    "release": "0.81.0",
+    "sha256": "0eb356c6b72e66b3b24d2074ad5c209083b3d88738447aed8b09e9ae672ca21b"
+  }
+}

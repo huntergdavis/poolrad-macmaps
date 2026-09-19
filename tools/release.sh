@@ -22,6 +22,7 @@ flock -n 9 || { echo "Another release is running" >&2; exit 1; }
 [ -n "$(git status --porcelain)" ] && { echo "Working tree is dirty; commit first." >&2; exit 1; }
 [ -f "docs/releases/$VERSION.md" ] || { echo "Write docs/releases/$VERSION.md first." >&2; exit 1; }
 git rev-parse "v$VERSION" >/dev/null 2>&1 && { echo "v$VERSION already exists." >&2; exit 1; }
+python3 tools/readme-screenshots.py check "$VERSION"
 
 GRADLE=android/minivmac/build.gradle
 OLD_CODE="$(grep -oP 'versionCode \K[0-9]+' "$GRADLE" | head -1)"
@@ -31,10 +32,15 @@ sed -i "s/versionCode $OLD_CODE/versionCode $NEW_CODE/" "$GRADLE"
 sed -i "s/versionName '$OLD_NAME'/versionName '$VERSION'/g" "$GRADLE"
 python3 - "$OLD_NAME" "$VERSION" <<'PY'
 from pathlib import Path
+import re
 import sys
 for name in ('README.md', 'docs/INSTALL.md'):
     path = Path(name)
     path.write_text(path.read_text().replace(sys.argv[1], sys.argv[2]))
+backlog = Path('docs/BACKLOG.md')
+backlog.write_text(re.sub(r'Current published release: \*\*[0-9.]+\*\*',
+                         'Current published release: **' + sys.argv[2] + '**',
+                         backlog.read_text()))
 PY
 echo "== $OLD_NAME ($OLD_CODE) -> $VERSION ($NEW_CODE) =="
 
@@ -50,7 +56,7 @@ cp "$APK" "scratch/poolrad-macmaps-$VERSION.apk"
 echo "APK: scratch/poolrad-macmaps-$VERSION.apk  $(sha256sum "scratch/poolrad-macmaps-$VERSION.apk" | cut -d' ' -f1)"
 
 git diff --check
-git add "$GRADLE" README.md docs/INSTALL.md
+git add "$GRADLE" README.md docs/INSTALL.md docs/BACKLOG.md
 git commit -q -m "$VERSION — $TITLE
 
 Version $VERSION, versionCode $NEW_CODE."

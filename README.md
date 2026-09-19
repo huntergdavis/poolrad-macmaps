@@ -11,9 +11,9 @@ companion for Pool of Radiance.** Its automapping and convenience features
 sparked this project; this is an independent Macintosh/Android implementation,
 not a port of its code or an official game release.
 
-<img src="docs/images/slums-party-quick.png" width="760" alt="Live Slums of Phlan map with walls, doors and the facing arrow, beside a party sidebar showing each character's HP bar, armour class, a Q quick-combat toggle and a T where the game will let them train, above the original Mac game">
+<img src="docs/images/readme-map.png" width="760" alt="Current companion map and compact party rows above the original Macintosh game">
 
-*Captured from the running app, not mockups. Game artwork belongs to its respective owners.*
+*Captured from the running app. Every README screenshot is checked at release time and refreshed within three releases. Game artwork belongs to its respective owners.*
 
 ## The map draws itself
 
@@ -22,18 +22,17 @@ memory across 29 named areas — no guessed names. Camp, combat and loading
 states are labelled, so a reference map never lies about what it is showing.
 
 **Fog of war** hides everything you have not walked, so the map fills in the way
-you drew it. One button in the corner turns it on and off, and both it and the
+you drew it. **Info → Options** turns it on and off, and both it and the
 footprints are remembered **per area** — clearing the fog in the slums does not
-clear it in the caves.
+clear it in the caves. The same page controls compact party rows, larger
+messages and automatic snapshots.
 
-<img src="docs/images/fog-of-war.png" width="760" alt="The Slums of Phlan with fog of war on: only the corridor the party has actually walked is drawn, everything else a faint grid, with the party arrow and the two map buttons in the corner">
+<img src="docs/images/readme-options.png" width="760" alt="Companion Options page with map, party, message and autosave controls">
 
 **Directional footprints** record the way you actually walked, so a corridor you
 have been down twice looks different from one you passed once. Doors you have
 stood beside and never gone through are marked, which is your own map telling
 you where you have not been.
-
-<img src="docs/images/footprints-trail.png" width="760" alt="The same map with a trail of directional footprints along the corridor the party has just walked, the party arrow at 13,2 facing east, and every character's HP bar beside it">
 
 ## Your party, at a glance
 
@@ -46,19 +45,23 @@ petrification, with the exact wording on tap. **Q** turns quick combat on for
 one character, queuing your choice if the game is temporarily busy; **T**
 appears where the game itself will let them train.
 
+Hold a party row to open that character’s **original game sheet**. NPCs have
+an explicit **NPC** prefix, and **Info → Marching order** lists everyone from
+first to last.
+
+<img src="docs/images/readme-marching-order.png" width="760" alt="Current party marching order, numbered first to last, above the original game">
+
 ## When a fight starts
 
 A read-only overview shows every combatant's square — yours filled, everyone
 else hollow. **The ring says whose turn it is**, and the same character's row is
 marked beside it, so "who is the game waiting for" has an answer without
 counting figures. Tap any of your squares and that row lights up for a few
-seconds. Nobody is named, no move is suggested, and it clears the moment the
-battle ends.
+seconds. The header names the monsters and counts those still standing. The
+overview clears when the battle ends.
 
 Anyone down is drawn as a cross rather than dropped: a diagonal one for someone
 still worth reaching, an upright one for past helping.
-
-<img src="docs/images/battle-overview.png" width="760" alt="Battle overview during a goblin ambush: six filled circles for the party and twelve hollow squares for the goblins between 23,11 and 31,15, one party circle ringed to show whose turn it is, with the matching bar beside Lara Spellsword's row">
 
 ## Write on the map
 
@@ -67,16 +70,16 @@ right. Pen, ink-only eraser, undo/redo, autosave, nine map symbols, and finger
 zoom/pan. Separate notebooks keep campaigns apart, and a single backup carries
 your handwriting, flags, walked tiles and journal history.
 
-<img src="docs/images/temple-note-map.png" width="760" alt="Notebook page with a pinned map snapshot and temple symbol at left and a handwritten TYR at right">
-
 ## The whole journal, built in
 
 All 58 journal entries, 18 proclamations, 23 tavern tales and the 14 original
 illustrations ship with the app — nothing to import, nothing to look up online.
 References the game cites out loud collect themselves into an encountered list,
-tappable straight into the reader.
+tappable straight into the reader. New citations have a **Read** notice that
+opens the exact entry. **Info → Message log** keeps the latest 200 observed
+game messages in the current notebook.
 
-<img src="docs/images/journal-atlas.png" width="760" alt="Journal 37, a massive atlas, showing two original Moonsea map illustrations while the game below asks for a code wheel word">
+<img src="docs/images/readme-message-log.png" width="760" alt="Notebook message history with am/pm observation times above the original game">
 
 ## Ten quick saves, with pictures
 
@@ -85,8 +88,6 @@ the newest quick save immediately. **Load…** shows all quick, named and automa
 saves with their date, time and captured game screen; choose one to preview and load.
 The small previews are encoded in the background, and each snapshot remembers
 its notebook. Older saves without a picture still work.
-
-<img src="docs/images/quick-save-history.png" width="600" alt="Dated quick-save thumbnails in the Load browser above the original Macintosh game's tutorial, with the game unobscured">
 
 Original-game save-file backups live under **Settings → Back up / restore game
 saves…**. These are separate from emulator snapshots and notebook exports.
@@ -97,17 +98,16 @@ across old-state restores remains under investigation. [Save-state details](docs
 ## Also offline
 
 Everything the game expects you to look up on paper, in the app: spells, weapons
-and armor, class progression, mixed-coin conversion, the exploration trail's own
-switches, and automatic code-wheel entry with an illustrated fallback.
-
-<img src="docs/images/companion-info-panels.png" width="760" alt="The Info tab listing Exploration trail, Journal, Levels and skills, Spells, Weapons and armor, Money conversion and Code wheel">
+and armor, class progression, mixed-coin conversion, companion options, and
+automatic code-wheel entry with an illustrated fallback.
 
 Save or share a PNG of the map, game and keyboard together · install alongside
 your existing Mini vMac setup.
 
 **Early prototype.** Verified against Macintosh Pool of Radiance v1.1 in New
-Phlan and the adjoining Slums gate round trip; other transitions, dedicated
-combat and wilderness maps, and broader NPC coverage are unfinished. Testing
+Phlan and the adjoining Slums gate round trip; broader transition coverage,
+the combat arena’s true bounds, wilderness maps and newly recruited live NPC
+acceptance remain unfinished. Testing
 happens on a real e-ink tablet, where stylus drawing and two-finger zoom/scroll
 work well as of 2026-09-15; rotation and keyboard layout are still unreported.
 
@@ -145,10 +145,8 @@ format work credited to [Gold Box Explorer](licenses/GoldBoxExplorer-MIT.txt)
 All 72 rune pictures are [bundled and credited](licenses/CODE_WHEEL_ARTWORK.md);
 no artwork downloads are needed to build or use the app.
 
-
-Companion display and autosave switches are together under **Info → Options**
-(or Settings → Companion options…). Fog and footprints retain their per-area
-choices; all changes apply immediately. See [Options](docs/OPTIONS.md).
+[Companion options](docs/OPTIONS.md) · [Message log](docs/MESSAGE_LOG.md) ·
+[Marching order](docs/MARCHING_ORDER.md) · [NPC labels](docs/NPC_MARKER.md)
 
 The original Macintosh v1.1 game-save format is documented in
 [the public specification](docs/SAVE_FORMAT.md), with exact two-fork framing

@@ -5,6 +5,13 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
+Current published release: **0.81.0**. Releases 0.71–0.81 delivered F89, F79,
+F66, F35, F80, F29, F47, F42, F43, F72 and F67, individually. F97 awaits the
+owner's legacy-snapshot decision; independent features continue. F33/F86 below
+are withdrawn history, not pending requests to restore restart-based loading.
+README screenshots are refreshed as their pictured features change and must
+remain within three releases; see [README_SCREENSHOTS.md](README_SCREENSHOTS.md).
+
 ## Where we are
 
 A working personal Android companion inside Mini vMac, not a game rewrite.
@@ -1162,7 +1169,9 @@ reads back correctly.
   global. The address will move between runs and must not be hard-coded; the
   stable way to reach it is the handle the game keeps for it, the same way this
   project already follows the roster.
-- [~] **F33 (delivered 0.47.0, WITHDRAWN 2026-09-19) — Load a save from the companion,** by reading the file.
+- **F33 (delivered 0.47.0, WITHDRAWN 2026-09-19) — Load a save from the companion,** by reading the file.
+  **Historical record:** superseded by the save-state loading work F90–F93.
+  The earlier question below is no longer a pending decision for this approach.
   **PAUSED 2026-09-18, one question for the owner.** Reading a save is done —
   `SavedParty.parse` already says who is in one, so the companion can show what
   each save holds. Making the game *load* it is the part that needs a decision,
@@ -1204,7 +1213,9 @@ reads back correctly.
   rather than handing one back, and `tools/snapshot-with-save.sh` will not
   capture until the companion can say where the party is, because a capture
   taken in any other state proves nothing.
-- [ ] **F86 — Get the load sequence working safely, then bring Load back.**
+- **F86 — WITHDRAWN: restart-based load sequence.**
+  Superseded by F90–F93's save-state loading. Do not bring back the restart path.
+  The investigation below is historical; current disk consistency work is F97.
   **Load was removed from the app on 2026-09-19.** It restarts the emulated
   machine to reach a state where the game offers Load, and on the owner's device
   a restart that did not come back cleanly wedged the emulator so badly it needed
