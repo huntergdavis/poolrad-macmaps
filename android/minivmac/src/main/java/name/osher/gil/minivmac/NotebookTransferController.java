@@ -35,7 +35,7 @@ public final class NotebookTransferController {
     private final File directory;
     private final NotebookStore store;
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final ActivityResultLauncher<String> saveArchive, savePng;
+    private final ActivityResultLauncher<String> saveArchive, savePng, savePdf;
     private final ActivityResultLauncher<String[]> openArchive;
     private File pending;
     private boolean importPicker, busy, destroyed;
@@ -53,6 +53,7 @@ public final class NotebookTransferController {
         }
         saveArchive = activity.registerForActivityResult(localCreate("application/octet-stream"), this::saveResult);
         savePng = activity.registerForActivityResult(localCreate("image/png"), this::saveResult);
+        savePdf = activity.registerForActivityResult(localCreate("application/pdf"), this::saveResult);
         openArchive = activity.registerForActivityResult(new ActivityResultContracts.OpenDocument() {
             @Override public Intent createIntent(Context context, String[] types) {
                 return super.createIntent(context, types).putExtra(Intent.EXTRA_LOCAL_ONLY, true);
@@ -91,6 +92,14 @@ public final class NotebookTransferController {
         if (book == null || !start()) return;
         toast("Preparing " + book.label() + " backup…");
         prepare("prnb", out -> store.exportNotebook(book.id(), out), () -> { });
+    }
+
+    /** Save an already-built notes PDF (F53); the document is closed once written. */
+    public void exportPdf(String label, android.graphics.pdf.PdfDocument document) {
+        if (document == null) return;
+        if (!start()) { document.close(); return; }
+        toast("Preparing " + label + "…");
+        prepare("pdf", document::writeTo, document::close);
     }
 
     public interface PageRenderer { Bitmap render(); }
@@ -132,7 +141,10 @@ public final class NotebookTransferController {
     private void launchSave(File file) {
         if (destroyed || activity.isFinishing()) return;
         pending = file;
-        try { (file.getName().endsWith(".png") ? savePng : saveArchive).launch(file.getName()); }
+        try {
+            (file.getName().endsWith(".png") ? savePng
+                    : file.getName().endsWith(".pdf") ? savePdf : saveArchive).launch(file.getName());
+        }
         catch (RuntimeException failure) {
             pending = null; Log.w("PoolRad.Backup", "No save picker", failure);
             showRetry(file, "Android could not open the save picker. Nothing was exported.");

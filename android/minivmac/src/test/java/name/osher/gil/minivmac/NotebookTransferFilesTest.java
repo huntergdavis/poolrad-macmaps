@@ -42,6 +42,17 @@ public class NotebookTransferFilesTest {
         }
     }
 
+    @Test public void createsAndRestoresAPdfExport() throws Exception {
+        File directory = new File(temporary.getRoot(), "pdf-cache");
+        File pdf = NotebookTransferFiles.create(directory, "pdf");
+        assertTrue(pdf.getName().matches("PoolRad-notes-[A-Za-z0-9-]+\\.pdf"));
+        // A file with the PDF magic restores; one without does not.
+        try (FileOutputStream out = new FileOutputStream(pdf)) { out.write("%PDF-1.4\nbody".getBytes()); }
+        assertNotNull(NotebookTransferFiles.restore(directory, pdf.getName()));
+        File bogus = write(directory, "pdf", "not a pdf at all".getBytes());
+        assertNull(NotebookTransferFiles.restore(directory, bogus.getName()));
+    }
+
     @Test public void refusesUnsupportedExtensionsAndUnusableDirectories() throws Exception {
         File directory = temporary.newFolder("cache");
         for (String extension : new String[]{null, "", ".png", "PNG", "zip", "../png", "png/other"})

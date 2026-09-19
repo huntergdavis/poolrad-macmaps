@@ -17,15 +17,16 @@ final class NotebookTransferFiles {
     static final long RETENTION_MILLIS = 7L * 24 * 60 * 60 * 1000;
     static final long MAX_BYTES = 72L * 1024 * 1024;
     private static final String PREFIX = "PoolRad-notes-";
-    private static final String NAME = "PoolRad-notes-[A-Za-z0-9-]+\\.(prnb|png)";
+    private static final String NAME = "PoolRad-notes-[A-Za-z0-9-]+\\.(prnb|png|pdf)";
     private static final byte[] PNG_HEADER = {(byte) 137, 80, 78, 71, 13, 10, 26, 10};
     private static final byte[] ARCHIVE_HEADER = {'P', 'R', 'N', 'A', 0, 0, 0, 1};
+    private static final byte[] PDF_HEADER = {'%', 'P', 'D', 'F', '-'};
 
     private NotebookTransferFiles() {}
 
     /** Creates an empty unique file. It is restorable only once fully written. */
     static File create(File directory, String extension) throws IOException {
-        if (!"prnb".equals(extension) && !"png".equals(extension))
+        if (!"prnb".equals(extension) && !"png".equals(extension) && !"pdf".equals(extension))
             throw new IOException("Unsupported notebook export extension");
         if (directory == null || symlink(directory)) throw new IOException("Unsafe notebook export cache");
         if (!directory.isDirectory() && !directory.mkdirs()) throw new IOException("Cannot create notebook export cache");
@@ -43,7 +44,8 @@ final class NotebookTransferFiles {
                 || !candidate.getCanonicalFile().getParentFile().equals(directory.getCanonicalFile())) return null;
         long size = candidate.length();
         if (size <= 8 || size > MAX_BYTES) return null;
-        byte[] header = name.endsWith(".png") ? PNG_HEADER : ARCHIVE_HEADER;
+        byte[] header = name.endsWith(".png") ? PNG_HEADER
+                : name.endsWith(".pdf") ? PDF_HEADER : ARCHIVE_HEADER;
         try (FileInputStream in = new FileInputStream(candidate)) {
             for (byte expected : header) if (in.read() != (expected & 255)) return null;
             if (in.read() < 0) return null;

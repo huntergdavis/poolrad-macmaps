@@ -36,6 +36,23 @@ public final class NotePageImage {
      */
     public static Bitmap render(Context context, InkNote note, PoolRadState pinned,
             Map<Integer, NoteIcon> symbols, int x, int y, String title) {
+        Bitmap bitmap = Bitmap.createBitmap(IMAGE_WIDTH, IMAGE_HEIGHT, Bitmap.Config.ARGB_8888);
+        try {
+            drawPage(new Canvas(bitmap), context, note, pinned, symbols, x, y, title);
+            return bitmap;
+        } catch (RuntimeException | Error failure) {
+            bitmap.recycle();
+            throw failure;
+        }
+    }
+
+    /**
+     * Draw one note page onto any canvas at the standard {@link #IMAGE_WIDTH} x
+     * {@link #IMAGE_HEIGHT} size, so the same page can go to a bitmap or straight
+     * onto a PDF page (F53). Must run on the UI thread; it builds a detached View.
+     */
+    public static void drawPage(Canvas canvas, Context context, InkNote note, PoolRadState pinned,
+            Map<Integer, NoteIcon> symbols, int x, int y, String title) {
         if (context == null || note == null) throw new IllegalArgumentException("A context and note are required");
         if (Looper.myLooper() != Looper.getMainLooper() || Looper.getMainLooper() == null)
             throw new IllegalStateException("Render a note page on the UI thread");
@@ -60,22 +77,14 @@ public final class NotePageImage {
         page.layout(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
         page.fitPage();
 
-        Bitmap bitmap = Bitmap.createBitmap(IMAGE_WIDTH, IMAGE_HEIGHT, Bitmap.Config.ARGB_8888);
+        canvas.drawColor(Color.WHITE);
+        drawHeader(canvas, pinned, x, y, selected, title);
+        int saved = canvas.save();
         try {
-            Canvas canvas = new Canvas(bitmap);
-            canvas.drawColor(Color.WHITE);
-            drawHeader(canvas, pinned, x, y, selected, title);
-            int saved = canvas.save();
-            try {
-                canvas.translate(MARGIN, PAGE_TOP);
-                canvas.clipRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
-                page.draw(canvas);
-            } finally { canvas.restoreToCount(saved); }
-            return bitmap;
-        } catch (RuntimeException | Error failure) {
-            bitmap.recycle();
-            throw failure;
-        }
+            canvas.translate(MARGIN, PAGE_TOP);
+            canvas.clipRect(0, 0, PAGE_WIDTH, PAGE_HEIGHT);
+            page.draw(canvas);
+        } finally { canvas.restoreToCount(saved); }
     }
 
     private static void drawHeader(Canvas canvas, PoolRadState pinned, int x, int y,

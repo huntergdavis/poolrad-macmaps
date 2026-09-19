@@ -1486,8 +1486,18 @@ needed. Confirmed 2026-09-18.
   cannot be searched, but it is listed. Verified live: the index showed the one
   stored note (New Phlan · Tile 11,2 · Sep 13, 11:01 PM) and tapping it opened
   the handwriting. 610 unit tests pass (new `listNotes` and `labelForId` cases).
-- [ ] **F53 — Export the whole notebook as one file** — every map and every
-  note in a campaign, not a single page, because the notes span areas.
+- [x] **F53 (delivered 2026-09-19) — Export the whole notebook as one file** —
+  every note in a campaign as a multi-page PDF, one page per note, in the area +
+  date order of the note index (F56). Reached from **Info → Notes index → Export
+  all notes as a PDF…**. `NotePageImage.drawPage` was factored out so a note can
+  be drawn straight onto a PDF page (no per-note bitmap); `NotebookController`
+  reads every note off-thread, builds the `PdfDocument` on the UI thread, and the
+  existing transfer saver writes and shares it (a PDF magic-number was added to
+  the export validator). Because the game's wall geometry is not persisted, a
+  page carries the player's own ink and its area/tile/date, marked "map
+  unavailable" — the ink is the note. Verified live: exporting the one stored
+  note produced a valid one-page PDF whose page shows the "TYR" handwriting under
+  "New Phlan · Tile 11,2." 611 unit tests pass.
 
 ### Remaining
 

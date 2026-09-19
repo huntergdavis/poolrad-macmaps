@@ -239,6 +239,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         if (notes.isEmpty()) {
             list.addView(text("No notes yet. Tap a square on the map to leave one."));
         } else {
+            Button exportAll = button(list, "Export all notes as a PDF…");
+            exportAll.setOnClickListener(v -> exportAllNotes(book, notes));
             String currentArea = null;
             for (NotebookStore.NoteEntry entry : notes) {
                 if (!entry.areaId.equals(currentArea)) {
@@ -283,6 +285,55 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 report("Cannot open that note", failure);
             }
         });
+    }
+
+    /** Load each note off-thread, then build a multi-page PDF on the UI thread and hand it to the saver (F53). */
+    private void exportAllNotes(NotebookStore.Notebook book, List<NotebookStore.NoteEntry> notes) {
+        if (disposed || notes.isEmpty()) return;
+        IO.execute(() -> {
+            try {
+                final List<Object[]> pages = new ArrayList<>();   // {NoteEntry, InkNote, symbols}
+                final Map<String, Map<Integer, NoteIcon>> symbolsByArea = new HashMap<>();
+                for (NotebookStore.NoteEntry entry : notes) {
+                    InkNote ink = store.read(book.id(), entry.areaId, entry.x(), entry.y());
+                    Map<Integer, NoteIcon> symbols = symbolsByArea.get(entry.areaId);
+                    if (symbols == null) {
+                        symbols = store.listFlagIcons(book.id(), entry.areaId);
+                        symbolsByArea.put(entry.areaId, symbols);
+                    }
+                    pages.add(new Object[]{entry, ink, symbols});
+                }
+                main.post(() -> { if (!disposed) buildAndSaveNotesPdf(book, pages); });
+            } catch (IOException | RuntimeException failure) {
+                report("Cannot read the notes to export", failure);
+            }
+        });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void buildAndSaveNotesPdf(NotebookStore.Notebook book, List<Object[]> pages) {
+        android.graphics.pdf.PdfDocument doc = new android.graphics.pdf.PdfDocument();
+        try {
+            int number = 0;
+            for (Object[] page : pages) {
+                NotebookStore.NoteEntry entry = (NotebookStore.NoteEntry) page[0];
+                InkNote ink = (InkNote) page[1];
+                Map<Integer, NoteIcon> symbols = (Map<Integer, NoteIcon>) page[2];
+                android.graphics.pdf.PdfDocument.PageInfo info =
+                        new android.graphics.pdf.PdfDocument.PageInfo.Builder(
+                                NotePageImage.IMAGE_WIDTH, NotePageImage.IMAGE_HEIGHT, ++number).create();
+                android.graphics.pdf.PdfDocument.Page pdfPage = doc.startPage(info);
+                String label = AreaIdentity.labelForId(entry.areaId);
+                NotePageImage.drawPage(pdfPage.getCanvas(), activity, ink, null, symbols,
+                        entry.x(), entry.y(), label == null ? book.label() : label);
+                doc.finishPage(pdfPage);
+            }
+        } catch (RuntimeException failure) {
+            doc.close();
+            report("Cannot draw the notes PDF", failure);
+            return;
+        }
+        transfers.exportPdf(book.label() + " notes", doc);
     }
 
     @Override public JournalHistory journalHistory() { return journal; }
