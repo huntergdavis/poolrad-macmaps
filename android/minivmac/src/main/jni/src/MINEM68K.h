@@ -54,3 +54,8 @@ EXPORTPROC put_vm_long(CPTR addr, ui5r l);
 
 EXPORTPROC SetHeadATTel(ATTep p);
 EXPORTFUNC ATTep FindATTel(CPTR addr);
+
+/* Save states: the portable CPU state as a fixed 128-byte big-endian blob. */
+#define PoolRadCPUStateSize 128
+EXPORTPROC PoolRadSaveCPUState(ui3p buf);
+EXPORTPROC PoolRadRestoreCPUState(const ui3b *buf);

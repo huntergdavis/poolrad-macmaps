@@ -4587,6 +4587,92 @@ LOCALPROC my_reg_call m68k_setSR(ui4rr newsr)
 	m68k_setCR(newsr);
 }
 
+/*
+	Save and restore the portable CPU state, for the companion's save states.
+	The regstruct is full of host pointers and a derived dispatch table, so it
+	cannot be copied whole -- only this canonical subset is state. Restore goes
+	back through m68k_setSR and m68k_setpc so the derived caches are rebuilt.
+	Fixed big-endian packing, so the blob does not depend on the host.
+*/
+
+
+LOCALPROC PoolRadPut32(ui3p p, ui5r v)
+{
+	p[0] = (ui3b)(v >> 24); p[1] = (ui3b)(v >> 16);
+	p[2] = (ui3b)(v >> 8); p[3] = (ui3b)v;
+}
+
+LOCALFUNC ui5r PoolRadGet32(const ui3b *p)
+{
+	return ((ui5r)p[0] << 24) | ((ui5r)p[1] << 16) | ((ui5r)p[2] << 8) | (ui5r)p[3];
+}
+
+GLOBALFUNC void PoolRadSaveCPUState(ui3p buf)
+{
+	int i;
+	ui3p p = buf;
+	for (i = 0; i < 16; i++) { PoolRadPut32(p, V_regs.regs[i]); p += 4; }
+	PoolRadPut32(p, m68k_getpc()); p += 4;
+	PoolRadPut32(p, m68k_getSR()); p += 4;   /* resolves lazy flags */
+	PoolRadPut32(p, V_regs.usp); p += 4;
+	PoolRadPut32(p, V_regs.isp); p += 4;
+#if Use68020
+	PoolRadPut32(p, V_regs.msp); p += 4;
+	PoolRadPut32(p, V_regs.sfc); p += 4;
+	PoolRadPut32(p, V_regs.dfc); p += 4;
+	PoolRadPut32(p, V_regs.vbr); p += 4;
+	PoolRadPut32(p, V_regs.cacr); p += 4;
+	PoolRadPut32(p, V_regs.caar); p += 4;
+#endif
+	*p++ = V_regs.ExternalInterruptPending ? 1 : 0;
+	*p++ = V_regs.TracePending ? 1 : 0;
+}
+
+GLOBALFUNC void PoolRadRestoreCPUState(const ui3b *buf)
+{
+	int i;
+	const ui3b *p = buf;
+	ui5r saved[16];
+	CPTR pc, usp, isp;
+	ui4rr sr;
+#if Use68020
+	CPTR msp; ui5b sfc, dfc, vbr, cacr, caar;
+#endif
+	for (i = 0; i < 16; i++) { saved[i] = PoolRadGet32(p); p += 4; }
+	pc = PoolRadGet32(p); p += 4;
+	sr = (ui4rr)PoolRadGet32(p); p += 4;
+	usp = PoolRadGet32(p); p += 4;
+	isp = PoolRadGet32(p); p += 4;
+#if Use68020
+	msp = PoolRadGet32(p); p += 4;
+	sfc = PoolRadGet32(p); p += 4;
+	dfc = PoolRadGet32(p); p += 4;
+	vbr = PoolRadGet32(p); p += 4;
+	cacr = PoolRadGet32(p); p += 4;
+	caar = PoolRadGet32(p); p += 4;
+#endif
+	/*
+		Set the status register first: it establishes s/m/intmask and clears
+		the lazy-flag state. It may swap A7 with a stack pointer, so every
+		stack-pointer slot is written explicitly afterwards to override that.
+	*/
+	m68k_setSR(sr);
+	for (i = 0; i < 16; i++) { V_regs.regs[i] = saved[i]; }
+	V_regs.usp = usp;
+	V_regs.isp = isp;
+#if Use68020
+	V_regs.msp = msp;
+	V_regs.sfc = sfc;
+	V_regs.dfc = dfc;
+	V_regs.vbr = vbr;
+	V_regs.cacr = cacr;
+	V_regs.caar = caar;
+#endif
+	V_regs.ExternalInterruptPending = (*p++ != 0) ? trueblnr : falseblnr;
+	V_regs.TracePending = (*p++ != 0) ? trueblnr : falseblnr;
+	m68k_setpc(pc);   /* rebuilds pc_p and the fetch caches */
+}
+
 LOCALPROC my_reg_call ExceptionTo(CPTR newpc
 #if Use68020
 	, int nr
