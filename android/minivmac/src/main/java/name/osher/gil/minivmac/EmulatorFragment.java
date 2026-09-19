@@ -602,6 +602,7 @@ public class EmulatorFragment extends Fragment
                         new CodeWheelDialog().show(getChildFragmentManager(), "code-wheel");
                     break;
                 case LEGEND: MapLegendDialog.show(requireActivity()); break;
+                case NOTE_INDEX: mNotebook.showNoteIndex(); break;
             }
         });
     }

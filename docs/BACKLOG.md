@@ -1476,8 +1476,16 @@ needed. Confirmed 2026-09-18.
 
 - [ ] **F42 — A citation notice opens that journal entry.**
 - [ ] **F57 — Open the notebook page for the area you just entered.**
-- [ ] **F56 — A note index:** every note listed by area and date, tap to open.
-  Handwriting cannot be searched, but it can be listed.
+- [x] **F56 (delivered 2026-09-19) — A note index:** every note listed by area
+  and date, tap to open. Reached from **Info → Notes index**. `NotebookStore`
+  gains `listNotes(notebookId)` — every `<tile>.ink` across every area, newest
+  first by file time — and `AreaIdentity.labelForId` names each area from its
+  stored id. The index groups notes by area label with the tile and an am/pm
+  date; tapping one renders that note's handwriting with `NotePageImage` (no live
+  map needed, so notes from any area open, marked "map unavailable"). Handwriting
+  cannot be searched, but it is listed. Verified live: the index showed the one
+  stored note (New Phlan · Tile 11,2 · Sep 13, 11:01 PM) and tapping it opened
+  the handwriting. 610 unit tests pass (new `listNotes` and `labelForId` cases).
 - [ ] **F53 — Export the whole notebook as one file** — every map and every
   note in a campaign, not a single page, because the notes span areas.
 

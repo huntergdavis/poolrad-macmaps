@@ -447,6 +447,41 @@ public final class NotebookStore {
         return Collections.unmodifiableSet(new TreeSet<>(listFlagIcons(notebookId, areaId).keySet()));
     }
 
+    /** One saved note's location and time, for a whole-notebook index (F56). */
+    public static final class NoteEntry {
+        public final String areaId;
+        public final int tile;
+        public final long modified;
+        NoteEntry(String areaId, int tile, long modified) {
+            this.areaId = areaId; this.tile = tile; this.modified = modified;
+        }
+        public int x() { return tile % 16; }
+        public int y() { return tile / 16; }
+    }
+
+    /** Every saved note across every area of a notebook, newest first, by file time. */
+    public synchronized List<NoteEntry> listNotes(String notebookId) throws IOException {
+        readNotebook(notebookId);
+        File[] areas = new File(root, notebookId).listFiles();
+        List<NoteEntry> notes = new ArrayList<>();
+        if (areas == null) return notes;
+        for (File area : areas) {
+            if (!area.isDirectory()
+                    || !area.getName().matches("por-mac-v11-geo-(0|[1-9]|[12][0-9]|3[0-2])")) continue;
+            File[] files = area.listFiles();
+            if (files == null) continue;
+            for (File file : files) {
+                String name = file.getName();
+                if (!name.matches("(0|[1-9][0-9]{0,2})\\.ink")) continue;   // skip backups, map.ink, exploration.bin
+                int tile = Integer.parseInt(name.substring(0, name.length() - 4));
+                if (tile > 255) continue;
+                notes.add(new NoteEntry(area.getName(), tile, file.lastModified()));
+            }
+        }
+        Collections.sort(notes, (a, b) -> Long.compare(b.modified, a.modified));
+        return notes;
+    }
+
     /** Validated row-major tile numbers and their explicitly chosen symbols. */
     public synchronized Map<Integer, NoteIcon> listFlagIcons(String notebookId, String areaId)
             throws IOException {

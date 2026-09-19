@@ -193,4 +193,14 @@ public class AreaIdentityTest {
         assertEquals(good.resolve(first),good.resolveMutable(0,first));
         assertNull(new AreaIdentity.Catalog(exact).resolveMutable(0,first));
     }
+
+    @Test public void labelForIdNamesStoredAreasAndRejectsOthers() {
+        assertEquals("New Phlan", AreaIdentity.labelForId("por-mac-v11-geo-0"));
+        assertEquals("Slums of Phlan", AreaIdentity.labelForId("por-mac-v11-geo-20"));
+        assertEquals("Kuto's Well", AreaIdentity.labelForId("por-mac-v11-geo-29"));
+        assertEquals("Area 8", AreaIdentity.labelForId("por-mac-v11-geo-8")); // no name, but valid
+        assertNull(AreaIdentity.labelForId(null));
+        assertNull(AreaIdentity.labelForId("something-else"));
+        assertNull(AreaIdentity.labelForId("por-mac-v11-geo-x"));
+    }
 }

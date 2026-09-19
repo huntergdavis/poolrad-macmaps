@@ -214,4 +214,31 @@ public class NotebookStoreTest {
         assertTrue(new File(folder, "999.ink").createNewFile());
         assertThrows(IOException.class, () -> store.listFlags(book, AREA));
     }
+
+    @Test public void listsEveryNoteAcrossAreasNewestFirst() throws Exception {
+        NotebookStore store = new NotebookStore(temporary.getRoot());
+        String book = store.createNotebook().id();
+        String otherArea = "por-mac-v11-geo-20";
+        store.save(book, AREA, 1, 2, example());          // tile 33
+        store.save(book, otherArea, 3, 4, example());      // tile 67
+        store.save(book, AREA, 5, 6, example());           // tile 101
+        // Stamp distinct times so "newest first" is deterministic.
+        noteFile(temporary.getRoot(), book, AREA, 1, 2).setLastModified(1000);
+        noteFile(temporary.getRoot(), book, otherArea, 3, 4).setLastModified(2000);
+        noteFile(temporary.getRoot(), book, AREA, 5, 6).setLastModified(3000);
+
+        java.util.List<NotebookStore.NoteEntry> notes = store.listNotes(book);
+        assertEquals(3, notes.size());
+        assertEquals(101, notes.get(0).tile);             // newest
+        assertEquals(AREA, notes.get(0).areaId);
+        assertEquals(5, notes.get(0).x());
+        assertEquals(6, notes.get(0).y());
+        assertEquals(otherArea, notes.get(1).areaId);
+        assertEquals(33, notes.get(2).tile);              // oldest
+    }
+
+    @Test public void noteIndexIsEmptyForAFreshNotebook() throws Exception {
+        NotebookStore store = new NotebookStore(temporary.getRoot());
+        assertTrue(store.listNotes(store.createNotebook().id()).isEmpty());
+    }
 }

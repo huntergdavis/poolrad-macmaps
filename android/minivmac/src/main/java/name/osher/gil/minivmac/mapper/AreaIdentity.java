@@ -84,8 +84,22 @@ public final class AreaIdentity {
 
     public String id() { return PREFIX + recordId; }
 
+    /** The human name for a stored area id ("por-mac-v11-geo-N"), or null if it is not one. */
+    public static String labelForId(String areaId) {
+        if (areaId == null || !areaId.startsWith(PREFIX)) return null;
+        try {
+            int recordId = Integer.parseInt(areaId.substring(PREFIX.length()));
+            if (recordId < 0) return null;
+            return labelForRecord(recordId);
+        } catch (NumberFormatException notARecord) {
+            return null;
+        }
+    }
+
     /** Names are tied to original Macintosh GEO loads, not a similarly numbered DOS map. */
-    public String label() {
+    public String label() { return labelForRecord(recordId); }
+
+    private static String labelForRecord(int recordId) {
         switch (recordId) {
             case 0: return "New Phlan";
             case 1: return "Buccaneer Base";

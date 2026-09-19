@@ -9,7 +9,9 @@ import android.os.Looper;
 import android.os.SystemClock;
 import android.view.KeyEvent;
 import android.view.View;
+import android.graphics.Bitmap;
 import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.CheckBox;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
@@ -27,6 +29,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import name.osher.gil.minivmac.journal.DiscoveryMessage;
@@ -206,6 +211,76 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 main.post(() -> { if (!disposed) toast("That save's notebook is no longer here; keeping the current one."); });
             } catch (IOException | RuntimeException failure) {
                 report("Cannot open the save's notebook", failure);
+            }
+        });
+    }
+
+    /* --- the note index (F56): every note listed by area and date, tap to view --- */
+
+    private static final SimpleDateFormat NOTE_DATE = new SimpleDateFormat("MMM d, h:mm a", Locale.US);
+
+    /** List every note in the open notebook, grouped by area and dated, each opening its page. */
+    public void showNoteIndex() {
+        if (disposed) return;
+        if (notebook == null) { toast("Open a notebook first."); return; }
+        final NotebookStore.Notebook book = notebook;
+        IO.execute(() -> {
+            try {
+                final List<NotebookStore.NoteEntry> notes = store.listNotes(book.id());
+                main.post(() -> { if (!disposed) presentNoteIndex(book, notes); });
+            } catch (IOException | RuntimeException failure) {
+                report("Cannot read the notes index", failure);
+            }
+        });
+    }
+
+    private void presentNoteIndex(NotebookStore.Notebook book, List<NotebookStore.NoteEntry> notes) {
+        LinearLayout list = column();
+        if (notes.isEmpty()) {
+            list.addView(text("No notes yet. Tap a square on the map to leave one."));
+        } else {
+            String currentArea = null;
+            for (NotebookStore.NoteEntry entry : notes) {
+                if (!entry.areaId.equals(currentArea)) {
+                    currentArea = entry.areaId;
+                    String label = AreaIdentity.labelForId(entry.areaId);
+                    TextView heading = text(label == null ? entry.areaId : label);
+                    heading.setPadding(0, dp(10), 0, dp(2));
+                    list.addView(heading);
+                }
+                Button open = button(list, "Tile " + entry.x() + "," + entry.y()
+                        + "  ·  " + NOTE_DATE.format(new Date(entry.modified)));
+                final NotebookStore.NoteEntry which = entry;
+                open.setOnClickListener(v -> openStoredNote(book, which));
+            }
+        }
+        ScrollView scroll = new ScrollView(activity);
+        scroll.addView(list);
+        UpperHalfReferenceDialog.show(activity, book.label() + " · notes", scroll);
+    }
+
+    private void openStoredNote(NotebookStore.Notebook book, NotebookStore.NoteEntry entry) {
+        IO.execute(() -> {
+            try {
+                final InkNote note = store.read(book.id(), entry.areaId, entry.x(), entry.y());
+                final Map<Integer, NoteIcon> symbols = store.listFlagIcons(book.id(), entry.areaId);
+                main.post(() -> {
+                    if (disposed) return;
+                    String label = AreaIdentity.labelForId(entry.areaId);
+                    String title = (label == null ? "Note" : label) + " · " + entry.x() + "," + entry.y();
+                    try {
+                        Bitmap page = NotePageImage.render(activity, note, null, symbols,
+                                entry.x(), entry.y(), label == null ? book.label() : label);
+                        ImageView view = new ImageView(activity);
+                        view.setAdjustViewBounds(true);
+                        view.setImageBitmap(page);
+                        UpperHalfReferenceDialog.show(activity, title, view);
+                    } catch (RuntimeException failure) {
+                        toast("Cannot draw that note.");
+                    }
+                });
+            } catch (IOException | RuntimeException failure) {
+                report("Cannot open that note", failure);
             }
         });
     }
