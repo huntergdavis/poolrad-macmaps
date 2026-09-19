@@ -4,6 +4,7 @@ import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.Path;
 import android.os.Bundle;
 import android.util.AttributeSet;
@@ -78,6 +79,18 @@ public final class LiveMapView extends View {
     private int touchCombatant = -1;
     /** Long enough to look across the pane and back, short enough to forget. */
     private static final long HIGHLIGHT_MS = 3000;
+    /**
+     * When the party's own square was last asked for, and the strip that asks.
+     *
+     * On a full sixteen-by-sixteen map with walls, doors, footprints and notes
+     * on it, the one small arrow that is you is genuinely hard to pick out.
+     * Tapping the header rings it for a moment. It is a way of looking, not a
+     * way of doing: nothing moves, nothing is written, and it fades on its own.
+     */
+    private long pingUntil;
+    private final RectF headerTarget = new RectF();
+    private boolean touchHeader;
+    private static final long PING_MS = 3000;
     private MapMode mode = MapMode.UNAVAILABLE;
     private String notebook = "Loading notebook…";
     private Map<Integer, NoteIcon> flags = Collections.emptyMap();
@@ -230,6 +243,7 @@ public final class LiveMapView extends View {
                 : ". Reference only; map notes resume with local exploration. ")
                 + notebook + ". " + flags.size() + " flags. "
                 + MapProgress.spoken(exploration.visitedCount()) + ". " + unwalkedExitsLabel()
+                + (pinging() ? "Your square is ringed. " : "")
                 + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
                 + "two buttons in the top-left corner of the map turn the footprints "
@@ -349,6 +363,8 @@ public final class LiveMapView extends View {
             boolean onButton = touchFootprints || touchFog || touchReturn || touchQuick >= 0;
             touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
             touchCombatant = onButton || touchMember >= 0 ? -1 : combatantAt(touchX, touchY);
+            touchHeader = !onButton && touchMember < 0 && touchCombatant < 0
+                    && headerTarget.contains(touchX, touchY);
             touchParty = touchMember < 0 ? null : party;
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
@@ -395,6 +411,14 @@ public final class LiveMapView extends View {
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
+            } else if (gesture && touchHeader && headerTarget.contains(event.getX(), event.getY())) {
+                if (positionAvailable) {
+                    pingUntil = now() + PING_MS;
+                    performClick();
+                    refreshDescription();
+                    invalidate();
+                    postDelayed(() -> { pingUntil = 0; refreshDescription(); invalidate(); }, PING_MS + 50);
+                }
             } else if (gesture && touchCombatant >= 0 && touchParty == null && party != null
                     && combatantAt(event.getX(), event.getY()) == touchCombatant
                     && touchCombatant < party.members.size()) {
@@ -447,7 +471,7 @@ public final class LiveMapView extends View {
     private void cancelTap() {
         touchFootprints = false; touchFog = false; touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
-        touchMember = -1; touchParty = null; touchCombatant = -1;
+        touchMember = -1; touchParty = null; touchCombatant = -1; touchHeader = false;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
     }
 
@@ -518,6 +542,9 @@ public final class LiveMapView extends View {
                 12 * density + button, 22 * density, ink);
         ink.setTextAlign(Paint.Align.RIGHT);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
+        // The whole header row is the target; it is a big thing to hit and it
+        // does nothing dangerous.
+        headerTarget.set(0, 0, pane.mapWidth, 30 * density);
         drawReturnButton(canvas, pane);
         ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
@@ -540,6 +567,7 @@ public final class LiveMapView extends View {
         }
         artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
+        if (positionAvailable && pinging()) drawPing(canvas, left, top, cell);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextAlign(Paint.Align.CENTER);
         // One caption line. The old "North up · N walked" reminder is gone; the
@@ -825,6 +853,27 @@ public final class LiveMapView extends View {
         return found >= 0 && found < party.members.size() ? found : -1;
     }
 
+    /** True while the party's square is still ringed. */
+    private boolean pinging() { return pingUntil > 0 && now() < pingUntil; }
+
+    /**
+     * Two rings around the party's own square, briefly.
+     *
+     * Rings rather than a fill, because the square underneath is the thing
+     * being pointed at and filling it would hide the arrow, the footprints and
+     * anything written there. Two of them because one at this size reads as
+     * another map symbol.
+     */
+    private void drawPing(Canvas canvas, float left, float top, float cell) {
+        float cx = left + (state.x + .5f) * cell, cy = top + (state.y + .5f) * cell;
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setColor(Color.BLACK);
+        ink.setStrokeWidth(Math.max(1.5f * density, cell * .09f));
+        canvas.drawCircle(cx, cy, cell * 1.1f, ink);
+        canvas.drawCircle(cx, cy, cell * 1.7f, ink);
+        ink.setStyle(Paint.Style.FILL);
+    }
+
     /** True while a tapped combatant's row is still lit. */
     private boolean highlightShowing() {
         return highlightedMember >= 0 && now() < highlightUntil;
@@ -839,6 +888,7 @@ public final class LiveMapView extends View {
         if (highlightedMember >= 0 && !highlightShowing()) {
             highlightedMember = -1; highlightUntil = 0; refreshDescription();
         }
+        if (pingUntil > 0 && !pinging()) { pingUntil = 0; refreshDescription(); }
         return super.getContentDescription();
     }
 

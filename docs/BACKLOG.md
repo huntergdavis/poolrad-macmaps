@@ -1347,7 +1347,7 @@ quick-flag write.
 - [x] **F50 (delivered 0.50.0) — Area progress on the map header** — "explored 62 of 256 squares".
 - [x] **F45 (delivered 0.51.0) — Older footprints drawn slightly smaller,** so a trail reads
   directionally. Deliberately not shading: shading does not hold up on e-ink.
-- [ ] **F60 — Tap the header to ping your own square,** for finding yourself on
+- [x] **F60 (delivered 0.52.0) — Tap the header to ping your own square,** for finding yourself on
   a large map.
 - [ ] **F75 — A 1:1 option** drawing the map at the game's own grid scale.
 - [ ] **F58 — An area-connection map** — which door led where, built only from

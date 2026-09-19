@@ -122,6 +122,49 @@ public final class PartyPaneRenderCheck {
             equal(before, render(view), "Healing did not restore the exact full-health display");
         });
 
+        run("tapping the header rings the party's own square, briefly and harmlessly", () -> {
+            /*
+             * On a full map with walls, footprints and notes on it, the one
+             * small arrow that is you is hard to pick out. Tapping the header
+             * rings it. It must point and nothing else: no note created, no
+             * position claimed, and it must go away on its own.
+             */
+            SyntheticAreas areas = new SyntheticAreas();
+            LiveMapView view = view(null, 960, 480);
+            final int[] taps = {0};
+            view.setListener(new LiveMapView.Listener() {
+                @Override public void onTileTapped(AreaIdentity area, int x, int y) { taps[0]++; }
+                @Override public void onNearbyFlagsTapped(AreaIdentity a, int x, int y, int[] n) { taps[0]++; }
+                @Override public void onAreaChanged(AreaIdentity area) { }
+                @Override public void onExplorationSample(PoolRadState sample) { }
+                @Override public void onExplorationAreaChanged(AreaIdentity target) { }
+                @Override public void onPartyMemberTapped(PartyState.Member member) { }
+                @Override public void onFootprintsToggled(boolean shown) { }
+                @Override public void onFogToggled(boolean visitedOnly) { }
+                @Override public void onQuickToggled(int member, boolean on) { }
+                @Override public void onReturnPressed() { }
+            });
+            showObservation(view, areas.observation(0, true, 1));
+            Bitmap before = render(view);
+
+            event(view, MotionEvent.ACTION_DOWN, 300, 12);
+            event(view, MotionEvent.ACTION_UP, 300, 12);
+            Bitmap ringed = render(view);
+            check(changedPixels(before, ringed) > 50, "Tapping the header drew no ring");
+            check(view.getContentDescription().toString().contains("Your square is ringed"),
+                    "The ring is not in the accessible text");
+            check(taps[0] == 0, "Tapping the header created a map note");
+
+            // It points; it does not persist.
+            long start = android.os.SystemClock.elapsedRealtime();
+            while (android.os.SystemClock.elapsedRealtime() - start < 3_500) {
+                try { Thread.sleep(100); } catch (InterruptedException stop) { break; }
+            }
+            check(!view.getContentDescription().toString().contains("Your square is ringed"),
+                    "The ring outlived its few seconds");
+            equal(before, render(view), "The ring left something behind");
+        });
+
         run("a narrow portrait pane puts the party under the map rather than losing it", () -> {
             /*
              * This check used to require the sidebar to vanish at 360x320 and
