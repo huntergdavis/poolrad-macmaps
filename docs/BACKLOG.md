@@ -1525,10 +1525,17 @@ companion feature. The eventual aim is a harness that can play the game
 through unattended; that is a direction, not a milestone, and no round of work
 should trade a requested feature for it.
 
-- [ ] **F63 — One backup file for the whole companion** — notebooks, fog and
-  trails together. Wanted, but by the owner's own account rarely used, so it
-  sits behind everything above. Broader than F53, which is an export for
-  reading rather than a restore.
+- [x] **F63 (delivered 2026-09-19) — One backup file for the whole companion** —
+  every notebook (each already carrying its areas, trails and notes) plus the
+  fog-of-war switches, in one ZIP (`.prcb`). **PoolRad → Notebooks → Back up
+  everything… / Restore everything…**. Restoring keeps each notebook's original
+  id (so save states paired with a notebook, F93, find it again) and leaves an
+  already-present notebook untouched rather than duplicating or overwriting it.
+  `CompanionBackup` does the ZIP; the existing transfer saver/opener carry the
+  file (the validator learned the `.prcb` ZIP magic). Verified: the JUnit
+  round-trip restores notebooks with their notes and the fog switches and skips
+  an existing one; live, "Back up everything…" produced a valid ZIP holding both
+  notebooks (valid PRNA archives) and the real fog switch. 613 unit tests pass.
 - [ ] **F65 — Teach `tools/play.py` to reach a named area on demand,** so
   screenshots for a feature are repeatable instead of hand-driven. Complex, and
   filed behind everything under the standing rule above.

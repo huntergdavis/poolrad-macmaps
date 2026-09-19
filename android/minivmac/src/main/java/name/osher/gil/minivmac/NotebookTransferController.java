@@ -2,7 +2,15 @@ package name.osher.gil.minivmac;
 
 import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.graphics.Bitmap;
+
+import androidx.preference.PreferenceManager;
+
+import name.osher.gil.minivmac.notebook.CompanionBackup;
+import name.osher.gil.minivmac.mapper.ExplorationStyle;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
@@ -37,6 +45,7 @@ public final class NotebookTransferController {
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ActivityResultLauncher<String> saveArchive, savePng, savePdf;
     private final ActivityResultLauncher<String[]> openArchive;
+    private final ActivityResultLauncher<String[]> openBackup;
     private File pending;
     private boolean importPicker, busy, destroyed;
     private AlertDialog retry;
@@ -59,6 +68,11 @@ public final class NotebookTransferController {
                 return super.createIntent(context, types).putExtra(Intent.EXTRA_LOCAL_ONLY, true);
             }
         }, this::importResult);
+        openBackup = activity.registerForActivityResult(new ActivityResultContracts.OpenDocument() {
+            @Override public Intent createIntent(Context context, String[] types) {
+                return super.createIntent(context, types).putExtra(Intent.EXTRA_LOCAL_ONLY, true);
+            }
+        }, this::restoreResult);
     }
 
     private static ActivityResultContracts.CreateDocument localCreate(String mime) {
@@ -100,6 +114,78 @@ public final class NotebookTransferController {
         if (!start()) { document.close(); return; }
         toast("Preparing " + label + "…");
         prepare("pdf", document::writeTo, document::close);
+    }
+
+    /* --- one backup file for the whole companion (F63) --- */
+
+    /** Back up every notebook and the fog switches to one file. */
+    public void exportEverything() {
+        if (!start()) return;
+        final Map<String, Boolean> fog = readFogSwitches();
+        toast("Preparing full companion backup…");
+        prepare("prcb", out -> CompanionBackup.write(out, store, fog), () -> { });
+    }
+
+    /** Restore a whole-companion backup, adding notebooks that are not already here. */
+    public void restoreEverything() {
+        if (!start()) return;
+        busy = false; importPicker = true;
+        try { openBackup.launch(new String[]{"*/*"}); }
+        catch (RuntimeException failure) {
+            importPicker = false; Log.w("PoolRad.Backup", "No restore picker", failure);
+            toast("Android could not open the backup picker. Nothing was changed.");
+        }
+    }
+
+    private void restoreResult(Uri uri) {
+        importPicker = false;
+        if (uri == null) return;
+        busy = true; toast("Restoring companion backup…");
+        NotebookController.IO.execute(() -> {
+            CompanionBackup.Restored result = null;
+            String problem = null;
+            try (InputStream in = context.getContentResolver().openInputStream(uri)) {
+                if (in == null) throw new IOException("Backup file is unavailable");
+                result = CompanionBackup.read(in, store);
+            } catch (IOException | RuntimeException failure) {
+                Log.w("PoolRad.Backup", "Companion restore failed", failure); problem = failure.getMessage();
+            }
+            if (result != null) writeFogSwitches(result.fog);
+            final CompanionBackup.Restored done = result;
+            final String detail = problem;
+            main.post(() -> {
+                busy = false;
+                if (done != null) toast("Restored " + done.notebooks + " notebook(s)"
+                        + (done.skipped > 0 ? ", " + done.skipped + " already here" : "")
+                        + ". Open PoolRad → Notebooks to choose one.");
+                else toast("Backup not restored; nothing changed. " + detail);
+            });
+        });
+    }
+
+    private SharedPreferences prefs() { return PreferenceManager.getDefaultSharedPreferences(context); }
+
+    private Map<String, Boolean> readFogSwitches() {
+        Map<String, Boolean> fog = new LinkedHashMap<>();
+        for (Map.Entry<String, ?> entry : prefs().getAll().entrySet()) {
+            String key = entry.getKey();
+            if ((key.startsWith(ExplorationStyle.FOG) || key.startsWith(ExplorationStyle.FOOTPRINTS))
+                    && entry.getValue() instanceof Boolean) {
+                fog.put(key, (Boolean) entry.getValue());
+            }
+        }
+        return fog;
+    }
+
+    private void writeFogSwitches(Map<String, Boolean> fog) {
+        if (fog == null || fog.isEmpty()) return;
+        SharedPreferences.Editor edit = prefs().edit();
+        for (Map.Entry<String, Boolean> entry : fog.entrySet())
+            if (entry.getKey() != null && entry.getValue() != null
+                    && (entry.getKey().startsWith(ExplorationStyle.FOG)
+                        || entry.getKey().startsWith(ExplorationStyle.FOOTPRINTS)))
+                edit.putBoolean(entry.getKey(), entry.getValue());
+        edit.apply();
     }
 
     public interface PageRenderer { Bitmap render(); }

@@ -763,6 +763,12 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                     button(list, "Restore backup…").setOnClickListener(v -> {
                         picker.dismiss(); transfers.importNotebook();
                     });
+                    button(list, "Back up everything…").setOnClickListener(v -> {
+                        picker.dismiss(); transfers.exportEverything();
+                    });
+                    button(list, "Restore everything…").setOnClickListener(v -> {
+                        picker.dismiss(); transfers.restoreEverything();
+                    });
                     ScrollView scroll = new ScrollView(activity); scroll.addView(list);
                     picker = UpperHalfReferenceDialog.show(activity, "Notebooks", scroll);
                 });
