@@ -200,6 +200,9 @@ public class EmulatorFragment extends Fragment
             cancelAutomaticWheel(); return;
         }
         WheelPrompt prompt = WheelPrompt.parse(sample);
+        // The game has reached its own copy-protection prompt, so boot is done:
+        // stop nudging Return and leave the wheel to the auto-answer.
+        if (prompt != null) stopBootDismiss();
         int key = mAutomaticWheel.observeIfReleased(prompt, SystemClock.uptimeMillis(), mAutomaticKey >= 0);
         if (key == 0) return;
         mAutomaticKey = translateKeyCode(key == '\n' ? KeyEvent.KEYCODE_ENTER : KeyEvent.KEYCODE_A + key - 'A');
@@ -257,12 +260,66 @@ public class EmulatorFragment extends Fragment
      */
     private void guestScreenMoved() {
         long now = SystemClock.elapsedRealtime();
+        mLastGuestScreenMs = now;
         boolean waiting = mMapPolling && mMapPace.slowed(now);
         mMapPace.sawActivity(now);
         if (waiting && mUIHandler != null) {
             mUIHandler.removeCallbacks(mMapPoll);
             mUIHandler.post(mMapPoll);
         }
+    }
+
+    /* --- auto-dismiss the Mac's boot dialog (F30) --- */
+
+    /*
+     * After an unclean shutdown the Mac stalls at "This computer may not have
+     * been shut down properly", waiting on the Return key, and never reaches the
+     * game until someone presses it. So during the boot window -- before any
+     * party is in the world -- a screen that has gone still for a few seconds is
+     * taken to be that dialog (or a title card), and one Return is sent to move
+     * it along. A Return at this point can only advance a splash or dismiss an
+     * alert; there is nothing to lose on a machine with no game running yet.
+     * It disarms as soon as the game reaches its own copy-protection prompt.
+     */
+    private volatile long mLastGuestScreenMs;
+    /** Last time a large part of the screen changed; small blinks (a cursor, the
+     *  menu clock) do not count, so a still dialog reads as still. */
+    private volatile long mLastBigScreenMs;
+    private boolean mBootDismissArmed;
+    private int mBootDismissSent;
+    private static final long BOOT_STALL_MS = 3500;
+    /** A change at least this many pixels is real drawing, not a blink. */
+    private static final int BOOT_BIG_CHANGE_PX = 12000;
+    private static final int BOOT_DISMISS_MAX = 6;
+    private final Runnable mBootDismissTick = new Runnable() {
+        @Override public void run() {
+            if (!mBootDismissArmed) return;
+            Core core = mCore;
+            long now = SystemClock.elapsedRealtime();
+            boolean noGameYet = mLiveMap == null || mLiveMap.snapshot() == null;
+            long idle = now - mLastBigScreenMs;
+            if (core != null && core.isReady() && isResumed() && noGameYet
+                    && mBootDismissSent < BOOT_DISMISS_MAX
+                    && idle > BOOT_STALL_MS) {
+                pressGuestReturn();
+                mBootDismissSent++;
+                mLastBigScreenMs = now;   // let the screen answer before nudging again
+            }
+            if (mUIHandler != null && mBootDismissArmed) mUIHandler.postDelayed(this, 1500);
+        }
+    };
+
+    private void startBootDismiss() {
+        stopBootDismiss();
+        mBootDismissArmed = true;
+        mBootDismissSent = 0;
+        mLastBigScreenMs = SystemClock.elapsedRealtime();
+        if (mUIHandler != null) mUIHandler.postDelayed(mBootDismissTick, 1500);
+    }
+
+    private void stopBootDismiss() {
+        mBootDismissArmed = false;
+        if (mUIHandler != null) mUIHandler.removeCallbacks(mBootDismissTick);
     }
 
     private volatile byte[] mLastPartySample;
@@ -744,6 +801,7 @@ public class EmulatorFragment extends Fragment
         stopMapPolling();
         stopWheelPolling();
         stopAutoSave();
+        stopBootDismiss();
         if (mCore != null) mCore.setMapSampleListener(null);
         if (mCore != null) mCore.setPartySampleListener(null);
         if (mCore != null) mCore.setWheelSampleListener(null);
@@ -896,6 +954,7 @@ public class EmulatorFragment extends Fragment
                  * know to do.
                  */
                 if (mCore == mapCore) startMapPolling();
+                if (mCore == mapCore) startBootDismiss();
             }));
 
             ScreenView.OnMouseEventListener mouseInput = createMouseInputListener();
@@ -904,6 +963,8 @@ public class EmulatorFragment extends Fragment
 
             mCore.setOnUpdateScreenListener((update, top, left, bottom, right) -> mUIHandler.post(() -> {
                 guestScreenMoved();
+                if ((long) (bottom - top) * (right - left) >= BOOT_BIG_CHANGE_PX)
+                    mLastBigScreenMs = SystemClock.elapsedRealtime();
                 mScreenView.updateScreen(update, top, left, bottom, right);
             }));
 
@@ -1250,6 +1311,7 @@ public class EmulatorFragment extends Fragment
         stopMapPolling();
         stopWheelPolling();
         stopAutoSave();
+        stopBootDismiss();
         cancelCodeEntry();
         if (mCore != null) {
             mCore.pauseEmulation();

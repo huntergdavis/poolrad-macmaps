@@ -1345,7 +1345,17 @@ reads back correctly.
   left on the save disk.
 - [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
   on the info screen, not on the map. Pairs with F39 and F52.
-- [ ] **F30 — Auto-dismiss the Mac's boot dialog.**
+- [x] **F30 (delivered 2026-09-19) — Auto-dismiss the Mac's boot dialog.** After
+  an unclean shutdown the Mac stalls forever at "This computer may not have been
+  shut down properly", waiting on Return, and never reaches the game. Now, during
+  the boot window — before any party is in the world — a screen that has gone
+  still for a few seconds (ignoring tiny blinks like a cursor, so a still dialog
+  reads as still) gets one Return sent through the same path the map's own Return
+  key uses; a Return here can only dismiss an alert or advance a splash, and it
+  disarms the moment the game reaches its own copy-protection prompt. No toggle:
+  it is unambiguously helpful. Verified live: forced an unclean shutdown, and the
+  machine cleared the dialog on its own and booted through to the game with no
+  key pressed by hand.
 
 ### Helper actions — performed by writing memory, not by driving menus
 
