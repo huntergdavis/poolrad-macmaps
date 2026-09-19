@@ -144,3 +144,10 @@ format work credited to [Gold Box Explorer](licenses/GoldBoxExplorer-MIT.txt)
 (MIT). Code-wheel reference: [Dave Kennedy / Andrew Schultz](https://dkennedy.io/por-code-wheel/wwm.html).
 All 72 rune pictures are [bundled and credited](licenses/CODE_WHEEL_ARTWORK.md);
 no artwork downloads are needed to build or use the app.
+
+
+The original Macintosh v1.1 game-save format is documented in
+[the public specification](docs/SAVE_FORMAT.md), with exact two-fork framing
+and the verified character, inventory and effect layout. The
+[host writer](docs/SAVE_WRITER.md) generates a new save from a private capture;
+cross-platform conversion remains separate unfinished work.

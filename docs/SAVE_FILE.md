@@ -4,6 +4,11 @@ Work for F78, done 2026-09-18, against the three saved games on the owner's own
 game disk. Two of them are the same party in two states, which made the
 important parts fall out of a plain diff.
 
+The verified framing is now published in [SAVE_FORMAT.md](SAVE_FORMAT.md).
+That specification supersedes the approximate region boundaries below and
+documents the full item/effect counts. This page retains the earlier discovery
+history.
+
 ## The shape of it
 
 A saved game is an ordinary Macintosh file with two forks, about 17 KB:
@@ -21,7 +26,7 @@ here: the characters are not in the data fork at all.
 A standard resource fork holding resources of type **`PoRc`**, one per party
 member, in party order, each **named with the character's own name**.
 
-**Each `PoRc` resource is the same 302-byte character record the running game
+**Each `PoRc` resource begins with the same 302-byte character record the running game
 holds in memory.** Every offset this project established by reading the game's
 own 68k code applies unchanged:
 
@@ -74,7 +79,7 @@ being the very first, and the party had walked a dozen squares since the save
 was written.
 
 So writing a save does not require understanding what is in this block. It
-requires copying the right region out, which is what F79 now has to do.
+requires copying the right region out, which F79 now does with validated handles and a successful live-load round trip.
 
 **One caveat that matters.** In the session measured, the block sat at
 `A5 − 0x76a75`, about 475 KB below the application globals. That is heap

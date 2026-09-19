@@ -4,6 +4,7 @@ F79 adds `tools/write-game-save.py`, a dependency-free Python 3 writer for a
 private RAM capture of Macintosh Pool of Radiance v1.1. It generates a new
 original-game save, including the world state, party, inventory, and effects.
 This is a host tool, not an Android menu action or an emulator snapshot.
+The exact public format is specified in [SAVE_FORMAT.md](SAVE_FORMAT.md).
 
 ```sh
 tools/capture-ram.sh emulator-5586 scratch/current.ram

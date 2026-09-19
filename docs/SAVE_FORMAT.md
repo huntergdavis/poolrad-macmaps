@@ -1,147 +1,239 @@
-# The saved game, and who has already decoded one
+# Macintosh Pool of Radiance v1.1 save format
 
-Research done 2026-09-18 for F33/F34.
+Specification revision 1, 2026-09-19 (F80). This describes original-game saves,
+not emulator snapshots. It is the project's own reverse engineering of the
+owner-supplied Macintosh v1.1 executable, checked against existing saves and a
+generated save loaded by the original game. No game assets or example game
+payloads accompany this document.
 
-**The result changed the project's boundary.** The research was commissioned
-under a decision that we would *not* write our own save format. On reading it
-the owner reversed that: "I take it back, we're going to be writing our own
-saves and we'll need to document and publish the format." The plan is now to
-align the Macintosh format, verify it, publish the specification, and build a
-converter that turns any platform's save into a Macintosh one — so parties
-other people played, at any point in the game, can be loaded here for testing.
-Recorded in [DESIGN.md](DESIGN.md); the ordered work is the save block of
-[BACKLOG.md](BACKLOG.md), F49 and F77 through F81.
+The earlier research survey is preserved in
+[SAVE_FORMAT_RESEARCH.md](SAVE_FORMAT_RESEARCH.md).
 
-## The short answer
+Offsets are hexadecimal, zero-based, and relative to the stated structure.
+Lengths are decimal unless prefixed with `0x`. `BE16` and `BE32` mean unsigned
+big-endian integers. Byte arrays remain byte arrays: do not assume an unknown
+world field is a 68k integer. Unknown bytes must be preserved when round-tripping.
 
-**Nobody has decoded the Macintosh save.** Every public project found targets
-the DOS, C64 or Amiga line. Searching for Macintosh Gold Box reverse
-engineering now returns *this repository* among the results, which is its own
-kind of answer.
+## File identity and forks
 
-**But the record is documented field-by-field on three other platforms,** and
-those platforms are the same record at different sizes. That turns the Mac job
-from a decode into an alignment.
+The HFS file has Finder type `prdt`, creator `prad`, and two forks:
 
-## What exists
+- The data fork stores four state blocks and the ordered party names.
+- The standard Macintosh resource fork stores one named `PoRc` resource per
+  character, containing the character, inventory, and effects.
 
-| Project | Platform | What it has | Use to us |
-| --- | --- | --- | --- |
-| [malcyon/wish](https://github.com/malcyon/wish) | C64, reads/writes DOS and Amiga saves | `docs/README.md` covers the container, the character record and the **save game layout**; `goldbox/dos_layout.py` records what differs between four record layouts | The closest thing to a Rosetta stone |
-| [Gold Box Companion](https://gbc.zorbus.net/) | DOS under DOSBox | Ships `formats.zip` describing character save file formats, plus lists of effects and items | Field meanings |
-| [Gold Box Explorer](https://github.com/bsimser/Gold-Box-Explorer) | DOS | Views and exports Gold Box game files | Data files, not saves |
-| [Amiga-dev wiki](http://amiga-dev.wikidot.com/project:pool-of-radiance) | Amiga | Data file formats; ByteKiller 2.0 unpacking | Background |
-| [OpenGold](https://github.com/stdarg/OpenGold) | DOS data | Reimplementation that loads original records, unknown bytes retained | Field meanings |
+Both forks are required. A data-fork-only copy is not a complete game save.
+The export tool accepts a new 1–31 character ASCII filename without colon or
+slash. This is a conservative tool restriction, not the complete HFS character
+set. Character/resource names use Macintosh Roman bytes.
 
-## Sizes, which are the encouraging part
+## Data fork: exact framing
 
-| Platform | Character record |
+Let `N` be the party count. The expected length is **12810 + 16 × N**.
+The verified writer accepts 1–8 party members; six members produce 12,906 bytes.
+
+| Offset | Length | Contents | Source at save time |
+| --- | ---: | --- | --- |
+| `0x0000` | 1 | State byte | `A5−0x513c` |
+| `0x0001` | 2048 | State block A | handle at `A5−0x5eb2` |
+| `0x0801` | 2048 | State block B | handle at `A5−0x5eae` |
+| `0x1001` | 1024 | State block C | handle at `A5−0x5eaa` |
+| `0x1401` | 7680 | World-state block D | handle at `A5−0x5ea6` |
+| `0x3201` | 6 | Trailer bytes | `A5−0x3aee` |
+| `0x3207` | 1 | State byte | `A5−0x5e89` |
+| `0x3208` | 1 | State byte | `A5−0x5e90` |
+| `0x3209` | 1 | Party count `N` | roster length |
+| `0x320a` | `16 × N` | Character names, in party order | each record `+0x00` |
+
+A handle is read through its master pointer; its allocation address is not
+stable between runs. These globals locate RAM for capture-based writing. They
+are not offsets into the saved file.
+
+The initial byte is easy to miss: block D begins at **0x1401**, not 0x1400.
+The older exploratory region table in SAVE_FILE.md used approximate boundaries;
+the table above and the writer supersede them.
+
+### Save-time packing
+
+Before copying the blocks, the game places these values into them. Apply this
+packing to private copies, not to the running game's memory. Offsets below are
+relative to block A or B, not to the file:
+
+| Destination | Value |
 | --- | --- |
-| DOS | 285 bytes |
-| Amiga | 288 bytes |
-| **Macintosh (this project's own measurement)** | **302 bytes** |
+| A `+0x1f8`, BE16 | zero-extended byte at `A5−0x5ea2` |
+| A `+0x1fe`, BE16 | `((byte[A5−0x5e8d] × 2) & 255) + byte[A5−0x5e8e]` |
+| A `+0x3f4,+0x3f6,+0x3f8`, BE16 each | first word of each four-byte entry at `A5−0x3ae8 + 4×i`, `i=1,2,3` |
+| A `+0x3fa,+0x3fc,+0x3fe`, BE16 each | second word of those same entries |
+| B `+0x624`, BE16 | zero-extended byte at `A5−0x513c` |
 
-`wish` documents the Amiga record as *the DOS record plus padding*, applied
-through an `amiga_por_offset` table, big-endian. Amiga is also big-endian 68k.
-The Mac is 14 bytes off the Amiga, which is the shape of a port that kept the
-field order and changed the alignment — not a different design. So the likely
-job is aligning a documented layout against the offsets this project has
-already found on its own (name `+0x00`, class `+0x2f`, maxHP `+0x32`,
-encumbrance `+0x10e`, chain `+0x110`, own handle `+0x114`, condition `+0x118`,
-quick `+0x11b`, AC `+0x11d`, attacks `+0x120`, currentHP `+0x12b`, movement
-`+0x12c`), rather than starting from nothing.
+CODE 2 `+0x37b6..0x386a` performs this packing; `+0x386e..0x39ac`
+writes the blocks and trailer; `+0x39ae..0x3a68` writes names and characters.
+These are offsets within the private executable's CODE resource, not file data.
 
-## Two cautions
+## Resource fork
 
-**These are save editors.** Every one of them edits stats, which is outside
-this project's boundary and stays outside it. What is useful here is their
-knowledge of *where the fields are*, for reading a save in order to load it.
-Take the layout knowledge, not the code, and not the purpose.
+Use ordinary Macintosh resource-fork framing: a 16-byte header of four BE32
+values (data offset, map offset, data length, map length), a resource map, and
+length-prefixed resource payloads. This project emits the data area at 256;
+readers must follow the header rather than require that placement.
 
-**A Mac save is not just a record.** The measured file is a 12,906-byte data
-fork plus a ~4.4 KB resource fork. The DOS-lineage documentation describes the
-character and party structures inside a save; it says nothing about how the Mac
-port arranges its two forks around them. That part is ours to work out.
+The type list contains `PoRc`. Each reference has a signed BE16 resource ID,
+a BE16 name-list offset, an attribute byte, a 24-bit data-area offset, and four
+reserved handle bytes. The resource's data begins with a BE32 payload length.
+A name-list entry is a one-byte length followed by Macintosh Roman bytes.
+Type/resource counts in the standard map are stored minus one.
 
-## Architecture note, offered as validation
+The writer emits IDs 128 onward in roster order, zero attributes and reserved
+handles, and names matching the character records. Those IDs are the writer's
+choice; a reader should identify characters by the ordered names in the data
+fork and resource names rather than assuming a particular numeric ID.
+The separate `PoRCharacters` library containing `ChrL` is not a party save.
 
-Gold Box Companion reads **game memory rather than save files**, and says so
-plainly: its character editor "reads/modifies memory so it's instant compared
-to save file editors." That is independently the same architecture this project
-arrived at, for the same reason.
+## PoRc payload
 
+Let `I` be inventory count and `E` effect count:
 
-## Why the converter is the point
+| Payload offset | Length | Contents |
+| --- | ---: | --- |
+| `0x000` | 302 | Character record |
+| `0x12e` | 2 | `I`, BE16 |
+| `0x130` | `66 × I` | Inventory records in list order |
+| `0x130 + 66×I` | 2 | `E`, BE16 |
+| `0x132 + 66×I` | `10 × E` | Effect records in list order |
 
-`wish` already converts between DOS, C64 and Amiga saves. **Nobody has the
-Macintosh side.** Adding it would make this the only route by which a party
-played anywhere else reaches the Macintosh port — and for this project
-specifically it solves a problem the scripting harness cannot solve at any
-price. `tools/play.py` can reach a battle in the slums; it cannot reach the
-endgame, and it will not be able to for a very long time. A converted save can,
-immediately, and with a party somebody actually played.
+The exact payload length is **306 + 66 × I + 10 × E**. Inventory records do
+not have variable sizes. The two-byte effect count is present even if zero.
+Earlier low-byte item-count reads at `+0x12f` are sufficient only below 256;
+the complete count begins at `+0x12e`.
 
-That also means the format work has a second audience. Publishing the spec is
-the part that outlives this app.
+CODE 2 `+0x245c..0x2698` serializes these structures.
+`+0x269a..0x28f0` allocates and relinks them on load. Serialized memory handles
+are not file offsets and must never be dereferenced by a file reader.
 
-## F77 is answered: it is the same record
+### Established character fields
 
-Done 2026-09-18, written up in [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md). The
-Macintosh's 302-byte character record **is** the documented DOS 285-byte one,
-repadded. Both ends line up exactly and the arithmetic closes at
-`285 + 16 + 1 = 302`.
+These are a verified subset, not a complete semantic map of all 302 bytes.
 
-Two things fell out that were worth more than the alignment. The eight bytes
-DOS calls heap are exactly where this project independently found the
-Macintosh's two memory handles — a port spending dead space on the memory model
-it actually has. And the quick flag found here by capture and diff turns out to
-be byte 3 of DOS's four-byte combat-status field, whose byte 0 is the condition
-this project also found; the two bytes between them are the first place to look
-for anything else that field carries.
+| Record offset | Width | Meaning |
+| --- | ---: | --- |
+| `+0x00` | 16 | NUL-padded character name |
+| `+0x10..0x15` | 6 | Ability-score bytes |
+| `+0x16` | 1 | Exceptional strength |
+| `+0x17..0x2b` | 21 | Memorized-spell slots |
+| `+0x2f` | 1 | Zero-based class ID |
+| `+0x32` | 1 | Maximum HP byte |
+| `+0x82` | 4 | In-memory effect-list handle |
+| `+0xc9` | 1 | Party slot; writer requires distinct values below 8 |
+| `+0xd4` | 4 | In-memory inventory-list handle |
+| `+0xd8` | 4 per slot | Readied-item handles; slot 0 weapon, slot 2 armor |
+| `+0x10e` | 2 | BE16 encumbrance in gold-piece weight |
+| `+0x110` | 4 | In-memory next-character handle |
+| `+0x114` | 4 | In-memory own-character handle |
+| `+0x118` | 1 | Condition |
+| `+0x11b` | 1 | Quick flag, recognized values 0 and 1 |
+| `+0x11d` | 1 | Armor-class byte |
+| `+0x120` | 1 | Attacks remaining |
+| `+0x12b` | 1 | Current HP byte |
+| `+0x12c` | 1 | Movement |
 
-The middle of the record, between `+0x32` and `+0x10e`, is **not** aligned and
-is left open rather than guessed at. The offsets found there do not yet form a
-consistent picture, and insertions can only push fields later.
+Spell slot 0 is empty. Values 1–127 identify ready spells; bit 7 marks a spell
+chosen but awaiting rest. This encoding does not imply all 127 IDs exist.
+See [SPELL_READINESS.md](SPELL_READINESS.md) for code traces and restrictions.
+Class IDs and version limits are in [VERSION_LIMITS.md](VERSION_LIMITS.md);
+condition values are in [PARTY_CONDITIONS.md](PARTY_CONDITIONS.md).
 
-**For F78 this is a strong prior, not an answer.** If the record in memory is
-the DOS record repadded, the record inside a save file very likely is too.
+The loader rebuilds next/own/inventory/effect handles from the serialized lists.
+Capture-based exports preserve the full record exactly; a converter cannot
+replace unknown fields with zero merely because these handles are rebuilt.
 
-## Rules for anything that writes
+### Inventory and effects
 
-A bad save costs the owner his game, so these are not style preferences.
+Inventory nodes are **66 serialized bytes**. Their in-memory next handle is
+at `+0x2a`. Name-part indexes occupy `+0x30..0x32`; the equipment probe
+composes them in descending order through the game's vocabulary, applying the
+suppression bits at `+0x36`. The leading Pascal-string buffer is display
+scratch: it may contain quantity or magic columns and stale suffixes. It is
+not a portable item identifier. See [EQUIPMENT_MEMORY.md](EQUIPMENT_MEMORY.md).
 
-1. **Back up the save disk first.** F49 is a prerequisite for this block, not a
-   nice-to-have. Today the disk image is the only copy of his saves.
-2. **Never overwrite an existing save.** Construct into a new file.
-3. **Verify by loading.** No save is claimed to work until the game has loaded
-   it and the party reads back correctly.
+Effect nodes are **10 serialized bytes**, with the in-memory next handle at
+`+0x06`. Their remaining bytes must be preserved; this specification does not
+assign unverified effect semantics.
 
+The host writer bounds lists to 256 items and 64 effects per member to reject
+runaway/cyclic captures. These are defensive tool limits, not established
+gameplay capacity limits.
 
-## The converter adjusts; it does not edit
+## Portable wrappers
 
-Owner's requirement, 2026-09-18: "if the mac version has different level caps
-or is missing certain resources etc, the converter should understand that and
-adjust."
+The game consumes the two HFS forks, not either wrapper below.
 
-Ports are not identical, so a converter that copies fields across and hopes will
-produce a party the Macintosh game cannot represent or will not load. It has to
-know this version's own limits — which is why F82, establishing the Macintosh
-level caps, class and race lists, and item and spell tables, comes before F81.
+**MacBinary II:** the writer uses a 128-byte header, filename length at byte 1
+and bytes at 2, type/creator at 65/69, BE32 fork lengths at 83/87, version bytes
+129 at 122/123, and BE16 CRC-16/CCITT over header bytes 0–123 at 124 (initial
+value zero). Header, data fork and resource fork are each padded to 128-byte
+boundaries. The wrapper preserves both forks for import with `hcopy -m`.
 
-The line between adjusting and editing is where this stays honest, and it is
-drawn three ways:
+**PRSV v1:** the companion's game-file backup wrapper, all integer fields BE:
 
-1. **Never adjust upward.** Bringing a level-9 fighter down to the Macintosh cap
-   is conversion. Raising a score, a level or a hit point is an edit, and needs
-   the owner's per-edit sign-off like any other.
-2. **Never adjust silently.** Every adjustment is named in a report shown before
-   the save is written — what changed, from what, to what, and why. A conversion
-   that quietly loses a spellbook is worse than one that refuses.
-3. **Refuse rather than invent.** A class this port does not have, an item that
-   does not exist here: stop and say what blocked it. Do not substitute the
-   nearest thing and carry on.
+```text
+4 bytes   "PRSV"
+BE16      version = 1
+BE16      filename byte length
+bytes     filename (current Java codec: ISO-8859-1; host writer: ASCII subset)
+4 bytes   Finder type
+4 bytes   Finder creator
+BE32      data-fork length
+bytes     data fork
+BE32      resource-fork length
+bytes     resource fork
+BE32      CRC-32 over every preceding byte (standard java.util.zip/zlib CRC32)
+```
 
-This matters beyond our own testing. If the specification is published (F80)
-and the converter with it, these adjustments are what other people's parties
-will be subjected to, and a silent one would be a bug in someone else's
-campaign rather than ours.
+The Java reader accepts name lengths 1–31, caps each fork at 4 MiB, verifies
+the CRC, and refuses trailing bytes. The wrapper's filename codec is distinct
+from Macintosh Roman resource names; do not reinterpret one as the other.
+
+## Validation and evidence
+
+A strict consumer should verify both fork bounds, resource-map bounds, count
+arithmetic without overflow, exact PoRc lengths, party count/name consistency,
+and uniqueness before making changes. Do not follow saved handles or assume
+zero-filled unknown fields are safe. The existing `SavedParty` preview parser
+reads a subset; it is not a complete conformance validator.
+
+Reference implementation: [write-game-save.py](../tools/write-game-save.py).
+It validates application identity, logical heap allocations, nonoverlapping
+blocks, complete acyclic lists, names, slots, and the supported idle local
+exploration state. It refuses camp, combat, wilderness, loading, relocation
+and movement. These state restrictions are the verified writer's scope.
+
+The six synthetic tests in [test-save-writer.py](../tools/test-save-writer.py)
+exercise exact framing, source preservation, save-time packing, bad pointers,
+cycles, state guards, and container checksums without distributing game data.
+
+The original game loaded the generated ExportProof save at New Phlan 15,1 W.
+After loading, all six complete character payloads matched byte for byte,
+including 34 inventory records and seven effects. The complete world block
+also matched. One data-fork byte, `0x0dc4`, changed from 8 to 255; its meaning
+is unresolved. See [SAVE_WRITER.md](SAVE_WRITER.md) for the full live procedure.
+
+## Known limits and conversion boundary
+
+The middle of the character record is not fully aligned with DOS/Amiga.
+World-state semantics, port-specific item identities, and some counters remain
+unresolved. Similar record shapes do not establish cross-platform equivalence.
+This specification enables exact capture-based Macintosh writing; it does not
+claim a working cross-platform converter.
+
+Conversions must never raise a stat, must report every downward adjustment
+before writing, and must refuse fields without a defensible Macintosh mapping.
+Always write a new save, retain an independent disk backup, and verify the
+result by loading it in the original game. See the writer guide for safe
+offline import. No game payload is distributed with the specification.
+
+Prior research recalled through Deja: session
+`1d01c279-196b-4165-83cb-2031016bb071` established F78–F82's scope and ordering.
+The F79 writer and live-load evidence in this repository verify the framing
+published here; [RECORD_ALIGNMENT.md](RECORD_ALIGNMENT.md) preserves the earlier
+cross-platform comparison and its unresolved middle.

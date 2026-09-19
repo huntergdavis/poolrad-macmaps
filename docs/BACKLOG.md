@@ -1273,9 +1273,11 @@ reads back correctly.
   passed; see [SAVE_STATES.md](SAVE_STATES.md).
 - [x] **F38 (delivered 0.45.0) — Resume polling automatically after the guest restarts.** Today it
   takes a tab toggle.
-- [ ] **F80 — Publish the format specification** once it is verified. The
-  project's own reverse-engineering work, and the Macintosh piece nobody else
-  has. The format only: no game assets, no disk images, no extracted content.
+- [x] **F80 (delivered 0.75.0) — Publish the format specification.**
+  [SAVE_FORMAT.md](SAVE_FORMAT.md) documents exact two-fork framing, save-time
+  packing, character/item/effect records, portable wrappers, validation and
+  evidence. Unknown semantics and conversion limits are explicit. No game
+  payload, asset or disk image is included.
 - [x] **F82 (delivered 0.46.0) — Establish what the Macintosh version itself supports:** the level
   cap for each class, the class and race lists, and the item and spell tables it
   actually has. A prerequisite for F81 — a converter cannot adjust to limits
