@@ -270,6 +270,11 @@ through the original game's picker):
 688 Java tests passed. No physical device was used; nothing in the guest or on
 any disk image was changed by the page.
 
+![Saves page after a normal Mac boot, showing stored saves, free space and an estimate of remaining capacity](images/saves-status.png)
+
+*Captured from the F98 test build during the acceptance checks above.
+Source: `poolrad-macmaps-for-claude/scratch/f98/saves-final.png`.*
+
 ## How this relates to the game's own save format
 
 The record and save-file work already done (F77, F78, F82, F85) is **not

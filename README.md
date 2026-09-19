@@ -107,10 +107,11 @@ illustrated manual lookup as a fallback.
 - **PoolRad → Quick save** keeps your ten latest quick snapshots.
 - **Quick load** immediately restores the newest quick save.
 - **Load…** lists quick, named and automatic saves with dates and screen previews.
-- **Info → Saves** shows which snapshot the game is running from, how many
-  saves are stored by kind, the free space, and roughly how many more saves
-  fit before old ones need deleting. Its **Load…** button is the cleanup path.
   Choose one to preview and load.
+- **Info → Saves** shows your last loaded or manually saved snapshot, how many
+  saves you have, and how much space is left. It estimates how many more saves
+  will fit. Use **Load… → Delete…** to remove an old save.
+  [See the Saves page](docs/SAVE_STATES.md#f98--info--saves).
 - Each snapshot remembers its notebook.
 - **Info → Options** controls five-minute autosaves, which keep the latest 20
   automatic snapshots while a party is in the world.
@@ -126,7 +127,8 @@ That page also controls compact party rows and larger game messages.
 
 **Snapshots restore the running Mac, not its disk contents.** Loading requires
 the mounted disks to match exactly; a mismatch leaves your current game intact.
-Snapshots made before version 0.85 are unsupported. Original-game saves are unaffected.
+Snapshots made before version 0.85 are unsupported.
+Original-game saves are unaffected.
 
 Back up original-game saves through **Settings → Back up / restore game saves…**
 and keep separate disk backups. Quit the game and use the Mac's normal shutdown
