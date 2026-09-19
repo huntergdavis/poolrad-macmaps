@@ -62,10 +62,10 @@ public final class CompanionPaneCheck {
     private static Context context;
     private static int passed;
     private static final int[] TOOL_IDS = {
-            R.id.companion_tool_exploration,
-            R.id.companion_tool_journal,
+            R.id.companion_tool_options, R.id.companion_tool_exploration,
+            R.id.companion_tool_journal, R.id.companion_tool_note_index,
             R.id.companion_tool_levels, R.id.companion_tool_spells, R.id.companion_tool_equipment,
-            R.id.companion_tool_money, R.id.companion_tool_wheel};
+            R.id.companion_tool_money, R.id.companion_tool_wheel, R.id.companion_tool_legend};
 
     public static void main(String[] args) {
         try { checks(args.length == 0 ? "com.hunterdavis.poolradmacmaps.ii" : args[0]); }
@@ -132,7 +132,7 @@ public final class CompanionPaneCheck {
             assertNotFocusable(pane);
         });
 
-        run("All seven real tool buttons deliver distinct enum callbacks, and no maintenance action", () -> {
+        run("Options and reference tool buttons deliver distinct enum callbacks, and no maintenance action", () -> {
             CompanionPane pane = pane(context, 480, 360);
             pane.setTab(CompanionPane.INFO);
             List<CompanionPane.Tool> tools = new ArrayList<>();
@@ -142,9 +142,9 @@ public final class CompanionPaneCheck {
                 check(button != null && button.isEnabled() && button.length() > 0, "Tool entry missing");
                 button.performClick();
             }
-            check(tools.equals(Arrays.asList(CompanionPane.Tool.EXPLORATION, CompanionPane.Tool.JOURNAL,
+            check(tools.equals(Arrays.asList(CompanionPane.Tool.OPTIONS, CompanionPane.Tool.EXPLORATION, CompanionPane.Tool.JOURNAL, CompanionPane.Tool.NOTE_INDEX,
                     CompanionPane.Tool.LEVELS, CompanionPane.Tool.SPELLS, CompanionPane.Tool.EQUIPMENT,
-                    CompanionPane.Tool.MONEY, CompanionPane.Tool.WHEEL)), "Incorrect or duplicate tool routing");
+                    CompanionPane.Tool.MONEY, CompanionPane.Tool.WHEEL, CompanionPane.Tool.LEGEND)), "Incorrect or duplicate tool routing");
             check(CompanionPane.INFO.equals(pane.selectedTab()), "Tool click changed underlying Info tab");
             pane.setOnToolSelectedListener(null);
             pane.findViewById(TOOL_IDS[0]).performClick();
@@ -180,7 +180,7 @@ public final class CompanionPaneCheck {
             layout(pane, larger, 240, 240);
             ScrollView scroll = pane.findViewById(R.id.companion_info);
             scroll.scrollTo(0, Integer.MAX_VALUE);
-            Button last = pane.findViewById(R.id.companion_tool_wheel);
+            Button last = pane.findViewById(R.id.companion_tool_legend);
             ViewGroup tools = (ViewGroup) scroll.getChildAt(0);
             for (int id : TOOL_IDS)
                 check(pane.findViewById(id).getHeight() >= dp(larger, 48), "A large-text tool lost its hit height");

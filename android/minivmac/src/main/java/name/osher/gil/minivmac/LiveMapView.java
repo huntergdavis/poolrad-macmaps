@@ -105,13 +105,6 @@ public final class LiveMapView extends View {
     private String explorationStatus = "";
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
-    /** Where the footprint toggle was last drawn, and whether a press began on it. */
-    private final android.graphics.RectF footprintButton = new android.graphics.RectF();
-    private final android.graphics.RectF footprintTarget = new android.graphics.RectF();
-    /** The fog-of-war toggle beside it, same size, same behaviour. */
-    private final android.graphics.RectF fogButton = new android.graphics.RectF();
-    private final android.graphics.RectF fogTarget = new android.graphics.RectF();
-    private boolean touchFog;
     /**
      * A Return key in the map's bottom-right corner. Much of this game is
      * playable with the mouse, but not all of it, and opening the whole
@@ -125,7 +118,6 @@ public final class LiveMapView extends View {
     private boolean touchReturn;
     /** Which member's Q a press began on, or -1. */
     private int touchQuick = -1;
-    private boolean touchFootprints;
     private float touchX, touchY;
     private String touchArea;
     private boolean preciseTouch;
@@ -141,10 +133,6 @@ public final class LiveMapView extends View {
         default void onPartyMemberTapped(PartyState.Member member) { }
         default void onExplorationSample(PoolRadState sample) { }
         default void onExplorationAreaChanged(AreaIdentity area) { }
-        /** The player tapped the footprint button on the map itself. */
-        default void onFootprintsToggled(boolean shown) { }
-        /** The player tapped the fog-of-war button beside it. */
-        default void onFogToggled(boolean visitedOnly) { }
         /** The player tapped the Return key in the map's corner. */
         default void onReturnPressed() { }
         /** A fight has just started on this square of this area. */
@@ -301,8 +289,7 @@ public final class LiveMapView extends View {
                 + (pinging() ? "Your square is ringed. " : "")
                 + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
-                + "two buttons in the top-left corner of the map turn the footprints "
-                + "and the fog of war off and on, and a Return key in the "
+                + "Info, Options changes map appearance. A Return key in the "
                 + "bottom-right corner presses Return in the game. "
                 + explorationStatus + health);
     }
@@ -421,11 +408,9 @@ public final class LiveMapView extends View {
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
             preciseTouch = event.getToolType(0) == MotionEvent.TOOL_TYPE_STYLUS
                     || event.getToolType(0) == MotionEvent.TOOL_TYPE_ERASER;
-            touchFootprints = footprintTarget.contains(touchX, touchY);
-            touchFog = !touchFootprints && fogTarget.contains(touchX, touchY);
-            touchReturn = !touchFootprints && !touchFog && returnTarget.contains(touchX, touchY);
-            touchQuick = touchFootprints || touchFog || touchReturn ? -1 : quickAt(touchX, touchY);
-            boolean onButton = touchFootprints || touchFog || touchReturn || touchQuick >= 0;
+            touchReturn = returnTarget.contains(touchX, touchY);
+            touchQuick = touchReturn ? -1 : quickAt(touchX, touchY);
+            boolean onButton = touchReturn || touchQuick >= 0;
             touchMember = onButton ? -1 : pane().memberAt(touchX, touchY);
             touchCombatant = onButton || touchMember >= 0 ? -1 : combatantAt(touchX, touchY);
             touchHeader = !onButton && touchMember < 0 && touchCombatant < 0
@@ -452,12 +437,7 @@ public final class LiveMapView extends View {
                     && Math.hypot(event.getX() - touchX, event.getY() - touchY)
                         <= ViewConfiguration.get(getContext()).getScaledTouchSlop();
             boolean valid = gesture && listener != null;
-            if (valid && touchFootprints && footprintTarget.contains(event.getX(), event.getY())) {
-                boolean shown = !footprints;
-                setExplorationStyle(visitedOnly, shown);
-                performClick();
-                listener.onFootprintsToggled(shown);
-            } else if (valid && touchQuick >= 0 && quickAt(event.getX(), event.getY()) == touchQuick
+            if (valid && touchQuick >= 0 && quickAt(event.getX(), event.getY()) == touchQuick
                     && party != null && touchQuick < party.members.size()) {
                 // Unknown reads as off, so a first tap turns it on rather than
                 // doing nothing the player can see.
@@ -469,11 +449,6 @@ public final class LiveMapView extends View {
             } else if (valid && touchReturn && returnTarget.contains(event.getX(), event.getY())) {
                 performClick();
                 listener.onReturnPressed();
-            } else if (valid && touchFog && fogTarget.contains(event.getX(), event.getY())) {
-                boolean fog = !visitedOnly;
-                setExplorationStyle(fog, footprints);
-                performClick();
-                listener.onFogToggled(fog);
             } else if (valid && touchMember >= 0 && touchParty == party && party != null
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
@@ -536,7 +511,7 @@ public final class LiveMapView extends View {
     }
 
     private void cancelTap() {
-        touchFootprints = false; touchFog = false; touchReturn = false; touchQuick = -1;
+        touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null; touchCombatant = -1; touchHeader = false;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -654,7 +629,7 @@ public final class LiveMapView extends View {
         String status = positionAvailable ? state.positionLabelWithSearch()
                 : mode == MapMode.COMBAT && combat != null ? combat.summary()
                 : MapMode.UNAVAILABLE.label();
-        float button = drawHeaderButtons(canvas, pane);
+        float button = 0;
         float available = Math.max(0, pane.mapWidth - 24 * density - button);
         /*
          * The status gets more of the header in a battle. "BATTLE · overview"
@@ -809,31 +784,6 @@ public final class LiveMapView extends View {
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
     }
 
-    /**
-     * Two small toggles in the header: the trail, and fog of war. Both can make
-     * a busy street hard to read, and both were three taps away under Info.
-     * Returns the width they used so the title can start beside them. Drawn
-     * even with nothing walked yet, so the controls do not appear and disappear
-     * under the player.
-     */
-    private float drawHeaderButtons(Canvas canvas, PartyPaneLayout pane) {
-        float size = 26 * density, gap = 6 * density, left = 8 * density, top = 3 * density;
-        // Two buttons plus the title need the room; below this the header wins.
-        if (pane.mapWidth < 260 * density) {
-            footprintButton.setEmpty(); footprintTarget.setEmpty();
-            fogButton.setEmpty(); fogTarget.setEmpty();
-            return 0;
-        }
-        footprintButton.set(left, top, left + size, top + size);
-        fogButton.set(left + size + gap, top, left + 2 * size + gap, top + size);
-        target(footprintButton, footprintTarget);
-        target(fogButton, fogTarget);
-        drawFootprints(canvas, footprintButton, size);
-        drawFog(canvas, fogButton, size);
-        ink.setStyle(Paint.Style.FILL); ink.setStrokeWidth(density);
-        return 2 * size + gap + 8 * density;
-    }
-
     /** The drawn button is 26dp; fingers get the 48dp target the guidelines ask for. */
     private void target(android.graphics.RectF drawn, android.graphics.RectF touch) {
         touch.set(drawn);
@@ -846,48 +796,6 @@ public final class LiveMapView extends View {
         ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(density);
         ink.setColor(Color.BLACK);
         canvas.drawRoundRect(button, 4 * density, 4 * density, ink);
-    }
-
-    /**
-     * Crossed out, not hollowed out. Hollow soles plus a slash read as a percent
-     * sign at button size; filled soles under a slash read as footprints that
-     * are switched off. The white underlay keeps the slash visible where it
-     * crosses a sole, which matters most on e-ink, where there is no colour to
-     * fall back on.
-     */
-    private void drawFootprints(Canvas canvas, android.graphics.RectF button, float size) {
-        frame(canvas, button);
-        float cx = button.centerX(), cy = button.centerY(), sole = size * .16f;
-        ink.setStyle(Paint.Style.FILL);
-        canvas.drawOval(cx - sole * 1.8f, cy - sole * 1.9f, cx - sole * .2f, cy + sole * .3f, ink);
-        canvas.drawOval(cx + sole * .2f, cy - sole * .3f, cx + sole * 1.8f, cy + sole * 1.9f, ink);
-        if (!footprints) slash(canvas, button);
-    }
-
-    /**
-     * Fog of war as the thing it does to the map: four map squares, one walked
-     * and open, three still covered. An earlier version split a single square
-     * down the middle and outlined one half, which at this size read as a
-     * letter rather than a map. Same size as the trail button beside it, and
-     * the same slash when the feature is off, so the pair reads as one control
-     * strip rather than two ideas.
-     */
-    private void drawFog(Canvas canvas, android.graphics.RectF button, float size) {
-        frame(canvas, button);
-        float inset = size * .24f, gap = size * .07f;
-        float l = button.left + inset, t = button.top + inset;
-        float r = button.right - inset, b = button.bottom - inset;
-        float cellW = (r - l - gap) / 2, cellH = (b - t - gap) / 2;
-        for (int row = 0; row < 2; row++) {
-            for (int column = 0; column < 2; column++) {
-                float x = l + column * (cellW + gap), y = t + row * (cellH + gap);
-                boolean walked = row == 0 && column == 0;
-                ink.setStyle(walked ? Paint.Style.STROKE : Paint.Style.FILL);
-                ink.setStrokeWidth(Math.max(1, density));
-                canvas.drawRect(x, y, x + cellW, y + cellH, ink);
-            }
-        }
-        if (!visitedOnly) slash(canvas, button);
     }
 
     /**
@@ -943,16 +851,6 @@ public final class LiveMapView extends View {
         canvas.drawText(quick == null ? "?" : "Q", box.centerX(), baseline, ink);
         ink.setColor(Color.BLACK);
         ink.setTextAlign(Paint.Align.LEFT);
-    }
-
-    private void slash(Canvas canvas, android.graphics.RectF button) {
-        float x1 = button.left + 5 * density, y1 = button.bottom - 5 * density;
-        float x2 = button.right - 5 * density, y2 = button.top + 5 * density;
-        ink.setStyle(Paint.Style.STROKE);
-        ink.setColor(Color.WHITE); ink.setStrokeWidth(4 * density);
-        canvas.drawLine(x1, y1, x2, y2, ink);
-        ink.setColor(Color.BLACK); ink.setStrokeWidth(1.5f * density);
-        canvas.drawLine(x1, y1, x2, y2, ink);
     }
 
     /**

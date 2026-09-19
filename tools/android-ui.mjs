@@ -19,7 +19,7 @@ const nodes = [...xml.matchAll(/<node\b[^>]+>/g)].map(([tag]) => Object.fromEntr
 const own = nodes.filter(n => n.package?.startsWith('com.hunterdavis.poolradmacmaps.'));
 if (!own.length) throw new Error('PoolRad app is not the active UI; refusing input.');
 if (action === 'list') {
-  for (const n of own) if (n.text || n['content-desc']) console.log(JSON.stringify({ text: n.text, description: n['content-desc'], enabled: n.enabled, bounds: n.bounds }));
+  for (const n of own) if (n.text || n['content-desc']) console.log(JSON.stringify({ text: n.text, description: n['content-desc'], enabled: n.enabled, checked: n.checked, checkable: n.checkable, bounds: n.bounds }));
 } else {
   const matches = own.filter(n => n.enabled === 'true' && (n.text === label || n['content-desc'] === label));
   if (matches.length !== 1) throw new Error('Expected one enabled control, found ' + matches.length + ': ' + label);

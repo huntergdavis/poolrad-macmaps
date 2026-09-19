@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+    <PreferenceCategory app:title="Companion">
+        <Preference app:key="pref_companion_options"
+            app:title="Companion options…"
+            app:summary="Map appearance, party rows, message text and auto-save"
+            app:icon="@drawable/ic_action_settings" />
+    </PreferenceCategory>
 	<PreferenceCategory app:title="Saved games">
 		<Preference app:key="pref_saved_game_backups"
 			app:title="Back up / restore game saves…"
@@ -61,18 +67,6 @@
 			app:summary="@string/pref_scroll_summ"
 			app:icon="@drawable/ic_scroll"
 			app:defaultValue="false" />
-	    <SwitchPreferenceCompat
-			app:key="pref_oneline_party"
-			app:title="@string/pref_oneline_party"
-			app:summary="@string/pref_oneline_party_summ"
-			app:icon="@drawable/ic_scale"
-			app:defaultValue="false" />
-	    <SwitchPreferenceCompat
-			app:key="pref_mirror_message"
-			app:title="@string/pref_mirror_message"
-			app:summary="@string/pref_mirror_message_summ"
-			app:icon="@drawable/ic_scale"
-			app:defaultValue="false" />
     </PreferenceCategory>
     <PreferenceCategory
 		app:title="@string/pref_control_title"
@@ -86,12 +80,6 @@
 			app:entries="@array/speed_entries"
 			app:entryValues="@array/speed_values">
 		</ListPreference>
-	    <SwitchPreferenceCompat
-			app:key="pref_autosave"
-			app:title="@string/pref_autosave"
-			app:summary="@string/pref_autosave_summ"
-			app:icon="@drawable/ic_floppy"
-			app:defaultValue="true" />
 	    <Preference
 			app:key="pref_reset"
 			app:title="@string/prefs_reset"

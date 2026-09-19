@@ -139,8 +139,6 @@ public final class PartyPaneRenderCheck {
                 @Override public void onExplorationSample(PoolRadState sample) { }
                 @Override public void onExplorationAreaChanged(AreaIdentity target) { }
                 @Override public void onPartyMemberTapped(PartyState.Member member) { }
-                @Override public void onFootprintsToggled(boolean shown) { }
-                @Override public void onFogToggled(boolean visitedOnly) { }
                 @Override public void onQuickToggled(int member, boolean on) { }
                 @Override public void onReturnPressed() { }
             });

@@ -16,13 +16,15 @@ export PATH="$SDK/platform-tools:$SDK/build-tools/34.0.0:$JAVA_HOME/bin:$PATH"
 
 APP_CLASSES="$ROOT/android/minivmac/build/intermediates/javac/macIIDebug/compileMacIIDebugJavaWithJavac/classes"
 ANDROID_JAR="$SDK/platforms/android-34/android.jar"
+R_JAR="$ROOT/android/minivmac/build/intermediates/compile_and_runtime_not_namespaced_r_class_jar/macIIDebug/processMacIIDebugResources/R.jar"
+[ -f "$R_JAR" ] || { echo "Build app resources first" >&2; exit 1; }
 [ -d "$APP_CLASSES" ] || { echo "Build the app first: (cd android && ./gradlew :minivmac:assembleMacIIDebug)" >&2; exit 1; }
 
 OUT="$(mktemp -d)"; trap 'rm -rf "$OUT"' EXIT
-javac -nowarn -source 17 -target 17 -cp "$ANDROID_JAR:$APP_CLASSES" \
+javac -nowarn -source 17 -target 17 -cp "$ANDROID_JAR:$APP_CLASSES:$R_JAR" \
       -d "$OUT/classes" "$ROOT/tools/$CLASS.java"
 d8 --lib "$ANDROID_JAR" --classpath "$APP_CLASSES" --output "$OUT" \
-   $(find "$OUT/classes" -name '*.class') $(find "$APP_CLASSES" -name '*.class')
+   "$R_JAR" $(find "$OUT/classes" -name '*.class') $(find "$APP_CLASSES" -name '*.class')
 
 REMOTE="/data/local/tmp/$CLASS.zip"
 adb push -q "$OUT/classes.dex" /data/local/tmp/classes.dex >/dev/null 2>&1 || adb push "$OUT/classes.dex" /data/local/tmp/classes.dex >/dev/null

@@ -146,6 +146,10 @@ All 72 rune pictures are [bundled and credited](licenses/CODE_WHEEL_ARTWORK.md);
 no artwork downloads are needed to build or use the app.
 
 
+Companion display and autosave switches are together under **Info → Options**
+(or Settings → Companion options…). Fog and footprints retain their per-area
+choices; all changes apply immediately. See [Options](docs/OPTIONS.md).
+
 The original Macintosh v1.1 game-save format is documented in
 [the public specification](docs/SAVE_FORMAT.md), with exact two-fork framing
 and the verified character, inventory and effect layout. The

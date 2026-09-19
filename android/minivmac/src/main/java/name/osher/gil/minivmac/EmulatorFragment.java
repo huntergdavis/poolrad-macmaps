@@ -592,6 +592,7 @@ public class EmulatorFragment extends Fragment
     private void showCompanionTool(CompanionPane.Tool tool) {
         openCompanionTool(() -> {
             switch (tool) {
+                case OPTIONS: mNotebook.showOptions(this::applyOneLinePartyPref); break;
                 case EXPLORATION: mNotebook.showExploration(); break;
                 case LEVELS: LevelsReferenceDialog.show(requireActivity()); break;
                 case SPELLS: SpellReferenceDialog.show(requireActivity()); break;
@@ -1521,6 +1522,9 @@ public class EmulatorFragment extends Fragment
         }
 
         switch (resultCode) {
+            case SettingsFragment.RESULT_COMPANION_OPTIONS:
+                openCompanionTool(() -> mNotebook.showOptions(this::applyOneLinePartyPref));
+                break;
             case SettingsFragment.RESULT_SAVED_GAME_BACKUPS:
                 showSavedGameBackups();
                 break;

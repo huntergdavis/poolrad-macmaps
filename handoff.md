@@ -22,9 +22,15 @@ the older d4 reference below for the active run.
   waits for native completion, and rejected loads restore the previous campaign.
   638 Java tests and live cancel/create/repeat/known/rejected loads passed.
   F97's legacy-snapshot question remains open.
-- F80 is prepared for 0.75.0: docs/SAVE_FORMAT.md is the exact public format,
+- F80 shipped in 0.75.0: docs/SAVE_FORMAT.md is the exact public format,
   including the leading data byte, BE16 item/effect counts, and unresolved
-  semantics. Publish this documentation feature separately.
+  semantics.
+- F29 is verified for 0.76.0: Info → Options consolidates
+  map/global preferences; Settings routes to the same bounded page. Build,
+  638 Java, eight navigation and 26 map/party render checks passed.
+  Live global persistence, area styles, and Settings-from-hidden checks passed.
+  Publish before beginning the next feature. F47 message-log wiring is researched,
+  not implemented. Deja recalls the request in session 1d01c279-196b-4165-83cb-2031016bb071.
 - Existing `emulator-5584` did not respond to guest input even though its core
   reported running and two disks mounted. It was left intact, then backgrounded
   normally. Do not replace its APK or force-stop it.

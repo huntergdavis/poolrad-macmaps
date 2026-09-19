@@ -1379,8 +1379,13 @@ reads back correctly.
 
 ### The options page, and the toggles that need it to exist first
 
-- [ ] **F29 — An options page.** Absorbs the toggles now scattered on the map,
-  and everything below in this block lands on it.
+- [x] **F29 (delivered 0.76.0) — An options page.** Info → Options brings
+  fog, footprints, one-line party rows, large messages and autosave together.
+  The map-corner switches move there; per-area choices and existing global
+  settings are preserved. Settings opens the same bounded page, including
+  when the companion was hidden. Live persistence/immediate-update checks,
+  eight navigation checks and 26 map/party render checks passed.
+  See [OPTIONS.md](OPTIONS.md).
 - [x] **F55 (delivered 2026-09-19) — A legend for the map's marks.** Every mark
   drawn with the shape it explains: on the map (party arrow, unwalked-exit
   chevron, struck-through fight, note flag, footprints, fog); in a fight (your

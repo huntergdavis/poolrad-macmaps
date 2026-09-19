@@ -97,3 +97,11 @@ On 2026-09-14 the user confirmed stylus drawing, two-finger zoom/scroll and
 the overall e-ink presentation on their tablet. Detailed rotation, keyboard
 and vendor-specific behavior remain unreported; this is user feedback, not an
 agent-performed physical test. [Acceptance scope](PEN_NOTES.md).
+
+
+## Options location (0.76.0)
+
+Fog and footprint switches now live together in **Info → Options**. The old
+map-corner controls have moved there. Existing per-area choices are preserved;
+the Exploration trail page keeps its history/reset controls and links to
+Options. See [OPTIONS.md](OPTIONS.md).

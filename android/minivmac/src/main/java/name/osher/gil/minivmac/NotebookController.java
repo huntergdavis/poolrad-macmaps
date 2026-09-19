@@ -506,26 +506,21 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         map.setExplorationStyle(fogFor(area), footprintsFor(area));
     }
 
-    /**
-     * Remember a switch for the area it was flipped in. With no area identified
-     * there is nowhere to put it, so it becomes the global answer instead --
-     * which is what an unidentified area reads anyway.
-     */
-    private void remember(String base, boolean value) {
-        String key = ExplorationStyle.key(base, styleArea());
+    /** Options capture the named area, so a later movement cannot change their target. */
+    public void showOptions(Runnable changed) {
+        if (disposed || opening || session != null || restoringNotebook || (picker != null && picker.isShowing())) return;
+        AreaIdentity target = styleArea();
+        picker = CompanionOptionsDialog.show(activity, target == null ? null : target.label(),
+                fogFor(target), footprintsFor(target),
+                value -> setStyleOption(VISITED_ONLY, target, value),
+                value -> setStyleOption(FOOTPRINTS, target, value), changed);
+    }
+
+    private void setStyleOption(String base, AreaIdentity target, boolean value) {
+        if (disposed) return;
+        String key = ExplorationStyle.key(base, target);
         prefs.edit().putBoolean(key == null ? base : key, value).apply();
-    }
-
-    /** The map's own footprint button; remembered like the Info checkbox. */
-    @Override public void onFootprintsToggled(boolean shown) {
-        if (disposed) return;
-        remember(FOOTPRINTS, shown);
-    }
-
-    /** The fog-of-war button beside it, on the same preference as the checkbox. */
-    @Override public void onFogToggled(boolean visitedOnly) {
-        if (disposed) return;
-        remember(VISITED_ONLY, visitedOnly);
+        applyExplorationStyle();
     }
 
     /**
@@ -673,32 +668,13 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private void showExplorationOptions(NotebookStore.Notebook book, AreaIdentity target, ExplorationTrail trail) {
         LinearLayout list = column();
         list.addView(text(book.label() + " · " + target.label() + "\n" + trail.visitedCount() + " of 256 squares walked"));
-        CheckBox fog = new CheckBox(activity); fog.setText("Show only walked squares (fog of war)");
-        CheckBox feet = new CheckBox(activity); feet.setText("Show directional footprints");
-        fog.setTextColor(Color.BLACK); feet.setTextColor(Color.BLACK);
-        fog.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
-        feet.setButtonTintList(ColorStateList.valueOf(Color.BLACK));
-        fog.setStateListAnimator(null); feet.setStateListAnimator(null);
-        fog.setChecked(fogFor(target)); feet.setChecked(footprintsFor(target));
-        fog.setMinHeight(dp(48)); feet.setMinHeight(dp(48)); list.addView(fog); list.addView(feet);
-        android.widget.CompoundButton.OnCheckedChangeListener style = (view, checked) -> {
-            /*
-             * The dialog names the area it was opened from, so it sets that
-             * area's answer -- and the global one with it, so the next place
-             * the party walks into starts from what was last chosen rather
-             * than from what the app shipped with.
-             */
-            SharedPreferences.Editor edit = prefs.edit()
-                    .putBoolean(VISITED_ONLY, fog.isChecked())
-                    .putBoolean(FOOTPRINTS, feet.isChecked());
-            String fogKey = ExplorationStyle.key(VISITED_ONLY, target);
-            String feetKey = ExplorationStyle.key(FOOTPRINTS, target);
-            if (fogKey != null) edit.putBoolean(fogKey, fog.isChecked());
-            if (feetKey != null) edit.putBoolean(feetKey, feet.isChecked());
-            edit.apply();
-            map.setExplorationStyle(fog.isChecked(), feet.isChecked());
-        };
-        fog.setOnCheckedChangeListener(style); feet.setOnCheckedChangeListener(style);
+        button(list, "Map options…").setOnClickListener(v -> {
+            picker.dismiss();
+            showOptions(() -> {
+                map.setOneLineParty(prefs.getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
+                map.setMirrorMessage(prefs.getBoolean(SettingsFragment.KEY_PREF_MIRROR_MESSAGE, false));
+            });
+        });
         button(list, "Clear footprints only…").setOnClickListener(v -> {
             picker.dismiss(); confirmClearExploration(book, target, false);
         });
