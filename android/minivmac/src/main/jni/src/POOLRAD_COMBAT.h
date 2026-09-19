@@ -24,13 +24,23 @@
 #define POOLRAD_COMBAT_MAX (POOLRAD_PARTY_MAX_LINKS)
 /* Both observed battles stay well inside this; anything larger is not a grid. */
 #define POOLRAD_COMBAT_MAX_COORDINATE 63
-/* PRC2 appends the acting character's name, NUL padded. Whose turn it is was
+/* PRC2 appended the acting character's name, NUL padded. Whose turn it is was
  * the one thing the overview could not say, and it is the thing a small screen
  * makes hardest to keep track of. Read from the Combat Message window; see
  * POOLRAD_MESSAGE.h. */
 #define POOLRAD_COMBAT_ENTRIES_SIZE (8 + POOLRAD_COMBAT_MAX * 4)
 #define POOLRAD_COMBAT_ACTOR_OUT POOLRAD_COMBAT_ENTRIES_SIZE
-#define POOLRAD_COMBAT_SIZE (POOLRAD_COMBAT_ENTRIES_SIZE + POOLRAD_ACTOR_MAX)
+/* PRC3 appends who the party is fighting: a count, then that many
+ * {16-byte NUL-padded name, one-byte tally} pairs, deduplicated by name and
+ * counting only those still standing. The game names its own monsters in the
+ * same character records the party lives in, so this costs no new reading --
+ * only the grouping. Eight kinds is more than a battle has ever shown.
+ */
+#define POOLRAD_COMBAT_FOES_MAX 8
+#define POOLRAD_COMBAT_FOE_NAME 16
+#define POOLRAD_COMBAT_FOES_OUT (POOLRAD_COMBAT_ACTOR_OUT + POOLRAD_ACTOR_MAX)
+#define POOLRAD_COMBAT_SIZE (POOLRAD_COMBAT_FOES_OUT + 1 \
+        + POOLRAD_COMBAT_FOES_MAX * (POOLRAD_COMBAT_FOE_NAME + 1))
 #define POOLRAD_COMBAT_STATUS_OUT 4
 #define POOLRAD_COMBAT_COUNT_OUT 5
 #define POOLRAD_COMBAT_ENTRY_OUT 8
@@ -64,7 +74,8 @@
  * `kinds` in chain order. No name, health or statistic is read here.
  */
 static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t a5,
-                                 unsigned char *kinds, unsigned char *conditions) {
+                                 unsigned char *kinds, unsigned char *conditions,
+                                 uint32_t *records_out) {
     uint32_t handle, records[POOLRAD_COMBAT_MAX];
     int links = 0;
     if (a5 < POOLRAD_PARTY_HEAD_BACK || !poolrad_range(a5 - POOLRAD_PARTY_HEAD_BACK, 4, size)) return -1;
@@ -85,6 +96,7 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
                 || (physical & 1) || !poolrad_range(record - 8, physical, size)) return -1;
         for (int i = 0; i < links; i++) if (records[i] == record) return -1;
         records[links] = record;
+        if (records_out != NULL) records_out[links] = record;
         slot = ram[record + POOLRAD_PARTY_SLOT_OFFSET];
         if (slot == 0xff) return -1;
         /* The dead stay in this list. A killed orc keeps its place in the
@@ -127,6 +139,61 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
     return links;
 }
 
+/* Group the standing opposition by name.
+ *
+ * The game gives every combatant a character record, monsters included, and
+ * names them there -- ten orcs are ten records all reading "ORC". So naming
+ * what the party is fighting needs no new reading, only the grouping, and
+ * counting by name is what turns "twelve others" into something a player can
+ * act on.
+ *
+ * Only those still standing are counted. A monster the game has stopped
+ * drawing is not on the field, and including it would have the count disagree
+ * with the squares beside it.
+ */
+static void poolrad_combat_foes(const unsigned char *ram, const unsigned char *kinds,
+                                const uint32_t *records, unsigned count, unsigned char *out) {
+    unsigned kinds_found = 0, i, k;
+    out[0] = 0;
+    for (i = 0; i < count; i++) {
+        const unsigned char *name;
+        unsigned char letter;
+        unsigned length = 0;
+        if (kinds[i] != POOLRAD_COMBAT_KIND_OTHER) continue;
+        name = ram + records[i];
+        /* A name has to be printable and NUL terminated inside its field, or
+         * it is not a name and the whole grouping is abandoned rather than
+         * half reported. */
+        while (length < POOLRAD_COMBAT_FOE_NAME && (letter = name[length]) != 0) {
+            if (letter < 0x20 || letter >= 0x7f) { out[0] = 0; return; }
+            length++;
+        }
+        if (length == 0 || length == POOLRAD_COMBAT_FOE_NAME) { out[0] = 0; return; }
+        for (k = 0; k < kinds_found; k++) {
+            unsigned char *entry = out + 1 + k * (POOLRAD_COMBAT_FOE_NAME + 1);
+            unsigned same = 1, c;
+            for (c = 0; c < POOLRAD_COMBAT_FOE_NAME; c++)
+                if (entry[c] != (c < length ? name[c] : 0)) { same = 0; break; }
+            if (same) {
+                if (entry[POOLRAD_COMBAT_FOE_NAME] < 255) entry[POOLRAD_COMBAT_FOE_NAME]++;
+                break;
+            }
+        }
+        if (k < kinds_found) continue;
+        /* More kinds than the packet holds: report none rather than some, so a
+         * partial list is never mistaken for the whole opposition. */
+        if (kinds_found >= POOLRAD_COMBAT_FOES_MAX) { out[0] = 0; return; }
+        {
+            unsigned char *entry = out + 1 + kinds_found * (POOLRAD_COMBAT_FOE_NAME + 1);
+            unsigned c;
+            for (c = 0; c < POOLRAD_COMBAT_FOE_NAME; c++) entry[c] = c < length ? name[c] : 0;
+            entry[POOLRAD_COMBAT_FOE_NAME] = 1;
+            kinds_found++;
+        }
+    }
+    out[0] = (unsigned char) kinds_found;
+}
+
 /* Returns 1 and fills a POOLRAD_COMBAT_SIZE packet whenever the supported game
  * is frontmost. Outside a battle, and whenever anything fails to validate, the
  * packet says unavailable and carries no squares at all: a stale grid must
@@ -140,7 +207,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     if (out == NULL) return 0;
     if (!poolrad_game_name(ram, size)) return 0;
     memset(out, 0, POOLRAD_COMBAT_SIZE);
-    memcpy(out, "PRC2", 4);
+    memcpy(out, "PRC3", 4);
     out[POOLRAD_COMBAT_STATUS_OUT] = POOLRAD_COMBAT_UNAVAILABLE;
     a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
     if (a5 < POOLRAD_COMBAT_COUNT_BACK || (a5 & 1)) return 1;
@@ -164,7 +231,8 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     /* The roster says how many combatants there are and which are the party.
      * A count that disagrees with the chain means one of the two was read at
      * the wrong moment, so neither is trusted. */
-    roster = poolrad_combat_roster(ram, size, a5, kinds, conditions);
+    uint32_t records[POOLRAD_COMBAT_MAX];
+    roster = poolrad_combat_roster(ram, size, a5, kinds, conditions, records);
     if (roster < 0 || (unsigned)roster != count) return 1;
     /* Entry i belongs to combatant i, which is how the sides are known, so the
      * dead are skipped here rather than earlier: the pairing is by position in
@@ -184,6 +252,7 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
     out[POOLRAD_COMBAT_STATUS_OUT] = POOLRAD_COMBAT_PRESENT;
     out[POOLRAD_COMBAT_COUNT_OUT] = (unsigned char) drawn;
     poolrad_combat_actor(ram, size, out + POOLRAD_COMBAT_ACTOR_OUT);
+    poolrad_combat_foes(ram, kinds, records, count, out + POOLRAD_COMBAT_FOES_OUT);
     return 1;
 }
 #endif

@@ -8,7 +8,7 @@ import static org.junit.Assert.*;
 public class CombatSnapshotTest {
     private byte[] packet(int[][] rows) {
         byte[] b = new byte[CombatSnapshot.PACKET_SIZE];
-        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='2'; b[4]=1; b[5]=(byte) rows.length;
+        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='3'; b[4]=1; b[5]=(byte) rows.length;
         for (int i = 0; i < rows.length; i++) {
             b[8+i*4] = (byte) rows[i][0];
             b[8+i*4+1] = (byte) rows[i][1];
@@ -18,7 +18,7 @@ public class CombatSnapshotTest {
     }
     private byte[] unavailable() {
         byte[] b = new byte[CombatSnapshot.PACKET_SIZE];
-        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='2'; b[4]=(byte)255;
+        b[0]='P'; b[1]='R'; b[2]='C'; b[3]='3'; b[4]=(byte)255;
         return b;
     }
     private static final int[][] BATTLE = {
@@ -140,9 +140,83 @@ public class CombatSnapshotTest {
         assertTrue(battle.summary().contains("2 lost"));
     }
 
+    /** Put a grouped foe list in the packet: name, then how many are standing. */
+    private static byte[] withFoes(byte[] packet, Object... nameThenCount) {
+        byte[] out = packet.clone();
+        int kinds = nameThenCount.length / 2;
+        out[CombatSnapshot.FOES_OUT] = (byte) kinds;
+        for (int i = 0; i < kinds; i++) {
+            String name = (String) nameThenCount[i * 2];
+            int standing = (Integer) nameThenCount[i * 2 + 1];
+            int at = CombatSnapshot.FOES_OUT + 1 + i * (CombatSnapshot.FOE_NAME + 1);
+            byte[] bytes = name.getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            System.arraycopy(bytes, 0, out, at, bytes.length);
+            out[at + CombatSnapshot.FOE_NAME] = (byte) standing;
+        }
+        return out;
+    }
+
+    @Test public void theHeaderNamesWhatThePartyIsFighting() {
+        // "12 others" is the least informative thing the pane could say.
+        byte[] p = withFoes(packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}, {2, 21, 10, 0}}),
+                "GOBLIN", 2);
+        CombatSnapshot battle = CombatSnapshot.parse(p);
+        assertNotNull(battle);
+        assertEquals("2 GOBLIN", battle.opposition());
+        assertEquals("1 of yours · 2 GOBLIN", battle.summary());
+    }
+
+    @Test public void severalKindsAreListedSeparately() {
+        byte[] p = withFoes(packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}, {2, 21, 10, 0}}),
+                "GOBLIN", 8, "ORC", 4);
+        CombatSnapshot battle = CombatSnapshot.parse(p);
+        assertNotNull(battle);
+        assertEquals("8 GOBLIN · 4 ORC", battle.opposition());
+        assertEquals(2, battle.foes().size());
+        assertEquals("GOBLIN", battle.foes().get(0).name);
+        assertEquals(8, battle.foes().get(0).standing);
+    }
+
+    @Test public void withoutNamesItFallsBackToACount() {
+        /*
+         * The probe reports no kinds when it will not vouch for the grouping --
+         * an unreadable name, or more kinds than the packet holds. Saying
+         * "2 others" then is honest; naming some of them would not be.
+         */
+        CombatSnapshot battle = CombatSnapshot.parse(
+                packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}, {2, 21, 10, 0}}));
+        assertNotNull(battle);
+        assertEquals("2 others", battle.opposition());
+        assertTrue(battle.foes().isEmpty());
+    }
+
+    @Test public void oneOfSomethingIsNotPluralised() {
+        CombatSnapshot battle = CombatSnapshot.parse(
+                packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}}));
+        assertEquals("1 other", battle.opposition());
+    }
+
+    @Test public void aFoeListThatDoesNotCheckOutRejectsTheWholePacket() {
+        byte[] good = packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}});
+        // A control byte in a name.
+        byte[] bad = withFoes(good, "ORC", 1);
+        bad[CombatSnapshot.FOES_OUT + 1] = 7;
+        assertNull(CombatSnapshot.parse(bad));
+        // A tally of nobody.
+        assertNull(CombatSnapshot.parse(withFoes(good, "ORC", 0)));
+        // More kinds than the packet holds.
+        byte[] tooMany = good.clone();
+        tooMany[CombatSnapshot.FOES_OUT] = (byte) (CombatSnapshot.FOES_MAX + 1);
+        assertNull(CombatSnapshot.parse(tooMany));
+        // Anything written past the kinds reported.
+        byte[] trailing = withFoes(good, "ORC", 3);
+        trailing[CombatSnapshot.FOES_OUT + 1 + 2 * (CombatSnapshot.FOE_NAME + 1)] = 'x';
+        assertNull(CombatSnapshot.parse(trailing));
+    }
+
     private static byte[] packetOf(int[][] rows) {
         byte[] p = new byte[CombatSnapshot.PACKET_SIZE];
-        p[0] = 'P'; p[1] = 'R'; p[2] = 'C'; p[3] = '2'; p[4] = 1; p[5] = (byte) rows.length;
+        p[0] = 'P'; p[1] = 'R'; p[2] = 'C'; p[3] = '3'; p[4] = 1; p[5] = (byte) rows.length;
         for (int i = 0; i < rows.length; i++)
             for (int j = 0; j < 4; j++) p[8 + i * 4 + j] = (byte) rows[i][j];
         return p;

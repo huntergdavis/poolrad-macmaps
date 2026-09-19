@@ -9,6 +9,7 @@ import android.view.ContextThemeWrapper;
 import android.view.MotionEvent;
 import android.view.View;
 import name.osher.gil.minivmac.LiveMapView;
+import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.PartyPaneLayout;
 import name.osher.gil.minivmac.mapper.ReadingHold;
 
@@ -44,8 +45,8 @@ public final class CombatMapRenderCheck {
     private static byte[] combatPacketOf(int[][] rows) { return combatPacket(rows); }
 
     private static byte[] combatPacket(int[][] rows) {
-        byte[] p = new byte[8 + 71 * 4 + 16];   // PRC2: entries then the actor's name
-        p[0]='P'; p[1]='R'; p[2]='C'; p[3]='2'; p[4]=1; p[5]=(byte) rows.length;
+        byte[] p = new byte[CombatSnapshot.PACKET_SIZE];   // PRC3: entries, the actor, then the foes
+        p[0]='P'; p[1]='R'; p[2]='C'; p[3]='3'; p[4]=1; p[5]=(byte) rows.length;
         for (int i = 0; i < rows.length; i++) {
             p[8+i*4] = (byte) rows[i][0]; p[8+i*4+1] = (byte) rows[i][1]; p[8+i*4+2] = (byte) rows[i][2];
             // The fourth column is the game's own condition. A fallen marker
@@ -427,6 +428,24 @@ public final class CombatMapRenderCheck {
             float[] monster = spotCentre(view, geometry, 20, 12);
             tap(view, monster[0], monster[1]);
             check(mentions(view, "tapped on the battle overview") == 0, "Tapping a monster lit a party row");
+        });
+
+        run("The header names what the party is fighting", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showSample(mapPacket(2, 5));
+            view.showCombatSample(combatPacket(BATTLE));
+            String plain = String.valueOf(view.getContentDescription());
+            check(plain.contains("4 others"), "Without names the header should count: " + plain);
+
+            byte[] named = combatPacket(BATTLE);
+            named[CombatSnapshot.FOES_OUT] = 1;
+            byte[] word = "GOBLIN".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            System.arraycopy(word, 0, named, CombatSnapshot.FOES_OUT + 1, word.length);
+            named[CombatSnapshot.FOES_OUT + 1 + CombatSnapshot.FOE_NAME] = 4;
+            view.showCombatSample(named);
+            String said = String.valueOf(view.getContentDescription());
+            check(said.contains("4 GOBLIN"), "The header did not name the monsters: " + said);
+            check(!said.contains("4 others"), "It named them and counted them anyway: " + said);
         });
 
         run("Only the member load has slowed carries the W", () -> {

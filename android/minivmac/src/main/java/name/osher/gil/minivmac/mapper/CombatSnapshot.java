@@ -16,9 +16,16 @@ public final class CombatSnapshot {
     /** The roster reader's own ceiling; the packet can hold no more. */
     public static final int MAX_COMBATANTS = 71;
     public static final int ENTRIES_SIZE = 8 + MAX_COMBATANTS * 4;
-    /** PRC2 appends the acting character's name, NUL padded. */
+    /** PRC2 appended the acting character's name, NUL padded. */
     public static final int ACTOR_BYTES = 16;
-    public static final int PACKET_SIZE = ENTRIES_SIZE + ACTOR_BYTES;
+    /**
+     * PRC3 appends who the party is fighting: a count, then that many
+     * {16-byte NUL-padded name, one-byte tally} pairs, grouped by name and
+     * counting only those still standing.
+     */
+    public static final int FOES_MAX = 8, FOE_NAME = 16;
+    public static final int FOES_OUT = ENTRIES_SIZE + ACTOR_BYTES;
+    public static final int PACKET_SIZE = FOES_OUT + 1 + FOES_MAX * (FOE_NAME + 1);
     /** Coordinates the native reader will accept at all. */
     public static final int MAX_COORDINATE = 63;
 
@@ -64,6 +71,7 @@ public final class CombatSnapshot {
     }
 
     private final List<Spot> spots;
+    private final List<Foe> foes;
     public final int left, top, right, bottom;
     /**
      * Whose turn it is, by name, or null when the game is not saying. Read from
@@ -72,8 +80,9 @@ public final class CombatSnapshot {
      */
     public final String acting;
 
-    private CombatSnapshot(List<Spot> spots, String acting) {
+    private CombatSnapshot(List<Spot> spots, String acting, List<Foe> foes) {
         this.acting = acting;
+        this.foes = Collections.unmodifiableList(foes);
         this.spots = Collections.unmodifiableList(spots);
         int l = MAX_COORDINATE, t = MAX_COORDINATE, r = 0, b = 0;
         for (Spot spot : spots) {
@@ -99,13 +108,68 @@ public final class CombatSnapshot {
     private static String readActor(byte[] packet) {
         int length = 0;
         while (length < ACTOR_BYTES && packet[ENTRIES_SIZE + length] != 0) length++;
-        for (int at = ENTRIES_SIZE + length; at < packet.length; at++)
+        for (int at = ENTRIES_SIZE + length; at < FOES_OUT; at++)
             if (packet[at] != 0) return null;
         for (int i = 0; i < length; i++) {
             int c = packet[ENTRIES_SIZE + i] & 255;
             if (c < 0x20 || c > 0x7e) return null;
         }
         return new String(packet, ENTRIES_SIZE, length, java.nio.charset.StandardCharsets.US_ASCII);
+    }
+
+    /** One kind of monster the party is fighting, and how many are standing. */
+    public static final class Foe {
+        public final String name;
+        public final int standing;
+        Foe(String name, int standing) { this.name = name; this.standing = standing; }
+        @Override public String toString() { return standing + " " + name; }
+    }
+
+    /**
+     * Who the party is fighting, grouped by name, or empty when the probe
+     * would not vouch for the grouping.
+     */
+    private static List<Foe> readFoes(byte[] packet) {
+        int kinds = packet[FOES_OUT] & 255;
+        if (kinds > FOES_MAX) return null;
+        List<Foe> foes = new ArrayList<>(kinds);
+        for (int i = 0; i < kinds; i++) {
+            int at = FOES_OUT + 1 + i * (FOE_NAME + 1);
+            int length = 0;
+            while (length < FOE_NAME && packet[at + length] != 0) length++;
+            if (length == 0 || length == FOE_NAME) return null;
+            for (int c = 0; c < length; c++) {
+                int letter = packet[at + c] & 255;
+                if (letter < 0x20 || letter > 0x7e) return null;
+            }
+            for (int c = length; c < FOE_NAME; c++) if (packet[at + c] != 0) return null;
+            int standing = packet[at + FOE_NAME] & 255;
+            if (standing == 0) return null;
+            foes.add(new Foe(new String(packet, at, length,
+                    java.nio.charset.StandardCharsets.US_ASCII), standing));
+        }
+        // Anything past the kinds reported belongs to nobody.
+        for (int at = FOES_OUT + 1 + kinds * (FOE_NAME + 1); at < packet.length; at++)
+            if (packet[at] != 0) return null;
+        return foes;
+    }
+
+    public List<Foe> foes() { return foes; }
+
+    /**
+     * What the party is fighting, in words: "12 GOBLIN", or "8 GOBLIN · 4 ORC"
+     * when there is more than one kind, or a plain count when the probe would
+     * not vouch for the names.
+     */
+    public String opposition() {
+        int others = size() - partyCount();
+        if (foes.isEmpty()) return others + " other" + (others == 1 ? "" : "s");
+        StringBuilder text = new StringBuilder();
+        for (Foe foe : foes) {
+            if (text.length() > 0) text.append(" \u00b7 ");
+            text.append(foe.standing).append(' ').append(foe.name);
+        }
+        return text.toString();
     }
 
     public List<Spot> spots() { return spots; }
@@ -127,7 +191,7 @@ public final class CombatSnapshot {
     /** Null unless a battle is running and the whole packet validates. */
     public static CombatSnapshot parse(byte[] packet) {
         if (packet == null || packet.length != PACKET_SIZE) return null;
-        if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'C' || packet[3] != '2') return null;
+        if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'C' || packet[3] != '3') return null;
         int status = packet[4] & 255, count = packet[5] & 255;
         if ((packet[6] | packet[7]) != 0) return null;
         if (status == 255) {
@@ -155,7 +219,9 @@ public final class CombatSnapshot {
         for (int at = 8 + count * 4; at < ENTRIES_SIZE; at++) if (packet[at] != 0) return null;
         String actor = readActor(packet);
         if (actor == null) return null;
-        return new CombatSnapshot(spots, actor.isEmpty() ? null : actor);
+        List<Foe> foes = readFoes(packet);
+        if (foes == null) return null;
+        return new CombatSnapshot(spots, actor.isEmpty() ? null : actor, foes);
     }
 
     /** Plain wording for the header; never a tactical suggestion. */
@@ -163,8 +229,7 @@ public final class CombatSnapshot {
         int party = partyCount();
         int savable = 0, lost = 0;
         for (Spot spot : spots) if (spot.fallen) { if (spot.savable()) savable++; else lost++; }
-        return party + " of yours · " + (size() - party) + " other"
-                + (size() - party == 1 ? "" : "s")
+        return party + " of yours · " + opposition()
                 + (savable == 0 ? "" : " · " + savable + " down")
                 + (lost == 0 ? "" : " · " + lost + " lost");
     }
