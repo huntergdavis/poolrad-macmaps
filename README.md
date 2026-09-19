@@ -39,7 +39,9 @@ you where you have not been.
 
 Names, HP bars, armor class and class symbols sit beside the map. Tap anyone
 for spell readiness per level, readied weapon and armor, carried weight, and
-the game's own next-level figures. A quiet badge flags injury, poison, dying or
+the game's own next-level figures. The tap also selects that character in the
+original game's Information window, following the window if you move it.
+A quiet badge flags injury, poison, dying or
 petrification, with the exact wording on tap. **Q** turns quick combat on for
 one character, queuing your choice if the game is temporarily busy; **T**
 appears where the game itself will let them train.

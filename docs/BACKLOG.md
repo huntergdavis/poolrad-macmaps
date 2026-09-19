@@ -66,7 +66,7 @@ The table above is historical, not an exhaustive current release ledger. Later
 releases include journal detection, a battle overview, equipment/training
 information, a Notes index, PDF/companion exports, and emulator save states;
 see the individual feature records below and `docs/releases/`. Open priorities
-now include the disk-safety audit (F97), character selection (F89), and the
+now include the disk-safety audit (F97), the remaining save/conversion work, and the
 remaining unchecked enhancements. Separate area-wide drawing was replaced by
 the shipped flag pages. Do not reinstate withdrawn restart-based loading.
 Do not confuse a working first-area map and one validated gate round trip
@@ -998,6 +998,11 @@ lands rather than at the end. The planned releases:
   Keep original disks and independent backups. The local play helper no longer
   force-stops the guest just to reach the title screen; corruption prevention
   itself remains unverified.
+  **Pending owner answer, 2026-09-19:** existing snapshots have no disk identity.
+  Should they remain loadable after an explicit warning, or be refused by the
+  new guard? Asked in the active backlog session; work moved to F89 while waiting.
+  Audit also found `SaveStateStore` attempts fsync after gzip closes its stream;
+  fix that durability ordering as part of this item.
 
 - [x] **F94 — Ten quick saves with dated screenshot previews (0.70.0).**
   Keep the latest ten quick saves instead of overwriting one slot. Show terse,
@@ -1068,7 +1073,7 @@ lands rather than at the end. The planned releases:
   Notebook 1. A save whose notebook was since deleted loads and keeps the current
   notebook rather than failing.
 
-- [ ] **F89 — Tapping a character in the party pane selects them in the game.**
+- [x] **F89 (delivered 0.71.0) — Tapping a character in the party pane selects them in the game.**
   Owner's P0, 2026-09-19: "When you click on a character on the top, it should
   click on the character in the game (like on the 'information window'). It
   makes it highlight that character and make them selected for spells and
@@ -1078,6 +1083,13 @@ lands rather than at the end. The planned releases:
   window, so the pane becomes the way you pick who acts. Needs the window's
   position read from the guest rather than remembered, because Options →
   Reset Window Locations exists precisely because windows move.
+  **Done:** a fresh party frame resolves the requested name/class; native code
+  reads the verified window, row height and selection-enabled flag, refuses
+  obscured/invalid targets, then sends normal mouse input. Companion details
+  remain available. Live: tapping Lara changed the game's selected handle from
+  Arax to Lara; after moving Information from (271,40) to (217,90), tapping
+  Zarram selected Zarram. 634 Java tests and guarded native tests pass.
+  [Decoding and evidence](PARTY_SELECTION.md).
 
 - [x] **F25 (delivered 0.41.0) — Stop reading when there is nothing to read.** Pause the RAM polls
   while the guest is idle, and suspend the emulator when the app is

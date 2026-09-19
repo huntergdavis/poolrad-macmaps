@@ -644,6 +644,16 @@ public class EmulatorFragment extends Fragment
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
         mNotebook.setReturnKey(this::pressGuestReturn);
         mNotebook.setQuickSetter(this::setGuestQuick);
+        mNotebook.setPartySelector(member -> {
+            Core core = mCore;
+            Runnable refused = () -> {
+                if (isAdded()) android.widget.Toast.makeText(requireContext(),
+                        "The game cannot select that character right now.", android.widget.Toast.LENGTH_SHORT).show();
+            };
+            boolean queued = core != null && core.selectPartyMember(member, refused);
+            if (!queued) refused.run();
+            return queued;
+        });
         mLiveMap.setQuickPending(member -> mCore == null ? null : mCore.pendingQuick(member));
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 

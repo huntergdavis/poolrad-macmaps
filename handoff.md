@@ -1,5 +1,29 @@
 # PoolRad Mac Maps — continuation handoff
 
+## Active backlog run — 2026-09-19
+
+Owner instruction: continue until the whole backlog is complete; **each feature
+is its own release**. Turn repeated operations into reusable scripts. If an
+answer cannot be inferred, leave that item pending and work on another.
+**Remove `dunk d6` only after the entire backlog is complete.** This supersedes
+the older d4 reference below for the active run.
+
+- F97 awaits an answer: should old snapshots without disk-verification data
+  load after an explicit warning, or be refused? Do not silently choose.
+  The existing save/reference fsync runs after gzip closed the descriptor.
+- F89 is verified and prepared for 0.71.0. Native selection tests and 634 Java
+  tests pass; live Lara selection and moved-window Zarram selection passed.
+  See `docs/PARTY_SELECTION.md`. Publish before starting the next feature.
+- Existing `emulator-5584` did not respond to guest input even though its core
+  reported running and two disks mounted. It was left intact, then backgrounded
+  normally. Do not replace its APK or force-stop it.
+- A fresh `emulator-5586` uses `scratch/backlog-sandbox`, seeded with copies of
+  the private ROM and `scratch/poolrad-slim-boot.dsk`. See
+  `tools/start-test-sandbox.py`; normal Mac shutdown still precedes APK updates.
+- `tools/release.sh` now uses accurate commit attribution, updates README and
+  install links, runs Java tests, verifies the public universal APK, and locks
+  out concurrent release processes. Write/commit feature notes before invoking.
+
 ## Current handoff — 2026-09-19, 0.70.0
 
 Use `/home/hunter/workspace/poolrad-macmaps`, `main`, public origin

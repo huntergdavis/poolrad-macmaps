@@ -60,8 +60,42 @@ public class Core {
 	}
 	public Boolean pendingQuick(name.osher.gil.minivmac.mapper.PartyState.Member member) { return quickQueue.pending(member); }
 	private static native boolean setPartyQuickNative(int slot, boolean on);
+	private static native int partyTargetNative(int member);
+	private final java.util.concurrent.atomic.AtomicReference<PartySelection> selection =
+			new java.util.concurrent.atomic.AtomicReference<>();
+	private volatile boolean selectionHeld;
+	private static final class PartySelection {
+		final name.osher.gil.minivmac.mapper.PartyState.Member member;
+		final Runnable refused;
+		final long time = android.os.SystemClock.elapsedRealtime();
+		PartySelection(name.osher.gil.minivmac.mapper.PartyState.Member member, Runnable refused) {
+			this.member = member; this.refused = refused;
+		}
+	}
+	public boolean selectPartyMember(name.osher.gil.minivmac.mapper.PartyState.Member member, Runnable refused) {
+		if (!initOk || member == null || selectionHeld) return false;
+		if (!selection.compareAndSet(null, new PartySelection(member, refused))) return false;
+		requestPartySample();
+		return true;
+	}
+	private void deliverPartySelection(byte[] sample) {
+		PartySelection intent = selection.getAndSet(null);
+		if (intent == null) return;
+		int index = PartySelectionTarget.index(name.osher.gil.minivmac.mapper.PartyState.parse(sample), intent.member);
+		int target = index < 0 || android.os.SystemClock.elapsedRealtime() - intent.time > 1000
+				? -1 : partyTargetNative(index);
+		if (target < 0) { if (intent.refused != null) quickRetry.post(intent.refused); return; }
+		setMousePosition(target >>> 16, target & 0xffff);
+		selectionHeld = true;
+		setMouseBtn(true);
+		quickRetry.postDelayed(() -> {
+			if (isReady()) setMouseBtn(false);
+			selectionHeld = false;
+		}, 100);
+	}
 	@SuppressWarnings("unused") // Read-only compact sample delivered on emulation thread.
 	public void onPartySample(byte[] sample) {
+		deliverPartySelection(sample);
 		if (quickQueue.busy()) {
 			boolean written = quickQueue.drain(name.osher.gil.minivmac.mapper.PartyState.parse(sample), Core::setPartyQuickNative);
 			quickRetry.removeCallbacks(retryQuick);
@@ -158,6 +192,7 @@ public class Core {
 
 	/** Hand a raw save-state blob back to be applied at the next safe boundary. */
 	public boolean restoreState(byte[] state) {
+		selection.set(null);
 		quickQueue.clear(); // Do not apply an old session's queued preferences to a restored machine.
 		return initOk && state != null && requestRestoreStateNative(state);
 	}

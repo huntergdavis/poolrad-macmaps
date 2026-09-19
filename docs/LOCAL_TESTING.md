@@ -1,5 +1,17 @@
 # Local Android prototype
 
+## 0.71.0 — party-pane character selection (2026-09-19)
+
+634 Java tests pass, zero failures/errors/skips; universal Mac II build passed.
+`tools/test-party-selection.c` passed with AddressSanitizer/UndefinedBehaviorSanitizer
+and strict warnings. It covers bounds, window movement/occlusion, input gating,
+invalid pointers, cycles, nonparty roster entries and byte-for-byte read-only
+behavior. Java identity tests cover reorder and missing/ambiguous characters.
+Live on isolated emulator-5586: Lara selected by companion tap; after moving
+the original Information window, Zarram selected by companion tap. RAM handles
+and the game's bolded row agree. See [evidence](PARTY_SELECTION.md).
+No physical tablet was used. F97 remains pending, not fixed by this release.
+
 ## 0.70.0 — quick-save history, previews and queued Q (2026-09-19)
 
 Public universal APK: `scratch/poolrad-macmaps-0.70.0.apk`, versionCode 136,

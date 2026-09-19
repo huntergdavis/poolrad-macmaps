@@ -27,6 +27,7 @@
 #include "POOLRAD.h"
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
+#include "POOLRAD_SELECTION.h"
 #include "POOLRAD_MESSAGE.h"
 #include "POOLRAD_COMBAT.h"
 #include "POOLRAD_SAVESTATE.h"
@@ -1552,6 +1553,16 @@ LOCALPROC DeliverPartySample(void)
  * value the field is allowed to have. Authorised by the owner on 2026-09-16;
  * see docs/DESIGN.md for what that does and does not cover.
  */
+/* Called synchronously from Core.onPartySample on this same core thread. */
+GLOBALFUNC jint partyTarget(jint member)
+{
+    ui5b size; int x, y;
+    ui3p ram = GetRamForSnapshot(&size);
+    if (CurMouseButton || member < 0 || !poolrad_party_target(ram, size, (unsigned)member,
+            vMacScreenWidth, vMacScreenHeight, &x, &y)) return -1;
+    return (x << 16) | y;
+}
+
 GLOBALFUNC jboolean setPartyQuick(jint slot, jboolean on)
 {
     ui5b size;

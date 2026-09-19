@@ -82,6 +82,8 @@ static RequestRamSnapshotType requestWheelSamplePtr = NULL;
 static RequestRamSnapshotType requestPartySamplePtr = NULL;
 static RequestRamSnapshotType requestMessageSamplePtr = NULL;
 static SetPartyQuickType setPartyQuickPtr = NULL;
+typedef jint (*PartyTargetType)(jint);
+static PartyTargetType partyTargetPtr = NULL;
 static RequestRamSnapshotType requestSaveStatePtr = NULL;
 static RequestRestoreStateType requestRestoreStatePtr = NULL;
 static RequestRamSnapshotType requestCombatSamplePtr = NULL;
@@ -91,6 +93,7 @@ void unloadCurrentVariant() {
     requestRamSnapshotPtr = NULL;
     requestSaveStatePtr = NULL;
     requestRestoreStatePtr = NULL;
+    partyTargetPtr = NULL;
     requestMapSamplePtr = NULL;
     requestWheelSamplePtr = NULL;
     requestPartySamplePtr = NULL;
@@ -187,6 +190,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     requestWheelSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestWheelSample");
     requestPartySamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestPartySample");
     requestMessageSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMessageSample");
+    partyTargetPtr = (PartyTargetType)dlsym(variantHandle, "partyTarget");
     setPartyQuickPtr = (SetPartyQuickType)dlsym(variantHandle, "setPartyQuick");
     requestSaveStatePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestSaveState");
     requestRestoreStatePtr = (RequestRestoreStateType)dlsym(variantHandle, "requestRestoreState");
@@ -203,6 +207,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         setPartyQuickPtr = NULL;
         requestSaveStatePtr = NULL;
         requestRestoreStatePtr = NULL;
+        partyTargetPtr = NULL;
         LOGE("dlsym failed: %s", error);
         dlclose(variantHandle);
         variantHandle = NULL;
@@ -286,6 +291,12 @@ Java_name_osher_gil_minivmac_Core_requestMessageSampleNative(JNIEnv *env, jclass
 JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_requestCombatSampleNative(JNIEnv *env, jclass cls) {
     return requestCombatSamplePtr ? requestCombatSamplePtr() : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_name_osher_gil_minivmac_Core_partyTargetNative(JNIEnv *env, jclass cls, jint member) {
+    (void)env; (void)cls;
+    return partyTargetPtr ? partyTargetPtr(member) : -1;
 }
 
 JNIEXPORT jboolean JNICALL

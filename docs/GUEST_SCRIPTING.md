@@ -171,3 +171,18 @@ noticing: region arithmetic and clipping, the PNG writer, every prompt named by
 its button count, the window frame not merging the buttons, the mouse pointer
 not being counted as one, and the refusal of any serial that is not an emulator.
 Synthetic frames only — no screenshot, ROM, game or save bytes are embedded.
+# Timed guest keyboard input from local debug tooling
+
+`bash tools/guest-command.sh emulator-NNNN load` invokes the app's existing
+timed Command-L routine through local JDWP. Other supported commands are
+`quit`, `begin`, `view`, and `save`; `text STRING` types a short filename and
+Return through the same normal input path. This is emulator-only tooling,
+not a guest-memory write. The call queues input; verify the resulting dialog
+before sending the next command. The text routine supports letters, digits,
+spaces and periods. Command input was verified opening the game's standard
+Load dialog on the isolated F89 emulator, 2026-09-19.
+
+`python3 tools/start-test-sandbox.py --help` documents creating a fresh Android
+data directory and installing a public APK with copies of supplied private
+ROM/disk inputs. It refuses existing directories and in-use emulator ports.
+Normal Mac shutdown is still required before replacing an installed APK.

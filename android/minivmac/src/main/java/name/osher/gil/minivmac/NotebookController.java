@@ -84,6 +84,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
      * but pressing a key belongs to whoever owns the emulator core, so that is
      * handed in rather than reached for.
      */
+    public interface PartySelector { boolean select(PartyState.Member member); }
+    private PartySelector partySelector = member -> false;
+    public void setPartySelector(PartySelector selector) { partySelector = selector; }
     private Runnable returnKey = () -> { };
 
     public void setReturnKey(Runnable action) { returnKey = action == null ? () -> { } : action; }
@@ -642,6 +645,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     @Override public void onPartyMemberTapped(PartyState.Member member) {
         if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
         opening = true;
+        partySelector.select(member);
         picker = PartyDetailsDialog.show(activity, member, () -> opening = false);
     }
 
