@@ -55,7 +55,7 @@ static void fixture(unsigned party, unsigned others) {
     put32(g_a5 - POOLRAD_PARTY_HEAD_BACK, 0x10000);
 }
 static void unavailable(void) {
-    assert(memcmp(out, "PRC2", 4) == 0);
+    assert(memcmp(out, "PRC3", 4) == 0);
     assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_UNAVAILABLE);
     assert(out[POOLRAD_COMBAT_COUNT_OUT] == 0);
     for (int i = POOLRAD_COMBAT_ENTRY_OUT; i < POOLRAD_COMBAT_SIZE; i++) assert(out[i] == 0);

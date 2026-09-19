@@ -29,8 +29,8 @@ for i in $(seq 1 ${WATCH:-60}); do
   adb shell uiautomator dump /sdcard/ui.xml >/dev/null 2>&1 || true
   # The overlay line if it is up, otherwise what the map is saying.
   LINE="$(adb shell cat /sdcard/ui.xml 2>/dev/null \
-      | grep -oE 'text="(Restarting[^"]*|Starting[^"]*|Loading[^"]*|Loaded[^"]*)"|content-desc="[^"]{20,}"' \
-      | head -1)"
+      | grep -oE 'text="(Restarting[^"]*|Starting[^"]*|Loading[^"]*|Waiting[^"]*|Loaded[^"]*)"|content-desc="[^"]{20,}"' \
+      | head -1 || true)"
   echo "  $(printf %3ds $((i*5)))  ${LINE:0:150}"
 done
 echo "shots in $OUT"

@@ -1099,31 +1099,29 @@ reads back correctly.
   capture until the companion can say where the party is, because a capture
   taken in any other state proves nothing.
 - [ ] **F86 — Get the load sequence through a live machine, start to finish.**
-  **Debugged 2026-09-18; the cause was found and two bad designs removed, but
-  it has still not completed here.**
+  **Much further, still not there. 2026-09-18.**
 
-  The cause of the original stall: `Cmd-Q` does not quit. It asks *"Do you
-  really want to quit?"* in a dialog whose buttons carry no default outline, so
-  Return does nothing and confirming it would mean clicking a measured
-  coordinate — the exact fragility the sequence exists to avoid. The sequence's
-  own error message, "it may be asking something on screen", turned out to be
-  right.
+  The blocker named last time is gone: the owner's `scratch/poolrad-slim-boot.dsk`
+  launches the game from an alias in Startup Items, and with it mounted the
+  machine comes back up running the game every time — confirmed repeatedly, the
+  game reaching its Continue prompt within seconds of the boot finishing. How to
+  make such a disk is now [BOOT_DISK.md](BOOT_DISK.md).
 
-  So it no longer quits: it restarts the emulated machine, which the app can
-  already do and which asks nothing.
+  With that in place the sequence gets: restart → the game launches itself →
+  `Cmd-L` → the companion reporting **"the original game is loading or preparing
+  a party"** for over two minutes. And then no party. The game is left running
+  with its menu bar up and no windows, which is what it looks like before a game
+  is loaded.
 
-  The second bad design, also removed: when the machine came back up at the
-  Finder, the sequence typed the application's name to select it and pressed
-  `Cmd-O`. Type-select only works if the application is in the frontmost
-  window. When it is not, the typing lands on whatever else begins with those
-  letters — one run renamed "Adventurer's Journal Part 1", another opened
-  "Apple Extras". It now stops and says so instead.
+  **The next lead, untested:** both mounted disks have a
+  `Pool Of Radiance:PoolRadSave` folder. The sequence types `PoolRadSave` into
+  the Standard File dialog and presses Return, and type-select there navigates
+  within whatever folder the dialog happens to be showing. With two volumes
+  carrying the same folder name, which one it lands in is not something the
+  sequence controls or checks. Worth trying with a single disk mounted before
+  anything more elaborate.
 
-  **What remains:** the emulator used for testing has a disk set whose game does
-  not launch itself, so the sequence correctly reports that and stops. Proving
-  the rest needs a startup disk that launches the game — the owner's documented
-  combined test disk does, and `scratch/minivmacandpools.dsk` is that disk. Boot
-  from it and run the load.
+  **A failure is still safe:** it stops, says why, and leaves the guest alone.
 - [ ] **F79 — Write a save the game will load.** Verified the only way that
   counts: the game loads it and the party reads back correctly.
 - [ ] **F34 — Auto-load the last save on launch.**
