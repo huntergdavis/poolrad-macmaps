@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.71.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.71.0)
+[0.72.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.72.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.71.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.71.0/poolrad-macmaps-0.71.0.apk)
+   [`poolrad-macmaps-0.72.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.72.0/poolrad-macmaps-0.72.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -64,7 +64,7 @@ the picture. Unsaved captures are temporary; use Save for pictures you want to k
 **PoolRad → Quick save** retains ten snapshots. **Quick load** immediately restores
 the newest quick save without a picker or confirmation. **Load…** opens all quick,
 named and automatic states as dated thumbnails above the game; tap one for its
-larger preview and Load confirmation. Saves made before 0.71.0
+larger preview and Load confirmation. Saves made before 0.72.0
 have no preview but remain loadable; the old quick slot ages out normally.
 
 **Settings → Back up / restore game saves…** copies the original game's save
