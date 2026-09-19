@@ -175,3 +175,12 @@ test after its documented matching-snapshot crash-audit precondition.
 
 Snapshots still do not restore disk contents or make arbitrary hard quits safe.
 Use normal guest shutdown and independent disk backups.
+
+
+Published APK verification: 0.85.0, versionCode 151, all four Android ABIs.
+The GitHub asset digest matches the installed screenshot build:
+38b7a1ae25a21904a664d87fa07f09b5f4180b3046aa7dc41b9e8e818a2c2f0d.
+After normal shutdown/update, the original game loaded F34Resume again.
+The refreshed README Options and save-preview images were captured and
+visually inspected from that published APK; the other four images remain
+one release old. Installation evidence is in scratch/f34-published-update.

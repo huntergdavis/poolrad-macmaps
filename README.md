@@ -96,10 +96,14 @@ The small previews are encoded in the background, and each snapshot remembers
 its notebook. Snapshots now require disk verification: older emulator snapshots
 are unsupported. A missing picture does not block a valid new snapshot.
 
+<img src="docs/images/readme-save-preview.png" width="760" alt="Version 0.85 quick-save preview with capture time and required disk matching">
+
 **Resume on launch:** the app tries your last completed quick, named or automatic
 snapshot. It resumes when the mounted disks match and the paired notebook still
 exists. **Start normally** skips the attempt; **Info → Options** can turn it off.
 If a snapshot cannot be used, the Mac boots normally.
+
+<img src="docs/images/readme-options.png" width="760" alt="Launch restore and five-minute autosave options in version 0.85">
 
 Original-game save-file backups live under **Settings → Back up / restore game
 saves…**. These are separate from emulator snapshots and notebook exports.

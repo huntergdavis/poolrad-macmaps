@@ -23,7 +23,7 @@ Visually inspect every image and correct its README caption before committing.
 A version label alone does not prove a modified development APK matches a tag:
 install the published APK with update-test-app.py before these captures.
 
-    python3 tools/readme-screenshots.py check 0.84.0
+    python3 tools/readme-screenshots.py check 0.85.0
 
 The check reads every HTML or Markdown image in the README, verifies its file
 and recorded hash, and counts intervening numeric release tags. release.sh runs
