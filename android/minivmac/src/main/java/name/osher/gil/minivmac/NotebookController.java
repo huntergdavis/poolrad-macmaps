@@ -99,11 +99,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     @Override public void onQuickToggled(int member, boolean on) {
         if (disposed) return;
-        // The write is refused whenever the party does not read cleanly, which
-        // is a normal thing to happen mid-redraw. Say so rather than leaving a
-        // tap that silently did nothing.
+        // Accepted intents wait for a verified sample on the emulation thread.
         if (!quickSetter.set(member, on))
-            toast("The game would not take that just now; try again in a moment.");
+            toast("No running character to queue that change for.");
     }
 
     @Override public void onReturnPressed() {

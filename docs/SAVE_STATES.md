@@ -114,6 +114,42 @@ Two things make it tractable:
    two notebooks: a save made under one was restored while the other was active,
    and the active notebook switched back to the paired one.
 
+## 0.70.0 — quick history and screen previews
+
+Quick save publishes a new state before retiring the oldest of ten. Monotonic
+sequence numbers, not the wall clock, decide rotation order; multiple captures
+in one millisecond and clock rollback cannot overwrite a slot. The old
+`quick.prqs` remains the oldest entry until it naturally ages out. Named and
+automatic saves are outside the `quick-history/` namespace.
+
+Quick load immediately restores the newest successful quick save. Load… shows
+all quick, named and automatic saves, with thumbnails and local timestamps including seconds,
+year and time zone. Selecting one opens a larger preview and confirmation, all
+above the guest. Each save has an optional `.png` alongside its `.notebook` link;
+rotation and deletion remove both. Missing or corrupt previews do not block a
+valid state from loading.
+
+The native callback copies at most 384×288 pixels at the same stopped boundary
+as the machine snapshot. PNG encoding and all file I/O run on the controller's
+single worker, not the emulation/UI thread. The existing reference/diff format
+is unchanged. One request retains its own destination and notebook through
+publication, preventing a manual save and autosave from exchanging metadata.
+
+## Disk-safety limitation (open F97)
+
+These are RAM/CPU/device/video snapshots, **not matched disk snapshots**. No
+guest write being in flight at the capture boundary does not imply that the
+disk is unchanged when an older state is restored: the restored Mac may hold
+cached filesystem metadata from before a later disk write. Quick loading is
+not a corruption-prevention mechanism or a substitute for disk backups.
+
+The user reports another agent observed corruption after hard quits, but has
+not observed it personally. This has not been reproduced or fixed here.
+Investigate process death and RAM/disk mismatch on disposable images (F97).
+The local play helper now resumes rather than force-stopping a mounted guest.
+Use normal Mac shutdown and independent backups. Notebook ZIP exports currently
+contain notebooks/trails/fog, not these state files or the shared reference.
+
 ## How this relates to the game's own save format
 
 The record and save-file work already done (F77, F78, F82, F85) is **not
@@ -129,4 +165,4 @@ adding save-state support is a feature addition in service of the companion, not
 a rewrite, and the owner has named it the P0 line. A save state is inherently
 tied to the machine configuration it was taken on — the same ROM and the same
 emulator variant — which is fine for a single-purpose app, and is why the
-reference R is baked per build.
+reference R is created locally from the first capture, never baked into a build.

@@ -1,6 +1,6 @@
 # PoolRad Mac Maps — current backlog
 
-Updated 2026-09-18. This is the authoritative feature queue. The earlier
+Updated 2026-09-19. This is the authoritative feature queue. The earlier
 [implementation plan](PLAN.md) retains the architecture and historical proof
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
@@ -60,13 +60,15 @@ keyboard and vendor-specific pen behavior remain separate checks under Q1.
 | User-verified — 2026-09-14 | Hunter reports all device testing done on e-ink; he considers the e-ink pass complete |
 | Done | Private single boot disk, automatic game launch, sample-party load and desktop recovery |
 | Done | Sideload/update build and documented SMB transfer route |
+| Done — 0.70.0 | Ten quick-save states with dated previews; queued Q toggles; game-file backups moved to Settings |
 
-Not done: dedicated tactical/wilderness maps, training, automatic journal
-detection, a dedicated Notes index, ammunition, or the remaining
-rotation/keyboard hardware checks. Party conditions ship in 0.15.0 and
-journal/map-note linking in 0.16.0; equipment and the other character panels
-do not. Separate area-wide drawing
-was replaced by the shipped flag pages.
+The table above is historical, not an exhaustive current release ledger. Later
+releases include journal detection, a battle overview, equipment/training
+information, a Notes index, PDF/companion exports, and emulator save states;
+see the individual feature records below and `docs/releases/`. Open priorities
+now include the disk-safety audit (F97), character selection (F89), and the
+remaining unchecked enhancements. Separate area-wide drawing was replaced by
+the shipped flag pages. Do not reinstate withdrawn restart-based loading.
 Do not confuse a working first-area map and one validated gate round trip
 with full-game tracking coverage. No numerical completion percentage is useful
 while scope is expanding.
@@ -984,6 +986,48 @@ lands rather than at the end. The planned releases:
 | 0.52.0 | Back of the backlog — F63, F65 |
 
 ### P0 — his designation
+
+- [ ] **F97 — Disk-safety audit for hard quits and snapshot restores (P0, 2026-09-19).**
+  User reports another agent observed eventual disk corruption after hard quits;
+  the user has not observed it on their tablet. Reproduce only on disposable
+  copies, compare clean shutdown versus process death, and check HFS integrity
+  after restoring RAM from before a guest disk write. Current snapshots do not
+  include disk contents: fast restore avoids restart-based loading but is not
+  a disk backup or proof of crash safety. Decide whether a disk-generation guard
+  or matched copy-on-write disk snapshots are needed without slowing saves.
+  Keep original disks and independent backups. The local play helper no longer
+  force-stops the guest just to reach the title screen; corruption prevention
+  itself remains unverified.
+
+- [x] **F94 — Ten quick saves with dated screenshot previews (0.70.0).**
+  Keep the latest ten quick saves instead of overwriting one slot. Show terse,
+  unambiguous local date/time stamps and the saved guest screen when choosing
+  a state to load. Preserve the existing fast reference/diff path: only a small
+  bounded frame copy at capture; image compression, storage and preview loading
+  off-thread. Rotate only quick saves, including their notebook/preview sidecars;
+  preserve named saves, the separate autosave history and the reference template.
+  Existing saves without screenshots must still load. Prevent overlapping save
+  requests from swapping targets, screenshots or notebook associations.
+  User clarification: Quick load immediately restores the latest quick save;
+  Load… is the browser for all quick, named and automatic saves.
+  **Verified:** twelve real captures rotated to ten with matching sidecars,
+  old quick compatibility and unchanged reference checksum; dated thumbnails,
+  preview confirmation and one-tap latest restore checked on Android. Ten
+  history tests and two request-gate tests cover failure/race/name edge cases.
+- [x] **F95 — Move original-game save backups into Settings/options (0.70.0).**
+  Remove Saved games / Back up N saved games from the PoolRad action menu.
+  Keep the backup/restore workflow accessible under Settings, separate from
+  the everyday quick-save/load controls. Do not reintroduce withdrawn Load.
+  **Verified:** Settings opens the existing six-save backup dialog on Android;
+  the PoolRad menu no longer has the game-file backup entry.
+- [x] **F96 — Queue character Quick toggles during transient refusals (0.70.0).**
+  Remember the desired Q state and retry at a safe readable frame, not by a
+  stale party-row number. Show pending intent, allow another tap to reverse it,
+  and clear it on a different character/session rather than writing to the wrong
+  record. Keep the existing native field validation and write on the core thread.
+  **Verified:** seven queue regression tests plus the real Arax Q toggle. A
+  dot and accessibility text mark pending intent; temporary refusal is tested
+  synthetically, not claimed as reproduced on the physical tablet.
 
 - [x] **F90 (PASSED 2026-09-19) — the whole emulated machine round-trips.**
   Capture RAM + 68k registers + every device global at a controlled boundary,

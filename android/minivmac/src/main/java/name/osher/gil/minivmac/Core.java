@@ -45,17 +45,29 @@ public class Core {
 	private static native boolean requestPartySampleNative();
 
 	/**
-	 * Sets one party member's quick flag in the running game. The only call in
-	 * this app that changes guest memory; every guard lives in the native
-	 * reader, which refuses unless the whole party validates and the byte
-	 * already holds a value the field is allowed to have.
+	 * Queues the requested quick flag by character identity. Retry only from a
+	 * fresh party callback on the emulation thread, using the existing native
+	 * writer's whole-party and allowed-value guards.
 	 */
-	public boolean setPartyQuick(int slot, boolean on) {
-		return initOk && setPartyQuickNative(slot, on);
+	private final QuickToggleQueue quickQueue = new QuickToggleQueue();
+	private final android.os.Handler quickRetry = new android.os.Handler(android.os.Looper.getMainLooper());
+	private final Runnable retryQuick = () -> { if (initOk && quickQueue.busy()) requestPartySample(); };
+	public boolean queuePartyQuick(name.osher.gil.minivmac.mapper.PartyState.Member member, boolean on) {
+		if (!initOk || member == null) return false;
+		if (!quickQueue.request(member, on)) return false;
+		requestPartySample();
+		return true;
 	}
+	public Boolean pendingQuick(name.osher.gil.minivmac.mapper.PartyState.Member member) { return quickQueue.pending(member); }
 	private static native boolean setPartyQuickNative(int slot, boolean on);
 	@SuppressWarnings("unused") // Read-only compact sample delivered on emulation thread.
 	public void onPartySample(byte[] sample) {
+		if (quickQueue.busy()) {
+			boolean written = quickQueue.drain(name.osher.gil.minivmac.mapper.PartyState.parse(sample), Core::setPartyQuickNative);
+			quickRetry.removeCallbacks(retryQuick);
+			if (quickQueue.busy()) quickRetry.postDelayed(retryQuick, 250);
+			else if (written) requestPartySample(); // Read back the result; never claim it from a queued intent.
+		}
 		MapSampleListener listener = mPartySampleListener;
 		if (listener != null) listener.onSample(sample);
 	}
@@ -93,6 +105,8 @@ public class Core {
 	private static native boolean requestMapSampleNative();
 	@SuppressWarnings("unused") // Called on the emulation thread through JNI.
 	public void onMapSample(byte[] sample) {
+		if (quickQueue.busy() && name.osher.gil.minivmac.mapper.MapObservation.parse(sample).mode
+				== name.osher.gil.minivmac.mapper.MapMode.LOADING) quickQueue.clear();
 		// Developer opt-in only: adb shell setprop log.tag.PoolRad.Walk DEBUG.
 		// Metadata, never RAM/geometry or disk bytes; INFO disables it again.
 		if (BuildConfig.DEBUG && android.util.Log.isLoggable("PoolRad.Walk", android.util.Log.DEBUG)) {
@@ -134,7 +148,7 @@ public class Core {
 	 * never touches the game's menus and never restarts the machine. Unlike
 	 * the RAM snapshot above this is a real feature, not DEBUG-only.
 	 */
-	public interface SaveStateListener { void onState(byte[] state); }
+	public interface SaveStateListener { void onState(byte[] state, int[] preview, int width, int height); }
 	private SaveStateListener mSaveStateListener;
 	public void setSaveStateListener(SaveStateListener listener) { mSaveStateListener = listener; }
 
@@ -144,13 +158,14 @@ public class Core {
 
 	/** Hand a raw save-state blob back to be applied at the next safe boundary. */
 	public boolean restoreState(byte[] state) {
+		quickQueue.clear(); // Do not apply an old session's queued preferences to a restored machine.
 		return initOk && state != null && requestRestoreStateNative(state);
 	}
 	private static native boolean requestRestoreStateNative(byte[] state);
 
 	/** Called from native with the captured machine state. */
-	public void onSaveState(byte[] state) {
-		if (mSaveStateListener != null) mSaveStateListener.onState(state);
+	public void onSaveState(byte[] state, int[] preview, int width, int height) {
+		if (mSaveStateListener != null) mSaveStateListener.onState(state, preview, width, height);
 	}
 
 	private static volatile boolean mIsInitialized = false;

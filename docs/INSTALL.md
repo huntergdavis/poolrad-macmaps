@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.14.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.14.0)
+[0.70.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.70.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.14.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.14.0/poolrad-macmaps-0.14.0.apk)
+   [`poolrad-macmaps-0.70.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.70.0/poolrad-macmaps-0.70.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -61,11 +61,18 @@ Choose **Save PNG…** to keep it in Downloads or another location, or **Share
 PNG…** to open Android's share chooser. Menus and system bars are not part of
 the picture. Unsaved captures are temporary; use Save for pictures you want to keep.
 
-**PoolRad → Desktop appearance** previews White, Mist or Stonework for the
-supported System 7.5.5 guest desktop. Save and quit the game, use the Mac's
-**Special → Shut Down**, wait for **Restart Emulator**, then Apply and restart.
-**Original** restores only the saved desktop setting, never an old campaign.
-Do not use Force Power Off. [Desktop guide and supported disks](DESKTOP_APPEARANCE.md).
+**PoolRad → Quick save** retains ten snapshots. **Quick load** immediately restores
+the newest quick save without a picker or confirmation. **Load…** opens all quick,
+named and automatic states as dated thumbnails above the game; tap one for its
+larger preview and Load confirmation. Saves made before 0.70.0
+have no preview but remain loadable; the old quick slot ages out normally.
+
+**Settings → Back up / restore game saves…** copies the original game's save
+files. Notebook exports do not include emulator snapshots or guest disks.
+Do not clear app data or uninstall without separately preserving what you need.
+Snapshots do not rewind disk contents or guarantee protection from an interrupted
+disk write. Quit the game and use the Mac's **Special → Shut Down** before
+replacing disks or intentionally stopping the emulator. Do not use Force Power Off.
 
 **Levels & skills**, **Spells**, **Weapons & armor**, and **Money conversion** are offline
 tools on the **Info** tab. Their touch controls stay above the game; they never edit your

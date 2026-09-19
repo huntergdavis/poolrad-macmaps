@@ -1397,7 +1397,38 @@ LOCALPROC DeliverSaveState(void)
 		}
 		free(buf);
 	}
-	(*jEnv)->CallVoidMethod(jEnv, mCore, jSaveState, arr);
+	/* The same stopped boundary as the image above, not a later UI screenshot.
+	 * Only copy a small raster here; PNG encoding happens on the Java IO worker. */
+	jintArray preview = NULL;
+	int pw = vMacScreenWidth < 384 ? vMacScreenWidth : 384;
+	int ph = pw * vMacScreenHeight / vMacScreenWidth;
+	if (ph > 288) { ph = 288; pw = ph * vMacScreenWidth / vMacScreenHeight; }
+	ui3p draw = GetCurDrawBuff();
+	if (arr != NULL && draw != nullpr) {
+		jint *pixels = (jint *) malloc(pw * ph * sizeof(jint));
+		if (pixels != NULL) {
+			for (int y = 0; y < ph; y++) for (int x = 0; x < pw; x++) {
+				int sx = x * vMacScreenWidth / pw, sy = y * vMacScreenHeight / ph;
+#if 0 != vMacScreenDepth
+				if (UseColorMode) {
+					unsigned pixel = draw[sy * vMacScreenByteWidth + sx];
+					pixels[y * pw + x] = 0xff000000u | ((CLUT_reds[pixel] >> 8) << 16)
+						| ((CLUT_greens[pixel] >> 8) << 8) | (CLUT_blues[pixel] >> 8);
+				} else
+#endif
+				{
+					unsigned pixel = (draw[sy * vMacScreenMonoByteWidth + sx / 8] << (sx % 8)) & 0x80;
+					pixels[y * pw + x] = pixel ? BLACK : WHITE;
+				}
+			}
+			preview = (*jEnv)->NewIntArray(jEnv, pw * ph);
+			if (preview != NULL) (*jEnv)->SetIntArrayRegion(jEnv, preview, 0, pw * ph, pixels);
+			else (*jEnv)->ExceptionClear(jEnv);
+			free(pixels);
+		}
+	}
+	(*jEnv)->CallVoidMethod(jEnv, mCore, jSaveState, arr, preview, pw, ph);
+	if (preview != NULL) (*jEnv)->DeleteLocalRef(jEnv, preview);
 	if (arr != NULL) { (*jEnv)->DeleteLocalRef(jEnv, arr); }
 }
 
@@ -1702,7 +1733,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jGetClipboardText = (*env)->GetMethodID(env, this, "getClipboardText", "()Ljava/lang/String;");
     jSetClipboardText = (*env)->GetMethodID(env, this, "setClipboardText", "(Ljava/lang/String;)V");
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
-    jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B)V");
+    jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");

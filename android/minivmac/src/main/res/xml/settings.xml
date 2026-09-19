@@ -1,5 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <PreferenceScreen xmlns:app="http://schemas.android.com/apk/res-auto">
+	<PreferenceCategory app:title="Saved games">
+		<Preference app:key="pref_saved_game_backups"
+			app:title="Back up / restore game saves…"
+			app:summary="Copies of the original game's save files; separate from quick-save history"
+			app:icon="@drawable/ic_floppy" />
+	</PreferenceCategory>
 	<PreferenceCategory
 		app:title="@string/pref_emulator_title"
 		app:key="pref_key_emulator_settings">

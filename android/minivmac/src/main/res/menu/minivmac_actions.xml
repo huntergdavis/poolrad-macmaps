@@ -44,9 +44,7 @@
             <item android:id="@+id/action_quick_load"
                 android:title="Quick load" />
             <item android:id="@+id/action_save_states"
-                android:title="Save states…" />
-            <item android:id="@+id/action_saved_games"
-                android:title="Saved games" />
+                android:title="Load…" />
             <item android:id="@+id/action_screenshot"
                 android:title="@string/screenshot_title" />
         </menu>

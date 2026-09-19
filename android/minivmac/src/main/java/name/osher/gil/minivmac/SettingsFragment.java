@@ -44,6 +44,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 	public static final int RESULT_INTERRUPT = 20;
 	public static final int RESULT_POWEROFF =50;
 	public static final int RESULT_ABOUT = 30;
+	public static final int RESULT_SAVED_GAME_BACKUPS = 60;
 
 	private static final String MAC_II_ROM_PREFIX = "MacII";
 
@@ -85,6 +86,12 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 	@Override
     public void onCreatePreferences(Bundle savedInstanceState, String rootKey) {
 		setPreferencesFromResource(R.xml.settings, rootKey);
+		Preference backups = findPreference("pref_saved_game_backups");
+		if (backups != null) backups.setOnPreferenceClickListener(preference -> {
+			requireActivity().setResult(RESULT_SAVED_GAME_BACKUPS);
+			requireActivity().finish();
+			return true;
+		});
 
 		_preferences = getPreferenceManager().getSharedPreferences();
 		Context context = getPreferenceManager().getContext();

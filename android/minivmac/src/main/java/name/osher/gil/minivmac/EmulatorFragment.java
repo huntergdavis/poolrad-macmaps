@@ -180,10 +180,11 @@ public class EmulatorFragment extends Fragment
     private boolean setGuestQuick(int member, boolean on) {
         Core target = mCore;
         if (target == null || !target.isReady()) return false;
-        boolean written = target.setPartyQuick(member, on);
+        boolean written = target.queuePartyQuick(mLiveMap.partyMember(member), on);
         // Show the game's own answer, not an assumption: ask for a fresh sample
         // rather than repainting what we hoped happened.
         if (written) target.requestPartySample();
+        mLiveMap.refreshQuickPending();
         return written;
     }
 
@@ -643,6 +644,7 @@ public class EmulatorFragment extends Fragment
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
         mNotebook.setReturnKey(this::pressGuestReturn);
         mNotebook.setQuickSetter(this::setGuestQuick);
+        mLiveMap.setQuickPending(member -> mCore == null ? null : mCore.pendingQuick(member));
         mSnapshotDirectory = new File(requireContext().getFilesDir(), "snapshots");
 
         mClipboardManager = (ClipboardManager) requireContext().getSystemService(Context.CLIPBOARD_SERVICE);
@@ -747,19 +749,7 @@ public class EmulatorFragment extends Fragment
                     saveState().quickLoad();
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_save_states) {
-                    saveState().chooseSave();
-                    return true;
-                } else if (menuItem.getItemId() == R.id.action_saved_games) {
-                    if (mSaveBackup == null) {
-                        mSaveBackup = new SaveBackupController(
-                                requireActivity(), FileManager.getInstance(), () -> {
-                                    Core target = mCore;
-                                    return target != null && target.hasDisksInserted();
-                                });
-                        mSaveBackup.setLoader((folder, save) ->
-                                loadSavedGame(SaveBackupController.APPLICATION, folder, save));
-                    }
-                    mSaveBackup.show();
+                    openCompanionTool(() -> saveState().chooseSave());
                     return true;
                 } else if (menuItem.getItemId() == R.id.action_screenshot) {
                     ((MiniVMac) requireActivity()).captureScreenshot();
@@ -804,6 +794,15 @@ public class EmulatorFragment extends Fragment
             });
         }
         return mSaveState;
+    }
+
+    private void showSavedGameBackups() {
+        if (mSaveBackup == null) mSaveBackup = new SaveBackupController(
+                requireActivity(), FileManager.getInstance(), () -> {
+                    Core target = mCore;
+                    return target != null && target.hasDisksInserted();
+                });
+        mSaveBackup.show(); // Backup/restore only; the withdrawn restart-based Load stays absent.
     }
 
     @Override
@@ -920,7 +919,8 @@ public class EmulatorFragment extends Fragment
                         mLiveMap.showSample(sample);
                 });
             });
-            mCore.setSaveStateListener(state -> saveState().onState(state));
+            final SaveStateController stateController = saveState();
+            mCore.setSaveStateListener(stateController::onState);
             mCore.setPartySampleListener(sample -> {
                 final int generation = mMapGeneration;
                 // Kept whatever the companion is doing: this is how the load
@@ -929,7 +929,7 @@ public class EmulatorFragment extends Fragment
                 mLastPartySample = sample;
                 mUIHandler.post(() -> {
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
-                        mLiveMap.showPartySample(sample);
+                        { mLiveMap.showPartySample(sample); mLiveMap.refreshQuickPending(); }
                 });
             });
             mCore.setCombatSampleListener(sample -> {
@@ -1509,6 +1509,9 @@ public class EmulatorFragment extends Fragment
         }
 
         switch (resultCode) {
+            case SettingsFragment.RESULT_SAVED_GAME_BACKUPS:
+                showSavedGameBackups();
+                break;
             case SettingsFragment.RESULT_RESET:
                 reset();
                 break;

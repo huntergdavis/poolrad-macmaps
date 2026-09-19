@@ -41,7 +41,8 @@ Names, HP bars, armor class and class symbols sit beside the map. Tap anyone
 for spell readiness per level, readied weapon and armor, carried weight, and
 the game's own next-level figures. A quiet badge flags injury, poison, dying or
 petrification, with the exact wording on tap. **Q** turns quick combat on for
-one character; **T** appears where the game itself will let them train.
+one character, queuing your choice if the game is temporarily busy; **T**
+appears where the game itself will let them train.
 
 ## When a fight starts
 
@@ -75,19 +76,21 @@ tappable straight into the reader.
 
 <img src="docs/images/journal-atlas.png" width="760" alt="Journal 37, a massive atlas, showing two original Moonsea map illustrations while the game below asks for a code wheel word">
 
-## Your saved games, named by who is in them
+## Ten quick saves, with pictures
 
-`F7Healed` and `F7Injured` tell nobody anything. The companion reads the game's
-own saved games off the guest disk and lists them by party — then closes the
-game, starts it again and loads the one you picked, with the screen covered so
-you do not watch it happen. The game only offers Load before a game begins, so
-this is the only way to load at any time.
+**PoolRad → Quick save** keeps your ten latest snapshots. **Quick load** restores
+the newest quick save immediately. **Load…** shows all quick, named and automatic
+saves with their date, time and captured game screen; choose one to preview and load.
+The small previews are encoded in the background, and each snapshot remembers
+its notebook. Older saves without a picture still work.
 
-<img src="docs/images/load-saved-game.png" width="600" alt="A Load which saved game? dialog listing F7Healed, F7Injured and SampleParty, each with the party inside it: Zarram, Arax the Bold and 4 others, 3 hurt">
+<img src="docs/images/quick-save-history.png" width="600" alt="Dated quick-save thumbnails in the Load browser above the original Macintosh game's tutorial, with the game unobscured">
 
-It also copies saves off the disk and puts them back. The disk image is the only
-copy those files have; a backup keeps both forks and the Finder type, so it is
-one the game can actually open again.
+Original-game save-file backups live under **Settings → Back up / restore game
+saves…**. These are separate from emulator snapshots and notebook exports.
+Snapshots restore memory, **not disk contents**; keep independent disk backups
+and use the Mac's normal shutdown instead of force-quitting. Disk consistency
+across old-state restores remains under investigation. [Save-state details](docs/SAVE_STATES.md).
 
 ## Also offline
 
@@ -111,10 +114,10 @@ work well as of 2026-09-15; rotation and keyboard layout are still unreported.
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.30.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.30.0)
+[0.70.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.70.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.30.0/poolrad-macmaps-0.30.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.70.0/poolrad-macmaps-0.70.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

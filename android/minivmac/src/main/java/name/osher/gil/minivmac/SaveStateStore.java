@@ -9,6 +9,9 @@ import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Date;
+import java.util.Locale;
+import java.text.SimpleDateFormat;
 import java.util.zip.CRC32;
 import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
@@ -40,6 +43,8 @@ import java.util.zip.GZIPOutputStream;
 public final class SaveStateStore {
     public static final String EXTENSION = ".prqs";  /* PoolRad quick state */
     public static final String QUICK_NAME = "Quick save";
+    public static final int QUICK_KEEP = 10;
+    public static final int MAX_PREVIEW_BYTES = 512 * 1024;
     /** Auto-saves are named with this prefix so they can be listed and rotated apart from the player's own. */
     public static final String AUTO_PREFIX = "Auto ";
     /** The reference template every diff is measured against; kept, never listed. */
@@ -65,15 +70,75 @@ public final class SaveStateStore {
         this.directory = directory;
     }
 
-    /** The fixed file the quick slot uses, so quick-load always finds the last quick-save. */
+    /** Legacy slot, retained until it ages out of the ten-entry quick history. */
     public File quickFile() { return new File(directory, "quick" + EXTENSION); }
+
+    private File quickDirectory() { return new File(directory, "quick-history"); }
+
+    /** Dedicated namespace: even a named save called "Quick" cannot be rotated. */
+    public List<File> quickSaves() {
+        List<File> files = new ArrayList<>();
+        File[] found = quickDirectory().listFiles((dir, name) -> quickParts(name) != null);
+        if (found != null) for (File f : found) if (f.isFile()) files.add(f);
+        Collections.sort(files, (a, b) -> Long.compare(quickParts(b.getName())[0], quickParts(a.getName())[0]));
+        if (quickFile().isFile()) files.add(quickFile());
+        return files;
+    }
+
+    /** Publish a new quick save before retiring any previous one. Clock rollback is harmless. */
+    public File writeQuick(byte[] rawState, long capturedAt) throws IOException {
+        if (rawState == null || rawState.length < 16) throw new IOException("Empty save state");
+        File dir = quickDirectory();
+        if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Could not make quick-save history");
+        List<File> existing = quickSaves();
+        long sequence = 1;
+        if (!existing.isEmpty()) {
+            long[] parts = quickParts(existing.get(0).getName());
+            if (parts != null) {
+                if (parts[0] == Long.MAX_VALUE) throw new IOException("Quick-save sequence exhausted");
+                sequence = parts[0] + 1;
+            }
+        }
+        File target = new File(dir, String.format(Locale.US, "q%020d_%013d.prqs", sequence, Math.max(0, capturedAt)));
+        write(target, rawState);
+        target.setLastModified(Math.max(0, capturedAt));
+        List<File> quick = quickSaves();
+        for (int i = QUICK_KEEP; i < quick.size(); i++) delete(quick.get(i));
+        return target;
+    }
+
+    private static long[] quickParts(String name) {
+        if (!name.matches("q[0-9]{20}_[0-9]{13}\\.prqs")) return null;
+        try { return new long[]{Long.parseLong(name.substring(1, 21)), Long.parseLong(name.substring(22, 35))}; }
+        catch (NumberFormatException invalid) { return null; }
+    }
+
+    public static long capturedAt(File save) {
+        long[] parts = quickMetadata(save);
+        return parts == null ? save.lastModified() : parts[1];
+    }
+
+    private static long[] quickMetadata(File save) {
+        return save.getParentFile() != null && save.getParentFile().getName().equals("quick-history")
+                ? quickParts(save.getName()) : null;
+    }
+
+    /** Local date, seconds and zone distinguish rapid saves and daylight-saving repeats. */
+    public static String timestamp(File save) {
+        return new SimpleDateFormat("MMM d ''yy · h:mm:ss a z", Locale.US).format(new Date(capturedAt(save)));
+    }
+
+    public static String displayLabel(File save) {
+        return (quickMetadata(save) != null || save.getName().equals("quick.prqs") ? QUICK_NAME : label(save))
+                + "\n" + timestamp(save);
+    }
 
     /** Every saved state, newest first. The reference template is not one of these. */
     public List<File> saves() {
         File[] found = directory.listFiles((dir, name) -> name.endsWith(EXTENSION));
-        if (found == null) return Collections.emptyList();
         List<File> files = new ArrayList<>();
-        Collections.addAll(files, found);
+        if (found != null) for (File f : found) if (f.isFile() && !f.equals(quickFile())) files.add(f);
+        files.addAll(quickSaves());
         Collections.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
         return files;
     }
@@ -124,6 +189,8 @@ public final class SaveStateStore {
     /** A new named save gets its own file; existing names are never clobbered. */
     public File write(String label, byte[] rawState) throws IOException {
         String base = safe(label);
+        // Legacy quick/auto names are reserved; a manually named save never rotates.
+        if (base.equals("quick") || base.startsWith(AUTO_PREFIX)) base = "Named " + base;
         File target = new File(directory, base + EXTENSION);
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
         write(target, rawState);
@@ -228,10 +295,27 @@ public final class SaveStateStore {
         }
     }
 
-    /** Remove a save and any sidecar that referenced its notebook. */
+    public static File previewFile(File save) { return new File(save.getPath() + ".png"); }
+
+    /** Optional small PNG; failure never invalidates a successfully written machine image. */
+    public void writePreview(File save, byte[] png) throws IOException {
+        if (png == null) return;
+        if (png.length < 8 || png.length > MAX_PREVIEW_BYTES
+                || png[0] != (byte)137 || png[1] != 'P' || png[2] != 'N' || png[3] != 'G')
+            throw new IOException("Invalid save preview");
+        File target = previewFile(save), partial = new File(target.getPath() + ".part");
+        try {
+            try (FileOutputStream out = new FileOutputStream(partial)) { out.write(png); }
+            if (!partial.renameTo(target)) throw new IOException("Could not finish save preview");
+        } finally { partial.delete(); }
+    }
+
+    /** Remove a save and its notebook/preview sidecars, never the shared reference. */
     public boolean delete(File save) {
+        if (!save.delete()) return false;
         bindingFile(save).delete();
-        return save.delete();
+        previewFile(save).delete();
+        return true;
     }
 
     /** A readable label for a save file, without its extension. */

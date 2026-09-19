@@ -1,5 +1,44 @@
 # PoolRad Mac Maps — continuation handoff
 
+## Current handoff — 2026-09-19, 0.70.0
+
+Use `/home/hunter/workspace/poolrad-macmaps`, `main`, public origin
+`git@github.com:huntergdavis/poolrad-macmaps.git`. Read `docs/BACKLOG.md` and
+current Git status first. The September 14 notes below are historical, not the
+current queue: journal detection and many later features have since shipped.
+
+This slice adds F94 ten rotating quick saves with exact-frame previews, F95
+game-file backups in Settings, and F96 queued character Q changes. Main files:
+`SaveStateStore`, `SaveStateController`, `SavePreview`, `SaveRequestGate`,
+`QuickToggleQueue`, `Core`, `LiveMapView`, and native `OSGLUJNI.c`.
+The native snapshot format is unchanged; quick files now live in
+`files/savestates/quick-history/` with optional PNG and notebook sidecars.
+The old quick slot remains until rotation naturally retires it.
+User clarified the controls: **Quick load immediately loads the latest quick
+save; Load… browses every quick, named and automatic state.** Do not turn
+Quick load back into a picker.
+
+**New safety follow-up F97:** user relays another agent's disk-corruption report
+after hard quits; they have not observed it on their tablet. RAM snapshots do
+not rewind disk contents. Audit crash consistency and restoring before later
+guest writes on disposable images; do not claim this is fixed. Recheck the
+existing store's durability path too (its best-effort fsync follows gzip close).
+`tools/play.py boot` no longer force-stops the guest. Always quit the game, use
+Finder → Special → Shut Down, and verify disk handles closed before replacing
+the APK. Never force-stop a mounted test guest for convenience.
+
+Build/test: `JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+ANDROID_HOME=/usr/lib/android-sdk android/gradlew -p android
+:minivmac:assembleMacIIDebug :minivmac:testMacIIDebugUnitTest --max-workers=2`.
+See `docs/LOCAL_TESTING.md` for this release's evidence. Publish only the universal
+Mac II APK, never the personal package. The existing release script hardcodes
+an unrelated coauthor; use a normal truthful commit/tag/release instead.
+The physical e-ink/stylus acceptance reported by the user applies to earlier
+versions; this release is emulator-tested only. Do not remove dunk d4: backlog
+items remain. After F97, F89 character selection is the next unfinished P0.
+
+## Archived handoff — September 14 (superseded)
+
 Updated 2026-09-14. **R2 is complete for v0.22.0**, following the 0.21.0 party
 sidebar fix, the 0.20.0 removals, R4/F13 (0.19.0), R3 (0.18.0), R5 (0.16.0) and
 R1 (0.15.0). R8 and desktop appearance were withdrawn in 0.20.0. See

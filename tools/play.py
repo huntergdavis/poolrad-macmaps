@@ -109,15 +109,11 @@ def settled(serial, quiet=1200, timeout=90000, region="message"):
 
 
 def boot(serial):
-    """Cold-start the app and take the guest to a game that can be loaded into.
+    """Launch/resume without hard-quitting a Mac with writable disks mounted.
 
-    Force-stopped first, deliberately. Launching an app that is already running
-    resumes whatever it was doing, and what it was doing may be a game in
-    progress -- in which case Load Saved Game is greyed out and the next step
-    fails for a reason that has nothing to do with booting.
+    For a cold start, quit the game and use Finder > Special > Shut Down first.
+    A running campaign is not reset to make a scripted load convenient.
     """
-    guest.shell(serial, "am force-stop %s" % PACKAGE)
-    time.sleep(2)
     guest.shell(serial, "monkey -p %s -c android.intent.category.LAUNCHER 1" % PACKAGE)
     # Wait for it to actually be in front, rather than letting the first
     # keystroke fail the foreground guard with a less useful message.
@@ -130,7 +126,7 @@ def boot(serial):
         time.sleep(2)
     else:
         raise SystemExit("PoolRad would not come to the front; %s is there instead. "
-                         "If force-stopping that does not help, reboot the emulator."
+                         "Bring the app forward manually; do not force-stop a mounted guest."
                          % (guest.foreground(serial) or guest.resumed(serial) or "something"))
     # The Mac may complain it was not shut down properly; Return dismisses it,
     # and sending Return when there is no dialog costs nothing.
@@ -232,7 +228,7 @@ def load(serial, save, folder="PoolRadSave"):
     if not load_item_enabled(serial):
         close_menu(serial)
         raise SystemExit("Load Saved Game is greyed out, which it is whenever a "
-                         "game is already running. Run `boot` first.")
+                         "game is already running. Quit the game normally first.")
     guest.send(serial, "input motionevent UP %d %d" % (FILE_MENU_X + 58, LOAD_ITEM_Y))
     settled(serial, quiet=1200, region="guest")
     for name in (folder, save):

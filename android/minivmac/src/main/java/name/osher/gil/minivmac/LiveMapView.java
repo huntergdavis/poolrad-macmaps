@@ -158,6 +158,29 @@ public final class LiveMapView extends View {
 
     public void setListener(Listener value) { listener = value; }
 
+    public interface QuickPending { Boolean desired(PartyState.Member member); }
+    private QuickPending quickPending = member -> null;
+    private String quickPendingDisplay = "";
+    public void setQuickPending(QuickPending pending) { quickPending=pending; }
+    public void refreshQuickPending() {
+        StringBuilder next=new StringBuilder();
+        if(party!=null) for(PartyState.Member member:party.members) {
+            Boolean desired=quickPending.desired(member);
+            if(desired!=null) next.append(member.name).append(':').append(desired).append(';');
+        }
+        String value=next.toString();
+        if(!value.equals(quickPendingDisplay)) {quickPendingDisplay=value;refreshDescription();invalidate();}
+    }
+    public PartyState.Member partyMember(int index) {
+        return party==null||index<0||index>=party.members.size()?null:party.members.get(index);
+    }
+    private void drawPendingQuick(Canvas canvas, android.graphics.RectF box, PartyState.Member member, float unit) {
+        if (quickPending.desired(member) != null) {
+            ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.FILL);
+            canvas.drawCircle(box.left-3*unit,box.centerY(),1.8f*unit,ink);
+        }
+    }
+
     /** Monotonic, so a wall-clock change cannot extend or cut short a hold. */
     private long now() { return android.os.SystemClock.elapsedRealtime(); }
 
@@ -261,6 +284,7 @@ public final class LiveMapView extends View {
                     .append(party.slowedByLoad(member) ? "; slowed by load" : "")
                     .append(highlightedMember == index && highlightShowing() ? "; tapped on the battle overview" : "")
                     .append(member.spellsAwaitingRestTotal() > 0 ? "; spells await rest" : "")
+                    .append(quickPending.desired(member) != null ? "; quick-combat change queued" : "")
                     .append('.');
         }
         if (mode == MapMode.COMBAT && combat != null)
@@ -437,6 +461,8 @@ public final class LiveMapView extends View {
                 // Unknown reads as off, so a first tap turns it on rather than
                 // doing nothing the player can see.
                 Boolean current = party.members.get(touchQuick).quick;
+                Boolean queued = quickPending.desired(party.members.get(touchQuick));
+                if (queued != null) current = queued;
                 performClick();
                 listener.onQuickToggled(touchQuick, !Boolean.TRUE.equals(current));
             } else if (valid && touchReturn && returnTarget.contains(event.getX(), event.getY())) {
@@ -1114,6 +1140,7 @@ public final class LiveMapView extends View {
             }
             quickSquare(p, i, unit, quickButton);
             drawQuick(canvas, quickButton, member.quick, unit);
+            drawPendingQuick(canvas, quickButton, member, unit);
             /*
              * Two marks the game already knows and never puts in front of you.
              *
@@ -1209,6 +1236,7 @@ public final class LiveMapView extends View {
         // The quick square sits at the right, then the T/R/W marks to its left.
         quickSquare(p, i, unit, oneLineQuick);
         drawQuick(canvas, oneLineQuick, member.quick, unit);
+        drawPendingQuick(canvas, oneLineQuick, member, unit);
         // Text baseline centred in the space above the bottom bar.
         ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(11 * unit);

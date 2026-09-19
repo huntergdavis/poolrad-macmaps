@@ -1,5 +1,63 @@
 # Local Android prototype
 
+## 0.70.0 — quick-save history, previews and queued Q (2026-09-19)
+
+Public universal APK: `scratch/poolrad-macmaps-0.70.0.apk`, versionCode 136,
+SHA-256 `fc7e48580376b5ee7b258a43e0e36ecddfd1a1d9eb8cbf7d4616bcdfc1866d98`.
+
+- `:minivmac:assembleMacIIDebug :minivmac:testMacIIDebugUnitTest` passed:
+  **632 tests, zero failures/errors**. Ten new history tests cover rotation,
+  identical timestamps, backwards clocks, legacy quick migration, isolated
+  named/auto saves (including reserved names), sidecar cleanup and failed publication. Two request-gate
+  tests cover overlapping metadata and retries. Seven Q-queue tests cover
+  unreadable frames, refused writes, reorder, replacement/ambiguous characters,
+  reversed intent, independent requests, queue bounds and session cancellation.
+- Seven native checks passed under `-Wall -Wextra -Werror
+  -fsanitize=address,undefined`: party, map, wheel, message, combat, combat-foes,
+  record-alignment. The latter two require `-Iandroid/minivmac/src/main/jni/src`.
+- `tools/SavePreviewCheck.java` ran on Android API 30: exact black/white PNG
+  round-trip, dimension limits, missing/truncated preview fallback, unchanged
+  machine bytes and deletion cleanup. Synthetic 384×288 PNG encoding/write:
+  65 ms including first use. No physical device was involved.
+- Owned emulator `emulator-5584`, 1200×1600, in-place update: Settings opens
+  “Back up all 6 saved games”; that entry is absent from PoolRad. Original-game
+  restart Load remains absent. Q on Arax changed the actual sampled flag and
+  filled its Q box. Temporary native refusals are covered by the queue tests,
+  not claimed as a forced real-game reproduction.
+- Real previews show Rolf's opening tutorial and the next temple scene,
+  captured with the state (not the Android menu). Legacy quick saves still
+  appear without an invented picture. Final list/confirmation stay entirely
+  above the guest with no dimming and a readable timestamp.
+- Measured request-to-native-callback timings on this nested emulator:
+  274–376 ms in the first three manual captures; worker time 1.475–2.018 s,
+  including 25–52 ms PNG work. These are not tablet performance claims or a
+  before/after benchmark. Only the bounded frame copy runs at the capture
+  boundary; encoding and storage do not block emulation.
+- Live rollover: twelve new quick captures left sequences 3–12, each with PNG
+  and notebook sidecars, and retired the old legacy quick slot. Preexisting
+  state files were backed up into ignored scratch before the test. Loading the
+  08:28:48 capture restored Rolf at 15,1 W and Arax's Q off, from the temple
+  scene at 11,2 S with Q on. This was within one boot, without game-file saves
+  between capture and restore; it does not test disk rollback safety.
+- User's control clarification verified separately: one-tap Quick load restored
+  the latest 08:38:53 quick state at 15,1 W with Q off, after advancing to 11,1 S
+  with Q on; no picker or confirmation appeared. Load… separately displayed all
+  12 available states (10 quick plus 2 autosaves), with preview selection.
+  The last pure-Java change protects reserved manual save names; it is covered
+  by the additional regression test.
+- Public APK architecture check passed (ARM64, ARMv7, x86, x86_64), signing
+  verified, all 72 rune pictures and journal byte-matched, no ROM/disk/personal
+  assets present. `git diff --check` and `py_compile tools/play.py` passed.
+
+Reused the existing native snapshot boundary/reference-diff store, native
+party-flag validation, and `CompanionDialogBounds` positioning. Local `deja`
+queries timed out; no recalled session result was used as evidence.
+
+Disk safety is **not** closed: game quit → Finder Special/Shut Down → no open
+disk-image descriptors was checked before APK replacements. No hard-quit
+corruption experiment or power-loss acceptance was performed. F97 tracks that
+separately. Physical tablet/e-ink acceptance of this version remains untested.
+
 ## 0.37.0 — whose turn it is, and two marks the game already knew (2026-09-17)
 
 The final public universal APK is `scratch/poolrad-macmaps-0.37.0.apk`, SHA-256
