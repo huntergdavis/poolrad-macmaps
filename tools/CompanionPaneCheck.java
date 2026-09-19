@@ -62,7 +62,7 @@ public final class CompanionPaneCheck {
     private static Context context;
     private static int passed;
     private static final int[] TOOL_IDS = {
-            R.id.companion_tool_options, R.id.companion_tool_exploration,
+            R.id.companion_tool_options, R.id.companion_tool_message_log, R.id.companion_tool_exploration,
             R.id.companion_tool_journal, R.id.companion_tool_note_index,
             R.id.companion_tool_levels, R.id.companion_tool_spells, R.id.companion_tool_equipment,
             R.id.companion_tool_money, R.id.companion_tool_wheel, R.id.companion_tool_legend};
@@ -142,7 +142,7 @@ public final class CompanionPaneCheck {
                 check(button != null && button.isEnabled() && button.length() > 0, "Tool entry missing");
                 button.performClick();
             }
-            check(tools.equals(Arrays.asList(CompanionPane.Tool.OPTIONS, CompanionPane.Tool.EXPLORATION, CompanionPane.Tool.JOURNAL, CompanionPane.Tool.NOTE_INDEX,
+            check(tools.equals(Arrays.asList(CompanionPane.Tool.OPTIONS, CompanionPane.Tool.MESSAGE_LOG, CompanionPane.Tool.EXPLORATION, CompanionPane.Tool.JOURNAL, CompanionPane.Tool.NOTE_INDEX,
                     CompanionPane.Tool.LEVELS, CompanionPane.Tool.SPELLS, CompanionPane.Tool.EQUIPMENT,
                     CompanionPane.Tool.MONEY, CompanionPane.Tool.WHEEL, CompanionPane.Tool.LEGEND)), "Incorrect or duplicate tool routing");
             check(CompanionPane.INFO.equals(pane.selectedTab()), "Tool click changed underlying Info tab");

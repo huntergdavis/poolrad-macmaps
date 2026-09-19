@@ -25,12 +25,23 @@ the older d4 reference below for the active run.
 - F80 shipped in 0.75.0: docs/SAVE_FORMAT.md is the exact public format,
   including the leading data byte, BE16 item/effect counts, and unresolved
   semantics.
-- F29 is verified for 0.76.0: Info → Options consolidates
+- F29 shipped in 0.76.0: Info → Options consolidates
   map/global preferences; Settings routes to the same bounded page. Build,
   638 Java, eight navigation and 26 map/party render checks passed.
   Live global persistence, area styles, and Settings-from-hidden checks passed.
-  Publish before beginning the next feature. F47 message-log wiring is researched,
-  not implemented. Deja recalls the request in session 1d01c279-196b-4165-83cb-2031016bb071.
+- F47 is verified for 0.77.0: persistent per-notebook Message log, 200 readings,
+  checked backup integration, 646 Java tests and eight Android navigation checks.
+  Live real-message capture, deduplication, on-disk checksum and notebook
+  isolation/reload passed. Publish before next feature.
+- F42 is the next researched UI item: turn citation notices into an entry-opening
+  action. JournalController.openEntry is private and loads through show(); no
+  F42 implementation exists yet. A bounded companion notice is preferable to
+  placing an Android Snackbar over the guest.
+- tools/load-test-save.py now automates the repeated cold-boot game load. OCR
+  uses both page and sparse modes; it supports resuming an open file picker and
+  was verified loading ExportProof. Always inspect retained party/location
+  screenshots. Current disposable guest is camping in New Phlan under Notebook 2.
+  Native snapshot tests from before shutdown must not be reused across disk changes.
 - Existing `emulator-5584` did not respond to guest input even though its core
   reported running and two disks mounted. It was left intact, then backgrounded
   normally. Do not replace its APK or force-stop it.

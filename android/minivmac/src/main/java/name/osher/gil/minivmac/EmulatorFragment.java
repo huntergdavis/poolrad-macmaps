@@ -593,6 +593,7 @@ public class EmulatorFragment extends Fragment
         openCompanionTool(() -> {
             switch (tool) {
                 case OPTIONS: mNotebook.showOptions(this::applyOneLinePartyPref); break;
+                case MESSAGE_LOG: mNotebook.showMessageLog(); break;
                 case EXPLORATION: mNotebook.showExploration(); break;
                 case LEVELS: LevelsReferenceDialog.show(requireActivity()); break;
                 case SPELLS: SpellReferenceDialog.show(requireActivity()); break;

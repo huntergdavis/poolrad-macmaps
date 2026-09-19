@@ -1584,7 +1584,13 @@ needed. Confirmed 2026-09-18.
   bigger targets. Needs care rather than a fixed subset: names still have to be
   typeable, so the full alphabet must stay reachable — most likely a compact
   default that expands when the game is asking for text.
-- [ ] **F47 — A message log.**
+- [x] **F47 (delivered 0.77.0) — A message log.** Info → Message log keeps
+  the latest 200 distinct observed Message-window readings per notebook, with
+  am/pm observation times and explicit truncation marks. Repeated polls are
+  collapsed and growing text updates its current reading. History persists,
+  follows notebook selection, and travels in notebook/companion backups.
+  Live message, deduplication, checksum and campaign-isolation checks passed;
+  see [MESSAGE_LOG.md](MESSAGE_LOG.md) for the reader's coverage limits.
 
 ### P3
 

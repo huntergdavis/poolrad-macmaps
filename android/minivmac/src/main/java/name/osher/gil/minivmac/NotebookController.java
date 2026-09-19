@@ -44,6 +44,8 @@ import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.journal.JournalBook;
 import name.osher.gil.minivmac.journal.JournalCitation;
 import name.osher.gil.minivmac.journal.JournalHistory;
+import name.osher.gil.minivmac.journal.MessageHistory;
+import name.osher.gil.minivmac.journal.GameMessage;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
 import name.osher.gil.minivmac.notebook.ExplorationRecorder;
@@ -78,6 +80,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
+    private MessageHistory messages;
+    private boolean messagesDirty, messageSaveFailed;
+    private final Runnable messageWrite = this::flushMessages;
     private final Object notebookSwitch = new Object();
     private volatile boolean restoringNotebook;
 
@@ -167,13 +172,18 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         exploration.forget();
         final JournalHistory loadedJournal = finishRestore
                 ? store.loadJournal(selected.id()) : loadOrMigrateJournal(selected.id());
+        MessageHistory readMessages = null;
+        try { readMessages = store.loadMessages(selected.id()); }
+        catch (IOException failure) { android.util.Log.w("PoolRad.Notebook", "Message history unavailable", failure); }
+        final MessageHistory loadedMessages = readMessages;
         main.post(() -> {
             if (disposed || (restoringNotebook && !finishRestore)) {
                 if (finished != null) finished.run();
                 return;
             }
             if (finishRestore) restoringNotebook = false;
-            notebook = selected; journal = loadedJournal; opening = false; refreshFlags();
+            notebook = selected; journal = loadedJournal; messages = loadedMessages;
+            messagesDirty = false; messageSaveFailed = false; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
             map.showExploration(ExplorationTrail.empty(), "Loading trail");
             onExplorationAreaChanged(map.displayedArea());
@@ -280,7 +290,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                         restoringNotebook = false; toast("Cannot pause notebook recording; save was not loaded."); return false;
                     }
                 }
-                begun = true; opening = true; notebook = null; journal = null;
+                flushMessages();
+                begun = true; opening = true; notebook = null; journal = null; messages = null;
                 lastArea = null; lastTile = -1; explorationInterrupted = true;
                 map.clearReadings(); refreshFlags();
                 map.showExploration(ExplorationTrail.empty(), "Loading campaign");
@@ -471,6 +482,12 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     public void onGameMessage(byte[] sample) {
         if (disposed) return;
         noteTreasure(sample);
+        if (!opening && notebook != null && messages != null
+                && messages.observe(GameMessage.parse(sample), System.currentTimeMillis())) {
+            messagesDirty = true;
+            main.removeCallbacks(messageWrite);
+            main.postDelayed(messageWrite, 600);
+        }
         if (journal == null) return;
         java.util.Set<JournalBook.Key> cited =
                 JournalCitation.read(name.osher.gil.minivmac.journal.GameMessage.parse(sample));
@@ -482,6 +499,58 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         toast(added.size() == 1
                 ? added.get(0) + " noted in this notebook's journal list"
                 : added.size() + " references noted in this notebook's journal list");
+    }
+
+    /** Queue one immutable snapshot after growing text settles, or before leaving its notebook. */
+    private void flushMessages() {
+        main.removeCallbacks(messageWrite);
+        if (!messagesDirty || notebook == null || messages == null) return;
+        final NotebookStore.Notebook book = notebook;
+        final byte[] encoded;
+        try { encoded = messages.encode(); }
+        catch (IOException failure) { report("Cannot encode message history", failure); return; }
+        messagesDirty = false;
+        IO.execute(() -> {
+            try {
+                store.saveMessages(book.id(), encoded);
+                main.post(() -> { if (notebook == book) messageSaveFailed = false; });
+            } catch (IOException failure) {
+                android.util.Log.w("PoolRad.Notebook", "Message history was not saved", failure);
+                main.post(() -> {
+                    if (!disposed && notebook == book) {
+                        messageSaveFailed = true; messagesDirty = true;
+                        toast("Message history could not be saved. Existing history was kept.");
+                    }
+                });
+            }
+        });
+    }
+
+    public void showMessageLog() {
+        if (disposed || opening || session != null || (picker != null && picker.isShowing())) return;
+        if (notebook == null) { toast("Open a notebook first."); return; }
+        flushMessages();
+        LinearLayout list = column();
+        list.addView(text(notebook.label() + " · latest " + MessageHistory.LIMIT + " distinct Message-window readings"));
+        if (messages == null) list.addView(text("Message history could not be read. Its existing file has been kept."));
+        else {
+            if (messageSaveFailed) list.addView(text("Recent messages could not be saved."));
+            List<MessageHistory.Entry> entries = messages.entries();
+            if (entries.isEmpty()) list.addView(text("No messages recorded yet."));
+            SimpleDateFormat stamp = new SimpleDateFormat("MMM d, yyyy · h:mm:ss a z", Locale.US);
+            StringBuilder content = new StringBuilder();
+            for (int i = entries.size() - 1; i >= 0; i--) {
+                MessageHistory.Entry entry = entries.get(i);
+                content.append(stamp.format(new Date(entry.observedAt)));
+                if (entry.truncated) content.append(" · truncated");
+                content.append("\n").append(entry.text.replace('\r', '\n')).append("\n\n");
+            }
+            TextView readings = text(content.toString()); readings.setTextSize(16);
+            list.addView(readings);
+        }
+        button(list, "Refresh").setOnClickListener(v -> { picker.dismiss(); showMessageLog(); });
+        ScrollView scroll = new ScrollView(activity); scroll.setSmoothScrollingEnabled(false); scroll.addView(list);
+        picker = UpperHalfReferenceDialog.show(activity, "Message log", scroll);
     }
 
     private final ExplorationStyle.Stored stored = new ExplorationStyle.Stored() {
@@ -817,7 +886,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                     for (NotebookStore.Notebook book : books) {
                         Button select = button(list, book.label() + (notebook != null && notebook.id().equals(book.id()) ? " · active" : ""));
                         select.setOnClickListener(v -> {
-                            picker.dismiss(); opening = true;
+                            picker.dismiss(); flushMessages(); opening = true;
                             IO.execute(() -> { try { selectOnDisk(book); }
                                 catch (IOException failure) { main.post(() -> opening = false); report("Cannot select notebook", failure); } });
                         });
@@ -826,7 +895,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                     if (notebook != null) {
                         final NotebookStore.Notebook target = notebook;
                         button(list, "Back up " + target.label() + "…").setOnClickListener(v -> {
-                            picker.dismiss(); transfers.exportNotebook(target);
+                            picker.dismiss(); flushMessages(); transfers.exportNotebook(target);
                         });
                         button(list, "Remove " + target.label() + "…").setOnClickListener(v -> {
                             picker.dismiss(); confirmRemoveNotebook(target);
@@ -836,7 +905,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                         picker.dismiss(); transfers.importNotebook();
                     });
                     button(list, "Back up everything…").setOnClickListener(v -> {
-                        picker.dismiss(); transfers.exportEverything();
+                        picker.dismiss(); flushMessages(); transfers.exportEverything();
                     });
                     button(list, "Restore everything…").setOnClickListener(v -> {
                         picker.dismiss(); transfers.restoreEverything();
@@ -854,7 +923,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         Button create = button(content, "Create separate notebook");
         picker = UpperHalfReferenceDialog.show(activity, "New notebook", content);
         create.setOnClickListener(v -> {
-            picker.dismiss(); opening = true;
+            picker.dismiss(); flushMessages(); opening = true;
             IO.execute(() -> { try { selectOnDisk(store.createNotebook()); }
                 catch (IOException | RuntimeException failure) { main.post(() -> opening = false); report("Cannot create notebook", failure); } });
         });
@@ -869,7 +938,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         picker = UpperHalfReferenceDialog.show(activity, "Remove notebook?", content);
         remove.setOnClickListener(v -> {
             if (opening || disposed || session != null) return;
-            opening = true; remove.setEnabled(false); picker.dismiss();
+            flushMessages(); opening = true; remove.setEnabled(false); picker.dismiss();
             IO.execute(() -> {
                 boolean removed = false;
                 try {
@@ -901,6 +970,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     }
 
     public void dispose() {
+        flushMessages();
         disposed = true; generation++; map.setListener(null);
         // A replacement controller may already have registered; never unhook theirs.
         JournalController owner = ((MiniVMac) activity).journal();

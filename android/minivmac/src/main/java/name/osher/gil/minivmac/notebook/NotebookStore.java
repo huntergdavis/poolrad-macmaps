@@ -21,6 +21,7 @@ import java.util.TreeSet;
 import java.util.UUID;
 import java.util.zip.CRC32;
 import name.osher.gil.minivmac.journal.JournalHistory;
+import name.osher.gil.minivmac.journal.MessageHistory;
 
 /** App-private user ink only: this class never opens an emulator disk or save. */
 public final class NotebookStore {
@@ -31,6 +32,7 @@ public final class NotebookStore {
     private static final int EXPLORATION_MAGIC = 0x50524558; // PREX
     /** 2 appends where fights started, 3 where treasure was found; both older are read. */
     private static final int EXPLORATION_VERSION = 3;
+    private static final int MESSAGE_MAGIC = 0x50524d4c; // PRML
     private static final int JOURNAL_MAGIC = 0x50524e4a; // PRNJ
     static final int MAX_EXPLORATION_BYTES = 1024;
     static final int MAX_JOURNAL_BYTES = JournalHistory.MAX_BYTES;
@@ -162,6 +164,10 @@ public final class NotebookStore {
             if (name.equals("notebook.bin")) {
                 entries.add(new NotebookArchive.Entry(name, child)); continue;
             }
+            if (name.equals("messages.bin")) {
+                readMessages(child, id);
+                entries.add(new NotebookArchive.Entry(name, child)); continue;
+            }
             if (name.equals("journal.bin")) {
                 readJournal(child, id); // Refuse to back up a record we cannot read back.
                 entries.add(new NotebookArchive.Entry(name, child)); continue;
@@ -231,7 +237,7 @@ public final class NotebookStore {
                     requireDirectChild(book, child);
                     if (child.isFile()) {
                         String name = child.getName();
-                        if (name.equals("notebook.bin") || name.equals("journal.bin")
+                        if (name.equals("notebook.bin") || name.equals("journal.bin") || name.equals("messages.bin")
                                 || name.startsWith(".pending-")) child.delete();
                     } else if (NotebookArchive.area(child.getName()) && child.isDirectory()) {
                         for (File file : children(child)) {
@@ -330,6 +336,43 @@ public final class NotebookStore {
         }
         if (bytes.size() > MAX_JOURNAL_BYTES) throw new IOException("Journal history is too large to save");
         writeAtomic(journalFile(notebookId), JOURNAL_MAGIC, 1, bytes.toByteArray());
+    }
+
+    public synchronized MessageHistory loadMessages(String notebookId) throws IOException {
+        readNotebook(notebookId);
+        File file = messagesFile(notebookId);
+        return file.exists() ? readMessages(file, notebookId) : new MessageHistory();
+    }
+
+    /** Encoded on the UI thread; this worker only sees an immutable snapshot. */
+    public synchronized void saveMessages(String notebookId, byte[] history) throws IOException {
+        if (history == null || history.length > MessageHistory.MAX_BYTES)
+            throw new IOException("Invalid message history size");
+        MessageHistory.read(new DataInputStream(new ByteArrayInputStream(history)));
+        readNotebook(notebookId);
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (DataOutputStream out = new DataOutputStream(bytes)) {
+            out.writeUTF(notebookId); out.write(history);
+        }
+        if (bytes.size() > MessageHistory.MAX_BYTES) throw new IOException("Message history is too large");
+        writeAtomic(messagesFile(notebookId), MESSAGE_MAGIC, 1, bytes.toByteArray());
+    }
+
+    private File messagesFile(String notebookId) throws IOException {
+        requireId(notebookId);
+        File parent = new File(root, notebookId);
+        requireDirectChild(root, parent);
+        File file = new File(parent, "messages.bin");
+        requireDirectChild(parent, file);
+        return file;
+    }
+
+    private static MessageHistory readMessages(File file, String notebookId) throws IOException {
+        Envelope record = readEnvelope(file, MESSAGE_MAGIC, 1, MessageHistory.MAX_BYTES);
+        try (DataInputStream in = record.input()) {
+            if (!notebookId.equals(in.readUTF())) throw new IOException("Message history belongs to another notebook");
+            return MessageHistory.read(in);
+        }
     }
 
     private File journalFile(String notebookId) throws IOException {
