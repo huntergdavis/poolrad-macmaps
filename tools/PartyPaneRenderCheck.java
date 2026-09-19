@@ -274,6 +274,28 @@ public final class PartyPaneRenderCheck {
             } catch (Exception ignored) { }
         });
 
+        run("the message mirror shows the game's message in large type over the map (F64)", () -> {
+            LiveMapView view = view(packet(true), 960, 480);
+            Bitmap plain = render(view);
+            view.setMirrorMessage(true);
+            view.showGameMessage("You have entered the Slums of Phlan. A band of kobolds blocks "
+                    + "the way north and demands a toll of fifty gold pieces to let you pass!");
+            Bitmap mirrored = render(view);
+            check(changedPixels(plain, mirrored) > 500, "The message mirror drew nothing over the map");
+            checkMonochrome(mirrored);
+            // Hiding it restores the plain map exactly.
+            view.setMirrorMessage(false);
+            check(changedPixels(plain, render(view)) == 0, "The map did not return after hiding the mirror");
+            // A blank message shows no card even when the mirror is on.
+            view.setMirrorMessage(true); view.showGameMessage("");
+            check(changedPixels(plain, render(view)) == 0, "An empty message still drew a card");
+            view.showGameMessage("Kobolds attack from the shadows!");
+            Bitmap shot = render(view);
+            try (java.io.FileOutputStream out = new java.io.FileOutputStream("/data/local/tmp/message-mirror.png")) {
+                shot.compress(Bitmap.CompressFormat.PNG, 100, out);
+            } catch (Exception ignored) { }
+        });
+
         run("actual map taps follow the resized viewport and party taps create no flag", () -> {
             LiveMapView view = view(packet(true), 960, 480);
             final int[] tapped = {-1, 0};

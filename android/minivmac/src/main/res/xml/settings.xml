@@ -61,6 +61,12 @@
 			app:summary="@string/pref_oneline_party_summ"
 			app:icon="@drawable/ic_scale"
 			app:defaultValue="false" />
+	    <SwitchPreferenceCompat
+			app:key="pref_mirror_message"
+			app:title="@string/pref_mirror_message"
+			app:summary="@string/pref_mirror_message_summ"
+			app:icon="@drawable/ic_scale"
+			app:defaultValue="false" />
     </PreferenceCategory>
     <PreferenceCategory
 		app:title="@string/pref_control_title"

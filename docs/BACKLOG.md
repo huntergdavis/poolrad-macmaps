@@ -1324,11 +1324,15 @@ reads back correctly.
   nothing and changes nothing. Verified live: the dialog opens and every glyph
   renders and scrolls.
 - [ ] **F31 — Option: auto-skip messages.**
-- [ ] **F64 — Mirror the game's message window in larger type,** as a toggle.
-  The Combat Message and ordinary Message TEHandles are already read, so the
-  text costs nothing to obtain; 1984 Mac type at e-ink size is the hardest
-  thing on the screen to read. An option, not a default, because it covers
-  screen the map wants.
+- [x] **F64 (delivered 2026-09-19) — Mirror the game's message window in larger
+  type,** as a toggle. The game's Message-window text (already read via the PRT1
+  reader, `GameMessage.parse`) is drawn in an 18dp white card with a black border
+  across the lower map area — where the game keeps its own message — wrapped and
+  ellipsised to fit, hidden when the message is blank. Opt-in (Settings → View →
+  Large message text, default off), because it covers screen the map wants.
+  Verified with the render-check harness: the mirror draws over the map, turning
+  it off restores the map exactly, an empty message draws no card, and a rendered
+  bitmap confirmed the large-type card.
 - [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
   *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
   2.0 — there is room, and the gain is larger than the idea suggested.* A row

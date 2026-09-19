@@ -99,6 +99,9 @@ public final class LiveMapView extends View {
     private boolean visitedOnly, footprints = true;
     /** F69: compact one-line party rows, so a big party keeps one column and the map keeps its width. */
     private boolean oneLineParty;
+    /** F64: mirror the game's Message window in larger type over the map. */
+    private boolean mirrorMessage;
+    private String gameMessage = "";
     private String explorationStatus = "";
     private Listener listener;
     private int touchPointer = -1, touchTile = -1;
@@ -203,6 +206,20 @@ public final class LiveMapView extends View {
     public void setOneLineParty(boolean on) {
         if (oneLineParty == on) return;
         oneLineParty = on; invalidate();
+    }
+
+    /** Turn the large-type message mirror on or off (F64). */
+    public void setMirrorMessage(boolean on) {
+        if (mirrorMessage == on) return;
+        mirrorMessage = on; invalidate();
+    }
+
+    /** The game's current Message-window text, to mirror in larger type; null or blank hides the mirror. */
+    public void showGameMessage(String text) {
+        String next = text == null ? "" : text.trim();
+        if (next.equals(gameMessage)) return;
+        gameMessage = next;
+        if (mirrorMessage) invalidate();
     }
 
     public void showExploration(ExplorationTrail trail, String status) {
@@ -520,7 +537,67 @@ public final class LiveMapView extends View {
         drawParty(canvas, pane);
         canvas.save();
         canvas.clipRect(0, 0, pane.mapWidth, pane.mapHeight);
-        try { drawMap(canvas, pane); } finally { canvas.restore(); }
+        try {
+            drawMap(canvas, pane);
+            if (mirrorMessage && !gameMessage.isEmpty()) drawMessageMirror(canvas, pane);
+        } finally { canvas.restore(); }
+    }
+
+    /**
+     * The game's own Message-window text, mirrored in larger type over the lower
+     * part of the map (F64) -- the same place the game keeps its message. 1984
+     * Mac type at e-ink size is the hardest thing on the screen to read; this is
+     * an option, off by default, because it covers screen the map wants.
+     */
+    private void drawMessageMirror(Canvas canvas, PartyPaneLayout pane) {
+        float pad = 10 * density;
+        float boxLeft = pad, boxRight = pane.mapWidth - pad, boxBottom = pane.mapHeight - pad;
+        float text = 18 * density, lineHeight = text * 1.25f;
+        ink.setTextSize(text); ink.setTextAlign(Paint.Align.LEFT); ink.setStyle(Paint.Style.FILL);
+        float wrapWidth = boxRight - boxLeft - 2 * pad;
+        java.util.List<String> lines = wrapMessage(gameMessage, wrapWidth);
+        int maxLines = Math.max(1, (int) ((pane.mapHeight * 0.6f - 2 * pad) / lineHeight));
+        boolean clipped = lines.size() > maxLines;
+        int shown = Math.min(lines.size(), maxLines);
+        float boxHeight = shown * lineHeight + 2 * pad;
+        float boxTop = boxBottom - boxHeight;
+        // A white card with a black border, so the text reads over the map ink.
+        ink.setColor(Color.WHITE); canvas.drawRect(boxLeft, boxTop, boxRight, boxBottom, ink);
+        ink.setColor(Color.BLACK); ink.setStyle(Paint.Style.STROKE); ink.setStrokeWidth(Math.max(1, density));
+        canvas.drawRect(boxLeft, boxTop, boxRight, boxBottom, ink);
+        ink.setStyle(Paint.Style.FILL);
+        float baseline = boxTop + pad + text;
+        for (int i = 0; i < shown; i++) {
+            String line = lines.get(i);
+            if (clipped && i == shown - 1) line = ellipsize(line, wrapWidth);
+            canvas.drawText(line, boxLeft + pad, baseline, ink);
+            baseline += lineHeight;
+        }
+    }
+
+    /** Break the message into lines that fit the given width, on spaces and the game's own returns. */
+    private java.util.List<String> wrapMessage(String message, float width) {
+        java.util.List<String> lines = new java.util.ArrayList<>();
+        for (String paragraph : message.replace('\t', ' ').split("\r")) {
+            String rest = paragraph.trim();
+            if (rest.isEmpty()) { lines.add(""); continue; }
+            while (!rest.isEmpty()) {
+                int fit = ink.breakText(rest, true, width, null);
+                if (fit >= rest.length()) { lines.add(rest); break; }
+                int space = rest.lastIndexOf(' ', fit);
+                int cut = space > 0 ? space : Math.max(1, fit);
+                lines.add(rest.substring(0, cut).trim());
+                rest = rest.substring(cut).trim();
+            }
+        }
+        return lines;
+    }
+
+    private String ellipsize(String line, float width) {
+        if (ink.measureText(line) <= width) return line;
+        String out = line;
+        while (out.length() > 1 && ink.measureText(out + "…") > width) out = out.substring(0, out.length() - 1);
+        return out + "…";
     }
 
     private void drawMap(Canvas canvas, PartyPaneLayout pane) {

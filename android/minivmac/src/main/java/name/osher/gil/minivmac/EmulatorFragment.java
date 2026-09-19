@@ -514,12 +514,13 @@ public class EmulatorFragment extends Fragment
         saveState().autoSave();
     }
 
-    /** Push the one-line party-row preference to the map (F69); applied on resume so returning from Settings takes effect. */
+    /** Push the companion view preferences (one-line rows F69, message mirror F64) to the map; applied on resume so returning from Settings takes effect. */
     private void applyOneLinePartyPref() {
         if (mLiveMap == null) return;
         try {
-            mLiveMap.setOneLineParty(PreferenceManager.getDefaultSharedPreferences(requireContext())
-                    .getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
+            SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+            mLiveMap.setOneLineParty(prefs.getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
+            mLiveMap.setMirrorMessage(prefs.getBoolean(SettingsFragment.KEY_PREF_MIRROR_MESSAGE, false));
         } catch (RuntimeException ignored) { }
     }
 
@@ -943,8 +944,14 @@ public class EmulatorFragment extends Fragment
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore
-                            && companionMapActive() && mNotebook != null)
-                        mNotebook.onGameMessage(sample);
+                            && companionMapActive()) {
+                        if (mNotebook != null) mNotebook.onGameMessage(sample);
+                        if (mLiveMap != null) {   // F64: mirror the text in larger type
+                            name.osher.gil.minivmac.journal.GameMessage msg =
+                                    name.osher.gil.minivmac.journal.GameMessage.parse(sample);
+                            mLiveMap.showGameMessage(msg == null ? "" : msg.text);
+                        }
+                    }
                 });
             });
 
