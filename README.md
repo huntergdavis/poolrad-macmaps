@@ -116,10 +116,10 @@ work well as of 2026-09-15; rotation and keyboard layout are still unreported.
 ## Install
 
 This is an **Android app, not a browser game**. The
-[0.70.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.70.0)
+[0.71.0 prototype APK](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.71.0)
 supports Android 5.0+ and includes the Mac II emulator.
 
-1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.70.0/poolrad-macmaps-0.70.0.apk) on your tablet.
+1. [Download the APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.71.0/poolrad-macmaps-0.71.0.apk) on your tablet.
 2. Tap the APK and allow installation from your file manager when prompted.
 3. Open **Pool of Radiance** and select your own matching Mac ROM.
 4. Import copies of your boot/game disks, launch the game, and load your party.

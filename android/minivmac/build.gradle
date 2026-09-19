@@ -7,7 +7,7 @@ android {
     ndkVersion '27.0.12077973'
 
     defaultConfig {
-        versionCode 136
+        versionCode 137
         buildConfigField 'boolean', 'PERSONAL_PACKAGE', 'false'
 
         minSdkVersion 21
@@ -35,7 +35,7 @@ android {
         macPlus {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.plus'
-            versionName '0.70.0'
+            versionName '0.71.0'
 
             externalNativeBuild {
                 ndkBuild {
@@ -47,7 +47,7 @@ android {
         macII {
             dimension 'machine'
             applicationId 'com.hunterdavis.poolradmacmaps.ii'
-            versionName '0.70.0'
+            versionName '0.71.0'
 
             externalNativeBuild {
                 ndkBuild {
