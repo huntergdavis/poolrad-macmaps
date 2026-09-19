@@ -1333,7 +1333,7 @@ reads back correctly.
   Verified with the render-check harness: the mirror draws over the map, turning
   it off restores the map exactly, an empty message draws no card, and a rendered
   bitmap confirmed the large-type card.
-- [ ] **F69 — One-line party rows, as an options toggle (one row vs two).**
+- [x] **F69 (delivered 0.65.0) — One-line party rows, as an options toggle (one row vs two).**
   *Investigated 2026-09-18 against his measured geometry, 1440 x 684 at density
   2.0 — there is room, and the gain is larger than the idea suggested.* A row
   is 48dp today: name, then HP with armour class, then the health bar. At six
