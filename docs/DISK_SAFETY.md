@@ -155,6 +155,10 @@ The guarded build's mismatch and unsupported-format toast captures are in
 f97-mismatch-toast/ and f97-legacy-toast/. Native body refusal and the settled
 guest/Notebook 2 are in f97-native-refusal/ and f97-native-refusal-settled.png.
 The final build log is f97-verified-build.log; preview acceptance is
-f97-preview-check.log. The original input checksum is retained in
+f97-preview-check.log. The published universal 0.84.0 APK was installed through
+normal shutdown, loaded ExportProof, created new verified quick/automatic saves,
+and reported a successful restore at 14:10:18 PDT. See
+f97-published-save-restore.log; all six README screenshots were recaptured from
+that published APK. The original input checksum is retained in
 f97-original-disk.sha256. These are local audit artifacts, not distributed game
 assets or a promise that every failure mode has been exercised.

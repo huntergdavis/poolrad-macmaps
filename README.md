@@ -29,7 +29,7 @@ footprints are remembered **per area** — clearing the fog in the slums does no
 clear it in the caves. The same page controls compact party rows, larger
 messages and automatic snapshots.
 
-<img src="docs/images/readme-options.png" width="760" alt="Companion Options page with map, party, message and autosave controls">
+<img src="docs/images/readme-options.png" width="760" alt="Companion Options page with map, party and message controls">
 
 **Directional footprints** record the way you actually walked, so a corridor you
 have been down twice looks different from one you passed once. Doors you have
@@ -97,6 +97,8 @@ saves with their date, time and captured game screen; choose one to preview and 
 The small previews are encoded in the background, and each snapshot remembers
 its notebook. Snapshots now require disk verification: older emulator snapshots
 are unsupported. A missing picture does not block a valid new snapshot.
+
+<img src="docs/images/readme-save-preview.png" width="760" alt="Dated quick-save preview explaining required disk matching and refusal of older snapshots">
 
 Original-game save-file backups live under **Settings → Back up / restore game
 saves…**. These are separate from emulator snapshots and notebook exports.

@@ -13,6 +13,8 @@ in MARCHING_ORDER.md. Navigate to each real app view, then capture it:
     python3 tools/readme-screenshots.py capture emulator-5586 readme-options
     python3 tools/readme-screenshots.py capture emulator-5586 readme-marching-order
     python3 tools/readme-screenshots.py capture emulator-5586 readme-message-log
+    python3 tools/readme-screenshots.py capture emulator-5586 readme-money
+    python3 tools/readme-screenshots.py capture emulator-5586 readme-save-preview
 
 Capture reads the installed application's version, requires a matching local
 release tag and foreground PoolRad activity, writes a PNG, and records its
@@ -21,7 +23,7 @@ Visually inspect every image and correct its README caption before committing.
 A version label alone does not prove a modified development APK matches a tag:
 install the published APK with update-test-app.py before these captures.
 
-    python3 tools/readme-screenshots.py check 0.81.0
+    python3 tools/readme-screenshots.py check 0.84.0
 
 The check reads every HTML or Markdown image in the README, verifies its file
 and recorded hash, and counts intervening numeric release tags. release.sh runs
