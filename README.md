@@ -19,7 +19,9 @@ not a port of its code or an official game release.
 
 Walls, doors, coordinates and your facing arrow, read live from the game's own
 memory across 29 named areas — no guessed names. Camp, combat and loading
-states are labelled, so a reference map never lies about what it is showing.
+states are labelled, so a reference map never lies about what it is showing. The
+header also shows the **game’s own day and am/pm time**, advancing with the
+game rather than your tablet’s clock.
 
 **Fog of war** hides everything you have not walked, so the map fills in the way
 you drew it. **Info → Options** turns it on and off, and both it and the

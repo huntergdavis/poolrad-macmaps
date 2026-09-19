@@ -9,7 +9,8 @@
 #include <stddef.h>
 #include <string.h>
 
-#define POOLRAD_PROBE_SIZE 1204
+#define POOLRAD_PROBE_SIZE 1212
+#define POOLRAD_CLOCK_OUT 1204
 #define POOLRAD_GLOBALS_BACK 15168
 #define POOLRAD_GLOBALS_SIZE 128
 #define POOLRAD_GLOBALS_OUT 48
@@ -93,6 +94,40 @@ static int poolrad_map_block(const unsigned char *ram, size_t size,
         && physical == logical_size + 8 + correction
         && poolrad_range(data - 8, physical, size);
 }
+/* CODE3 +2b6e prints hour +192 and minutes 10*(+190)+(+18e).
+ * CODE4 +2126 normalizes the seven counters using A5-373a's unit table;
+ * +2202 updates the state at +18c. See GAME_CLOCK.md for day numbering and
+ * the deliberately unsupported high-year/overflow cases. */
+static void poolrad_clock(const unsigned char *ram, size_t size, uint32_t a5,
+                          unsigned mode, unsigned char *out) {
+    static const unsigned limits[] = {10, 10, 6, 24, 30, 12, 256};
+    unsigned values[7];
+    memset(out + POOLRAD_CLOCK_OUT, 0, 8);
+    if (mode < 1 || mode > 4 || a5 < POOLRAD_STATE_BACK
+            || !poolrad_range(a5 - POOLRAD_STATE_BACK, 4, size)
+            || !poolrad_range(a5 - 0x373a, 14, size)) return;
+    uint32_t handle = poolrad_u32(ram + a5 - POOLRAD_STATE_BACK) & 0xffffff;
+    if (handle < 0x1000 || (handle & 1) || !poolrad_range(handle, 4, size)) return;
+    uint32_t state = poolrad_u32(ram + handle) & 0xffffff;
+    if (!poolrad_map_block(ram, size, state, 2048)) return;
+    for (unsigned i = 0; i < 7; i++) {
+        unsigned at = state + 0x18c + i * 2;
+        unsigned unit = a5 - 0x373a + i * 2;
+        values[i] = ((unsigned)ram[at] << 8) | ram[at + 1];
+        if (values[i] >= limits[i]
+                || (((unsigned)ram[unit] << 8) | ram[unit + 1]) != limits[i]) return;
+    }
+    if (ram[state + 0x19a] || ram[state + 0x19b]) return;
+    uint32_t day = 1 + values[4] + 30 * values[5] + 360 * values[6];
+    out[POOLRAD_CLOCK_OUT] = 1;
+    out[POOLRAD_CLOCK_OUT + 1] = day >> 24;
+    out[POOLRAD_CLOCK_OUT + 2] = day >> 16;
+    out[POOLRAD_CLOCK_OUT + 3] = day >> 8;
+    out[POOLRAD_CLOCK_OUT + 4] = day;
+    out[POOLRAD_CLOCK_OUT + 5] = values[3];
+    out[POOLRAD_CLOCK_OUT + 6] = values[2] * 10 + values[1];
+}
+
 static int poolrad_probe(const unsigned char *ram, size_t size, unsigned char *out) {
     uint32_t a5, globals, handle, map;
     if (ram == NULL || out == NULL || size < 0x930) return 0;
@@ -382,7 +417,7 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
          * the search record was never validated, so say unavailable instead. */
         out[POOLRAD_SEARCH_OUT] = POOLRAD_SEARCH_UNAVAILABLE;
     }
-    memcpy(out, "PRM5", 4);
+    memcpy(out, "PRM6", 4);
     out[POOLRAD_DISPLAY_MODE_OUT] = (unsigned char)mode;
     out[POOLRAD_WALK_VERSION_OUT] = 1;
     out[POOLRAD_WALK_ENGINE_OUT] = (unsigned char)engine;
@@ -408,6 +443,7 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
         out[POOLRAD_WALK_SAFE_OUT] = 0;
     }
     if (epoch == 0) out[POOLRAD_WALK_SAFE_OUT] = 0;
+    poolrad_clock(ram, size, a5, mode, out);
     return 1;
 }
 #endif

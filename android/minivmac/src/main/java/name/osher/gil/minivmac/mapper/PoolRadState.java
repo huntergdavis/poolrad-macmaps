@@ -27,7 +27,7 @@ public final class PoolRadState {
         byte[] record = new byte[1026];
         System.arraycopy(geometry, 0, record, 2, geometry.length);
         boolean verifiedPacket = sample[3] != '1';
-        hasExplorationMetadata = sample[3] == '3' || sample[3] == '4' || sample[3] == '5';
+        hasExplorationMetadata = sample[3] >= '3' && sample[3] <= '6';
         explorationSafe = hasExplorationMetadata && sample[25] == 1 && sample[26] == 1 && sample[27] == 4;
         // Not a position observation. A later settled sample must still share
         // the native epoch; native load/menu/script guards advance it even if
@@ -51,12 +51,12 @@ public final class PoolRadState {
         if (sample == null || sample.length < 4) return null;
         if (sample[0] != 'P' || sample[1] != 'R' || sample[2] != 'M'
                 || (sample[3] != '1' && sample[3] != '2' && sample[3] != '3'
-                    && sample[3] != '4' && sample[3] != '5')) return null;
+                    && sample[3] != '4' && sample[3] != '5' && sample[3] != '6')) return null;
         // PRM5 appends one search byte; every earlier version keeps its size.
-        if (sample.length != (sample[3] == '5' ? 1204 : 1200)) return null;
+        if (sample.length != packetSize(sample[3])) return null;
         // PRM4's other modes are status-only, never local coordinates or geometry.
         // MapObservation handles those without making an area snapshot.
-        boolean walkMeta = sample[3] == '4' || sample[3] == '5';
+        boolean walkMeta = sample[3] >= '4' && sample[3] <= '6';
         if (walkMeta && (sample[24] != 1 || sample[25] != 1
                 || (sample[26] != 0 && sample[26] != 1) || sample[27] != 4)) return null;
         if (walkMeta && sample[26] == 1
@@ -71,6 +71,10 @@ public final class PoolRadState {
         if (x >= 16 || y >= 16 || direction > 6 || (direction & 1) != 0) return null;
         PoolRadState state = new PoolRadState(sample, identities);
         return sample[3]!='1' && state.area==null ? null : state;
+    }
+
+    static int packetSize(byte version) {
+        return version == '6' ? 1212 : version == '5' ? 1204 : 1200;
     }
 
     public boolean sameDisplay(PoolRadState other) {

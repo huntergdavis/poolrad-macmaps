@@ -1592,9 +1592,12 @@ needed. Confirmed 2026-09-18.
 
 - [ ] **F46 — A "Money" page:** the existing converter plus what the party
   actually holds. The purse has not been located in RAM yet.
-- [ ] **F48 — The game's own clock in the header,** as a day and an am/pm
-  time, never 24-hour. Same rule wherever else a time is shown, including the
-  auto-save names in F37.
+- [x] **F48 (delivered 0.82.0) — The game's own clock in the header.**
+  PRM6 carries validated original-game counters as a one-based day and am/pm
+  time, within the existing header height. Loading clears it; camp, combat and
+  wilderness time is independent of local geometry. Midnight and a live Look
+  advance matched the original game. 657 Java tests, native sanitizer checks
+  and 17 Android rendering checks passed. See [GAME_CLOCK.md](GAME_CLOCK.md).
 - [ ] **F68 — Trim the on-screen keyboard to the keys the game uses,** with
   bigger targets. Needs care rather than a fixed subset: names still have to be
   typeable, so the full alphabet must stay reachable — most likely a compact

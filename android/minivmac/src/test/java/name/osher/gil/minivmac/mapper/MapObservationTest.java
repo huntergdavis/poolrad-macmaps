@@ -4,6 +4,23 @@ import org.junit.Test;
 import static org.junit.Assert.*;
 
 public class MapObservationTest {
+    @Test public void prm6ClockIsIndependentOfAuthenticatedLocalGeometry() {
+        byte[] base=local(); AreaIdentity.Catalog identities=catalog(base);
+        byte[] p=java.util.Arrays.copyOf(base,1212); p[3]='6';
+        p[1204]=1;p[1208]=3;p[1209]=13;p[1210]=7;
+        MapObservation o=MapObservation.parse(p,identities);
+        assertEquals(MapMode.EXPLORATION,o.mode);
+        assertEquals("15, 1 W",o.state.positionLabel());
+        assertTrue(o.state.explorationSafe);
+        assertEquals("Day 3 · 1:07 pm",o.clock.label());
+        p[1210]=60;
+        o=MapObservation.parse(p,identities);
+        assertEquals(MapMode.EXPLORATION,o.mode);assertNotNull(o.state);assertNull(o.clock);
+        p[1210]=7;p[176]^=1;
+        o=MapObservation.parse(p,identities);
+        assertEquals(MapMode.UNAVAILABLE,o.mode);assertNull(o.clock);
+    }
+
     private byte[] local() {
         byte[] data = new byte[1200];
         data[0]='P'; data[1]='R'; data[2]='M'; data[3]='4';

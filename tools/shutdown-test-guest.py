@@ -56,19 +56,29 @@ def main():
         while time.monotonic() < deadline:
             rows = words(mode); point = find(rows, phrase)
             if point is not None: return rows, point
+            # A bare Finder desktop can split "Special" into "Spe" and "1"
+            # under sparse-text OCR. The alternate layout reads the same label.
+            rows = words(3 if mode == 11 else 11); point = find(rows, phrase)
+            if point is not None: return rows, point
             time.sleep(1)
         raise RuntimeError('Expected screen not found: ' + phrase)
     def command(action, *args):
         run('bash', str(Path(__file__).with_name('guest-command.sh')), a.serial, action, *args)
+    def finder(rows):
+        points = [find(rows, word) for word in ('File', 'Edit', 'Label', 'Special')]
+        return all(points) and all(points[i][0] < points[i+1][0] for i in range(3)) \
+            and max(p[1] for p in points) - min(p[1] for p in points) <= 10
     rows = words(3)
     if find(rows, 'Restart Emulator') is None:
-        log('Requesting normal game quit')
-        command('quit')
-        wait_for('you really want to quit?', 11)
-        command('text', '')  # Return: normal dialog acceptance, never a guest-memory write.
-        rows, special = wait_for('Special', 11)
-        if not all(find(rows, word) for word in ('File', 'Edit', 'Label')):
+        if not finder(rows):
+            log('Requesting normal game quit')
+            command('quit')
+            wait_for('you really want to quit?', 11)
+            command('text', '')  # Return: normal dialog acceptance, never a guest-memory write.
+            rows, _ = wait_for('Special', 11)
+        if not finder(rows):
             raise RuntimeError('Finder menu could not be verified')
+        special = find(rows, 'Special')
         log('Opening Finder Special menu')
         device('shell', 'input', 'motionevent', 'DOWN', *map(str, special))
         release = special

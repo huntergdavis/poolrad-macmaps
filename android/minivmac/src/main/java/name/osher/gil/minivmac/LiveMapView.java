@@ -21,6 +21,7 @@ import java.util.Map;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.MapObservation;
+import name.osher.gil.minivmac.mapper.GameClock;
 import name.osher.gil.minivmac.mapper.CombatSnapshot;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
@@ -58,6 +59,7 @@ public final class LiveMapView extends View {
     private final SparseArray<PartyState.Member> partyActions = new SparseArray<>();
     private final SparseArray<PartyState.Member> partySheetActions = new SparseArray<>();
     private PoolRadState state;
+    private GameClock gameClock;
     private PartyState party;
     private boolean positionAvailable;
     /** Set only while the game is in combat; null at every other moment. */
@@ -287,7 +289,7 @@ public final class LiveMapView extends View {
                     + ", between " + combat.left + "," + combat.top
                     + " and " + combat.right + "," + combat.bottom
                     + ". Reference only; no terrain is shown and nothing here can be tapped.";
-        setContentDescription(status + (positionAvailable
+        setContentDescription(status + (gameClock == null ? "" : ". Game time: " + gameClock.label()) + (positionAvailable
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
                 + notebook + ". " + flags.size() + " flags. "
@@ -329,7 +331,7 @@ public final class LiveMapView extends View {
 
     public void showSample(byte[] sample) {
         MapObservation observation = MapObservation.parse(sample);
-        showState(observation.state, observation.mode);
+        showState(observation.state, observation.mode, observation.clock);
     }
 
     // Retained for source-derived synthetic View fixtures without shipping game geometry.
@@ -340,10 +342,15 @@ public final class LiveMapView extends View {
     }
 
     private void showState(PoolRadState next, MapMode nextMode) {
+        showState(next, nextMode, null);
+    }
+
+    private void showState(PoolRadState next, MapMode nextMode, GameClock nextClock) {
         AreaIdentity previous = currentArea();
         AreaIdentity previousDisplay = displayedArea();
         boolean available = nextMode == MapMode.EXPLORATION && next != null;
         boolean changed = mode != nextMode || positionAvailable != available
+                || (gameClock == null ? nextClock != null : !gameClock.equals(nextClock))
                 || (next != null && (state == null || !state.sameDisplay(next)));
         // Processing frames record nothing and do not refresh the previous-safe
         // deadline. The next sample still needs the same native epoch and a
@@ -371,6 +378,7 @@ public final class LiveMapView extends View {
             if (listener != null && deliver) listener.onExplorationSample(next);
             return;
         }
+        gameClock = nextClock;
         mode = nextMode;
         // Never a stale battlefield: leaving combat drops it, hold and all.
         /*
@@ -664,10 +672,17 @@ public final class LiveMapView extends View {
          */
         float share = mode == MapMode.COMBAT ? .66f : .48f;
         float statusWidth = Math.min(ink.measureText(status), available * share);
+        String clockLabel = gameClock == null ? "" : gameClock.label();
+        float clockWidth = gameClock == null ? 0 : Math.min(ink.measureText(clockLabel),
+                Math.max(0, Math.min(available * .42f, available - statusWidth - 24 * density)));
+        float clockSpace = gameClock == null ? 0 : clockWidth + 12 * density;
         ink.setTextAlign(Paint.Align.LEFT);
-        canvas.drawText(fitHeaderText(title, available - statusWidth - 12 * density),
+        canvas.drawText(fitHeaderText(title, available - statusWidth - clockSpace - 12 * density),
                 12 * density + button, 22 * density, ink);
         ink.setTextAlign(Paint.Align.RIGHT);
+        if (gameClock != null)
+            canvas.drawText(fitHeaderText(clockLabel, clockWidth),
+                    pane.mapWidth - 24 * density - statusWidth, 22 * density, ink);
         canvas.drawText(fitHeaderText(status, statusWidth), pane.mapWidth - 12 * density, 22 * density, ink);
         // The whole header row is the target; it is a big thing to hit and it
         // does nothing dangerous.

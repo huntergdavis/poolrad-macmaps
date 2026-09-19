@@ -27,11 +27,11 @@ static void fixture(uint32_t globals, uint32_t handle, uint32_t map) {
     ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = 2;
 }
 static void status_only(unsigned mode, unsigned engine) {
-    assert(memcmp(output, "PRM5", 4) == 0);
+    assert(memcmp(output, "PRM6", 4) == 0);
     assert(output[24] == mode && output[25] == 1 && output[26] == 0 && output[27] == engine);
     assert(output[33] == 0 && output[34] == 255 && output[35] == 255);
     for (int i = 40; i < 48; i++) assert(output[i] == 0);
-    for (int i = 48; i < POOLRAD_PROBE_SIZE; i++) {
+    for (int i = 48; i < POOLRAD_CLOCK_OUT; i++) {
         /* A status-only packet shows no position line at all, so the search
          * marker reads unavailable rather than the cleared "not searching". */
         unsigned expected = i >= 130 && i <= 132 ? 255
@@ -46,7 +46,7 @@ static void display_tests(void) {
     unsigned char original[sizeof(ram)];
     memcpy(original, ram, sizeof(ram));
     assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    assert(memcmp(output, "PRM5", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
+    assert(memcmp(output, "PRM6", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
     assert(output[26] == 1 && output[33] == 1 && poolrad_u32(output + 28) != 0);
     assert(output[130] == 15 && output[131] == 1 && output[132] == 6);
     assert(memcmp(output + 176, ram + 0x4000, 1024) == 0);
@@ -189,7 +189,55 @@ static void display_tests(void) {
     fixture(0x8000, 0x2000, 0x4000);
     ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
     assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    puts("Display probe: PRM5 explicit modes, search marker, status-only clearing and independent profile passed.");
+    puts("Display probe: PRM6 explicit modes, search marker, status-only clearing and independent profile passed.");
+}
+static void clock_tests(void) {
+    const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
+    const unsigned limits[] = {10,10,6,24,30,12,256};
+    poolrad_walk_tracker tracker = {0};
+    fixture(0x8000, 0x2000, 0x4000);
+    for (unsigned i=0;i<7;i++) {
+        ram[a5-0x373a+i*2]=limits[i]>>8;
+        ram[a5-0x373a+i*2+1]=limits[i];
+    }
+    unsigned char original[sizeof(ram)];
+    memcpy(original,ram,sizeof(ram));
+    assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output));
+    assert(output[1204]==1 && poolrad_u32(output+1205)==1);
+    assert(output[1209]==0 && output[1210]==0 && output[1211]==0);
+    assert(memcmp(original,ram,sizeof(ram))==0);
+    for(unsigned i=0;i<7;i++) {
+        for(unsigned value=0;value<=limits[i];value++) {
+            ram[0x618c+i*2]=value>>8; ram[0x618d+i*2]=value;
+            assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output));
+            assert(output[1204]==(value<limits[i]));
+            if(value<limits[i]) {
+                unsigned day=1+(i==4?value:i==5?30*value:i==6?360*value:0);
+                assert(poolrad_u32(output+1205)==day);
+                assert(output[1209]==(i==3?value:0));
+                assert(output[1210]==(i==1?value:i==2?10*value:0));
+            }
+        }
+        ram[0x618c+i*2]=ram[0x618d+i*2]=0;
+    }
+    for(unsigned mode=0;mode<8;mode++) {
+        ram[a5-POOLRAD_ENGINE_BACK]=mode;
+        assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output));
+        assert(output[1204]==(mode>=2 && mode<=5));
+    }
+    ram[a5-POOLRAD_ENGINE_BACK]=4;
+    ram[a5-POOLRAD_STARTUP_BACK]=1;
+    assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output) && output[1204]==0);
+    ram[a5-POOLRAD_STARTUP_BACK]=0;
+    ram[0x619b]=1;
+    assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output) && output[1204]==0);
+    ram[0x619b]=0;
+    ram[a5-0x373a+1]=11;
+    assert(poolrad_display_probe(ram,sizeof(ram),&tracker,output) && output[1204]==0);
+    ram[a5-0x373a+1]=10;
+    put32(0x2200,0xffff);
+    assert(!poolrad_display_probe(ram,sizeof(ram),&tracker,output) || output[1204]==0);
+    puts("Clock: units, all counter values, modes, invalid blocks and read-only behavior passed.");
 }
 static void tour_tests(void) {
     assert(poolrad_tour_phase(0xb166, 0x2a, 0) == 1); // Direction setter has committed; x/y not yet.
@@ -632,6 +680,7 @@ int main(int argc, char **argv) {
     puts("Map probe: PRM2 identity, modes, logical heap sizes, relocation and bounds passed.");
     walk_tests();
     display_tests();
+    clock_tests();
     tour_tests();
     for (int i = 1; i < argc; i++) replay(argv[i]);
     return 0;

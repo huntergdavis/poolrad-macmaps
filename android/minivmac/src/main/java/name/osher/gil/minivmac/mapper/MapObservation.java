@@ -5,9 +5,14 @@ public final class MapObservation {
     private static final MapObservation UNAVAILABLE = new MapObservation(null, MapMode.UNAVAILABLE);
     public final PoolRadState state;
     public final MapMode mode;
+    public final GameClock clock;
 
     private MapObservation(PoolRadState state, MapMode mode) {
-        this.state = state; this.mode = mode;
+        this(state, mode, null);
+    }
+
+    private MapObservation(PoolRadState state, MapMode mode, GameClock clock) {
+        this.state = state; this.mode = mode; this.clock = clock;
     }
 
     /** Always returns an observation; unavailable or status-only observations have no geometry. */
@@ -19,8 +24,8 @@ public final class MapObservation {
         if (packet == null || packet.length < 4) return UNAVAILABLE;
         if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'M') return UNAVAILABLE;
         // PRM5 appends one search byte to PRM4; every earlier version keeps its size.
-        if (packet.length != (packet[3] == '5' ? 1204 : 1200)) return UNAVAILABLE;
-        if (packet[3] == '4' || packet[3] == '5') return current(packet, identities);
+        if (packet.length != PoolRadState.packetSize(packet[3])) return UNAVAILABLE;
+        if (packet[3] == '4' || packet[3] == '5' || packet[3] == '6') return current(packet, identities);
         if (packet[3] != '1' && packet[3] != '2' && packet[3] != '3') return UNAVAILABLE;
         PoolRadState state = PoolRadState.parse(packet, identities);
         if (state == null) return UNAVAILABLE;
@@ -39,6 +44,7 @@ public final class MapObservation {
     }
 
     private static MapObservation current(byte[] packet, AreaIdentity.Catalog identities) {
+        GameClock clock = GameClock.parse(packet);
         if (packet[25] != 1 || (packet[26] != 0 && packet[26] != 1)
                 || (packet[33] != 0 && packet[33] != 1)) return UNAVAILABLE;
         int mode = packet[24] & 255, engine = packet[27] & 255;
@@ -55,21 +61,21 @@ public final class MapObservation {
             if (state == null || state.area == null) return UNAVAILABLE;
             if (packet[26] == 1)
                 return state.explorationSafe && state.continuityToken != 0
-                        ? new MapObservation(state, MapMode.EXPLORATION) : UNAVAILABLE;
+                        ? new MapObservation(state, MapMode.EXPLORATION, clock) : UNAVAILABLE;
             // Native mode 1 independently validates the local display position.
             // Printing a story or processing input need not hide the map; only
             // explicit safe movement metadata can authorize footprint recording.
-            return new MapObservation(state, MapMode.EXPLORATION);
+            return new MapObservation(state, MapMode.EXPLORATION, clock);
         }
         MapMode presentation = mode == 2 ? MapMode.COMBAT : mode == 3 ? MapMode.CAMP
                 : mode == 4 ? MapMode.WILDERNESS : mode == 5 ? MapMode.LOADING : MapMode.UPDATING;
-        return new MapObservation(null, presentation);
+        return new MapObservation(null, presentation, clock);
     }
 
     /** PRM4 v1 deliberately strips stale local geometry from non-local status packets. */
     private static boolean statusOnly(byte[] packet) {
         if ((packet[34] & 255) != 255 || (packet[35] & 255) != 255) return false;
-        for (int at = 40; at < packet.length; at++) {
+        for (int at = 40; at < Math.min(packet.length, 1204); at++) {
             // A status-only packet prints no position line, so PRM5's search
             // byte must say unavailable rather than a cleared "not searching".
             int expected = at >= 130 && at <= 132 ? 255 : at == 1200 ? 255 : 0;

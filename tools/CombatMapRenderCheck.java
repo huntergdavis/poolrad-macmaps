@@ -232,6 +232,35 @@ public final class CombatMapRenderCheck {
         Context app = system.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY);
         Context context = new ContextThemeWrapper(app, android.R.style.Theme_Material_Light_NoActionBar);
 
+        run("Game clock draws in the header and clears on loading or pane reset", () -> {
+            for (int width : new int[]{1440,480}) {
+                LiveMapView view = map(context,width,684);
+                byte[] p = java.util.Arrays.copyOf(mapPacket(3,2),1212);
+                p[3]='6'; p[1204]=1;p[1208]=2;p[1209]=12;p[1210]=5;
+                view.showSample(p);
+                check(String.valueOf(view.getContentDescription()).contains("Day 2 · 12:05 pm"),
+                        "Clock absent from accessible header");
+                Bitmap with=draw(view);
+                p[1204]=0;view.showSample(p);Bitmap without=draw(view);
+                int changes=0;
+                for(int y=0;y<45;y++)for(int x=0;x<width;x++)
+                    if(with.getPixel(x,y)!=without.getPixel(x,y)) changes++;
+                check(changes>20,"Clock made no visible header change at width "+width);
+                p[1204]=1;view.showSample(p);
+                p[24]=2;p[27]=5;view.showSample(p);
+                view.showCombatSample(combatPacketOf(new int[][]{{0,1,4,4},{1,0,6,6}}));
+                draw(view);
+                check(String.valueOf(view.getContentDescription()).contains("Day 2 · 12:05 pm"),
+                        "Combat dropped valid clock");
+                view.showSample(mapPacket(5,4));
+                check(!String.valueOf(view.getContentDescription()).contains("Game time:"),
+                        "Loading retained clock");
+                view.showSample(p);view.clearReadings();
+                check(!String.valueOf(view.getContentDescription()).contains("Game time:"),
+                        "Pane reset retained clock");
+            }
+        });
+
         run("Selection marks both row layouts and combat actor takes precedence", () -> {
             for (boolean compact : new boolean[]{false, true}) {
                 LiveMapView view = map(context, 1440, 600);
