@@ -15,4 +15,6 @@
     <string name="action_show_companion">Show companion</string>
     <string name="companion_tool_options">Options</string>
     <string name="companion_tool_message_log">Message log</string>
+    <string name="companion_citation_read">Read reference</string>
+    <string name="companion_citation_dismiss">Dismiss</string>
 </resources>

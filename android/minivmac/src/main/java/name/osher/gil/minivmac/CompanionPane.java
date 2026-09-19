@@ -22,6 +22,9 @@ public final class CompanionPane extends LinearLayout {
     public interface OnToolSelectedListener { void onToolSelected(Tool tool); }
 
     private final Button mapTab, infoTab;
+    private final LinearLayout citationNotice;
+    private final Button citationOpen;
+    private Runnable citationAction;
     private final LiveMapView map;
     private final ScrollView info;
     private String selected = MAP;
@@ -49,6 +52,24 @@ public final class CompanionPane extends LinearLayout {
         infoTab = tab(context, R.id.companion_tab_info, R.string.companion_tab_info, INFO);
         tabs.addView(mapTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
         tabs.addView(infoTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
+
+        citationNotice = new LinearLayout(context);
+        citationNotice.setId(R.id.companion_citation_notice);
+        citationNotice.setOrientation(HORIZONTAL);
+        citationNotice.setVisibility(GONE);
+        citationOpen = plainButton(context, R.id.companion_citation_open, R.string.companion_citation_read);
+        citationOpen.setMaxLines(2);
+        citationOpen.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        citationOpen.setOnClickListener(view -> {
+            Runnable action = citationAction;
+            clearCitationNotice();
+            if (action != null) action.run();
+        });
+        Button dismiss = plainButton(context, R.id.companion_citation_dismiss, R.string.companion_citation_dismiss);
+        dismiss.setOnClickListener(view -> clearCitationNotice());
+        citationNotice.addView(citationOpen, new LayoutParams(0, LayoutParams.WRAP_CONTENT, 1));
+        citationNotice.addView(dismiss, new LayoutParams(dp(88), LayoutParams.MATCH_PARENT));
+        addView(citationNotice, new LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
 
         FrameLayout content = new FrameLayout(context);
         content.setId(R.id.companion_content);
@@ -88,6 +109,20 @@ public final class CompanionPane extends LinearLayout {
         info.addView(tools, new ScrollView.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT));
         content.addView(info, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
         updateSelection();
+    }
+
+    /** A retained, explicit action inside the companion allocation, never over the guest. */
+    public void showCitationNotice(String label, Runnable open) {
+        if (label == null || open == null) { clearCitationNotice(); return; }
+        citationAction = open;
+        citationOpen.setText(label);
+        citationOpen.setContentDescription(label);
+        citationNotice.setVisibility(VISIBLE);
+    }
+
+    public void clearCitationNotice() {
+        citationAction = null;
+        citationNotice.setVisibility(GONE);
     }
 
     public String selectedTab() { return selected; }

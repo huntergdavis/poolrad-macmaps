@@ -17,4 +17,7 @@
     <item type="id" name="companion_tool_note_index" />
     <item type="id" name="companion_tool_options" />
     <item type="id" name="companion_tool_message_log" />
+    <item type="id" name="companion_citation_notice" />
+    <item type="id" name="companion_citation_open" />
+    <item type="id" name="companion_citation_dismiss" />
 </resources>

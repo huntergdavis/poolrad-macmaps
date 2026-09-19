@@ -1548,7 +1548,11 @@ The map already serves as the notebook's underlay — notes are drawn over the
 live map surface and linked to flags on it — so no separate tracing feature is
 needed. Confirmed 2026-09-18.
 
-- [ ] **F42 — A citation notice opens that journal entry.**
+- [x] **F42 (delivered 0.78.0) — A citation notice opens that journal entry.**
+  A retained Read/Dismiss notice opens the exact new citation, or a chooser
+  containing only the new references. It clears on notebook switch or snapshot
+  transition. Nine companion checks and isolated message-fixture UI acceptance
+  passed; see [CITATION_NOTICE.md](CITATION_NOTICE.md).
 - [ ] **F57 — Open the notebook page for the area you just entered.**
 - [x] **F56 (delivered 2026-09-19) — A note index:** every note listed by area
   and date, tap to open. Reached from **Info → Notes index**. `NotebookStore`

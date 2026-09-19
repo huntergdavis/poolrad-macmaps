@@ -151,6 +151,30 @@ public final class CompanionPaneCheck {
             check(tools.size() == TOOL_IDS.length, "Cleared tool listener retained callback");
         });
 
+        run("Citation notice stays inside the pane, opens once, and dismisses without opening", () -> {
+            for (int height : new int[]{160, 320}) {
+                CompanionPane pane = pane(context, 480, height);
+                final int[] opens = {0};
+                pane.showCitationNotice("Read Tavern tale 15", () -> opens[0]++);
+                layout(pane, context, 480, height);
+                View notice = pane.findViewById(R.id.companion_citation_notice);
+                View content = pane.findViewById(R.id.companion_content);
+                Button open = pane.findViewById(R.id.companion_citation_open);
+                check(notice.getVisibility() == View.VISIBLE && notice.getHeight() >= dp(context, 48), "Notice is not tappable");
+                check(content.getTop() >= notice.getBottom() && content.getBottom() <= pane.getHeight(), "Notice escaped companion allocation");
+                check(open.getContentDescription().toString().equals("Read Tavern tale 15"), "Exact reference absent from accessibility");
+                check(!open.isFocusable(), "Notice stole guest keyboard focus");
+                open.performClick(); open.performClick();
+                check(opens[0] == 1 && notice.getVisibility() == View.GONE, "Opening repeated or notice remained");
+                pane.showCitationNotice("Read 4 newly noted references", () -> opens[0]++);
+                pane.findViewById(R.id.companion_citation_dismiss).performClick();
+                check(opens[0] == 1 && notice.getVisibility() == View.GONE, "Dismiss opened a reference");
+                pane.showCitationNotice("Old campaign", () -> opens[0]++);
+                pane.clearCitationNotice(); open.performClick();
+                check(opens[0] == 1, "Cleared notice retained old campaign action");
+            }
+        });
+
         run("Short landscape keeps Info scrolling inside the existing pane and retains its position", () -> {
             CompanionPane pane = pane(context, 640, 160);
             pane.setTab(CompanionPane.INFO);

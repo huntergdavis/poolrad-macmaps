@@ -644,6 +644,13 @@ public class EmulatorFragment extends Fragment
         mCompanionPane.setOnTabSelectedListener(this::onCompanionTabSelected);
         mCompanionPane.setOnToolSelectedListener(this::showCompanionTool);
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
+        mNotebook.setCitationNotice(keys -> {
+            if (keys.isEmpty()) { mCompanionPane.clearCitationNotice(); return; }
+            String label = keys.size() == 1 ? "Read " + keys.get(0).label()
+                    : "Read " + keys.size() + " newly noted references";
+            mCompanionPane.showCitationNotice(label, () -> openCompanionTool(
+                    () -> ((MiniVMac) requireActivity()).journal().showCitations(keys)));
+        });
         mNotebook.setReturnKey(this::pressGuestReturn);
         mNotebook.setQuickSetter(this::setGuestQuick);
         mNotebook.setPartySelector(member -> {

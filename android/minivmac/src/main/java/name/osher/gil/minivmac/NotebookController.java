@@ -80,6 +80,10 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
+    private java.util.function.Consumer<List<JournalBook.Key>> citationNotice = keys -> { };
+    public void setCitationNotice(java.util.function.Consumer<List<JournalBook.Key>> notice) {
+        citationNotice = notice == null ? keys -> { } : notice;
+    }
     private MessageHistory messages;
     private boolean messagesDirty, messageSaveFailed;
     private final Runnable messageWrite = this::flushMessages;
@@ -182,6 +186,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 return;
             }
             if (finishRestore) restoringNotebook = false;
+            citationNotice.accept(Collections.emptyList());
             notebook = selected; journal = loadedJournal; messages = loadedMessages;
             messagesDirty = false; messageSaveFailed = false; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
@@ -291,6 +296,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                     }
                 }
                 flushMessages();
+                citationNotice.accept(Collections.emptyList());
                 begun = true; opening = true; notebook = null; journal = null; messages = null;
                 lastArea = null; lastTile = -1; explorationInterrupted = true;
                 map.clearReadings(); refreshFlags();
@@ -492,13 +498,11 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         java.util.Set<JournalBook.Key> cited =
                 JournalCitation.read(name.osher.gil.minivmac.journal.GameMessage.parse(sample));
         if (cited.isEmpty()) return;
-        List<String> added = new ArrayList<>();
-        for (JournalBook.Key key : cited) if (journal.encounter(key)) added.add(key.label());
+        List<JournalBook.Key> added = new ArrayList<>();
+        for (JournalBook.Key key : cited) if (journal.encounter(key)) added.add(key);
         if (added.isEmpty()) return;
         persistJournal();
-        toast(added.size() == 1
-                ? added.get(0) + " noted in this notebook's journal list"
-                : added.size() + " references noted in this notebook's journal list");
+        citationNotice.accept(Collections.unmodifiableList(added));
     }
 
     /** Queue one immutable snapshot after growing text settles, or before leaving its notebook. */
@@ -970,6 +974,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     }
 
     public void dispose() {
+        citationNotice.accept(Collections.emptyList());
         flushMessages();
         disposed = true; generation++; map.setListener(null);
         // A replacement controller may already have registered; never unhook theirs.

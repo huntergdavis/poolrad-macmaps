@@ -35,6 +35,7 @@ public final class JournalController {
     private final Handler main = new Handler(Looper.getMainLooper());
     private JournalBook book;
     private boolean destroyed, busy;
+    private java.util.function.Consumer<String> loadedAction;
     private AlertDialog home, picker, entry;
     private int kind;
 
@@ -50,8 +51,30 @@ public final class JournalController {
     public void onDestroy() { destroyed = true; notebooks = null; entry = null; }
     private void toast(String message) { Toast.makeText(context, message, Toast.LENGTH_LONG).show(); }
 
-    public void show() {
-        if (destroyed || busy) return;
+    public void show() { loadBook(this::openHome); }
+
+    /** Open only the exact references supplied by the existing citation reader. */
+    public void showCitations(List<JournalBook.Key> cited) {
+        if (destroyed || cited == null || cited.isEmpty()) return;
+        final List<JournalBook.Key> keys = new java.util.ArrayList<>(cited);
+        final JournalHistory campaign = history();
+        loadBook(error -> {
+            // The asynchronous read must not remember an old campaign's citation in a new one.
+            if (history() != campaign) return;
+            if (book == null) { openHome(error); return; }
+            if (keys.size() == 1) { openEntry(keys.get(0)); return; }
+            LinearLayout choices = column();
+            text(choices, "Choose a reference the game just named.", 16);
+            for (JournalBook.Key key : keys)
+                button(choices, key.label(), () -> { picker.dismiss(); openEntry(key); });
+            picker = UpperHalfReferenceDialog.show(activity, "References just noted", scroll(choices));
+        });
+    }
+
+    private void loadBook(java.util.function.Consumer<String> readyAction) {
+        if (destroyed) return;
+        loadedAction = readyAction; // A later explicit tap wins while a read is already running.
+        if (busy) return;
         busy = true;
         NotebookController.IO.execute(() -> {
             JournalBook loaded = null; String problem = null;
@@ -64,7 +87,9 @@ public final class JournalController {
             main.post(() -> {
                 busy = false; if (destroyed || activity.isFinishing()) return;
                 book = ready;
-                openHome(error);
+                java.util.function.Consumer<String> action = loadedAction;
+                loadedAction = null;
+                if (action != null) action.accept(error);
             });
         });
     }
