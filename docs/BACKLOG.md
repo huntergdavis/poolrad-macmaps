@@ -985,6 +985,25 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
+- [ ] **F90 — Round-trip the whole emulated machine (the make-or-break spike).**
+  Capture RAM + 68k registers + every device global at a controlled boundary,
+  restore it, resume, and confirm the game carries on correctly. Full size, no
+  reference, no diff, no compression. If the machine will not resume from its
+  own snapshot, the whole save-state line stops here and we know it cheaply.
+  See [SAVE_STATES.md](SAVE_STATES.md).
+- [ ] **F91 — Bake a reference state in, store saves as reference + diff.** The
+  space optimization on top of a proven round-trip: ~1–2 MB reference in the
+  APK, saves as a compressed delta of tens of KB, an 8 MB reference RAM held
+  resident so save and restore never touch a file mid-operation.
+- [ ] **F92 — Save and load from the companion, outside the game.** Name a save,
+  list saves, restore one — near-instant, because restore is a memcpy and a
+  small delta rather than the game's own disk grind. Cannot strand the machine:
+  no game menus, no restart. This is the killer feature the line exists for.
+- [ ] **F93 — Pair each save with its notebook, by reference.** A companion save
+  records which notebook and area it belongs with and soft-links to the notes
+  already on disk rather than copying them, so restoring a machine state brings
+  up the right notebook at no real size cost.
+
 - [ ] **F89 — Tapping a character in the party pane selects them in the game.**
   Owner's P0, 2026-09-19: "When you click on a character on the top, it should
   click on the character in the game (like on the 'information window'). It
