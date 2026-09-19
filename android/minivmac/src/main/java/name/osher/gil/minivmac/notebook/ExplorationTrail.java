@@ -10,11 +10,27 @@ public final class ExplorationTrail {
     public static final int MAX_STEPS = 256;
     private static final ExplorationTrail EMPTY = new ExplorationTrail(new byte[32], Collections.emptyList());
     private final byte[] visited;
+    /**
+     * Squares where a fight started, one bit each.
+     *
+     * Kept beside the walked squares rather than anywhere else because it is
+     * the same kind of thing: something this party found out by being here, and
+     * something a notebook backup should carry along with the rest of the map
+     * they drew.
+     */
+    private final byte[] ambushed;
     public final List<Step> steps;
 
     private ExplorationTrail(byte[] visited, List<Step> steps) {
+        this(visited, new byte[32], steps);
+    }
+
+    private ExplorationTrail(byte[] visited, byte[] ambushed, List<Step> steps) {
         if (visited == null || visited.length != 32 || steps == null || steps.size() > MAX_STEPS)
             throw new IllegalArgumentException("Invalid exploration history size");
+        if (ambushed == null || ambushed.length != 32)
+            throw new IllegalArgumentException("Invalid ambush history size");
+        this.ambushed = ambushed.clone();
         this.visited = visited.clone();
         ArrayList<Step> copy = new ArrayList<>(steps.size());
         for (Step step : steps) {
@@ -56,16 +72,52 @@ public final class ExplorationTrail {
         seen[tile >>> 3] |= (byte) (1 << (tile & 7));
         ArrayList<Step> recent = new ArrayList<>(steps.subList(steps.size() == MAX_STEPS ? 1 : 0, steps.size()));
         recent.add(new Step(from, tile));
-        return new ExplorationTrail(seen, recent);
+        return new ExplorationTrail(seen, ambushed, recent);
     }
 
     /** Forget visible footprints while keeping all independently observed tiles. */
+    /**
+     * Forget the route but keep the coverage -- and keep where fights started,
+     * which is a fact about the place rather than about the walk.
+     */
     public ExplorationTrail clearTrail() {
-        return steps.isEmpty() ? this : new ExplorationTrail(visited, Collections.emptyList());
+        return steps.isEmpty() ? this : new ExplorationTrail(visited, ambushed, Collections.emptyList());
     }
 
     static ExplorationTrail restore(byte[] visited, List<Step> steps) { return new ExplorationTrail(visited, steps); }
+
+    static ExplorationTrail restore(byte[] visited, byte[] ambushed, List<Step> steps) {
+        return new ExplorationTrail(visited, ambushed, steps);
+    }
     byte[] copyVisited() { return visited.clone(); }
+
+    public byte[] copyAmbushed() { return ambushed.clone(); }
+
+    /** True when a fight started on this square. */
+    public boolean ambushed(int tile) {
+        return tile >= 0 && tile < 256 && (ambushed[tile >>> 3] & (1 << (tile & 7))) != 0;
+    }
+
+    public int ambushCount() {
+        int found = 0;
+        for (int tile = 0; tile < 256; tile++) if (ambushed(tile)) found++;
+        return found;
+    }
+
+    /**
+     * Remember that a fight started here.
+     *
+     * Marking the same square twice changes nothing: the mark says a fight
+     * happened here, not how many, and counting them would turn a note about
+     * the map into a tally about the party.
+     */
+    public ExplorationTrail recordAmbush(int tile) {
+        requireTile(tile);
+        if (ambushed(tile)) return this;
+        byte[] marks = ambushed.clone();
+        marks[tile >>> 3] |= (byte) (1 << (tile & 7));
+        return new ExplorationTrail(visited, marks, steps);
+    }
 
     private static boolean adjacent(int first, int second) {
         if (first < 0 || first > 255 || second < 0 || second > 255) return false;

@@ -1338,7 +1338,7 @@ quick-flag write.
 
 ### The map
 
-- [ ] **F51 — Mark where you were attacked.** Wherever a fight started, the map
+- [x] **F51 (delivered 0.53.0) — Mark where you were attacked.** Wherever a fight started, the map
   keeps a monster icon with a cross through it. Drawn from what actually
   happened to this party, so it spoils nothing and needs no bestiary.
 - [ ] **F74 — Mark squares where you found something** — an exclamation mark,

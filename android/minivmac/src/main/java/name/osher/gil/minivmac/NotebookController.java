@@ -281,6 +281,28 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         remember(VISITED_ONLY, visitedOnly);
     }
 
+    /**
+     * Where a fight started, remembered with the map rather than with the
+     * party. It is a fact about the place: this corridor is where things jump
+     * you, and that is worth knowing next time whoever is in the party.
+     */
+    @Override public void onAmbush(AreaIdentity where, int tile) {
+        if (disposed || notebook == null || where == null) return;
+        final NotebookStore.Notebook book = notebook;
+        final String areaId = where.id();
+        IO.execute(() -> {
+            try {
+                ExplorationTrail marked = exploration.ambush(book.id(), areaId, tile);
+                main.post(() -> {
+                    if (!disposed && explorationTarget(book, areaId)) map.showExploration(marked, "");
+                });
+            } catch (IOException | RuntimeException failure) {
+                // A mark that could not be saved is not shown as if it were.
+                android.util.Log.w("PoolRad.Notebook", "Could not record where the fight started", failure);
+            }
+        });
+    }
+
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
 
     @Override public void onExplorationSample(PoolRadState sample) {

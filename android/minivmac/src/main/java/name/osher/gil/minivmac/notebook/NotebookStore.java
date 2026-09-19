@@ -29,6 +29,8 @@ public final class NotebookStore {
     private static final int BOOK_MAGIC = 0x50524e42; // PRNB
     private static final int INK_MAGIC = 0x50524e49; // PRNI
     private static final int EXPLORATION_MAGIC = 0x50524558; // PREX
+    /** 2 appends the squares where fights started; 1 is still read. */
+    private static final int EXPLORATION_VERSION = 2;
     private static final int JOURNAL_MAGIC = 0x50524e4a; // PRNJ
     static final int MAX_EXPLORATION_BYTES = 1024;
     static final int MAX_JOURNAL_BYTES = JournalHistory.MAX_BYTES;
@@ -287,8 +289,12 @@ public final class NotebookStore {
             for (ExplorationTrail.Step step : trail.steps) {
                 out.writeShort(step.from); out.writeByte(step.to);
             }
+            // Version 2 appends where fights started. Written always, so a
+            // record saved by this build is readable only by this one -- which
+            // is why the reader still accepts version 1 without it.
+            out.write(trail.copyAmbushed());
         }
-        writeAtomic(file, EXPLORATION_MAGIC, 1, bytes.toByteArray());
+        writeAtomic(file, EXPLORATION_MAGIC, EXPLORATION_VERSION, bytes.toByteArray());
     }
 
     /**
@@ -354,7 +360,7 @@ public final class NotebookStore {
     }
 
     private static ExplorationTrail readExploration(File file, String notebookId, String areaId) throws IOException {
-        Envelope record = readEnvelope(file, EXPLORATION_MAGIC, 1, MAX_EXPLORATION_BYTES);
+        Envelope record = readEnvelope(file, EXPLORATION_MAGIC, EXPLORATION_VERSION, MAX_EXPLORATION_BYTES);
         try (DataInputStream in = record.input()) {
             if (!notebookId.equals(in.readUTF()) || !areaId.equals(in.readUTF()))
                 throw new IOException("Exploration identity does not match its notebook and area");
@@ -363,8 +369,12 @@ public final class NotebookStore {
             if (count > ExplorationTrail.MAX_STEPS) throw new IOException("Too many exploration steps");
             List<ExplorationTrail.Step> steps = new ArrayList<>(count);
             for (int i = 0; i < count; i++) steps.add(new ExplorationTrail.Step(in.readShort(), in.readUnsignedByte()));
+            // A version 1 record has nothing after the steps and no fights
+            // remembered, which is the truth about it rather than a loss.
+            byte[] ambushed = new byte[32];
+            if (record.version >= 2) in.readFully(ambushed);
             if (in.read() != -1) throw new IOException("Unexpected extra exploration data");
-            return ExplorationTrail.restore(visited, steps);
+            return ExplorationTrail.restore(visited, ambushed, steps);
         } catch (IllegalArgumentException invalid) {
             throw new IOException("Invalid exploration history", invalid);
         }

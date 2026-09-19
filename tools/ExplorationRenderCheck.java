@@ -62,6 +62,7 @@ public final class ExplorationRenderCheck {
             run("all real doorway states use the same neutral symbol",ExplorationRenderCheck::neutralDoors);
             run("a door seen from one side and not gone through is marked, and only then",ExplorationRenderCheck::unwalkedExits);
             run("older footprints are drawn smaller, and standing still changes nothing",ExplorationRenderCheck::footprintAges);
+            run("a square where a fight started is marked, and only that square",ExplorationRenderCheck::ambushMarks);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
     }
@@ -169,6 +170,40 @@ public final class ExplorationRenderCheck {
             if(baseline==null)baseline=actual;
             else equal(baseline,actual,"Door state advertised an unverified lock/secret/passability claim");
         }
+    }
+
+    private static void ambushMarks() {
+        /*
+         * Drawn from what happened to this party: a square is marked because a
+         * fight started there, and a neighbouring square is not. Marking the
+         * same square twice must look the same as marking it once -- the mark
+         * says a fight happened here, not how many.
+         */
+        byte[] geometry=new byte[1024];
+        GeoMap map=map(geometry);
+        ExplorationTrail walked=arriving(DEST+16,DEST);
+        Bitmap plain=render(map,walked,false,false);
+        ExplorationTrail jumped=walked.recordAmbush(DEST);
+        Bitmap marked=render(map,jumped,false,false);
+
+        check(dark(tile(marked,DEST,2))>dark(tile(plain,DEST,2)),
+                "The square where the fight started drew no mark");
+        equalTile(plain,marked,DEST+1,"A neighbouring square was marked too");
+        equalTile(plain,marked,DEST-1,"A neighbouring square was marked too");
+
+        equal(marked,render(map,jumped.recordAmbush(DEST),false,false),
+                "Marking the same square twice drew something different");
+
+        // It is a fact about the place: forgetting the route keeps it.
+        check(dark(tile(render(map,jumped.clearTrail(),false,false),DEST,2))>0,
+                "Clearing the trail forgot where the fight was");
+
+        // Too small to draw a creature rather than a smudge: draw nothing.
+        Bitmap tinyPlain=bitmap(SIZE,SIZE,Color.WHITE),tinyMarked=bitmap(SIZE,SIZE,Color.WHITE);
+        ART.drawExploration(new Canvas(tinyPlain),map,walked,false,false,PAD,PAD,6,1);
+        ART.drawExploration(new Canvas(tinyMarked),map,jumped,false,false,PAD,PAD,6,1);
+        equal(tinyPlain,tinyMarked,"A cell too small for the mark drew one anyway");
+        monochrome(marked);
     }
 
     private static void footprintAges() {

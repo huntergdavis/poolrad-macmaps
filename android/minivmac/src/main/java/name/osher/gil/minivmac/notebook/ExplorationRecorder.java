@@ -45,6 +45,21 @@ public final class ExplorationRecorder {
         return trail;
     }
 
+    /**
+     * Remember that a fight started on this square.
+     *
+     * Kept out of {@link #observe}: an ambush is not a step, it does not
+     * continue or interrupt the route, and it must not disturb the segment
+     * tracking that decides whether the next footprint gets a direction.
+     */
+    public ExplorationTrail ambush(String run, String key, int tile) throws IOException {
+        select(run, key);
+        ExplorationTrail next = trail.recordAmbush(tile);
+        if (next != trail) store.saveExploration(run, key, next);
+        trail = next;
+        return trail;
+    }
+
     public ExplorationTrail read(String run, String key) throws IOException {
         select(run, key); return trail;
     }

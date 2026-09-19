@@ -120,6 +120,7 @@ public final class MapArtwork {
             TileVisibility visibility=visitedOnly ? tile -> trail!=null && trail.visited(tile) : null;
             drawGeometry(canvas,map,visibility,left,top,cell,density);
             drawUnwalkedExits(canvas,map,trail,left,top,cell,density);
+            drawAmbushes(canvas,trail,left,top,cell,density);
         } finally { canvas.restoreToCount(saved); }
     }
 
@@ -171,6 +172,42 @@ public final class MapArtwork {
             canvas.drawLine(apexX,apexY,baseX+perpX*spread,baseY+perpY*spread,ink);
         });
         ink.setStrokeCap(Paint.Cap.BUTT);
+    }
+
+    /**
+     * A struck-through monster's head on every square where a fight started.
+     *
+     * Drawn from what happened to this party and nothing else: no bestiary, no
+     * name, no count. A square where you were jumped once and a square where
+     * you were jumped five times look the same, because what the map is for is
+     * remembering where the trouble is, not scoring it.
+     *
+     * Two horns, a head and a diagonal line through it. Nothing else on this
+     * map is a closed shape with a line across it, and at this size a
+     * recognisable monster is not on offer -- a silhouette that reads as "a
+     * creature, cancelled" is.
+     */
+    private void drawAmbushes(Canvas canvas,ExplorationTrail trail,
+            float left,float top,float cell,float density) {
+        if(trail==null||!(cell>0)||!(density>0)) return;
+        if(cell<11*density) return;
+        ink.setColor(Color.BLACK);
+        ink.setStrokeCap(Paint.Cap.BUTT);
+        for(int tile=0;tile<256;tile++) {
+            if(!trail.ambushed(tile)) continue;
+            float cx=left+(tile%16+.5f)*cell, cy=top+(tile/16+.5f)*cell;
+            float r=cell*.26f;
+            ink.setStyle(Paint.Style.STROKE);
+            ink.setStrokeWidth(Math.max(1f*density,cell*.045f));
+            canvas.drawCircle(cx,cy+r*.15f,r*.72f,ink);
+            // Two horns, so the shape is a creature rather than a coin.
+            canvas.drawLine(cx-r*.55f,cy-r*.45f,cx-r*.85f,cy-r,ink);
+            canvas.drawLine(cx+r*.55f,cy-r*.45f,cx+r*.85f,cy-r,ink);
+            // And the line that says it happened here.
+            ink.setStrokeWidth(Math.max(1.2f*density,cell*.06f));
+            canvas.drawLine(cx-r,cy+r,cx+r,cy-r,ink);
+        }
+        ink.setStyle(Paint.Style.FILL);
     }
 
     /** Two staggered soles with separate heels, facing north before rotation. */

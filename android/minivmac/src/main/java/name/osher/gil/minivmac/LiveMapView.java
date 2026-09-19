@@ -141,6 +141,8 @@ public final class LiveMapView extends View {
         default void onFogToggled(boolean visitedOnly) { }
         /** The player tapped the Return key in the map's corner. */
         default void onReturnPressed() { }
+        /** A fight has just started on this square of this area. */
+        default void onAmbush(AreaIdentity area, int tile) { }
         /**
          * The player tapped a character's Q. {@code member} numbers the party
          * rows as they are drawn, which is the numbering the writer uses.
@@ -325,6 +327,16 @@ public final class LiveMapView extends View {
         }
         mode = nextMode;
         // Never a stale battlefield: leaving combat drops it, hold and all.
+        /*
+         * A fight starting is the last moment the party's own square is known:
+         * combat takes the position away, so the square has to be read from the
+         * frame before rather than from this one.
+         */
+        if (nextMode == MapMode.COMBAT && mode != MapMode.COMBAT
+                && positionAvailable && state != null && listener != null) {
+            AreaIdentity where = displayedArea();
+            if (where != null) listener.onAmbush(where, state.y * 16 + state.x);
+        }
         if (nextMode != MapMode.COMBAT) {
             combat = null; combatHold.reset();
             // A lit row must not outlive the grid that explained it.

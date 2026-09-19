@@ -90,11 +90,53 @@ public class ExplorationStoreTest {
         assertThrows(IllegalArgumentException.class,()->store.saveExploration(book,AREA,null));
     }
 
+    @Test public void whereFightsStartedSurvivesBeingSavedAndLoaded() throws Exception {
+        File root=temporary.newFolder();NotebookStore store=new NotebookStore(root);
+        String book=store.createNotebook().id();
+        ExplorationTrail marked=trail().recordAmbush(17).recordAmbush(200);
+        store.saveExploration(book,AREA,marked);
+        ExplorationTrail back=store.loadExploration(book,AREA);
+        assertTrue(back.ambushed(17));
+        assertTrue(back.ambushed(200));
+        assertFalse(back.ambushed(18));
+        assertEquals(2,back.ambushCount());
+    }
+
+    @Test public void aRecordFromBeforeThisFeatureStillLoads() throws Exception {
+        /*
+         * Version 1 has nothing after the steps. Reading it as "no fights
+         * remembered here" is the truth about that record rather than a loss,
+         * and refusing it would throw away somebody's whole walked map.
+         */
+        File root=temporary.newFolder();NotebookStore store=new NotebookStore(root);
+        String book=store.createNotebook().id();
+        store.saveExploration(book,AREA,trail().recordAmbush(17));
+        File file=file(root,book,AREA);
+        byte[] current=bytes(file);
+        // Rebuild it as version 1: magic, version, payload length, payload,
+        // CRC of the payload. The 32 bytes of marks this build appends come
+        // off the end of the payload.
+        int payloadLength=ByteBuffer.wrap(current).getInt(8)-32;
+        byte[] payload=java.util.Arrays.copyOfRange(current,12,12+payloadLength);
+        java.util.zip.CRC32 crc=new java.util.zip.CRC32();
+        crc.update(payload);
+        // The checksum is a long, so the envelope costs twenty bytes, not sixteen.
+        ByteBuffer older=ByteBuffer.allocate(12+payloadLength+8);
+        older.putInt(ByteBuffer.wrap(current).getInt(0)).putInt(1).putInt(payloadLength)
+                .put(payload).putLong(crc.getValue());
+        Files.write(file.toPath(),older.array());
+
+        ExplorationTrail back=store.loadExploration(book,AREA);
+        assertEquals("no fights remembered, because the record had none",0,back.ambushCount());
+        assertTrue("and the walked squares came through",back.visited(17));
+    }
+
     @Test public void corruptFutureTruncatedOversizedDataFailsAndIsNeverOverwritten() throws Exception {
         File root=temporary.newFolder();NotebookStore store=new NotebookStore(root);String book=store.createNotebook().id();
         store.save(book,AREA,1,1,InkNote.empty());store.saveExploration(book,AREA,trail());
         File file=file(root,book,AREA);byte[] original=bytes(file),badCrc=original.clone(),future=original.clone();
-        badCrc[badCrc.length-1]^=1;ByteBuffer.wrap(future).putInt(4,2);
+        // Version 2 is what this build writes; 3 is the one from the future.
+        badCrc[badCrc.length-1]^=1;ByteBuffer.wrap(future).putInt(4,3);
         byte[] length=original.clone();ByteBuffer.wrap(length).putInt(8,Integer.MAX_VALUE);
         for(byte[] broken:new byte[][]{new byte[0],Arrays.copyOf(original,11),Arrays.copyOf(original,original.length-1),
                 badCrc,future,length,Arrays.copyOf(original,original.length+1),new byte[1045]}) {
