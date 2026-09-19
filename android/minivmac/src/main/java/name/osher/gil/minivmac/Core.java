@@ -21,6 +21,7 @@ public class Core {
 	private static final String TAG = "minivmac.Core";
 	
 	private int numInsertedDisks = 0;
+	private final DiskSnapshotGuard snapshotDisks = new DiskSnapshotGuard();
 	@SuppressWarnings("unused") private String[] diskPath;
 	@SuppressWarnings("unused") private RandomAccessFile[] diskFile;
 
@@ -216,7 +217,7 @@ public class Core {
 	 * never touches the game's menus and never restarts the machine. Unlike
 	 * the RAM snapshot above this is a real feature, not DEBUG-only.
 	 */
-	public interface SaveStateListener { void onState(byte[] state, int[] preview, int width, int height); }
+	public interface SaveStateListener { void onState(byte[] state, int[] preview, int width, int height, DiskSnapshotGuard.Ticket disks); }
 	private SaveStateListener mSaveStateListener;
 	public void setSaveStateListener(SaveStateListener listener) { mSaveStateListener = listener; }
 
@@ -224,34 +225,54 @@ public class Core {
 	public boolean requestSaveState() { return initOk && requestSaveStateNative(); }
 	private static native boolean requestSaveStateNative();
 
-	/** Hand a raw save-state blob back to be applied at the next safe boundary. */
-	public boolean restoreState(byte[] state) {
-		return restoreState(state, restored -> { });
-	}
 	public interface RestoreListener { void completed(boolean restored); }
-	private final java.util.concurrent.atomic.AtomicReference<RestoreListener> restoreListener =
+	private static final class RestoreRequest {
+		final RestoreListener listener;
+		final DiskSnapshotGuard.Verified disks;
+		RestoreRequest(RestoreListener listener, DiskSnapshotGuard.Verified disks) {
+			this.listener = listener; this.disks = disks;
+		}
+	}
+	private final java.util.concurrent.atomic.AtomicReference<RestoreRequest> restoreRequest =
 			new java.util.concurrent.atomic.AtomicReference<>();
 
-	/** Completion runs on the emulation thread after the actual restore attempt. */
-	public boolean restoreState(byte[] state, RestoreListener listener) {
-		if (!initOk || state == null || listener == null || !restoreListener.compareAndSet(null, listener)) return false;
+	/** Worker only: compare exact disk contents before asking the UI to restore. */
+	public DiskSnapshotGuard.Verified verifySnapshotDisks(DiskSnapshotGuard.Fingerprint expected) throws IOException {
+		return snapshotDisks.verify(expected);
+	}
+
+	/** Queue a verified image; JNI checks its proof again at the actual safe boundary. */
+	public synchronized boolean restoreState(byte[] state, DiskSnapshotGuard.Verified disks, RestoreListener listener) {
+		if (!initOk || state == null || listener == null || !snapshotDisks.isCurrent(disks)) return false;
+		RestoreRequest request = new RestoreRequest(listener, disks);
+		if (!restoreRequest.compareAndSet(null, request)) return false;
 		cancelPartySelection();
-		quickQueue.clear(); // Do not apply an old session's queued preferences to a restored machine.
+		quickQueue.clear();
 		if (requestRestoreStateNative(state)) return true;
-		restoreListener.compareAndSet(listener, null);
+		restoreRequest.compareAndSet(request, null);
 		return false;
 	}
 	private static native boolean requestRestoreStateNative(byte[] state);
 
-	@SuppressWarnings("unused") // Called at the native safe boundary, before new samples.
-	public void onStateRestored(boolean restored) {
-		RestoreListener listener = restoreListener.getAndSet(null);
-		if (listener != null) listener.completed(restored);
+	/** JNI holds this Core's monitor from this check through the RAM/CPU restore. */
+	@SuppressWarnings("unused")
+	public boolean canRestoreState() {
+		RestoreRequest request = restoreRequest.get();
+		return request != null && snapshotDisks.isCurrent(request.disks);
 	}
 
-	/** Called from native with the captured machine state. */
+	@SuppressWarnings("unused")
+	public void onStateRestored(boolean restored) {
+		RestoreRequest request = restoreRequest.getAndSet(null);
+		if (request != null) request.listener.completed(restored);
+	}
+
+	/** JNI holds Core's monitor across the machine copy and this disk ticket. */
 	public void onSaveState(byte[] state, int[] preview, int width, int height) {
-		if (mSaveStateListener != null) mSaveStateListener.onState(state, preview, width, height);
+		DiskSnapshotGuard.Ticket disks = null;
+		try { disks = snapshotDisks.capture(); }
+		catch (IllegalStateException stopped) { state = null; }
+		if (mSaveStateListener != null) mSaveStateListener.onState(state, preview, width, height, disks);
 	}
 
 	private static volatile boolean mIsInitialized = false;
@@ -505,7 +526,7 @@ public class Core {
 	@SuppressWarnings("unused") private native static int getNumDrives();
 	
 	// disk driver callbacks
-	public int sonyTransfer(boolean isWrite, ByteBuffer buf, int driveNum, int start, int length) {
+	public synchronized int sonyTransfer(boolean isWrite, ByteBuffer buf, int driveNum, int start, int length) {
 		if (diskFile[driveNum] == null) return -1;
 		try {
 			byte[] bytes = new byte[length];
@@ -513,6 +534,7 @@ public class Core {
 			{
 				buf.rewind();
 				buf.get(bytes);
+				snapshotDisks.beforeWrite();
 				diskFile[driveNum].seek(start);
 				diskFile[driveNum].write(bytes);
 				return length;
@@ -532,7 +554,7 @@ public class Core {
 		}
 	}
 	
-	public int sonyGetSize(int driveNum) {
+	public synchronized int sonyGetSize(int driveNum) {
 		if (diskFile[driveNum] == null) return 0;
 		try {
 			return (int)diskFile[driveNum].length();
@@ -542,14 +564,16 @@ public class Core {
 		}
 	}
 
-	public int sonyEject(int driveNum, boolean deleteit) {
+	public synchronized int sonyEject(int driveNum, boolean deleteit) {
 		if (diskFile[driveNum] == null) return -1;
 		int ret;
+		snapshotDisks.unmounted(driveNum);
 		try {
 			diskFile[driveNum].close();
 			ret = 0;
 		} catch (Exception x) {
 			diskCloseFailed = true;
+			snapshotDisks.stopped();
 			DiskAccessGate.GLOBAL.poison();
 			Log.e(TAG, "Disk handle could not be closed safely", x);
 			ret = -1;
@@ -577,6 +601,7 @@ public class Core {
 	 */
 	public synchronized boolean closeDisksAfterEmulation() {
 		emulationEnded = true;
+		snapshotDisks.stopped();
 		if (diskFile != null) {
 			for (int i = 0; i < diskFile.length; i++) {
 				RandomAccessFile file = diskFile[i];
@@ -669,7 +694,8 @@ public class Core {
 			return false;
 		}
 		
-		// insert disk
+		// Register before native insertion so every captured drive has a matching handle.
+		snapshotDisks.mounted(driveNum, diskFile[driveNum], mode.equals("rw"));
 		notifyDiskInserted(driveNum, !f.canWrite());
 		diskPath[driveNum] = f.getAbsolutePath();
 		numInsertedDisks++;

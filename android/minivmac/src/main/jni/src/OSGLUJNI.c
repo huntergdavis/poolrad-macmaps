@@ -65,6 +65,7 @@ jmethodID jGetClipboardText, jSetClipboardText;
 jmethodID jRamSnapshot;
 jmethodID jSaveState;
 jmethodID jStateRestored;
+jmethodID jCanRestoreState;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 LOCALVAR atomic_int WantSaveState = 0;
 LOCALVAR atomic_int WantRestoreState = 0;
@@ -1397,6 +1398,12 @@ LOCALPROC DeliverSaveState(void)
 	ui3p buf;
 	jbyteArray arr = NULL;
 	if (atomic_exchange(&WantSaveState, 0) == 0) return;
+	/* Core serializes mounted-disk changes with this RAM copy and its ticket. */
+	if ((*jEnv)->MonitorEnter(jEnv, mCore) != JNI_OK) {
+		(*jEnv)->ExceptionClear(jEnv);
+		(*jEnv)->CallVoidMethod(jEnv, mCore, jSaveState, NULL, NULL, 0, 0);
+		return;
+	}
 	sz = PoolRadSaveStateSize();
 	buf = (ui3p) malloc(sz);
 	if (buf != nullpr) {
@@ -1442,6 +1449,7 @@ LOCALPROC DeliverSaveState(void)
 	(*jEnv)->CallVoidMethod(jEnv, mCore, jSaveState, arr, preview, pw, ph);
 	if (preview != NULL) (*jEnv)->DeleteLocalRef(jEnv, preview);
 	if (arr != NULL) { (*jEnv)->DeleteLocalRef(jEnv, arr); }
+	(*jEnv)->MonitorExit(jEnv, mCore);
 }
 
 LOCALPROC DeliverRestoreState(void)
@@ -1449,12 +1457,18 @@ LOCALPROC DeliverRestoreState(void)
 	jboolean restored = JNI_FALSE;
 	if (atomic_exchange(&WantRestoreState, 0) == 0) return;
 	if (gRestoreBuf != nullpr) {
-		if (PoolRadRestoreState(gRestoreBuf, gRestoreLen)) {
-			restored = JNI_TRUE;
-			/* Repaint the whole screen from the restored video buffer, so a
-			   load is visible at once even on a still screen. */
-			NeedWholeScreenDraw = trueblnr;
-		}
+		if ((*jEnv)->MonitorEnter(jEnv, mCore) == JNI_OK) {
+			jboolean verified = (*jEnv)->CallBooleanMethod(jEnv, mCore, jCanRestoreState);
+			if ((*jEnv)->ExceptionCheck(jEnv)) {
+				(*jEnv)->ExceptionClear(jEnv); verified = JNI_FALSE;
+			}
+			/* No disk write, mount or eject can intervene before the apply. */
+			if (verified && PoolRadRestoreState(gRestoreBuf, gRestoreLen)) {
+				restored = JNI_TRUE;
+				NeedWholeScreenDraw = trueblnr;
+			}
+			(*jEnv)->MonitorExit(jEnv, mCore);
+		} else (*jEnv)->ExceptionClear(jEnv);
 		free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
 	}
 	(*jEnv)->CallVoidMethod(jEnv, mCore, jStateRestored, restored);
@@ -1763,6 +1777,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     jRamSnapshot = (*env)->GetMethodID(env, this, "onRamSnapshot", "([B)V");
 	jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
 	jStateRestored = (*env)->GetMethodID(env, this, "onStateRestored", "(Z)V");
+	jCanRestoreState = (*env)->GetMethodID(env, this, "canRestoreState", "()Z");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
     jPartySample = (*env)->GetMethodID(env, this, "onPartySample", "([B)V");

@@ -95,13 +95,16 @@ game messages in the current notebook.
 the newest quick save immediately. **Load…** shows all quick, named and automatic
 saves with their date, time and captured game screen; choose one to preview and load.
 The small previews are encoded in the background, and each snapshot remembers
-its notebook. Older saves without a picture still work.
+its notebook. Snapshots now require disk verification: older emulator snapshots
+are unsupported. A missing picture does not block a valid new snapshot.
 
 Original-game save-file backups live under **Settings → Back up / restore game
 saves…**. These are separate from emulator snapshots and notebook exports.
 Snapshots restore memory, **not disk contents**; keep independent disk backups
-and use the Mac's normal shutdown instead of force-quitting. Disk consistency
-across old-state restores remains under investigation. [Save-state details](docs/SAVE_STATES.md).
+and use the Mac's normal shutdown instead of force-quitting. Loading requires
+the mounted disks to match the snapshot exactly; a mismatch leaves the running
+game intact. This prevents stale memory from being restored against newer disks.
+Hard quits can still damage HFS metadata. [Save-state details](docs/SAVE_STATES.md).
 
 ## Also offline
 

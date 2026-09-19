@@ -1,6 +1,7 @@
 package name.osher.gil.minivmac;
 
 import android.graphics.Bitmap;
+import name.osher.gil.minivmac.DiskSnapshotGuard;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
@@ -14,7 +15,7 @@ public final class SavePreviewCheck {
         int[] pixels=new int[384*288];
         for(int y=0;y<288;y++) for(int x=0;x<384;x++) pixels[y*384+x]=x<192?0xff000000:0xffffffff;
         byte[] state=new byte[1000];state[5]=42;
-        File save=store.writeQuick(state,1790000000123L);
+        File save=store.writeQuick(state,1790000000123L, DiskSnapshotGuard.Fingerprint.empty());
         if(SavePreview.read(save)!=null) throw new AssertionError("Invented legacy preview");
         long start=android.os.SystemClock.elapsedRealtime();
         store.writePreview(save,SavePreview.encode(pixels,384,288));

@@ -995,25 +995,25 @@ lands rather than at the end. The planned releases:
 
 ### P0 — his designation
 
-- [ ] **F97 — Disk-safety audit for hard quits and snapshot restores (P0, 2026-09-19).**
-  User reports another agent observed eventual disk corruption after hard quits;
-  the user has not observed it on their tablet. Reproduce only on disposable
-  copies, compare clean shutdown versus process death, and check HFS integrity
-  after restoring RAM from before a guest disk write. Current snapshots do not
-  include disk contents: fast restore avoids restart-based loading but is not
-  a disk backup or proof of crash safety. Decide whether a disk-generation guard
-  or matched copy-on-write disk snapshots are needed without slowing saves.
-  Keep original disks and independent backups. The local play helper no longer
-  force-stops the guest just to reach the title screen; corruption prevention
-  itself remains unverified.
-  **Owner decision, 2026-09-19:** require the new disk-verified snapshot
-  format and refuse older unverified snapshots. No compatibility mode or
-  warning override: “let's not overcomplicate by supporting older saves,
-  this is still in active development pre version 1.” This applies to F97's
-  emulator snapshots. Show a clear unsupported-format message when refused.
-  F97 is next after the Money release, 0.83.0.
-  Audit also found `SaveStateStore` attempts fsync after gzip closes its stream;
-  fix that durability ordering as part of this item.
+- [x] **F97 — Disk-safety audit for hard quits and snapshot restores (0.84.0).**
+  Disposable comparisons reproduced persistent HFS metadata errors after an
+  idle hard quit and a missing newer save with orphaned blocks after restoring
+  old RAM against a changed disk. Normal shutdown and a two-save control added
+  no diagnostics to the source's existing reserved-field warnings.
+  PRQS3 now requires the mounted disk slots, write protection, lengths and
+  SHA-256 contents to match. A revision proof is checked again at the native
+  restore boundary. PRQS1/2 are explicitly unsupported, following the owner's
+  pre-1.0 decision; no compatibility mode or override. The existing RAM diff
+  remains; hashing and sync stay on the worker. Matched copy-on-write disks
+  are not required for this refusal-based consistency rule.
+  Gzip finishes and fsyncs before closing and publishing both reference and
+  snapshot files; failed sync preserves earlier history. 673 Java tests,
+  Android preview acceptance, matching live restore, disk-mismatch refusal,
+  old-format refusal and malformed-native-body refusal pass.
+  **Hard quits remain unsafe:** the guard prevents stale snapshot restores,
+  not abrupt-death HFS damage. Keep normal Mac shutdown and independent disk
+  backups. All audit writes used disposable copies; original checksums match.
+  See [DISK_SAFETY.md](DISK_SAFETY.md).
 
 - [x] **F94 — Ten quick saves with dated screenshot previews (0.70.0).**
   Keep the latest ten quick saves instead of overwriting one slot. Show terse,

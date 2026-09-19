@@ -8,6 +8,8 @@ import argparse
 import os
 from pathlib import Path
 import subprocess
+import struct
+import xml.etree.ElementTree as ET
 import time
 
 
@@ -26,6 +28,14 @@ def main():
         p.error('Use an even emulator port between 5554 and 5682')
     for f in (a.apk,a.rom,a.disk):
         if not f.is_file(): p.error(f'Missing input: {f}')
+    # Match the app's Mac II ROM identities before seeding first-run preferences.
+    rom = a.rom.read_bytes()
+    known = {0x97851DB6: 'Macintosh II (800k v1)', 0x9779D2C4: 'Macintosh II (800k v2)'}
+    if len(rom) != 0x40000:
+        p.error('Expected a complete Macintosh II ROM')
+    checksum = int.from_bytes(rom[:4], 'big')
+    if checksum not in known or sum(struct.unpack('>131070H', rom[4:])) != checksum:
+        p.error('Macintosh II ROM checksum is not valid')
     if serial in subprocess.check_output([adb,'devices'],text=True):
         p.error('Emulator port is already in use')
     directory=a.directory.resolve(); directory.mkdir(parents=True,exist_ok=False)
@@ -54,7 +64,20 @@ def main():
     run('shell','run-as',pkg,'cp','/data/local/tmp/poolrad-test.rom','files/rom/MacII.ROM')
     run('shell','run-as',pkg,'cp','/data/local/tmp/poolrad-test.dsk','files/disks/disk1.dsk')
     run('shell','rm','/data/local/tmp/poolrad-test.rom','/data/local/tmp/poolrad-test.dsk')
-    run('shell','monkey','-p',pkg,'-c','android.intent.category.LAUNCHER','1')
+    # WelcomeFragment requires selection metadata, even when the ROM file exists.
+    # Seed only this new disposable app before its first launch.
+    settings = ET.Element('map')
+    ET.SubElement(settings, 'string', name='pref_rom').text = known[checksum]
+    ET.SubElement(settings, 'string', name='pref_rom_file').text = 'MacII.ROM'
+    ET.SubElement(settings, 'long', name='pref_rom_checksum', value=str(checksum))
+    preferences = directory / 'sandbox-preferences.xml'
+    ET.ElementTree(settings).write(preferences, encoding='utf-8', xml_declaration=True)
+    run('push', str(preferences), '/data/local/tmp/poolrad-test-preferences.xml')
+    run('shell', 'run-as', pkg, 'mkdir', '-p', 'shared_prefs')
+    run('shell', 'run-as', pkg, 'cp', '/data/local/tmp/poolrad-test-preferences.xml',
+        'shared_prefs/' + pkg + '_preferences.xml')
+    run('shell', 'rm', '/data/local/tmp/poolrad-test-preferences.xml')
+    run('shell', 'am', 'start', '-W', '-n', pkg + '/name.osher.gil.minivmac.MiniVMac')
     print(f'Ready: {serial}. Guest disk is a disposable copy. Shut down the Mac normally before updates.',flush=True)
 
 

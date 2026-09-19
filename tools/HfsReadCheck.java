@@ -43,6 +43,7 @@ public final class HfsReadCheck {
                         entry.name, entry.type, entry.creator, data.length, resource.length,
                         java.util.Arrays.toString(entry.dataExtents()),
                         java.util.Arrays.toString(entry.resourceExtents()));
+                System.out.println("    SHA-256 data=" + checksum(data) + " resource=" + checksum(resource));
                 if (data.length != entry.dataLength || resource.length != entry.resourceLength)
                     throw new IOException("Fork length disagreed with the catalog for " + entry.name);
                 checked++;
@@ -50,4 +51,13 @@ public final class HfsReadCheck {
             System.out.println(checked + " files read whole, lengths agreeing with the catalog");
         }
     }
+    private static String checksum(byte[] bytes) throws IOException {
+        try {
+            byte[] hash = java.security.MessageDigest.getInstance("SHA-256").digest(bytes);
+            StringBuilder text = new StringBuilder();
+            for (byte b : hash) text.append(String.format("%02x", b & 255));
+            return text.toString();
+        } catch (java.security.NoSuchAlgorithmException missing) { throw new IOException(missing); }
+    }
+
 }

@@ -13,7 +13,8 @@ public final class MakeRejectedState {
         if (args.length != 3) throw new IllegalArgumentException("COPIED_STORE SOURCE NEW_OUTPUT");
         SaveStateStore store = new SaveStateStore(new File(args[0]));
         File source = new File(args[1]);
-        byte[] original = store.read(source);
+        SaveStateStore.Snapshot snapshot = store.readSnapshot(source);
+        byte[] original = snapshot.state;
         if (original.length < 1024 || original[0] != 'P' || original[1] != 'R'
                 || original[2] != 'S' || original[3] != 'S')
             throw new IOException("Expected a native PRSS machine snapshot");
@@ -23,7 +24,9 @@ public final class MakeRejectedState {
         for (int i = 0; i < 4; i++) shortState[12 + i] = (byte)(shortState.length >>> (24 - i * 8));
         Path output = Path.of(args[2]).toAbsolutePath();
         try (OutputStream out = Files.newOutputStream(output, StandardOpenOption.CREATE_NEW)) {
-            out.write(new byte[]{'P','R','Q','S','2','\n',0}); // v2, complete-image mode
+            out.write(new byte[]{'P','R','Q','S','3','\n'});
+            snapshot.disks.writeTo(out);
+            out.write(0); // complete-image mode
             GZIPOutputStream gzip = new GZIPOutputStream(out);
             gzip.write(shortState); gzip.finish();
         }

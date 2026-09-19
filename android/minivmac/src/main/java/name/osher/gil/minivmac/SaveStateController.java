@@ -39,7 +39,7 @@ public final class SaveStateController {
         void finish(boolean restored, Runnable finished);
     }
     private static final String TAG = "PoolRad.SaveState";
-    private static final String LOAD_WARNING = "Replaces the running session; unsaved progress is lost. Disk files are not rewound.";
+    private static final String LOAD_WARNING = "Replaces the running session; unsaved progress is lost. The mounted disks must match the snapshot. Older snapshots are unsupported.";
     private final Activity activity;
     private final CoreAccess access;
     private final SaveStateStore store;
@@ -67,12 +67,12 @@ public final class SaveStateController {
     }
 
     /** Called on the emulation thread: no bitmap creation, compression or storage here. */
-    public void onState(byte[] state, int[] pixels, int width, int height) {
+    public void onState(byte[] state, int[] pixels, int width, int height, DiskSnapshotGuard.Ticket disks) {
         SaveRequestGate.Request request = requests.captured();
         if (disposed || request == null) return;
         long capturedAt = System.currentTimeMillis();
         long captureMs = SystemClock.elapsedRealtime() - request.started;
-        if (state == null) {
+        if (state == null || disks == null) {
             requests.finish(request);
             if (request.kind != SaveRequestGate.Kind.AUTO) main.post(() -> toast("The machine could not be captured."));
             return;
@@ -81,12 +81,13 @@ public final class SaveStateController {
             io.execute(() -> {
                 long began = SystemClock.elapsedRealtime();
                 try {
+                    DiskSnapshotGuard.Fingerprint fingerprint = disks.fingerprint();
                     File written;
-                    if (request.kind == SaveRequestGate.Kind.QUICK) written = store.writeQuick(state, capturedAt);
+                    if (request.kind == SaveRequestGate.Kind.QUICK) written = store.writeQuick(state, capturedAt, fingerprint);
                     else if (request.kind == SaveRequestGate.Kind.AUTO) {
                         String stamp = new SimpleDateFormat("MMM d h-mm-ss a", Locale.US).format(new Date(capturedAt));
-                        written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, 20);
-                    } else written = store.write(request.label, state);
+                        written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, 20, fingerprint);
+                    } else written = store.write(request.label, state, fingerprint);
                     store.writeBinding(written, request.notebook);
                     long previewStart = SystemClock.elapsedRealtime();
                     boolean preview = false;
@@ -241,7 +242,9 @@ public final class SaveStateController {
         loading = true;
         io.execute(() -> {
             try {
-                byte[] bytes = store.read(file); String binding = store.readBinding(file);
+                SaveStateStore.Snapshot snapshot = store.readSnapshot(file);
+                DiskSnapshotGuard.Verified disks = core.verifySnapshotDisks(snapshot.disks);
+                String binding = store.readBinding(file);
                 main.post(() -> {
                     if (!alive() || core != access.current()) { loading = false; return; }
                     if (notebook == null) { loading = false; toast("Open the companion notebook before loading."); return; }
@@ -260,10 +263,10 @@ public final class SaveStateController {
                                             main.post(() -> toast("Loaded, but notebook pairing could not be saved."));
                                     });
                                     toast("Loaded " + SaveStateStore.displayLabel(file));
-                                } else toast("The machine would not accept that save.");
+                                } else toast("Snapshot refused: the machine or mounted disks changed. Try loading an original game save.");
                             });
                         });
-                        if (!core.restoreState(bytes, completed)) completed.completed(false);
+                        if (!core.restoreState(snapshot.state, disks, completed)) completed.completed(false);
                     });
                 });
             } catch (IOException | RuntimeException failure) {

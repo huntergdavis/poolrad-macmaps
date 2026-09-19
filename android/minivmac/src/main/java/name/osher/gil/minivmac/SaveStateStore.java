@@ -50,7 +50,8 @@ public final class SaveStateStore {
     /** The reference template every diff is measured against; kept, never listed. */
     private static final String REFERENCE_NAME = "reference.prqref";
 
-    /** Save-file tags. v2 carries a mode byte and may be a diff; v1 was always a full image. */
+    /** v3 requires disk verification; older unverified snapshots are deliberately refused. */
+    private static final byte[] MAGIC3 = {'P', 'R', 'Q', 'S', '3', '\n'};
     private static final byte[] MAGIC2 = {'P', 'R', 'Q', 'S', '2', '\n'};
     private static final byte[] MAGIC1 = {'P', 'R', 'Q', 'S', '1', '\n'};
     /** Reference-file tag. */
@@ -66,8 +67,17 @@ public final class SaveStateStore {
     /** The reference image, decompressed and held once so save and load do not re-read it. */
     private byte[] cachedReference;
 
-    public SaveStateStore(File directory) {
-        this.directory = directory;
+    @FunctionalInterface interface Sync { void sync(FileOutputStream out) throws IOException; }
+    private final Sync sync;
+    public SaveStateStore(File directory) { this(directory, out -> out.getFD().sync()); }
+    SaveStateStore(File directory, Sync sync) { this.directory = directory; this.sync = sync; }
+
+    public static final class Snapshot {
+        public final byte[] state;
+        public final DiskSnapshotGuard.Fingerprint disks;
+        private Snapshot(byte[] state, DiskSnapshotGuard.Fingerprint disks) {
+            this.state = state; this.disks = disks;
+        }
     }
 
     /** Legacy slot, retained until it ages out of the ten-entry quick history. */
@@ -86,7 +96,7 @@ public final class SaveStateStore {
     }
 
     /** Publish a new quick save before retiring any previous one. Clock rollback is harmless. */
-    public File writeQuick(byte[] rawState, long capturedAt) throws IOException {
+    public File writeQuick(byte[] rawState, long capturedAt, DiskSnapshotGuard.Fingerprint disks) throws IOException {
         if (rawState == null || rawState.length < 16) throw new IOException("Empty save state");
         File dir = quickDirectory();
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Could not make quick-save history");
@@ -100,7 +110,7 @@ public final class SaveStateStore {
             }
         }
         File target = new File(dir, String.format(Locale.US, "q%020d_%013d.prqs", sequence, Math.max(0, capturedAt)));
-        write(target, rawState);
+        write(target, rawState, disks);
         target.setLastModified(Math.max(0, capturedAt));
         List<File> quick = quickSaves();
         for (int i = QUICK_KEEP; i < quick.size(); i++) delete(quick.get(i));
@@ -144,7 +154,8 @@ public final class SaveStateStore {
     }
 
     /** Compress a machine image to `target` as a diff against the reference, never overwriting in place. */
-    public void write(File target, byte[] rawState) throws IOException {
+    public void write(File target, byte[] rawState, DiskSnapshotGuard.Fingerprint disks) throws IOException {
+        if (disks == null) throw new IOException("Snapshot has no disk verification");
         if (rawState == null || rawState.length < 16) throw new IOException("Empty save state");
         if (!directory.isDirectory() && !directory.mkdirs())
             throw new IOException("Could not make the save-state folder");
@@ -165,35 +176,30 @@ public final class SaveStateStore {
         }
 
         File partial = new File(target.getPath() + ".part");
-        try (FileOutputStream out = new FileOutputStream(partial)) {
-            out.write(MAGIC2);
-            out.write(mode);
-            if (mode == MODE_DIFF) {
-                writeInt(out, rawState.length);
-                writeInt(out, (int) refCrc);
+        try {
+            try (FileOutputStream out = new FileOutputStream(partial)) {
+                out.write(MAGIC3);
+                disks.writeTo(out);
+                out.write(mode);
+                if (mode == MODE_DIFF) {
+                    writeInt(out, rawState.length);
+                    writeInt(out, (int) refCrc);
+                }
+                writeCompressed(out, payload);
             }
-            try (GZIPOutputStream gz = new GZIPOutputStream(out)) {
-                gz.write(payload);
-            }
-            // Best-effort durability; some filesystems refuse sync, which is
-            // not a failure to write.
-            try { out.getFD().sync(); } catch (IOException ignored) { }
-        }
-        // Named only once whole, so a listing never shows a half-written state.
-        if (!partial.renameTo(target)) {
-            partial.delete();
-            throw new IOException("Could not finish writing " + target.getName());
-        }
+            if (!partial.renameTo(target))
+                throw new IOException("Could not finish writing " + target.getName());
+        } finally { partial.delete(); }
     }
 
     /** A new named save gets its own file; existing names are never clobbered. */
-    public File write(String label, byte[] rawState) throws IOException {
+    public File write(String label, byte[] rawState, DiskSnapshotGuard.Fingerprint disks) throws IOException {
         String base = safe(label);
         // Legacy quick/auto names are reserved; a manually named save never rotates.
         if (base.equals("quick") || base.startsWith(AUTO_PREFIX)) base = "Named " + base;
         File target = new File(directory, base + EXTENSION);
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
-        write(target, rawState);
+        write(target, rawState, disks);
         return target;
     }
 
@@ -202,12 +208,12 @@ public final class SaveStateStore {
      * `keep`. Auto-saves are their own set (the "Auto " prefix) so this never
      * touches the quick slot or a save the player named.
      */
-    public File writeAuto(String label, byte[] rawState, int keep) throws IOException {
+    public File writeAuto(String label, byte[] rawState, int keep, DiskSnapshotGuard.Fingerprint disks) throws IOException {
         String base = safe(label);
         if (!base.startsWith(AUTO_PREFIX)) base = AUTO_PREFIX + base;
         File target = new File(directory, base + EXTENSION);
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
-        write(target, rawState);
+        write(target, rawState, disks);
         pruneAuto(keep);
         return target;
     }
@@ -227,20 +233,21 @@ public final class SaveStateStore {
     }
 
     /** Read a save file back to its raw machine image. */
-    public byte[] read(File file) throws IOException {
+    public byte[] read(File file) throws IOException { return readSnapshot(file).state; }
+
+    public Snapshot readSnapshot(File file) throws IOException {
         long length = file.length();
         if (length <= MAGIC2.length || length > MAX_FILE) throw new IOException("Not a usable save state");
         try (FileInputStream in = new FileInputStream(file)) {
             byte[] header = new byte[MAGIC2.length];
             readFully(in, header);
-            if (matches(header, MAGIC1)) {
-                // A whole image from an earlier version; just inflate it.
-                return inflate(in, MAX_FILE);
-            }
-            if (!matches(header, MAGIC2)) throw new IOException("Not a PoolRad save state");
+            if (matches(header, MAGIC1) || matches(header, MAGIC2))
+                throw new IOException("Unsupported older snapshot format: disk verification is required. Create a new snapshot.");
+            if (!matches(header, MAGIC3)) throw new IOException("Not a PoolRad save state");
+            DiskSnapshotGuard.Fingerprint disks = DiskSnapshotGuard.Fingerprint.readFrom(in);
             int mode = readByte(in);
             if (mode == MODE_FULL) {
-                return inflate(in, MAX_FILE);
+                return new Snapshot(inflate(in, MAX_FILE), disks);
             }
             if (mode == MODE_DIFF) {
                 int rawLen = readInt(in);
@@ -252,7 +259,7 @@ public final class SaveStateStore {
                     throw new IOException("This save state does not match the reference");
                 byte[] diff = inflate(in, MAX_FILE);
                 if (diff.length != rawLen) throw new IOException("Save state ended early");
-                return xor(diff, reference);
+                return new Snapshot(xor(diff, reference), disks);
             }
             throw new IOException("Unknown save-state format");
         }
@@ -338,7 +345,7 @@ public final class SaveStateStore {
         byte[] existing = loadReference();
         if (existing != null) return existing;
         writeReference(rawState);
-        cachedReference = rawState;
+        cachedReference = rawState.clone();
         return cachedReference;
     }
 
@@ -365,18 +372,25 @@ public final class SaveStateStore {
     private void writeReference(byte[] rawState) throws IOException {
         File ref = referenceFile();
         File partial = new File(ref.getPath() + ".part");
-        try (FileOutputStream out = new FileOutputStream(partial)) {
-            out.write(REFERENCE_MAGIC);
-            writeInt(out, rawState.length);
-            writeInt(out, (int) crc(rawState));
-            try (GZIPOutputStream gz = new GZIPOutputStream(out)) {
-                gz.write(rawState);
+        try {
+            try (FileOutputStream out = new FileOutputStream(partial)) {
+                out.write(REFERENCE_MAGIC);
+                writeInt(out, rawState.length);
+                writeInt(out, (int) crc(rawState));
+                writeCompressed(out, rawState);
             }
-            try { out.getFD().sync(); } catch (IOException ignored) { }
-        }
-        if (!partial.renameTo(ref)) {
-            partial.delete();
-            throw new IOException("Could not write the reference save state");
+            if (!partial.renameTo(ref))
+                throw new IOException("Could not write the reference save state");
+        } finally { partial.delete(); }
+    }
+
+    /** Finish the trailer, flush, and require fsync while the descriptor is still open. */
+    private void writeCompressed(FileOutputStream out, byte[] bytes) throws IOException {
+        try (GZIPOutputStream gzip = new GZIPOutputStream(out)) {
+            gzip.write(bytes);
+            gzip.finish();
+            gzip.flush();
+            sync.sync(out);
         }
     }
 

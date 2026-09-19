@@ -20,6 +20,9 @@ R_JAR="$ROOT/android/minivmac/build/intermediates/compile_and_runtime_not_namesp
 [ -f "$R_JAR" ] || { echo "Build app resources first" >&2; exit 1; }
 [ -d "$APP_CLASSES" ] || { echo "Build the app first: (cd android && ./gradlew :minivmac:assembleMacIIDebug)" >&2; exit 1; }
 
+PACKAGE="$(sed -n 's/^package \([A-Za-z0-9_.]*\);/\1/p' "$ROOT/tools/$CLASS.java")"
+RUN_CLASS="${PACKAGE:+$PACKAGE.}$CLASS"
+
 OUT="$(mktemp -d)"; trap 'rm -rf "$OUT"' EXIT
 javac -nowarn -source 17 -target 17 -cp "$ANDROID_JAR:$APP_CLASSES:$R_JAR" \
       -d "$OUT/classes" "$ROOT/tools/$CLASS.java"
@@ -30,4 +33,4 @@ REMOTE="/data/local/tmp/$CLASS.zip"
 adb push -q "$OUT/classes.dex" /data/local/tmp/classes.dex >/dev/null 2>&1 || adb push "$OUT/classes.dex" /data/local/tmp/classes.dex >/dev/null
 adb shell "cd /data/local/tmp && rm -f $CLASS.zip"
 (cd "$OUT" && zip -q classes.zip classes.dex) && adb push "$OUT/classes.zip" "$REMOTE" >/dev/null
-adb shell "CLASSPATH=$REMOTE app_process /system/bin $CLASS $*"
+adb shell "CLASSPATH=$REMOTE app_process /system/bin $RUN_CLASS $*"

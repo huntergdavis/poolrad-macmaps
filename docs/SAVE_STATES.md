@@ -1,6 +1,10 @@
 # Save states: real save/load outside the game
 
-Owner's direction, 2026-09-19, and the new P0 line of implementation.
+Current format: **PRQS3**, with required mounted-disk verification. PRQS1 and
+PRQS2 snapshots are unsupported. Original-game saves are unaffected.
+
+The earlier sections retain the implementation history; F97 below describes
+the current disk-consistency requirements.
 
 ## Why
 
@@ -82,7 +86,7 @@ Two things make it tractable:
    always `reference XOR (reference XOR image)`); the only requirement is the
    same reference bytes at save and load, which a persistent file and a CRC
    check guarantee. A save whose reference is missing or mismatched is refused
-   rather than reconstructed wrongly, and old whole-image files still load.
+   rather than reconstructed wrongly. F97 later withdrew old-format loading.
 
 3. **F92 — save and load from the companion — PASSED 2026-09-19.** Outside the
    game entirely: Quick save, Quick load, and Save states… (name / list /
@@ -180,20 +184,34 @@ or disk-mismatch fix is claimed.
 
 ![Separate notebook offered before loading](images/save-notebook-choice.png)
 
-## Disk-safety limitation (open F97)
+## F97 — required disk verification
 
-These are RAM/CPU/device/video snapshots, **not matched disk snapshots**. No
-guest write being in flight at the capture boundary does not imply that the
-disk is unchanged when an older state is restored: the restored Mac may hold
-cached filesystem metadata from before a later disk write. Quick loading is
-not a corruption-prevention mechanism or a substitute for disk backups.
+PRQS3 records each mounted drive's slot, write protection, byte length and
+SHA-256 alongside the existing full/diff payload. Capture hashes the actual
+mounted files on the worker thread; any intervening disk write or mount refuses
+the capture. Load compares fresh hashes before changing the notebook and
+checks the proof again at the native restore boundary. A mismatch leaves the
+running game and notebook intact.
 
-The user reports another agent observed corruption after hard quits, but has
-not observed it personally. This has not been reproduced or fixed here.
-Investigate process death and RAM/disk mismatch on disposable images (F97).
-The local play helper now resumes rather than force-stopping a mounted guest.
-Use normal Mac shutdown and independent backups. Notebook ZIP exports currently
-contain notebooks/trails/fog, not these state files or the shared reference.
+PRQS1 and PRQS2 are refused with a clear unsupported-format message, following
+the owner's pre-1.0 decision. There is no compatibility mode or override.
+The PRQR1 reference remains a reusable compression dictionary. Missing optional
+screenshots do not block valid PRQS3 snapshots.
+
+These are RAM/CPU/device/video snapshots, not disk backups. Restores require
+matching disk contents; they can be refused after normal shutdown or reboot
+changes the disk. Abrupt process death can still leave HFS metadata inconsistent.
+The disposable audit reproduced this and showed that a later clean shutdown
+did not repair it. Use normal Mac shutdown and independent disk backups.
+
+Both reference and snapshot writers now finish the gzip trailer, flush and
+fsync the still-open descriptor before atomic publication. Sync failures
+preserve earlier saves and history. The cached reference owns its bytes so
+caller mutation cannot invalidate previous diffs.
+
+See [the disk-safety audit](DISK_SAFETY.md) for the implementation, evidence and
+remaining limitations. Notebook ZIP exports contain notebooks/trails/fog,
+not these state files or the shared reference.
 
 ## How this relates to the game's own save format
 
