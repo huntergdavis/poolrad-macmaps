@@ -60,6 +60,15 @@ public final class ExplorationRecorder {
         return trail;
     }
 
+    /** Remember that the party found something on this square. */
+    public ExplorationTrail found(String run, String key, int tile) throws IOException {
+        select(run, key);
+        ExplorationTrail next = trail.recordFound(tile);
+        if (next != trail) store.saveExploration(run, key, next);
+        trail = next;
+        return trail;
+    }
+
     public ExplorationTrail read(String run, String key) throws IOException {
         select(run, key); return trail;
     }

@@ -19,18 +19,27 @@ public final class ExplorationTrail {
      * they drew.
      */
     private final byte[] ambushed;
+    /** Squares where the game said the party found treasure, one bit each. */
+    private final byte[] found;
     public final List<Step> steps;
 
     private ExplorationTrail(byte[] visited, List<Step> steps) {
-        this(visited, new byte[32], steps);
+        this(visited, new byte[32], new byte[32], steps);
     }
 
     private ExplorationTrail(byte[] visited, byte[] ambushed, List<Step> steps) {
+        this(visited, ambushed, new byte[32], steps);
+    }
+
+    private ExplorationTrail(byte[] visited, byte[] ambushed, byte[] found, List<Step> steps) {
         if (visited == null || visited.length != 32 || steps == null || steps.size() > MAX_STEPS)
             throw new IllegalArgumentException("Invalid exploration history size");
         if (ambushed == null || ambushed.length != 32)
             throw new IllegalArgumentException("Invalid ambush history size");
+        if (found == null || found.length != 32)
+            throw new IllegalArgumentException("Invalid discovery history size");
         this.ambushed = ambushed.clone();
+        this.found = found.clone();
         this.visited = visited.clone();
         ArrayList<Step> copy = new ArrayList<>(steps.size());
         for (Step step : steps) {
@@ -72,7 +81,7 @@ public final class ExplorationTrail {
         seen[tile >>> 3] |= (byte) (1 << (tile & 7));
         ArrayList<Step> recent = new ArrayList<>(steps.subList(steps.size() == MAX_STEPS ? 1 : 0, steps.size()));
         recent.add(new Step(from, tile));
-        return new ExplorationTrail(seen, ambushed, recent);
+        return new ExplorationTrail(seen, ambushed, found, recent);
     }
 
     /** Forget visible footprints while keeping all independently observed tiles. */
@@ -81,13 +90,18 @@ public final class ExplorationTrail {
      * which is a fact about the place rather than about the walk.
      */
     public ExplorationTrail clearTrail() {
-        return steps.isEmpty() ? this : new ExplorationTrail(visited, ambushed, Collections.emptyList());
+        return steps.isEmpty() ? this
+                : new ExplorationTrail(visited, ambushed, found, Collections.emptyList());
     }
 
     static ExplorationTrail restore(byte[] visited, List<Step> steps) { return new ExplorationTrail(visited, steps); }
 
     static ExplorationTrail restore(byte[] visited, byte[] ambushed, List<Step> steps) {
         return new ExplorationTrail(visited, ambushed, steps);
+    }
+
+    static ExplorationTrail restore(byte[] visited, byte[] ambushed, byte[] found, List<Step> steps) {
+        return new ExplorationTrail(visited, ambushed, found, steps);
     }
     byte[] copyVisited() { return visited.clone(); }
 
@@ -116,7 +130,29 @@ public final class ExplorationTrail {
         if (ambushed(tile)) return this;
         byte[] marks = ambushed.clone();
         marks[tile >>> 3] |= (byte) (1 << (tile & 7));
-        return new ExplorationTrail(visited, marks, steps);
+        return new ExplorationTrail(visited, marks, found, steps);
+    }
+
+    public byte[] copyFound() { return found.clone(); }
+
+    /** True when the game announced treasure on this square. */
+    public boolean found(int tile) {
+        return tile >= 0 && tile < 256 && (found[tile >>> 3] & (1 << (tile & 7))) != 0;
+    }
+
+    public int foundCount() {
+        int total = 0;
+        for (int tile = 0; tile < 256; tile++) if (found(tile)) total++;
+        return total;
+    }
+
+    /** Remember that the party found something here. Twice is the same as once. */
+    public ExplorationTrail recordFound(int tile) {
+        requireTile(tile);
+        if (found(tile)) return this;
+        byte[] marks = found.clone();
+        marks[tile >>> 3] |= (byte) (1 << (tile & 7));
+        return new ExplorationTrail(visited, ambushed, marks, steps);
     }
 
     private static boolean adjacent(int first, int second) {

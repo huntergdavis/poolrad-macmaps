@@ -76,7 +76,7 @@ public class ExplorationArchiveTest {
         first.saveExploration(id,AREA,trail());
         byte[] history=bytes(file(source,id,AREA+"/exploration.bin")),bad=history.clone(),future=history.clone();
         // Version 2 is what this build writes; 3 is the one from the future.
-        bad[bad.length-1]^=1;ByteBuffer.wrap(future).putInt(4,3);
+        bad[bad.length-1]^=1;ByteBuffer.wrap(future).putInt(4,4);
         byte[] metadata=bytes(file(source,id,"notebook.bin"));
         String path=AREA+"/exploration.bin";
         byte[][] archives={

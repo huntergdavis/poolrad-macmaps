@@ -1341,7 +1341,7 @@ quick-flag write.
 - [x] **F51 (delivered 0.53.0) — Mark where you were attacked.** Wherever a fight started, the map
   keeps a monster icon with a cross through it. Drawn from what actually
   happened to this party, so it spoils nothing and needs no bestiary.
-- [ ] **F74 — Mark squares where you found something** — an exclamation mark,
+- [x] **F74 (delivered 0.54.0) — Mark squares where you found something** — an exclamation mark,
   an open chest, and so on. User-visible history, not a spoiler: it records
   only what this party already found.
 - [x] **F50 (delivered 0.50.0) — Area progress on the map header** — "explored 62 of 256 squares".

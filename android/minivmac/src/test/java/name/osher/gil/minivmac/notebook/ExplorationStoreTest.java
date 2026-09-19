@@ -102,33 +102,52 @@ public class ExplorationStoreTest {
         assertEquals(2,back.ambushCount());
     }
 
-    @Test public void aRecordFromBeforeThisFeatureStillLoads() throws Exception {
+    @Test public void recordsFromEveryOlderVersionStillLoad() throws Exception {
         /*
-         * Version 1 has nothing after the steps. Reading it as "no fights
-         * remembered here" is the truth about that record rather than a loss,
-         * and refusing it would throw away somebody's whole walked map.
+         * Version 1 predates the ambush marks and version 2 the discovery
+         * marks. Each reads as "none of those remembered here", which is the
+         * truth about that record rather than a loss: refusing one would throw
+         * away somebody's whole walked map over a feature it never had.
+         *
+         * Built here rather than trimmed from a current record, so that the
+         * next version to be added does not quietly break this.
          */
         File root=temporary.newFolder();NotebookStore store=new NotebookStore(root);
         String book=store.createNotebook().id();
-        store.saveExploration(book,AREA,trail().recordAmbush(17));
+        store.saveExploration(book,AREA,trail());
         File file=file(root,book,AREA);
-        byte[] current=bytes(file);
-        // Rebuild it as version 1: magic, version, payload length, payload,
-        // CRC of the payload. The 32 bytes of marks this build appends come
-        // off the end of the payload.
-        int payloadLength=ByteBuffer.wrap(current).getInt(8)-32;
-        byte[] payload=java.util.Arrays.copyOfRange(current,12,12+payloadLength);
-        java.util.zip.CRC32 crc=new java.util.zip.CRC32();
-        crc.update(payload);
-        // The checksum is a long, so the envelope costs twenty bytes, not sixteen.
-        ByteBuffer older=ByteBuffer.allocate(12+payloadLength+8);
-        older.putInt(ByteBuffer.wrap(current).getInt(0)).putInt(1).putInt(payloadLength)
-                .put(payload).putLong(crc.getValue());
-        Files.write(file.toPath(),older.array());
+        ExplorationTrail expected=store.loadExploration(book,AREA);
 
+        for(int version=1;version<=2;version++) {
+            java.io.ByteArrayOutputStream payload=new java.io.ByteArrayOutputStream();
+            try(java.io.DataOutputStream out=new java.io.DataOutputStream(payload)) {
+                out.writeUTF(book); out.writeUTF(AREA);
+                out.write(expected.copyVisited()); out.writeShort(expected.steps.size());
+                for(ExplorationTrail.Step step:expected.steps) { out.writeShort(step.from); out.writeByte(step.to); }
+                if(version>=2) out.write(new byte[32]);
+            }
+            byte[] body=payload.toByteArray();
+            java.util.zip.CRC32 crc=new java.util.zip.CRC32(); crc.update(body);
+            ByteBuffer older=ByteBuffer.allocate(12+body.length+8);
+            older.putInt(0x50524558).putInt(version).putInt(body.length).put(body).putLong(crc.getValue());
+            Files.write(file.toPath(),older.array());
+
+            ExplorationTrail back=store.loadExploration(book,AREA);
+            assertEquals("version "+version+" coverage",expected.visitedCount(),back.visitedCount());
+            assertEquals("version "+version+" remembers no fights",0,back.ambushCount());
+            assertEquals("version "+version+" remembers no finds",0,back.foundCount());
+        }
+    }
+
+    @Test public void whatWasFoundSurvivesBeingSavedAndLoaded() throws Exception {
+        File root=temporary.newFolder();NotebookStore store=new NotebookStore(root);
+        String book=store.createNotebook().id();
+        store.saveExploration(book,AREA,trail().recordAmbush(17).recordFound(99));
         ExplorationTrail back=store.loadExploration(book,AREA);
-        assertEquals("no fights remembered, because the record had none",0,back.ambushCount());
-        assertTrue("and the walked squares came through",back.visited(17));
+        assertTrue(back.ambushed(17));
+        assertTrue(back.found(99));
+        assertFalse("a fight is not a find",back.found(17));
+        assertFalse("and a find is not a fight",back.ambushed(99));
     }
 
     @Test public void corruptFutureTruncatedOversizedDataFailsAndIsNeverOverwritten() throws Exception {
@@ -136,7 +155,7 @@ public class ExplorationStoreTest {
         store.save(book,AREA,1,1,InkNote.empty());store.saveExploration(book,AREA,trail());
         File file=file(root,book,AREA);byte[] original=bytes(file),badCrc=original.clone(),future=original.clone();
         // Version 2 is what this build writes; 3 is the one from the future.
-        badCrc[badCrc.length-1]^=1;ByteBuffer.wrap(future).putInt(4,3);
+        badCrc[badCrc.length-1]^=1;ByteBuffer.wrap(future).putInt(4,4);
         byte[] length=original.clone();ByteBuffer.wrap(length).putInt(8,Integer.MAX_VALUE);
         for(byte[] broken:new byte[][]{new byte[0],Arrays.copyOf(original,11),Arrays.copyOf(original,original.length-1),
                 badCrc,future,length,Arrays.copyOf(original,original.length+1),new byte[1045]}) {

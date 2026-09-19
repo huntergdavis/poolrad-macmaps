@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import name.osher.gil.minivmac.journal.DiscoveryMessage;
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.ExplorationStyle;
 import name.osher.gil.minivmac.mapper.PoolRadState;
@@ -224,7 +225,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
      * only wordings observed in the game.
      */
     public void onGameMessage(byte[] sample) {
-        if (disposed || journal == null) return;
+        if (disposed) return;
+        noteTreasure(sample);
+        if (journal == null) return;
         java.util.Set<JournalBook.Key> cited =
                 JournalCitation.read(name.osher.gil.minivmac.journal.GameMessage.parse(sample));
         if (cited.isEmpty()) return;
@@ -282,6 +285,34 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     }
 
     /**
+     * The game saying the party found treasure, marked on the square they were
+     * standing on.
+     *
+     * One exact sentence out of the game's own strings, so there is nothing to
+     * guess at. Unlike a fight, a find happens while the position is perfectly
+     * readable, so the square is simply the one the party is on.
+     */
+    private void noteTreasure(byte[] sample) {
+        if (notebook == null || lastTile < 0 || lastArea == null) return;
+        name.osher.gil.minivmac.journal.GameMessage message =
+                name.osher.gil.minivmac.journal.GameMessage.parse(sample);
+        if (message == null || !DiscoveryMessage.foundTreasure(message.text)) return;
+        final NotebookStore.Notebook book = notebook;
+        final String areaId = lastArea;
+        final int tile = lastTile;
+        IO.execute(() -> {
+            try {
+                ExplorationTrail marked = exploration.found(book.id(), areaId, tile);
+                main.post(() -> {
+                    if (!disposed && explorationTarget(book, areaId)) map.showExploration(marked, "");
+                });
+            } catch (IOException | RuntimeException failure) {
+                android.util.Log.w("PoolRad.Notebook", "Could not record a find", failure);
+            }
+        });
+    }
+
+    /**
      * Where a fight started, remembered with the map rather than with the
      * party. It is a fact about the place: this corridor is where things jump
      * you, and that is worth knowing next time whoever is in the party.
@@ -305,6 +336,10 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     @Override public void onAreaChanged(AreaIdentity next) { area = next; refreshFlags(); }
 
+    /** The last square the party was certainly standing on, and where. */
+    private int lastTile = -1;
+    private String lastArea;
+
     @Override public void onExplorationSample(PoolRadState sample) {
         if (disposed) return;
         // A normal step clears the input-wait tag while it updates the map.
@@ -317,6 +352,10 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             return;
         }
         explorationInterrupted = false;
+        // Where the party is, kept for anything that hears about an event after
+        // the fact -- the game says it found treasure, not where.
+        lastArea = sample.area.id();
+        lastTile = sample.y * 16 + sample.x;
         final NotebookStore.Notebook book = notebook;
         final String key = sample.area.id();
         final long time = SystemClock.elapsedRealtime();

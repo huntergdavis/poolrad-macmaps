@@ -63,6 +63,7 @@ public final class ExplorationRenderCheck {
             run("a door seen from one side and not gone through is marked, and only then",ExplorationRenderCheck::unwalkedExits);
             run("older footprints are drawn smaller, and standing still changes nothing",ExplorationRenderCheck::footprintAges);
             run("a square where a fight started is marked, and only that square",ExplorationRenderCheck::ambushMarks);
+            run("a square where treasure was found is marked, and differently",ExplorationRenderCheck::findMarks);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
     }
@@ -170,6 +171,34 @@ public final class ExplorationRenderCheck {
             if(baseline==null)baseline=actual;
             else equal(baseline,actual,"Door state advertised an unverified lock/secret/passability claim");
         }
+    }
+
+    private static void findMarks() {
+        /*
+         * A find and a fight are different things and must not look alike --
+         * an open box against a struck-through creature. Both can be true of
+         * one square, and each is remembered independently.
+         */
+        byte[] geometry=new byte[1024];
+        GeoMap map=map(geometry);
+        ExplorationTrail walked=arriving(DEST+16,DEST);
+        Bitmap plain=render(map,walked,false,false);
+        Bitmap found=render(map,walked.recordFound(DEST),false,false);
+        Bitmap jumped=render(map,walked.recordAmbush(DEST),false,false);
+
+        check(dark(tile(found,DEST,2))>dark(tile(plain,DEST,2)),"The find drew no mark");
+        check(changes(tile(found,DEST,2),tile(jumped,DEST,2))>0,
+                "A find and a fight drew the same mark");
+        equalTile(plain,found,DEST+1,"A neighbouring square was marked too");
+
+        // Both on one square, and neither erases the other.
+        ExplorationTrail both=walked.recordFound(DEST).recordAmbush(DEST);
+        check(dark(tile(render(map,both,false,false),DEST,2))>dark(tile(found,DEST,2)),
+                "A square with both marks drew no more than one");
+
+        equal(found,render(map,walked.recordFound(DEST).recordFound(DEST),false,false),
+                "Finding twice on one square drew something different");
+        monochrome(found);
     }
 
     private static void ambushMarks() {

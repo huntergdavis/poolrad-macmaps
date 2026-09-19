@@ -121,6 +121,7 @@ public final class MapArtwork {
             drawGeometry(canvas,map,visibility,left,top,cell,density);
             drawUnwalkedExits(canvas,map,trail,left,top,cell,density);
             drawAmbushes(canvas,trail,left,top,cell,density);
+            drawFinds(canvas,trail,left,top,cell,density);
         } finally { canvas.restoreToCount(saved); }
     }
 
@@ -172,6 +173,36 @@ public final class MapArtwork {
             canvas.drawLine(apexX,apexY,baseX+perpX*spread,baseY+perpY*spread,ink);
         });
         ink.setStrokeCap(Paint.Cap.BUTT);
+    }
+
+    /**
+     * An open box on every square where the game said the party found
+     * treasure.
+     *
+     * A lid tilted off a box, which is a different silhouette from anything
+     * else here -- the ambush mark is round with a line through it, the walked
+     * squares are dots, the doors are gaps. Open rather than closed, because
+     * the mark means the thing has been taken, not that there is something
+     * still to get.
+     */
+    private void drawFinds(Canvas canvas,ExplorationTrail trail,
+            float left,float top,float cell,float density) {
+        if(trail==null||!(cell>0)||!(density>0)) return;
+        if(cell<11*density) return;
+        ink.setColor(Color.BLACK);
+        ink.setStrokeCap(Paint.Cap.BUTT);
+        ink.setStyle(Paint.Style.STROKE);
+        ink.setStrokeWidth(Math.max(1f*density,cell*.05f));
+        for(int tile=0;tile<256;tile++) {
+            if(!trail.found(tile)) continue;
+            float cx=left+(tile%16+.5f)*cell, cy=top+(tile/16+.5f)*cell;
+            float w=cell*.30f, h=cell*.20f;
+            // The box.
+            canvas.drawRect(cx-w,cy-h*.1f,cx+w,cy+h*1.4f,ink);
+            // The lid, tilted off it.
+            canvas.drawLine(cx-w*1.1f,cy-h*.5f,cx+w*.8f,cy-h*1.5f,ink);
+        }
+        ink.setStyle(Paint.Style.FILL);
     }
 
     /**
