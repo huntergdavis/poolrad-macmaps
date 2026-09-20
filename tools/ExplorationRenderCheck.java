@@ -14,6 +14,9 @@ import java.util.Map;
 import java.util.Set;
 import name.osher.gil.minivmac.MapArtwork;
 import name.osher.gil.minivmac.mapper.GeoMap;
+import name.osher.gil.minivmac.mapper.ExploredMap;
+import name.osher.gil.minivmac.mapper.NeighborPreview;
+import name.osher.gil.minivmac.notebook.AreaConnections;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 import name.osher.gil.minivmac.notebook.NoteIcon;
@@ -50,6 +53,7 @@ public final class ExplorationRenderCheck {
         try {
             if(Looper.getMainLooper()==null) Looper.prepareMainLooper();
             if(Typeface.DEFAULT==null) Typeface.class.getMethod("loadPreinstalledSystemFontMap").invoke(null);
+            run("neighbor preview pixels ignore every unexplored edge and reset coverage",ExplorationRenderCheck::neighborPreview);
             run("visited stipple marks only observed tiles and clear-trail retains coverage",ExplorationRenderCheck::coverage);
             run("two-foot glyphs rotate from real north/east/south/west movement",ExplorationRenderCheck::directions);
             run("latest recorded travel survives anchors; gaps never fabricate paths",ExplorationRenderCheck::latestAndGaps);
@@ -66,6 +70,25 @@ public final class ExplorationRenderCheck {
             run("a square where treasure was found is marked, and differently",ExplorationRenderCheck::findMarks);
             System.out.println("PASS "+passed+" exploration Android software-Canvas checks; synthetic data only, no live/GPU/e-ink acceptance.");
         } catch(Throwable failure) {failure.printStackTrace(System.err);System.exit(1);}
+    }
+
+    private static Bitmap preview(GeoMap map,ExplorationTrail captured,ExplorationTrail visible) {
+        NeighborPreview preview=new NeighborPreview(new AreaConnections.Edge(0,64,20,DEST),
+                new ExploredMap().observe(map,captured),visible,"");
+        Bitmap b=Bitmap.createBitmap(SIZE,SIZE,Bitmap.Config.ARGB_8888);BITMAPS.add(b);
+        Canvas c=new Canvas(b);c.drawColor(Color.WHITE);
+        ART.drawNeighbor(c,preview,PAD,PAD,CELL,1);return b;
+    }
+    private static void neighborPreview() {
+        byte[] hidden=new byte[1024];Arrays.fill(hidden,(byte)0xff);
+        // Keep only the independently observed cell identical, including all its own edge planes.
+        for(int plane=0;plane<4;plane++) hidden[plane*256+DEST]=0;
+        ExplorationTrail trail=ExplorationTrail.empty().record(DEST,-1);
+        equal(preview(map(new byte[1024]),trail,trail),preview(map(hidden),trail,trail),
+                "Unexplored neighbor changed preview pixels");
+        equal(preview(map(hidden),trail,ExplorationTrail.empty()),
+                preview(map(new byte[1024]),ExplorationTrail.empty(),ExplorationTrail.empty()),
+                "Reset coverage left preview geometry or arrival marker visible");
     }
 
     private static void coverage() {

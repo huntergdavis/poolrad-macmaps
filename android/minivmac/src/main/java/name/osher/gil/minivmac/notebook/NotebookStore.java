@@ -20,6 +20,7 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.zip.CRC32;
+import name.osher.gil.minivmac.mapper.ExploredMap;
 import name.osher.gil.minivmac.journal.JournalHistory;
 import name.osher.gil.minivmac.journal.MessageHistory;
 
@@ -186,7 +187,9 @@ public final class NotebookStore {
                     requirePendingFile(file); continue;
                 }
                 NotebookArchive.Entry entry = new NotebookArchive.Entry(name + "/" + filename, file);
-                if (filename.equals("exploration.bin")) {
+                if (filename.equals("explored-map.bin")) {
+                    readExploredMap(file,id,name);
+                } else if (filename.equals("exploration.bin")) {
                     readExploration(file, id, name);
                 } else if (!filename.equals("map.ink")) {
                     int tile = Integer.parseInt(filename.substring(0, filename.indexOf('.')));
@@ -278,6 +281,29 @@ public final class NotebookStore {
             out.writeUTF(book.id); out.writeUTF(book.label);
         }
         writeAtomic(new File(directory, "notebook.bin"), BOOK_MAGIC, BOOK_VERSION, bytes.toByteArray());
+    }
+
+    public synchronized ExploredMap loadExploredMap(String notebookId,String areaId) throws IOException {
+        File file=exploredMapFile(notebookId,areaId,false);
+        return file.exists()?readExploredMap(file,notebookId,areaId):new ExploredMap();
+    }
+    public synchronized void saveExploredMap(String notebookId,String areaId,ExploredMap map) throws IOException {
+        File file=exploredMapFile(notebookId,areaId,true);
+        if(file.exists()) readExploredMap(file,notebookId,areaId);
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(DataOutputStream out=new DataOutputStream(bytes)) { out.writeUTF(notebookId);out.writeUTF(areaId);map.write(out); }
+        writeAtomic(file,0x5052454d,1,bytes.toByteArray());
+    }
+    private File exploredMapFile(String notebookId,String areaId,boolean create) throws IOException {
+        File parent=explorationFile(notebookId,areaId,create).getParentFile();
+        File file=new File(parent,"explored-map.bin");requireDirectChild(parent,file);return file;
+    }
+    private static ExploredMap readExploredMap(File file,String notebookId,String areaId) throws IOException {
+        Envelope record=readEnvelope(file,0x5052454d,1,512);
+        try(DataInputStream in=record.input()) {
+            if(!notebookId.equals(in.readUTF()) || !areaId.equals(in.readUTF())) throw new IOException("Explored map identity mismatch");
+            return ExploredMap.read(in);
+        }
     }
 
     public synchronized AreaConnections loadConnections(String notebookId) throws IOException {
@@ -566,7 +592,7 @@ public final class NotebookStore {
             if (name.startsWith(".pending-")) continue; // Interrupted, uncommitted write.
             // These exact area-wide records are independent of flag notes;
             // corruption in exploration must not conceal readable handwriting.
-            if (name.equals("map.ink") || name.equals("exploration.bin")) continue;
+            if (name.equals("map.ink") || name.equals("exploration.bin") || name.equals("explored-map.bin")) continue;
             if (name.matches("(0|[1-9][0-9]{0,2})\\.ink\\.v1")) {
                 int tile = Integer.parseInt(name.substring(0, name.indexOf('.')));
                 if (tile > 255) throw new IOException("Invalid legacy backup tile");

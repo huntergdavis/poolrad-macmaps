@@ -1,0 +1,165 @@
+package name.osher.gil.minivmac.check;
+
+import android.app.Activity;
+import android.app.Instrumentation;
+import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.Rect;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.InputDevice;
+import android.view.MotionEvent;
+import android.view.View;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.lang.reflect.*;
+import java.security.MessageDigest;
+import java.util.function.BooleanSupplier;
+
+/** Visible, synthetic area transitions through the production controller/editor.
+ * Run only on a disposable emulator with no disks mounted. Not a live-game test.
+ */
+public final class NeighborPreviewCheck extends Instrumentation {
+    private Activity activity;
+    private Object map, controller;
+    private Class<?> stateClass;
+    private final StringBuilder results = new StringBuilder();
+    @Override public void onCreate(Bundle arguments) { super.onCreate(arguments); start(); }
+    @Override public void onStart() {
+        Bundle result = new Bundle();
+        try {
+            Intent launch = getTargetContext().getPackageManager().getLaunchIntentForPackage(getTargetContext().getPackageName());
+            launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            activity = startActivitySync(launch);
+            await(() -> {
+                try {
+                    Object fragment = field(activity, "_currentFragment");
+                    map = field(fragment, "mLiveMap");
+                    controller = field(fragment, "mNotebook");
+                    return map != null && controller != null && field(controller, "notebook") != null;
+                } catch (Exception e) { return false; }
+            });
+            ui(() -> call(field(activity, "_currentFragment"), "stopMapPolling"));
+            stateClass = Class.forName("name.osher.gil.minivmac.mapper.PoolRadState");
+            Class<?> paneClass=Class.forName("name.osher.gil.minivmac.CompanionPane");
+            Object pane=field(field(activity,"_currentFragment"),"mCompanionPane");
+            ui(()->method(paneClass,"setTab",String.class).invoke(pane,"map"));
+            travel(20,79,1,0,0,0);page(20,15,4);close();previews(0);shot("undiscovered-exit");
+            travel(20,78,1,0,0,0);travel(20,79,1,0,0,0);
+            travel(0,64,1,1,20,79);page(0,0,4);close();count(1);previews(0);shot("inbound-only");
+            travel(20,79,1,2,0,64);page(20,15,4);close();count(2);
+            travel(20,78,1,2,0,64);previews(0);shot("ordinary-square");
+            travel(20,79,1,2,0,64);previews(1);
+            travel(0,64,1,3,20,79);page(0,0,4);close();previews(1);shot("known-exit");
+            Object preview=((java.util.List<?>)field(map,"neighbors")).get(0);
+            check((Integer)call(preview,"count")==2,"preview revealed unwalked squares");
+            check(!((Boolean)method(preview.getClass(),"visible",int.class).invoke(preview,77)),"hidden neighbor revealed");
+            // A preview touch must not be interpreted as a tile on the current map.
+            tapPreview();check(session()==null,"preview touch opened a notebook page");
+            travel(0,65,1,3,20,79);previews(0);
+            travel(0,64,1,3,20,79);previews(1);
+            // Same exit, a second observed destination square: show both explicitly.
+            travel(20,78,1,4,0,64);page(20,15,4);close();count(3);
+            travel(0,64,1,5,20,78);page(0,0,4);close();previews(2);shot("multiple-destinations");
+            tapPreview();check(integer(map,"neighborIndex")==1,"preview did not cycle by real touch");
+            check(session()==null,"cycling opened a notebook page");
+            ui(()->method(controller.getClass(),"onExplorationSample",stateClass).invoke(controller,new Object[]{null}));
+            previousPacket=null;previews(0);shot("unavailable-clears-preview");
+            results.append("PASS discovered exits only, exact square, no inferred reverse, explored-only preview, normal-square clearing, real touch isolation, multiple destinations, unavailable clearing\n");
+            result.putString("stream", results.toString()); finish(Activity.RESULT_OK, result);
+        } catch (Throwable failure) {
+            result.putString("stream", results + "FAIL " + android.util.Log.getStackTraceString(failure));
+            finish(Activity.RESULT_CANCELED, result);
+        }
+    }
+    private byte[] previousPacket;
+    private Object previousCatalog;
+    private void travel(int id,int tile,int epoch,int serial,int from,int fromTile) throws Exception {
+        byte[] p=new byte[1228];p[0]='P';p[1]='R';p[2]='M';p[3]='7';
+        p[24]=1;p[25]=1;p[26]=1;p[27]=4;p[31]=1;p[32]=1;p[33]=1;p[35]=(byte)id;
+        p[130]=(byte)(tile%16);p[131]=(byte)(tile/16);java.util.Arrays.fill(p,176,688,(byte)0x11);p[176]=(byte)(id+1);
+        p[1215]=(byte)epoch;p[1219]=(byte)serial;p[1220]=1;p[1221]=(byte)from;p[1222]=(byte)fromTile;p[1224]=(byte)id;
+        Class<?> catalog=Class.forName("name.osher.gil.minivmac.mapper.AreaIdentity$Catalog");
+        Constructor<?> ctor=catalog.getDeclaredConstructor(String[].class,String[].class);ctor.setAccessible(true);
+        Object identities=ctor.newInstance((Object)new String[]{id+" "+hash(p,176,1200)},(Object)new String[]{id+" "+hash(p,176,944)});
+        if(previousPacket!=null)deliver(previousPacket,previousCatalog,false);
+        SystemClock.sleep(80);
+        deliver(p,identities,true);previousPacket=p;previousCatalog=identities;
+    }
+    private String hash(byte[] p,int from,int to) throws Exception {
+        StringBuilder out=new StringBuilder();for(byte b:MessageDigest.getInstance("SHA-256").digest(java.util.Arrays.copyOfRange(p,from,to)))out.append(String.format("%02x",b&255));return out.toString();
+    }
+    private void deliver(byte[] p,Object identities,boolean display) throws Exception {
+        Class<?> travel=Class.forName("name.osher.gil.minivmac.mapper.AreaTravel");
+        Object observation=method(travel,"parse",byte[].class,identities.getClass()).invoke(null,p,identities);
+        check(observation!=null,"travel fixture rejected");
+        Object state=field(observation,"position");check(state!=null,"position rejected");
+        ui(()->{method(controller.getClass(),"onConnectionSample",travel).invoke(controller,observation);
+            if(display)method(map.getClass(),"showState",stateClass).invoke(map,state);});
+    }
+    private void previews(int count) throws Exception {
+        // A new connection may finish saving after its position sample. Refresh the settled position.
+        if(previousPacket!=null)deliver(previousPacket,previousCatalog,true);
+        await(()->{try{return ((java.util.List<?>)field(map,"neighbors")).size()==count;}catch(Exception e){return false;}});
+        waitForIdleSync();
+    }
+    private void tapPreview() throws Exception {
+        waitForIdleSync();android.graphics.RectF bounds=(android.graphics.RectF)field(map,"previewTarget");
+        check(!bounds.isEmpty(),"preview touch target empty");int[] loc=new int[2];ui(()->((View)map).getLocationOnScreen(loc));
+        long down=SystemClock.uptimeMillis();touch(down,MotionEvent.ACTION_DOWN,loc[0]+bounds.centerX(),loc[1]+bounds.centerY());
+        touch(down,MotionEvent.ACTION_UP,loc[0]+bounds.centerX(),loc[1]+bounds.centerY());waitForIdleSync();
+    }
+    private void count(int expected) throws Exception {
+        await(()->{try{return ((java.util.List<?>)field(field(controller,"connections"),"edges")).size()==expected;}catch(Exception e){return false;}});
+        String id=(String)call(field(controller,"notebook"),"id");
+        Object loaded=method(field(controller,"store").getClass(),"loadConnections",String.class).invoke(field(controller,"store"),id);
+        check(((java.util.List<?>)field(loaded,"edges")).size()==expected,"saved connection count differs");
+    }
+    private void page(int id,int x,int y) throws Exception {
+        long started=SystemClock.elapsedRealtime();
+        await(() -> { try {
+            Object s=session(); return s!=null && field(s,"sheet") != null
+                    && field(s,"dialog") != null && ((android.app.Dialog)field(s,"dialog")).isShowing()
+                    && integer(s,"x")==x && integer(s,"y")==y
+                    && ("por-mac-v11-geo-"+id).equals(call(field(s,"area"),"id"));
+        } catch(Exception e){ return false; } });
+        waitForIdleSync();
+        results.append("Page ").append(id).append(' ').append(x).append(',').append(y)
+                .append(" visible within ").append(SystemClock.elapsedRealtime()-started).append(" ms\n");
+    }
+    private Object session() throws Exception { return field(controller,"session"); }
+    private void close() throws Exception {
+        Object s=session(); ui(() -> ((View)field(s,"close")).performClick());
+        await(() -> { try { return session()!=s; } catch(Exception e){ return false; } });
+    }
+    private void shot(String name) throws Exception {
+        waitForIdleSync(); SystemClock.sleep(200);
+        Bitmap bitmap=getUiAutomation().takeScreenshot();
+        File dir=new File(activity.getFilesDir(),"f62-check"); dir.mkdirs();
+        try(FileOutputStream out=new FileOutputStream(new File(dir,name+".png"))) { bitmap.compress(Bitmap.CompressFormat.PNG,100,out); }
+        bitmap.recycle();
+    }
+    private void touch(long down,int action,float x,float y) {
+        MotionEvent event=MotionEvent.obtain(down,SystemClock.uptimeMillis(),action,x,y,0);
+        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+        check(getUiAutomation().injectInputEvent(event,true),"input injection rejected"); event.recycle();
+    }
+    private interface Work { void run() throws Exception; }
+    private void ui(Work work) throws Exception {
+        Throwable[] error={null}; runOnMainSync(() -> { try { work.run(); } catch(Throwable e){error[0]=e;} });
+        if(error[0]!=null) throw new Exception(error[0]);
+    }
+    private static void await(BooleanSupplier ready) {
+        long deadline=SystemClock.elapsedRealtime()+15000;
+        while(!ready.getAsBoolean()) { if(SystemClock.elapsedRealtime()>deadline) throw new AssertionError("UI condition timed out"); SystemClock.sleep(50); }
+    }
+    private static int integer(Object owner,String name) { try{return (Integer)field(owner,name);}catch(Exception e){throw new RuntimeException(e);} }
+    private static Object field(Object owner,String name) throws Exception {
+        Class<?> type=owner.getClass();
+        while(type!=null){try{Field f=type.getDeclaredField(name);f.setAccessible(true);return f.get(owner);}catch(NoSuchFieldException e){type=type.getSuperclass();}}
+        throw new NoSuchFieldException(name);
+    }
+    private static Method method(Class<?> type,String name,Class<?>... args) throws Exception { Method m=type.getDeclaredMethod(name,args);m.setAccessible(true);return m; }
+    private static Object call(Object owner,String name) throws Exception {return method(owner.getClass(),name).invoke(owner);}
+    private static void check(boolean yes,String message) {if(!yes)throw new AssertionError(message);}
+}

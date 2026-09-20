@@ -1550,8 +1550,11 @@ quick-flag write.
   Map records observed travel between identified areas, with arrows only for
   directions traveled and per-passage coordinates. Reloads never create links;
   history stays with the notebook and its backups. See [AREA_CONNECTIONS.md](AREA_CONNECTIONS.md).
-- [ ] **F62 — A stitch view:** the neighbouring area's map beside the current
-  one when you cross a boundary.
+- [x] **F62 (delivered 0.89.0) — A neighboring-area preview.** Stand on a
+  discovered outgoing exit square to see its destination beside the current
+  map before crossing. Only that notebook's explored squares appear, with an
+  observed arrival marker. Remembered geometry stays in notebook backups.
+  See [NEIGHBOR_PREVIEW.md](NEIGHBOR_PREVIEW.md).
 
 ### The party list
 

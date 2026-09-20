@@ -112,3 +112,10 @@ Fog and footprint switches now live together in **Info → Options**. The old
 map-corner controls have moved there. Existing per-area choices are preserved;
 the Exploration trail page keeps its history/reset controls and links to
 Options. See [OPTIONS.md](OPTIONS.md).
+
+## Peek through a discovered exit
+
+On a square with a recorded outgoing area connection, Map shows a small preview
+of the destination alongside the current area. The preview always hides
+unexplored squares. It disappears when the party steps away. See
+[NEIGHBOR_PREVIEW.md](NEIGHBOR_PREVIEW.md) for remembered maps and older notebooks.

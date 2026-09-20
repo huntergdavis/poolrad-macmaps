@@ -92,3 +92,8 @@ This reuses the existing notebook record validator and ScreenshotController's
 Activity-owned document-picker approach. Pending export basenames survive
 Activity recreation; a missing temporary source is reported, never invented.
 Physical tablet/stylus/e-ink acceptance remains separate from software tests.
+
+Since 0.89.0, backups also contain remembered geometry for explored map cells,
+used by neighboring-area previews. These backups require 0.89.0 or later. Older
+notebooks gain remembered geometry when each area is revisited; no unexplored
+geometry is exported. See [NEIGHBOR_PREVIEW.md](NEIGHBOR_PREVIEW.md).

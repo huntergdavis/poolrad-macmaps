@@ -52,6 +52,8 @@ import name.osher.gil.minivmac.notebook.AreaNoteFollow;
 import name.osher.gil.minivmac.notebook.AreaConnections;
 import name.osher.gil.minivmac.notebook.ConnectionRecorder;
 import name.osher.gil.minivmac.mapper.AreaTravel;
+import name.osher.gil.minivmac.mapper.ExploredMap;
+import name.osher.gil.minivmac.mapper.NeighborPreview;
 import name.osher.gil.minivmac.notebook.ExplorationRecorder;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
@@ -86,6 +88,55 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private AreaConnections connections = new AreaConnections();
     private String connectionError = "";
     private ConnectionsView connectionsView;
+    private String previewKey="";
+    private int previewGeneration;
+    // Only the ordered I/O executor accesses this single-area write cache.
+    private String rememberedKey="";
+    private ExploredMap rememberedMap;
+    private void clearNeighborPreview() {
+        previewKey="";previewGeneration++;map.showNeighbors(Collections.emptyList());
+    }
+    private void updateNeighborPreview(PoolRadState sample) {
+        if(disposed || restoringNotebook || notebook==null || sample==null
+                || sample.area==null || !sample.explorationSafe) {
+            if(!previewKey.isEmpty()) clearNeighborPreview();
+            return;
+        }
+        String key=notebook.id()+":"+sample.area.id()+":"+(sample.y*16+sample.x);
+        if(key.equals(previewKey)) return;
+        clearNeighborPreview();previewKey=key;
+        final int request=previewGeneration;
+        final NotebookStore.Notebook book=notebook;
+        final List<AreaConnections.Edge> exits=NeighborPreview.exits(connections,sample);
+        if(exits.isEmpty()) return;
+        IO.execute(()->{
+            List<NeighborPreview> previews=new ArrayList<>();
+            for(AreaConnections.Edge edge:exits) {
+                String destination="por-mac-v11-geo-"+edge.toArea;
+                try {
+                    previews.add(new NeighborPreview(edge,store.loadExploredMap(book.id(),destination),
+                            store.loadExploration(book.id(),destination),""));
+                } catch(IOException | RuntimeException failure) {
+                    previews.add(new NeighborPreview(edge,new ExploredMap(),ExplorationTrail.empty(),"Map unavailable"));
+                }
+            }
+            main.post(()->{if(!disposed && !restoringNotebook && notebook==book && request==previewGeneration)
+                map.showNeighbors(previews);});
+        });
+    }
+    private void rememberExploredMap(NotebookStore.Notebook book,PoolRadState sample,ExplorationTrail trail) {
+        String key=book.id()+":"+sample.area.id();
+        try {
+            if(!key.equals(rememberedKey)) {
+                rememberedMap=store.loadExploredMap(book.id(),sample.area.id());rememberedKey=key;
+            }
+            ExploredMap next=rememberedMap.observe(sample.map,trail);
+            if(next!=rememberedMap) { store.saveExploredMap(book.id(),sample.area.id(),next);rememberedMap=next; }
+        } catch(IOException | RuntimeException failure) {
+            // Keep corrupt data; an unavailable remembered map must never become a full-map fallback.
+            rememberedKey="";
+        }
+    }
     public void setConnectionsView(ConnectionsView view) { connectionsView=view; publishConnections(); }
     private void publishConnections() {
         if(connectionsView!=null) connectionsView.show(notebook==null?"Notebook loading":notebook.label(),
@@ -99,7 +150,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         IO.execute(()->{
             try {
                 AreaConnections saved=store.recordConnection(book.id(),edge);
-                main.post(()->{if(!disposed && notebook==book){connections=saved;connectionError="";publishConnections();}});
+                main.post(()->{if(!disposed && notebook==book){connections=saved;connectionError="";clearNeighborPreview();publishConnections();}});
             } catch(IOException | RuntimeException failure) {
                 main.post(()->{if(!disposed && notebook==book){connectionError="Connection could not be saved. Existing history is kept.";publishConnections();}});
                 report("Cannot save area connection",failure);
@@ -225,6 +276,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             if (finishRestore) restoringNotebook = false;
             citationNotice.accept(Collections.emptyList());
             notebook = selected; journal = loadedJournal; messages = loadedMessages;
+            clearNeighborPreview();
             connectionRecorder.interrupt(); connections=loadedConnections; connectionError=loadedConnectionError;
             publishConnections();
             areaFollow.reset();
@@ -341,7 +393,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 if (disposed || opening || session != null || restoringNotebook) return false;
                 previous = notebook; previousId = prefs.getString(ACTIVE, "");
                 synchronized (notebookSwitch) {
-                    restoringNotebook = true;
+                    restoringNotebook = true; clearNeighborPreview();
                     // Recreating the activity mid-load must never reopen the old campaign by default.
                     if (!prefs.edit().putString(ACTIVE, "pending-state-load").commit()) {
                         restoringNotebook = false; toast("Cannot pause notebook recording; save was not loaded."); return false;
@@ -776,6 +828,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     @Override public void onExplorationSample(PoolRadState sample) {
         if (disposed) return;
         followNoteArea();
+        updateNeighborPreview(sample);
         // A normal step clears the input-wait tag while it updates the map.
         // Do not record that transient position or mistake it for a reload.
         // The next settled sample still needs the same epoch and a short gap.
@@ -797,6 +850,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             try {
                 ExplorationTrail recorded = exploration.observe(book.id(), key,
                         sample.y * 16 + sample.x, sample.continuityToken, time);
+                rememberExploredMap(book,sample,recorded);
                 main.post(() -> {
                     if (!explorationTarget(book, key)) return;
                     explorationFailed = false; map.showExploration(recorded, "");
@@ -1104,7 +1158,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     public void dispose() {
         citationNotice.accept(Collections.emptyList());
         flushMessages();
-        disposed = true; generation++; map.setListener(null);
+        disposed = true; generation++; clearNeighborPreview(); map.setListener(null);
         // A replacement controller may already have registered; never unhook theirs.
         JournalController owner = ((MiniVMac) activity).journal();
         if (owner.notebooks() == this) owner.setNotebooks(null);

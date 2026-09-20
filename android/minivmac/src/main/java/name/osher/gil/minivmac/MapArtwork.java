@@ -125,6 +125,29 @@ public final class MapArtwork {
         } finally { canvas.restoreToCount(saved); }
     }
 
+    /** Preview is always explored-only; hidden neighbors cannot supply walls, doors or marks. */
+    public void drawNeighbor(Canvas canvas,name.osher.gil.minivmac.mapper.NeighborPreview preview,
+            float left,float top,float cell,float density) {
+        int save=canvas.save();
+        canvas.clipRect(left,top,left+16*cell,top+16*cell);
+        ink.setStyle(Paint.Style.FILL);ink.setColor(Color.WHITE);
+        canvas.drawRect(left,top,left+16*cell,top+16*cell,ink);
+        ink.setColor(Color.BLACK);
+        for(int tile=0;tile<256;tile++) if(preview.visible(tile)) {
+            float x=left+(tile%16)*cell,y=top+(tile/16)*cell;
+            float dot=Math.min(cell*.06f,.7f*density);
+            canvas.drawCircle(x+.25f*cell,y+.25f*cell,dot,ink);
+            canvas.drawCircle(x+.75f*cell,y+.75f*cell,dot,ink);
+        }
+        drawGeometry(canvas,preview.map,preview::visible,left,top,cell,density);
+        int arrival=preview.passage.toTile;
+        if(preview.visible(arrival)) {
+            ink.setStyle(Paint.Style.STROKE);ink.setColor(Color.BLACK);ink.setStrokeWidth(density);
+            canvas.drawCircle(left+(arrival%16+.5f)*cell,top+(arrival/16+.5f)*cell,cell*.30f,ink);
+        }
+        canvas.restoreToCount(save);
+    }
+
     private void prepareTrail(ExplorationTrail trail) {
         if(preparedTrail==trail) return;
         Arrays.fill(latestFrom,-1);

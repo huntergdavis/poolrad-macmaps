@@ -17,6 +17,9 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.List;
+import java.util.ArrayList;
+import name.osher.gil.minivmac.mapper.NeighborPreview;
 
 import name.osher.gil.minivmac.mapper.AreaIdentity;
 import name.osher.gil.minivmac.mapper.MapViewport;
@@ -43,6 +46,35 @@ public final class LiveMapView extends View {
     private static final int[][] CLASS_MARKS = {{0},{1},{2},{3},{4},{5},{6},{7},
             {0,2},{0,2,5},{0,4},{0,5},{0,6},{2,5},{2,6},{2,5,6},{5,6},{8}};
     private final MapArtwork artwork = new MapArtwork();
+    private List<NeighborPreview> neighbors=Collections.emptyList();
+    private int neighborIndex;
+    private boolean touchingPreview;
+    private final RectF previewTarget=new RectF();
+    private static final int NEXT_PREVIEW=0x05000001;
+    public void showNeighbors(List<NeighborPreview> previews) {
+        if(neighbors.isEmpty() && previews.isEmpty()) return;
+        cancelTap();touchingPreview=false;
+        neighbors=Collections.unmodifiableList(new ArrayList<>(previews));neighborIndex=0;
+        previewTarget.setEmpty();refreshDescription();invalidate();
+    }
+    private boolean hasPreview() {
+        if(!positionAvailable || state==null || neighbors.isEmpty() || mode!=MapMode.EXPLORATION) return false;
+        NeighborPreview preview=neighbors.get(neighborIndex);
+        return preview.passage.fromArea==state.map.id && preview.passage.fromTile==state.y*16+state.x;
+    }
+    private int previewWidth(PartyPaneLayout pane) {
+        return hasPreview()?(int)Math.min(220*density,pane.mapWidth*.38f):0;
+    }
+    private void nextPreview() {
+        if(hasPreview() && neighbors.size()>1) {neighborIndex=(neighborIndex+1)%neighbors.size();refreshDescription();invalidate();}
+    }
+    private String previewDescription() {
+        if(!hasPreview()) return "";
+        NeighborPreview p=neighbors.get(neighborIndex);
+        return " Known exit preview: "+p.label()+", "+p.count()+" explored squares. "
+                +(p.count()==0?"Revisit this area to remember its map. ":"Arrival "+p.passage.toTile%16+","+p.passage.toTile/16+". ")
+                +(neighbors.size()>1?"Preview "+(neighborIndex+1)+" of "+neighbors.size()+". Tap preview for next destination. ":"");
+    }
     private final float density;
     private final float textScale;
     /** Why the probe would not report a party, when it would not. */
@@ -210,7 +242,7 @@ public final class LiveMapView extends View {
         refreshDescription(); invalidate();
     }
     private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size(), textScale, oneLineParty); }
-    private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth,p.mapHeight,density); }
+    private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth-previewWidth(p),p.mapHeight,density); }
     public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
         Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
         if (notebook.equals(label) && flags.equals(copy)) return;
@@ -300,7 +332,7 @@ public final class LiveMapView extends View {
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
                 + "Info, Options changes map appearance. A Return key in the "
                 + "bottom-right corner presses Return in the game. "
-                + explorationStatus + health);
+                + explorationStatus + health + previewDescription());
     }
 
     public LiveMapView(Context context, AttributeSet attrs) {
@@ -419,6 +451,19 @@ public final class LiveMapView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent event) {
         int action = event.getActionMasked();
+        if(action==MotionEvent.ACTION_DOWN && hasPreview() && previewTarget.contains(event.getX(),event.getY())) {
+            cancelTap();touchingPreview=true;touchX=event.getX();touchY=event.getY();return true;
+        }
+        if(touchingPreview) {
+            if(action==MotionEvent.ACTION_UP) {
+                if(hasPreview() && previewTarget.contains(event.getX(),event.getY())
+                        && Math.hypot(event.getX()-touchX,event.getY()-touchY)<=ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
+                    performClick();nextPreview();
+                }
+                touchingPreview=false;
+            } else if(action==MotionEvent.ACTION_CANCEL) touchingPreview=false;
+            return true;
+        }
         if (action == MotionEvent.ACTION_DOWN) {
             cancelTap();
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
@@ -522,6 +567,7 @@ public final class LiveMapView extends View {
 
     @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
+        if(hasPreview() && neighbors.size()>1) info.addAction(new AccessibilityNodeInfo.AccessibilityAction(NEXT_PREVIEW,"Next discovered exit destination"));
         if (listener != null) for (int i = 0; i < partyActions.size(); i++) {
             PartyState.Member member = partyActions.valueAt(i);
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(partyActions.keyAt(i),
@@ -533,6 +579,7 @@ public final class LiveMapView extends View {
     }
 
     @Override public boolean performAccessibilityAction(int action, Bundle args) {
+        if(action==NEXT_PREVIEW && hasPreview() && neighbors.size()>1) { nextPreview();return true; }
         PartyState.Member sheet = partySheetActions.get(action);
         if (sheet != null && listener != null) {
             cancelTap(); listener.onPartyMemberLongPressed(sheet); return true;
@@ -637,6 +684,38 @@ public final class LiveMapView extends View {
         return out + "…";
     }
 
+    private void drawNeighborPreview(Canvas canvas,PartyPaneLayout pane) {
+        previewTarget.setEmpty();
+        if(!hasPreview()) return;
+        NeighborPreview p=neighbors.get(neighborIndex);
+        float width=previewWidth(pane),left=pane.mapWidth-width+10*density,right=pane.mapWidth-12*density;
+        float top=42*density,room=right-left;
+        if(room<16 || pane.mapHeight<110*density) return;
+        previewTarget.set(left-5*density,30*density,right+5*density,pane.mapHeight-30*density);
+        int save=canvas.save();canvas.clipRect(previewTarget);
+        ink.setColor(Color.BLACK);ink.setStyle(Paint.Style.FILL);ink.setTextAlign(Paint.Align.LEFT);
+        ink.setTextSize(12*density);
+        canvas.drawText("Through this exit",left,top,ink);
+        ink.setTextSize(14*density);
+        canvas.drawText(fitHeaderText(p.label(),room),left,top+20*density,ink);
+        float cell=Math.min(room/16,(pane.mapHeight-top-100*density)/16);
+        float mapTop=top+32*density;
+        if(cell>0 && p.count()>0) {
+            artwork.drawNeighbor(canvas,p,left,mapTop,cell,density);
+            ink.setTextSize(11*density);
+            canvas.drawText(p.count()+"/256 explored",left,mapTop+16*cell+17*density,ink);
+        } else {
+            ink.setTextSize(11*density);
+            canvas.drawText(p.status.isEmpty()?"No remembered map":p.status,left,mapTop+18*density,ink);
+            canvas.drawText("Revisit to fill it in",left,mapTop+36*density,ink);
+        }
+        if(neighbors.size()>1) {
+            ink.setTextSize(11*density);
+            canvas.drawText((neighborIndex+1)+"/"+neighbors.size()+" · tap for next",left,pane.mapHeight-34*density,ink);
+        }
+        canvas.restoreToCount(save);
+    }
+
     private void drawMap(Canvas canvas, PartyPaneLayout pane) {
         ink.setColor(Color.BLACK);
         ink.setStyle(Paint.Style.FILL);
@@ -711,6 +790,7 @@ public final class LiveMapView extends View {
         }
         artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
+        drawNeighborPreview(canvas,pane);
         if (positionAvailable && pinging()) drawPing(canvas, left, top, cell);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextAlign(Paint.Align.CENTER);
