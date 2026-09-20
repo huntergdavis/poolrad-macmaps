@@ -27,6 +27,8 @@ public class Core {
 
 	private static ClipboardManager mClipboardManager;
 	@SuppressWarnings("FieldMayBeFinal") private volatile boolean initOk = false;
+	// Start asleep until the fragment supplies its current lifecycle state.
+	private volatile boolean emulationPaused = true;
 	private volatile boolean emulationEnded = false;
 	private volatile boolean diskCloseFailed = false;
 
@@ -52,7 +54,7 @@ public class Core {
 	 */
 	private final QuickToggleQueue quickQueue = new QuickToggleQueue();
 	private final android.os.Handler quickRetry = new android.os.Handler(android.os.Looper.getMainLooper());
-	private final Runnable retryQuick = () -> { if (initOk && quickQueue.busy()) requestPartySample(); };
+	private final Runnable retryQuick = () -> { if (initOk && !emulationPaused && quickQueue.busy()) requestPartySample(); };
 	public boolean queuePartyQuick(name.osher.gil.minivmac.mapper.PartyState.Member member, boolean on) {
 		if (!initOk || member == null) return false;
 		if (!quickQueue.request(member, on)) return false;
@@ -141,7 +143,7 @@ public class Core {
 			android.util.Log.i("PoolRad.Quick", "drain parsed=" + (parsed != null) + " written=" + written + " stillBusy=" + quickQueue.busy()
 					+ (parsed == null && sample != null && sample.length >= 5 ? " refusal=" + (sample[4] & 255) : ""));
 			quickRetry.removeCallbacks(retryQuick);
-			if (quickQueue.busy()) quickRetry.postDelayed(retryQuick, 250);
+			if (quickQueue.busy() && !emulationPaused) quickRetry.postDelayed(retryQuick, 250);
 			else if (written) requestPartySample(); // Read back the result; never claim it from a queued intent.
 		}
 		MapSampleListener listener = mPartySampleListener;
@@ -404,16 +406,23 @@ public class Core {
 		setForceMacOff();
 	}
 	
-	public void resumeEmulation() {
-		if (!initOk) return;
-		if (!isPaused()) return;
-		_resumeEmulation();
+
+	public synchronized void resumeEmulation() {
+		emulationPaused = false;
+		onEmulationReady();
 	}
-	
-	public void pauseEmulation() {
+
+	public synchronized void pauseEmulation() {
+		emulationPaused = true;
+		quickRetry.removeCallbacks(retryQuick);
+		onEmulationReady();
+	}
+
+	/** Also called by native init: a pause received during startup must survive. */
+	@SuppressWarnings("unused")
+	private synchronized void onEmulationReady() {
 		if (!initOk) return;
-		if (isPaused()) return;
-		_pauseEmulation();
+		if (emulationPaused) _pauseEmulation(); else _resumeEmulation();
 	}
 
 	public static void setSpeed(int value) {

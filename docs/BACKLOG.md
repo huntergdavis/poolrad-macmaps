@@ -1710,11 +1710,15 @@ Mac has stopped working — it keeps running underneath. In priority order:
   for 98 seconds; re-enabling resumes output. All 25,600 native audible/muted
   state comparisons and 736 Java tests pass.
   [Behavior and live verification](AUDIO_MUTE.md).
-- [ ] **F100 — Make "paused" actually wait.** The native paused loop
-  (`OSGLUJNI.c:1718`) spins with no real wait, so it can keep burning CPU while
-  backgrounded. Give it a real, reliable wait that still wakes promptly for
-  resume, shutdown, and any pending operation. No visible gameplay change; this
-  is pure waste removal.
+- [x] **F100 (delivered 0.97.0) — Make "paused" actually wait.**
+  Replaces the native retry loop with an untimed condition wait, waking only for
+  resume or explicit pending work. Startup and rapid lifecycle requests retain
+  the latest requested state. Pausing also stops helper retries and releases the
+  actual Wi-Fi multicast lock. Live: zero emulator CPU time/context switches in
+  settled background samples, audio off, polling off, and clean foreground
+  movement/map updates. Twenty rapid pause/resume pairs and paused RAM requests
+  pass, along with 2,000 native wake races and all 736 Java tests.
+  [Behavior and verification](PAUSED_IDLE.md).
 - [x] **F101 (delivered 0.91.0) — Skip redrawing combat when nothing changed.**
   Compare combat positions/order, sides, fallen markers, acting character and
   enemy names/counts before redrawing or rebuilding accessibility text. Good

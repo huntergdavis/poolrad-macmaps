@@ -977,36 +977,23 @@ public class EmulatorFragment extends Fragment
         }
     }
 
-    @Override
-    public void onStop() {
-        super.onStop();
+    private WifiManager.MulticastLock mMulticastLock;
 
-        if (mEmulatorStarted) {
-            // Release multicast lock
-            WifiManager wifi = (WifiManager) requireContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-            WifiManager.MulticastLock multicastLock = wifi.createMulticastLock("LToUDPMulticastLock");
-            multicastLock.setReferenceCounted(true);
-            if (multicastLock.isHeld())
-            {
-                Log.i(TAG, "Releasing multicast lock");
-                multicastLock.release();
-            }
+    private void acquireMulticastLock() {
+        if (mMulticastLock == null) {
+            WifiManager wifi = (WifiManager) requireContext().getApplicationContext()
+                    .getSystemService(Context.WIFI_SERVICE);
+            mMulticastLock = wifi.createMulticastLock("LToUDPMulticastLock");
+            mMulticastLock.setReferenceCounted(false);
         }
+        if (!mMulticastLock.isHeld()) mMulticastLock.acquire();
+    }
+
+    private void releaseMulticastLock() {
+        if (mMulticastLock != null && mMulticastLock.isHeld()) mMulticastLock.release();
     }
 
     private void initEmulator() {
-        // Acquire multicast lock
-        WifiManager wifi = (WifiManager) requireContext().getApplicationContext().getSystemService(Context.WIFI_SERVICE);
-        WifiManager.MulticastLock multicastLock = wifi.createMulticastLock("LToUDPMulticastLock");
-        multicastLock.setReferenceCounted(true);
-        multicastLock.acquire();
-        if (!multicastLock.isHeld())
-        {
-            Log.e(TAG, "Failed to acquire multicast lock");
-        } else {
-            Log.i(TAG, "Acquired multicast lock");
-        }
-
         // load ROM
         File romFile = FileManager.getInstance().getRomFile(mRomFileName);
         ByteBuffer rom;
@@ -1043,6 +1030,10 @@ public class EmulatorFragment extends Fragment
             mCore = sessionCore;
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
             final Core mapCore = mCore;
+            mUIHandler.post(() -> {
+                if (mCore != mapCore) return;
+                if (isResumed()) mapCore.resumeEmulation(); else mapCore.pauseEmulation();
+            });
             mUIHandler.post(() -> { if (mCore == mapCore) mAutomaticWheel.reset(); });
             mCore.setWheelSampleListener(sample -> {
                 final int generation = mWheelGeneration;
@@ -1477,6 +1468,7 @@ public class EmulatorFragment extends Fragment
 
     @Override
     public void onPause () {
+        releaseMulticastLock();
         if (mCore != null) mCore.cancelPartySelection();
         stopMapPolling();
         stopWheelPolling();
@@ -1497,6 +1489,7 @@ public class EmulatorFragment extends Fragment
     @Override
     public void onResume() {
         super.onResume();
+        acquireMulticastLock();
         startMapPolling();
         startWheelPolling();
         startAutoSave();

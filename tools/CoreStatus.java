@@ -14,10 +14,20 @@ public class CoreStatus {
         try {
             vm.suspend();
             for (ReferenceType type:vm.classesByName("name.osher.gil.minivmac.Core")) {
+                System.out.println("audioTrack="+type.getValue(type.fieldByName("mAudioTrack")));
                 for (ObjectReference core:type.instances(8)) {
                     System.out.println("Core " + core.uniqueID());
-                    for(String name:List.of("initOk","emulationEnded","mIsInitialized","numInsertedDisks"))
+                    for(String name:List.of("initOk","emulationEnded","mIsInitialized","numInsertedDisks","emulationPaused"))
                         System.out.println(name+"="+core.getValue(type.fieldByName(name)));
+                }
+            }
+            for (ReferenceType type:vm.classesByName("name.osher.gil.minivmac.EmulatorFragment")) {
+                for (ObjectReference fragment:type.instances(8)) {
+                    for (String name:List.of("mMapPolling", "mWheelPolling", "mAutoSaving", "mBootDismissArmed"))
+                        System.out.println(name+"="+fragment.getValue(type.fieldByName(name)));
+                    ObjectReference lock=(ObjectReference)fragment.getValue(type.fieldByName("mMulticastLock"));
+                    System.out.println("multicastLockHeld="+(lock==null ? "false"
+                            : lock.getValue(lock.referenceType().fieldByName("mHeld"))));
                 }
             }
             for(ThreadReference thread:vm.allThreads())

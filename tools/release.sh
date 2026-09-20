@@ -25,6 +25,7 @@ git rev-parse "v$VERSION" >/dev/null 2>&1 && { echo "v$VERSION already exists." 
 python3 tools/readme-screenshots.py check "$VERSION"
 bash tools/test-snapshot-native.sh
 bash tools/test-audio-native.sh
+bash tools/test-emulation-wait.sh
 
 GRADLE=android/minivmac/build.gradle
 OLD_CODE="$(grep -oP 'versionCode \K[0-9]+' "$GRADLE" | head -1)"

@@ -24,6 +24,7 @@
 #ifdef WantOSGLUJNI
 
 #include <stdatomic.h>
+#include "EMULATION_WAIT.h"
 #include "POOLRAD.h"
 #include "POOLRAD_AUDIO.h"
 #include "POOLRAD_WHEEL.h"
@@ -49,8 +50,19 @@ IMPORTPROC PoolRadRestoreCPUState(const ui3b *buf);
 #undef CLAMP
 #define CLAMP(x, lo, hi) (((x) > (hi))? (hi) : (((x) < (lo))? (lo) : (x)))
 
-LOCALVAR blnr gBackgroundFlag = falseblnr;
-LOCALVAR blnr CurSpeedStopped = trueblnr;
+LOCALVAR atomic_int gBackgroundFlag = 0;
+LOCALVAR atomic_int CurSpeedStopped = 1;
+LOCALVAR emulation_wait EmulationWait = EMULATION_WAIT_INITIALIZER;
+/* Publish host controls without racing the guest's legacy flags. */
+enum { HostReset = 1, HostInterrupt = 2, HostRequestOff = 4, HostForceOff = 8 };
+LOCALVAR atomic_int HostCommands = 0;
+LOCALPROC WakeEmulation(void) { emulation_wait_wake(&EmulationWait); }
+LOCALFUNC jboolean RequestWork(atomic_int *request)
+{
+    jboolean accepted = atomic_exchange(request, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    WakeEmulation();
+    return accepted;
+}
 
 GLOBALVAR ui3b CurMouseButton = falseblnr;
 
@@ -67,7 +79,7 @@ jmethodID jRamSnapshot;
 jmethodID jSaveState;
 jmethodID jStateRestored;
 jmethodID jCanRestoreState;
-jmethodID jPollStartupRestore;
+jmethodID jPollStartupRestore, jEmulationReady;
 LOCALVAR blnr StartupRestoreFinished = falseblnr;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 LOCALVAR atomic_int WantSaveState = 0;
@@ -702,6 +714,7 @@ LOCALFUNC blnr EntropyGather(void)
  */
 GLOBALPROC notifyDiskInserted (jint drive, jboolean locked) {
     DiskInsertNotify((ui4b)drive, locked?trueblnr:falseblnr);
+    WakeEmulation();
 }
 
 /*
@@ -711,6 +724,7 @@ GLOBALPROC notifyDiskInserted (jint drive, jboolean locked) {
  */
 GLOBALPROC notifyDiskEjected (jint drive) {
     DiskEjectedNotify((ui4b)drive);
+    WakeEmulation();
 }
 
 /*
@@ -720,6 +734,7 @@ GLOBALPROC notifyDiskEjected (jint drive) {
  */
 GLOBALPROC notifyDiskCreated () {
     vSonyNewDiskWanted = falseblnr;
+    WakeEmulation();
 }
 
 /*
@@ -1025,6 +1040,7 @@ LOCALPROC MyDrawChangesAndClear(void)
 GLOBALPROC moveMouse (jint dx, jint dy) {
     HaveMouseMotion = trueblnr;
     MyMousePositionSetDelta(dx, dy);
+    WakeEmulation();
 }
 
 /*
@@ -1038,6 +1054,7 @@ GLOBALPROC setMousePos (jint x, jint y) {
     CurMouseV = CLAMP(y, 0, vMacScreenHeight);
 
     MyMousePositionSet(CurMouseH, CurMouseV);
+    WakeEmulation();
 }
 
 /*
@@ -1048,6 +1065,7 @@ GLOBALPROC setMousePos (jint x, jint y) {
 GLOBALPROC setMouseButton (jboolean down) {
     CurMouseButton = down?trueblnr:falseblnr;
     MyMouseButtonSet(CurMouseButton);
+    WakeEmulation();
 }
 
 /*
@@ -1089,6 +1107,7 @@ GLOBALFUNC jboolean getMouseButton () {
  */
 GLOBALPROC setKeyDown (jint key) {
     Keyboard_UpdateKeyMap2(key, trueblnr);
+    WakeEmulation();
 }
 
 /*
@@ -1098,6 +1117,7 @@ GLOBALPROC setKeyDown (jint key) {
  */
 GLOBALPROC setKeyUp (jint key) {
     Keyboard_UpdateKeyMap2(key, falseblnr);
+    WakeEmulation();
 }
 
 #if 0
@@ -1225,6 +1245,11 @@ LOCALPROC EnterSpeedStopped(void)
 
 LOCALPROC CheckForSavedTasks(void)
 {
+    int commands = atomic_exchange(&HostCommands, 0);
+    if (commands & HostReset) WantMacReset = trueblnr;
+    if (commands & HostInterrupt) WantMacInterrupt = trueblnr;
+    if (commands & HostRequestOff) RequestMacOff = trueblnr;
+    if (commands & HostForceOff) ForceMacOff = trueblnr;
     if (RequestMacOff) {
         RequestMacOff = falseblnr;
         if (AnyDiskInserted()) {
@@ -1240,7 +1265,7 @@ LOCALPROC CheckForSavedTasks(void)
     }
 
     if (CurSpeedStopped != (SpeedStopped ||
-                            (gBackgroundFlag && ! RunInBackground)))
+                            atomic_load(&gBackgroundFlag)))
     {
         CurSpeedStopped = ! CurSpeedStopped;
         if (CurSpeedStopped) {
@@ -1425,7 +1450,7 @@ GLOBALFUNC blnr PoolRadSaveStateSelfTest(void)
 /* UI thread asks; the emulation thread saves at the safe boundary below. */
 GLOBALFUNC jboolean requestSaveState(void)
 {
-	return atomic_exchange(&WantSaveState, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+	return RequestWork(&WantSaveState);
 }
 
 /* UI thread hands over a raw save-state blob; copied here and applied at the
@@ -1442,6 +1467,7 @@ GLOBALFUNC jboolean requestRestoreState(const ui3b *data, ui5b len)
 	memcpy(gRestoreBuf, data, len);
 	gRestoreLen = len;
 	atomic_store(&WantRestoreState, 1);
+	WakeEmulation();
 	return JNI_TRUE;
 }
 
@@ -1529,7 +1555,7 @@ LOCALPROC DeliverRestoreState(void)
 
 GLOBALFUNC jboolean requestRamSnapshot(void)
 {
-    return atomic_exchange(&WantRamSnapshot, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantRamSnapshot);
 }
 
 LOCALPROC DeliverRamSnapshot(void)
@@ -1550,7 +1576,7 @@ LOCALPROC DeliverRamSnapshot(void)
 
 GLOBALFUNC jboolean requestMapSample(void)
 {
-    return atomic_exchange(&WantMapSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantMapSample);
 }
 
 LOCALPROC DeliverMapSample(void)
@@ -1573,7 +1599,7 @@ LOCALPROC DeliverMapSample(void)
 
 GLOBALFUNC jboolean requestWheelSample(void)
 {
-    return atomic_exchange(&WantWheelSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantWheelSample);
 }
 
 LOCALPROC DeliverWheelSample(void)
@@ -1596,7 +1622,7 @@ LOCALPROC DeliverWheelSample(void)
 
 GLOBALFUNC jboolean requestPartySample(void)
 {
-    return atomic_exchange(&WantPartySample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantPartySample);
 }
 
 LOCALPROC DeliverPartySample(void)
@@ -1656,7 +1682,7 @@ GLOBALFUNC jboolean setPartyQuick(jint slot, jboolean on)
 
 GLOBALFUNC jboolean requestMessageSample(void)
 {
-    return atomic_exchange(&WantMessageSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantMessageSample);
 }
 
 /* The text the game is displaying in its own Message window. Read-only, and
@@ -1682,7 +1708,7 @@ LOCALPROC DeliverMessageSample(void)
 
 GLOBALFUNC jboolean requestCombatSample(void)
 {
-    return atomic_exchange(&WantCombatSample, 1) == 0 ? JNI_TRUE : JNI_FALSE;
+    return RequestWork(&WantCombatSample);
 }
 
 /* Where the game has placed each combatant on its own tactical grid. Read-only
@@ -1730,14 +1756,15 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     ui5b mapRamSize;
     ui3p mapRam = GetRamForSnapshot(&mapRamSize);
     poolrad_walk_observe(mapRam, mapRamSize, &MapWalkTracker);
+    uint64_t wakeTicket;
     label_retry:
-    sleep(0);
+    wakeTicket = emulation_wait_ticket(&EmulationWait);
     CheckForSavedTasks();
     if (ForceMacOff) {
         return;
     }
 
-    if (! StartupRestoreFinished) {
+    if (! StartupRestoreFinished && ! CurSpeedStopped) {
         jboolean held = (*jEnv)->CallBooleanMethod(jEnv, mCore, jPollStartupRestore);
         if ((*jEnv)->ExceptionCheck(jEnv)) {
             (*jEnv)->ExceptionClear(jEnv); held = JNI_FALSE;
@@ -1753,15 +1780,16 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     DeliverMessageSample();
     DeliverCombatSample();
 
+    if (CurSpeedStopped) {
+        DoneWithDrawingForTick();
+        emulation_wait_until_changed(&EmulationWait, wakeTicket);
+        goto label_retry;
+    }
+
     if (! StartupRestoreFinished) {
         struct timespec wait = {0, 10000000};
         DoneWithDrawingForTick();
         nanosleep(&wait, NULL);
-        goto label_retry;
-    }
-
-    if (CurSpeedStopped) {
-        DoneWithDrawingForTick();
         goto label_retry;
     }
 
@@ -1821,6 +1849,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     //ZapWinStateVars();
 
     ForceMacOff = falseblnr;
+    atomic_store(&HostCommands, 0);
+    CurSpeedStopped = trueblnr;
     StartupRestoreFinished = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
     atomic_store(&WantSaveState, 0);
@@ -1856,6 +1886,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 	jSaveState = (*env)->GetMethodID(env, this, "onSaveState", "([B[III)V");
 	jStateRestored = (*env)->GetMethodID(env, this, "onStateRestored", "(Z)V");
 	jCanRestoreState = (*env)->GetMethodID(env, this, "canRestoreState", "()Z");
+	jEmulationReady = (*env)->GetMethodID(env, this, "onEmulationReady", "()V");
 	jPollStartupRestore = (*env)->GetMethodID(env, this, "pollStartupRestore", "()Z");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
@@ -1945,7 +1976,8 @@ LOCALPROC UnallocMyMemory(void)
  * Signature: ()V
  */
 GLOBALPROC setWantMacReset () {
-    WantMacReset = trueblnr;
+    atomic_fetch_or(&HostCommands, HostReset);
+    WakeEmulation();
 }
 
 /*
@@ -1954,7 +1986,8 @@ GLOBALPROC setWantMacReset () {
  * Signature: ()V
  */
 GLOBALPROC setWantMacInterrupt () {
-    WantMacInterrupt = trueblnr;
+    atomic_fetch_or(&HostCommands, HostInterrupt);
+    WakeEmulation();
 }
 
 /*
@@ -1963,7 +1996,8 @@ GLOBALPROC setWantMacInterrupt () {
  * Signature: ()V
  */
 GLOBALPROC setRequestMacOff () {
-    RequestMacOff = trueblnr;
+    atomic_fetch_or(&HostCommands, HostRequestOff);
+    WakeEmulation();
 }
 
 /*
@@ -1972,7 +2006,8 @@ GLOBALPROC setRequestMacOff () {
  * Signature: ()V
  */
 GLOBALPROC setForceMacOff () {
-    ForceMacOff = trueblnr;
+    atomic_fetch_or(&HostCommands, HostForceOff);
+    WakeEmulation();
 }
 
 /*
@@ -1981,7 +2016,8 @@ GLOBALPROC setForceMacOff () {
  * Signature: ()V
  */
 GLOBALPROC resumeEmulation () {
-    gBackgroundFlag = falseblnr;
+    atomic_store(&gBackgroundFlag, 0);
+    WakeEmulation();
 }
 
 /*
@@ -1990,7 +2026,8 @@ GLOBALPROC resumeEmulation () {
  * Signature: ()V
  */
 GLOBALPROC pauseEmulation () {
-    gBackgroundFlag = trueblnr;
+    atomic_store(&gBackgroundFlag, 1);
+    WakeEmulation();
 }
 
 /*
@@ -2009,6 +2046,7 @@ GLOBALFUNC jboolean isPaused () {
  */
 GLOBALPROC setSpeed (jint value) {
     SpeedValue = (ui3b)value;
+    WakeEmulation();
 }
 
 /*
@@ -2151,6 +2189,7 @@ GLOBALFUNC jboolean init (JNIEnv *env, jclass this, jobject core, jobject romBuf
         // init ok
         initDone = trueblnr;
         (*env)->SetBooleanField(env, mCore, sInitOk, JNI_TRUE);
+        (*env)->CallVoidMethod(env, mCore, jEmulationReady);
 
         ProgramMain();
     }
