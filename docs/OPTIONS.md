@@ -10,6 +10,9 @@ The page contains:
 - Show directional footprints.
 - Original area tile size (1:1): 32 physical pixels per tile, with drag scrolling.
   Off by default; saved globally. Tap the map header to find the party.
+- Enter shortcut placement: bottom right of the map (default), bottom right of
+  the screen, bottom left of the map, bottom left of the screen, or Off.
+  Applies immediately and is saved globally.
 - One-line party rows.
 - Large message text.
 - Auto-save every five minutes, retaining the latest 20 automatic states. A
@@ -25,7 +28,13 @@ exploration viewport only; the battle overview and reference previews retain
 their own layouts.
 
 The old map-corner switches have moved here, giving their space back to the
-header. Return stays in the map's lower-right corner. Exploration trail still
+header. Enter defaults to the map's lower-right corner. Its placement option can move it
+to the left corner or onto the emulated screen, or remove it entirely. Screen
+placements stay above the keyboard and inside the app's usable screen bounds;
+map placements follow the map pane and disappear when that pane is hidden.
+Choosing the map's left corner shifts zoom controls aside. The shortcut uses
+the same guest Return key path as the on-screen keyboard, with a 48dp touch
+target and no click passed through to the game underneath. Exploration trail still
 shows route history and its confirmed clear/reset actions, with a link to
 Options. Emulator settings and game-file backups remain in Settings.
 

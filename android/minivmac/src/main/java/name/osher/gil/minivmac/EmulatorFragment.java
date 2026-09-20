@@ -102,6 +102,7 @@ public class EmulatorFragment extends Fragment
     private String mRomFileName;
     private long mRomChecksum;
     private ScreenView mScreenView;
+    private EnterOverlayButton mEnterOverlay;
     private TrackPadView mTrackPadView;
     private ImageButton mFullScreenButton;
     private View mRestartLayout;
@@ -569,6 +570,20 @@ public class EmulatorFragment extends Fragment
         if (mLiveMap == null) return;
         try {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+            EnterPlacement placement = EnterPlacement.parse(prefs.getString(SettingsFragment.KEY_PREF_ENTER_PLACEMENT, null));
+            mLiveMap.setEnterPlacement(placement);
+            if (mEnterOverlay != null) {
+                android.widget.FrameLayout.LayoutParams params = (android.widget.FrameLayout.LayoutParams) mEnterOverlay.getLayoutParams();
+                params.gravity = android.view.Gravity.BOTTOM | (placement == EnterPlacement.SCREEN_LEFT
+                        ? android.view.Gravity.LEFT : android.view.Gravity.RIGHT);
+                mEnterOverlay.setLayoutParams(params);
+                mEnterOverlay.setVisibility(placement.onScreen() ? View.VISIBLE : View.GONE);
+                // Trackpad mode's fullscreen shortcut must remain independently tappable.
+                android.widget.FrameLayout.LayoutParams fullscreen = (android.widget.FrameLayout.LayoutParams) mFullScreenButton.getLayoutParams();
+                fullscreen.bottomMargin = placement == EnterPlacement.SCREEN_RIGHT
+                        ? Math.round(48 * getResources().getDisplayMetrics().density) : 0;
+                mFullScreenButton.setLayoutParams(fullscreen);
+            }
             mLiveMap.setOriginalTileScale(prefs.getBoolean(SettingsFragment.KEY_PREF_ORIGINAL_TILE_SCALE, false));
             mLiveMap.setOneLineParty(prefs.getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
             mLiveMap.setMirrorMessage(prefs.getBoolean(SettingsFragment.KEY_PREF_MIRROR_MESSAGE, false));
@@ -695,6 +710,8 @@ public class EmulatorFragment extends Fragment
 
         onActivity = false;
         mScreenView = root.findViewById(R.id.screen);
+        mEnterOverlay = root.findViewById(R.id.enter_overlay);
+        mEnterOverlay.setOnClickListener(view -> pressGuestReturn());
         mTrackPadView = root.findViewById(R.id.trackpad);
         mRestartLayout = root.findViewById(R.id.restart_layout);
         Button restartButton = root.findViewById(R.id.restart_button);
@@ -1024,6 +1041,7 @@ public class EmulatorFragment extends Fragment
         }
         mCompanionPane = null;
         mLiveMap = null;
+        mEnterOverlay = null;
         mMapStack = null;
         cancelCodeEntry();
         super.onDestroyView();

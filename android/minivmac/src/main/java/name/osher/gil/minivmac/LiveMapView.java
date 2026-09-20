@@ -83,6 +83,7 @@ public class LiveMapView extends View {
     private final RectF[] zoomTargets = {new RectF(), new RectF(), new RectF()};
     private int touchZoom = -1;
     private static final int ZOOM_OUT = 0x05000002, ZOOM_IN = 0x05000003, ZOOM_RESET = 0x05000004;
+    private static final int PRESS_ENTER = 0x05000005;
     private final float density;
     private final float textScale;
     /** Why the probe would not report a party, when it would not. */
@@ -157,6 +158,16 @@ public class LiveMapView extends View {
      */
     private final android.graphics.RectF returnButton = new android.graphics.RectF();
     private final android.graphics.RectF returnTarget = new android.graphics.RectF();
+    private EnterPlacement enterPlacement = EnterPlacement.MAP_RIGHT;
+
+    public void setEnterPlacement(EnterPlacement placement) {
+        if (enterPlacement == placement) return;
+        enterPlacement = placement;
+        cancelTap();
+        returnButton.setEmpty(); returnTarget.setEmpty();
+        for (RectF target : zoomTargets) target.setEmpty();
+        refreshDescription(); invalidate();
+    }
     private final android.graphics.RectF quickButton = new android.graphics.RectF();
     private boolean touchReturn;
     /** Which member's Q a press began on, or -1. */
@@ -415,8 +426,10 @@ public class LiveMapView extends View {
                     + " percent. Minus and plus change map zoom; reset restores "
                     + (mode == MapMode.COMBAT ? "the whole arena. " : "the selected map scale. ")
                     + "Drag to scroll; tap the header to find " + (mode == MapMode.COMBAT ? "the action. " : "the party. ") : "")
-                + "Info, Options changes map appearance. A Return key in the "
-                + "bottom-right corner presses Return in the game. "
+                + "Info, Options changes map appearance and Enter placement. "
+                + (enterPlacement.onMap() ? "Enter in the "
+                    + (enterPlacement == EnterPlacement.MAP_LEFT ? "bottom-left" : "bottom-right")
+                    + " map corner presses Return in the game. " : "")
                 + explorationStatus + health + previewDescription());
     }
 
@@ -719,6 +732,8 @@ public class LiveMapView extends View {
 
     @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
+        if (enterPlacement.onMap() && listener != null)
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(PRESS_ENTER, "Enter"));
         if (canZoom()) {
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ZOOM_OUT,"Zoom map out"));
             info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ZOOM_IN,"Zoom map in"));
@@ -737,6 +752,9 @@ public class LiveMapView extends View {
     }
 
     @Override public boolean performAccessibilityAction(int action, Bundle args) {
+        if (action == PRESS_ENTER && enterPlacement.onMap() && listener != null) {
+            cancelTap(); listener.onReturnPressed(); return true;
+        }
         if (canZoom() && (action==ZOOM_OUT || action==ZOOM_IN || action==ZOOM_RESET)) {
             changeZoom(action==ZOOM_OUT ? 0 : action==ZOOM_IN ? 1 : 2); return true;
         }
@@ -787,6 +805,7 @@ public class LiveMapView extends View {
             drawMap(canvas, pane);
             if (mirrorMessage && !gameMessage.isEmpty()) drawMessageMirror(canvas, pane);
             drawZoomControls(canvas, pane);
+            drawReturnButton(canvas, pane);
         } finally { canvas.restore(); }
     }
 
@@ -931,7 +950,6 @@ public class LiveMapView extends View {
         // The whole header row is the target; it is a big thing to hit and it
         // does nothing dangerous.
         headerTarget.set(0, 0, pane.mapWidth, 30 * density);
-        drawReturnButton(canvas, pane);
         ink.setColor(Color.BLACK);
         ink.setStrokeWidth(density);
         canvas.drawLine(0, getHeight() - density, getWidth(), getHeight() - density, ink);
@@ -1076,14 +1094,19 @@ public class LiveMapView extends View {
     }
 
     private float captionWidth(PartyPaneLayout pane) { return Math.max(0, pane.mapWidth - 216*density); }
-    private float captionCenter(PartyPaneLayout pane) { return (160*density + pane.mapWidth - 56*density)/2; }
+    private float captionCenter(PartyPaneLayout pane) {
+        return enterPlacement == EnterPlacement.MAP_LEFT
+                ? (208*density + pane.mapWidth - 8*density)/2
+                : (160*density + pane.mapWidth - 56*density)/2;
+    }
 
     private void drawZoomControls(Canvas canvas, PartyPaneLayout pane) {
         for (RectF target : zoomTargets) target.setEmpty();
         if (!canZoom() || pane.mapWidth < 216*density || pane.mapHeight < 120*density) return;
         for (int i=0; i<3; i++) {
             RectF target = zoomTargets[i];
-            target.set((8+48*i)*density, pane.mapHeight-48*density, (56+48*i)*density, pane.mapHeight);
+            float offset = enterPlacement == EnterPlacement.MAP_LEFT ? 48 : 0;
+            target.set((8+offset+48*i)*density, pane.mapHeight-48*density, (56+offset+48*i)*density, pane.mapHeight);
             ink.setStyle(Paint.Style.FILL); ink.setColor(Color.WHITE);
             canvas.drawRect(target, ink);
             RectF button = new RectF(target); button.inset(8*density,8*density);
@@ -1123,15 +1146,18 @@ public class LiveMapView extends View {
     private void drawReturnButton(Canvas canvas, PartyPaneLayout pane) {
         float size = 26 * density, margin = 8 * density;
         // The caption owns the bottom centre; below this the corner is too tight.
-        if (pane.mapWidth < 200 * density || pane.mapHeight < 120 * density) {
+        if (!enterPlacement.onMap() || pane.mapWidth < 200 * density || pane.mapHeight < 120 * density) {
             returnButton.setEmpty(); returnTarget.setEmpty(); return;
         }
-        float right = pane.mapWidth - margin, bottom = pane.mapHeight - margin;
+        float right = enterPlacement == EnterPlacement.MAP_LEFT ? margin + size : pane.mapWidth - margin;
+        float bottom = pane.mapHeight - margin;
         returnButton.set(right - size, bottom - size, right, bottom);
         target(returnButton, returnTarget);
         // Keep the touch target inside the pane, not off its right edge.
         returnTarget.offset(Math.min(0, pane.mapWidth - returnTarget.right),
                 Math.min(0, pane.mapHeight - returnTarget.bottom));
+        ink.setStyle(Paint.Style.FILL); ink.setColor(Color.WHITE);
+        canvas.drawRect(returnTarget, ink);
         frame(canvas, returnButton);
         float inset = size * .28f;
         float l = returnButton.left + inset, r = returnButton.right - inset;

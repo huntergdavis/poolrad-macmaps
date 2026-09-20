@@ -31,6 +31,13 @@
             android:background="@android:color/transparent"
             android:visibility="gone" />
 
+        <name.osher.gil.minivmac.EnterOverlayButton
+            android:id="@+id/enter_overlay"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="bottom|right"
+            android:visibility="gone" />
+
         <ImageButton
             android:id="@+id/toggle_ui_button"
             android:layout_width="wrap_content"

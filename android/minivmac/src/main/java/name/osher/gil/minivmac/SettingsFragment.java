@@ -32,6 +32,7 @@ public class SettingsFragment extends PreferenceFragmentCompat {
 	public static final String KEY_PREF_AUTOLOAD = "pref_autoload";
 	public static final String KEY_PREF_AUTOSAVE = "pref_autosave";
 	public static final String KEY_PREF_ORIGINAL_TILE_SCALE = "pref_original_tile_scale";
+	public static final String KEY_PREF_ENTER_PLACEMENT = "pref_enter_placement";
 	public static final String KEY_PREF_ONELINE_PARTY = "pref_oneline_party";
 	public static final String KEY_PREF_AUTO_SKIP_MESSAGES = "pref_auto_skip_messages";
 	public static final String KEY_PREF_MIRROR_MESSAGE = "pref_mirror_message";

@@ -87,6 +87,14 @@ These requests supersede the separate area-wide drawing editor and the old
 optional-only code-wheel recognition policy below. Finish them before expanding
 the lower-priority queue.
 
+- [x] **Enter placement (delivered 0.110.0, user requested 2026-09-20).**
+  Info → Options moves the existing Enter shortcut to the bottom right/left
+  of the map or whole screen, or turns it Off. Map-right remains the default;
+  the choice applies immediately and persists. Screen placements overlay the
+  guest with a 48dp touch target; map-left keeps clear of zoom controls. Live
+  verified all four positions dismiss the original game's About dialog and
+  Off removes the shortcut. All 735 Java tests and both Enter/zoom Android View
+  checks pass. See [ENTER_SHORTCUT.md](ENTER_SHORTCUT.md).
 - [x] **F18 — A Return button in the corner of the map (P0, user requested
   2026-09-16, shipped 0.32.0).** "Much of the game is mouseable, but I still need to open the
   keyboard to press 'enter' sometimes. Having a tiny return button (like the

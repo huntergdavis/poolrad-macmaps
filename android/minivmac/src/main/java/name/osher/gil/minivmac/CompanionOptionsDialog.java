@@ -5,6 +5,7 @@ import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.widget.CheckBox;
+import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -30,6 +31,26 @@ final class CompanionOptionsDialog {
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_ORIGINAL_TILE_SCALE,
                 "Original area tile size (1:1)", false, changed);
         label(activity, list, "32 pixels per tile. Drag the map to scroll; tap its header to find the party.");
+        label(activity, list, "Enter shortcut");
+        Button placement = new Button(activity);
+        placement.setAllCaps(false);
+        placement.setTextColor(Color.BLACK);
+        Runnable updatePlacement = () -> placement.setText("Enter: " + EnterPlacement.parse(
+                prefs.getString(SettingsFragment.KEY_PREF_ENTER_PLACEMENT, null)).label);
+        updatePlacement.run();
+        placement.setOnClickListener(view -> {
+            EnterPlacement[] choices = EnterPlacement.values();
+            String[] labels = new String[choices.length];
+            for (int i=0; i<choices.length; i++) labels[i] = choices[i].label;
+            new AlertDialog.Builder(activity).setTitle("Enter shortcut placement")
+                    .setSingleChoiceItems(labels, EnterPlacement.parse(prefs.getString(
+                            SettingsFragment.KEY_PREF_ENTER_PLACEMENT, null)).ordinal(), (dialog, which) -> {
+                        prefs.edit().putString(SettingsFragment.KEY_PREF_ENTER_PLACEMENT,
+                                choices[which].value).apply();
+                        changed.run(); updatePlacement.run(); dialog.dismiss();
+                    }).setNegativeButton(android.R.string.cancel, null).show();
+        });
+        list.addView(placement, new LinearLayout.LayoutParams(-1, -2));
         label(activity, list, "Party and messages");
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_ONELINE_PARTY,
                 "One-line party rows", false, changed);
