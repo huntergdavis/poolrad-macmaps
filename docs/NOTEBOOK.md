@@ -2,11 +2,6 @@
 
 The cartographer adds your own ink without changing the original game or its saves.
 
-<img src="images/temple-note-map.png" width="360" alt="The preserved TYR note beside its map, with a temple symbol and Rolf's introduction below">
-
-*0.5.0 Android-emulator capture, not a mockup or physical e-ink test.
-Original game artwork belongs to its respective owners.*
-
 1. Load a supported party and show the live map.
 2. Tap an empty tile to place a symbol; tap an existing symbol to reopen it.
 3. Its page contains a map at left and writing space at right. Plain paper is
@@ -22,19 +17,15 @@ Original game artwork belongs to its respective owners.*
 There is no annotation toggle or separate map-drawing action. Each flag owns
 its own [map-plus-writing page](MAP_INK.md), not a shared area-wide overlay.
 
-When the party enters an identified area, its last-opened note appears
-automatically. If no page has been opened there, the arrival square gets a
-page ready for writing. The last-opened square is remembered separately for
-each campaign and area, including after restarting the app. A deleted page
-falls back to the arrival square.
+From 0.104.0, notes open only when you choose a map tile or a saved note in
+**Info → Notes index**.
 
-A page being read follows the party into the next area. Once you start writing,
-erasing, changing its symbol or choosing a template, it stays on that page until **Close & save**;
-then the latest area's note opens. An unfinished stroke is never interrupted
-by an area change. Walking within the same area, camp and temporary unreadable
-map readings do not reopen a page you closed.
-Automatically opened pages leave the game's mouse and keyboard controls
-available below them; Android Back still closes and saves the page.
+- Entering an area leaves the notebook closed.
+- An open page keeps its original area and square.
+- **Close & save** returns to the map without opening another page.
+- Android Back also saves and closes the page.
+
+[Opening behavior and test results](AREA_NOTE_FOLLOW.md).
 
 The note sheet stays above the screen midpoint and does not dim the game. Its
 fixed-aspect paper keeps handwriting in proportion when the window changes size.

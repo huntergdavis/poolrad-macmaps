@@ -3,8 +3,6 @@
 Tap an empty tile on the live map to create a note. Tap a symbol to reopen it.
 There is no Annotate checkbox and no separate Draw on map menu.
 
-<img src="images/temple-note-map.png" width="480" alt="A temple flag's map and preserved handwritten TYR note in the running Android app">
-
 Actual emulator acceptance covers legacy migration, independent flag pages,
 symbol persistence, cross-sheet ink/erasing, undo/redo and confirmed deletion.
 [Evidence and hardware limits](LOCAL_TESTING.md#050-integrated-acceptance-2026-09-13).

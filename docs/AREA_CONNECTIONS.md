@@ -11,7 +11,7 @@ Tap a neighboring area to inspect its connections, choose a discovered area
 from the list, or use **Current area** to follow the party again. The graph is
 schematic: box placement does not claim geographic distance or direction.
 The crossing list preserves coordinates from the observations. **Map** returns
-to the usual local map; game input and notebook auto-follow still work.
+to the usual local map.
 
 History belongs to the selected campaign notebook and survives restarts and
 loading older game saves. Loading a save creates no discoveries. Notebook

@@ -2,7 +2,7 @@
 
 From 0.104.0, entering an area never opens or switches a notebook page.
 Open a page yourself by tapping a map tile or selecting a saved note in the
-index. Closing a page leaves it closed; there is no deferred destination page.
+index. Closing a page leaves it closed.
 An already-open note remains attached to its original area and square.
 Existing handwriting and notebook backups are unchanged.
 
@@ -10,6 +10,11 @@ This fixes the automatic-opening behavior introduced in 0.87.0. The production
 controller no longer schedules note reads or editor creation from area changes,
 exploration samples, flag-load completion, or editor dismissal. The old
 last-page preferences are left on disk but are no longer read or written.
+
+![Slums map and party remain visible after entering the area](images/notebook-stays-closed.png)
+
+*0.104.0 development-build capture from the live walking test. Entering the
+Slums left the map visible and the notebook closed.*
 
 ## 0.104.0 verification
 

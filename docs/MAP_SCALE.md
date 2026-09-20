@@ -31,8 +31,8 @@ the option began unchecked, enabling it changed the live map to 32-pixel
 squares, and dragging exposed the lower rows without opening a note or moving
 the party. The scrolled New Phlan 0,4 flag reopened its existing note. The
 header brought the party back into view. Crossing from Slums to New Phlan
-retained the scale, the notebook's normal area-follow behavior and both
-discovered directions. Exit previews retained their independently explored
+retained the scale and both discovered directions. The automatic note-opening
+behavior present in this older test was removed in 0.104.0. Exit previews retained their independently explored
 coverage (22 squares in New Phlan and one in Slums).
 
 All 725 Java tests pass, including density-independent tile sizing, scroll

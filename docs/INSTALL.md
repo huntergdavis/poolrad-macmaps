@@ -102,10 +102,9 @@ loading an original-game save does not select a notebook for you.
 Emulator snapshots reopen their paired notebook.
 [Handwriting guide](NOTEBOOK.md) · [Map-plus-writing pages](MAP_INK.md).
 
-Entering a known area opens its last-used note, or a page at the arrival square.
-Edited pages stay open until **Close & save**; then the current area's page
-opens. Automatically opened pages leave the game controls available.
-[Automatic notebook pages](AREA_NOTE_FOLLOW.md).
+Notes open only when you choose a map tile or a saved note in **Info → Notes index**.
+Changing areas does not open or switch a page. **Close & save** leaves it closed.
+[Notebook opening behavior](AREA_NOTE_FOLLOW.md).
 
 The compact header leaves the rest of the upper pane for drawing. A pen or
 one finger writes; two fingers zoom and move the page. **Fit page** sits with
