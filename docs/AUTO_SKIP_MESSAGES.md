@@ -1,6 +1,6 @@
 # Skip routine notices
 
-**In development for 0.103.0.** The published 0.102.0 APK does not include this option.
+**Available in [0.103.0](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.103.0).**
 
 Turn on **Info → Options → Auto-skip informational messages** to dismiss
 supported notices automatically. It starts off, remembers your choice, and
