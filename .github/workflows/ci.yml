@@ -1,0 +1,112 @@
+# Build the public universal Mac II APK and run every test that needs no
+# emulator, on every push to main and every pull request. Nothing here needs
+# a secret: the debug APK signs with the SDK's generated debug key, and the
+# private ROM, game and disk images are never part of the build.
+name: Build and test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  android:
+    name: Java tests and universal APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-34 build-tools;34.0.0 ndk;27.0.12077973
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Java unit tests and universal Mac II APK
+        working-directory: android
+        run: ./gradlew :minivmac:assembleMacIIDebug :minivmac:testMacIIDebugUnitTest --no-daemon --max-workers=2
+
+      - name: Count the tests
+        run: |
+          python3 - <<'PY'
+          import glob, re, sys
+          n = f = e = s = 0
+          for p in glob.glob('android/minivmac/build/test-results/testMacIIDebugUnitTest/TEST-*.xml'):
+              m = re.search(r'tests="(\d+)"[^>]*skipped="(\d+)"[^>]*failures="(\d+)"[^>]*errors="(\d+)"', open(p).read())
+              if m:
+                  n += int(m.group(1)); s += int(m.group(2)); f += int(m.group(3)); e += int(m.group(4))
+          print(f"{n} java tests, {f} failures, {e} errors, {s} skipped")
+          sys.exit(1 if f or e or n == 0 else 0)
+          PY
+
+      - name: The APK that would ship carries every ABI
+        run: bash tools/check-apk.sh android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: poolrad-macmaps-universal-debug
+          path: android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk
+          if-no-files-found: error
+
+      - name: Upload the test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: java-test-results
+          path: android/minivmac/build/test-results/testMacIIDebugUnitTest/
+          if-no-files-found: warn
+
+  native:
+    name: Native probe suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe suites with the reader's own flags
+        run: |
+          set -euo pipefail
+          # The three suites that pull in device modules run through their
+          # own wrappers below with the sanitizers and the cfg include paths.
+          for suite in tools/test-*.c; do
+            name="$(basename "$suite" .c)"
+            case "$name" in test-snapshot-*|test-audio-mute|test-automatic-idle|test-emulation-wait) continue ;; esac
+            cc -Wall -Wextra -Werror -O1 -Iandroid/minivmac/src/main/jni/src -o "/tmp/$name" "$suite"
+            "/tmp/$name" > /dev/null && echo "ok $name"
+          done
+
+      - name: Device, sound, idle and wait suites under the sanitizers
+        run: |
+          set -euo pipefail
+          bash tools/test-snapshot-native.sh
+          bash tools/test-audio-native.sh
+          bash tools/test-automatic-idle.sh
+          bash tools/test-emulation-wait.sh
+
+      - name: Python tool tests
+        run: |
+          set -uo pipefail
+          status=0
+          for suite in tools/test-*.py; do
+            name="$(basename "$suite")"
+            if out="$(python3 "$suite" 2>&1)"; then echo "ok $name"
+            elif grep -q "ModuleNotFoundError" <<<"$out"; then
+              echo "SKIP $name -- $(grep -o "No module named '[^']*'" <<<"$out" | head -1)"
+            else echo "FAIL $name"; echo "$out" | tail -20; status=1; fi
+          done
+          exit $status
