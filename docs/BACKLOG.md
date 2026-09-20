@@ -5,7 +5,7 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
-Current published release: **0.86.0**. Releases 0.71–0.82 delivered F89, F79,
+Current published release: **0.90.0**. Releases 0.71–0.82 delivered F89, F79,
 F66, F35, F80, F29, F47, F42, F43, F72, F67 and F48, individually. F46 Money
 is verified for 0.83.0. F97 is next: require the new disk-verified format and
 refuse older snapshots, following the owner's pre-1.0 decision. F33/F86 below
