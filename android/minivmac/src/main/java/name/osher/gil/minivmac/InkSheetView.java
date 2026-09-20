@@ -24,6 +24,7 @@ import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.InkSheetLayout;
 import name.osher.gil.minivmac.notebook.InkViewport;
 import name.osher.gil.minivmac.notebook.NoteIcon;
+import name.osher.gil.minivmac.notebook.NoteTemplate;
 
 /** One flag's fixed 8:3 paper: map left, writing right, and ink across both halves. */
 public final class InkSheetView extends View {
@@ -81,8 +82,14 @@ public final class InkSheetView extends View {
     public void setNote(InkNote note) {
         cancelActiveStroke();
         history.reset(note);
+        describeInput();
         rebuildStrokes();
         invalidate();
+    }
+
+    public void setTemplate(NoteTemplate template) {
+        cancelActiveStroke();
+        if (history.setTemplate(template)) { describeInput(); changed(); }
     }
 
     public InkNote getNote() { return history.getNote(); }
@@ -111,7 +118,7 @@ public final class InkSheetView extends View {
     }
 
     private void describeInput() {
-        setContentDescription("Flag note. Map left, writing space right. "
+        setContentDescription("Flag note. Map left, writing space right. " + history.template().label() + ". "
                 + (eraser ? "Eraser selected; only ink is erased. " : "Black pen selected. ")
                 + (penOnly ? "Pen only: a finger moves the page without drawing. " : "Pen or one finger draws. ")
                 + "Two fingers zoom and move the page. Fit page restores the whole sheet.");
@@ -182,6 +189,7 @@ public final class InkSheetView extends View {
             if (mapSnapshot != null)
                 artwork.drawGeometry(canvas, mapSnapshot.map, layout.mapLeft, layout.mapTop,
                         layout.mapSize / 16, density);
+            drawTemplate(canvas);
             // The paper/map is outside this temporary layer. CLEAR can erase only note ink.
             if (!rendered.isEmpty() || history.isDrawing()) {
                 int layer = canvas.saveLayer(sheet.left, sheet.top, sheet.right, sheet.bottom, null);
@@ -208,6 +216,38 @@ public final class InkSheetView extends View {
         paint.setStyle(Paint.Style.STROKE);
         paint.setStrokeWidth(density);
         canvas.drawRect(sheet, paint);
+    }
+
+    /** Background guides use sheet coordinates, so zoom, export and ink stay aligned. */
+    private void drawTemplate(Canvas canvas) {
+        NoteTemplate template = history.template();
+        if (template == NoteTemplate.PLAIN) return;
+        int saved = canvas.save();
+        try {
+            canvas.clipRect(layout.toX(.5f), sheet.top, sheet.right, sheet.bottom);
+            paint.setXfermode(null);
+            paint.setColor(0xffa0a0a0);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(Math.max(.5f, layout.height / 700));
+            if (template == NoteTemplate.MAP_FRAME) {
+                float left = layout.mapLeft + layout.width / 2;
+                canvas.drawRect(left, layout.mapTop, left + layout.mapSize,
+                        layout.mapTop + layout.mapSize, paint);
+                return;
+            }
+            float left = layout.toX(.53f), right = layout.toX(.97f);
+            float top = layout.toY(.05f), bottom = layout.toY(.95f);
+            float step = (bottom - top) / (template == NoteTemplate.GRID ? 16 : 12);
+            if (template == NoteTemplate.GRID) {
+                int columns = (int) ((right - left) / step);
+                right = left + columns * step;
+                for (int i = 0; i <= columns; i++)
+                    canvas.drawLine(left + i * step, top, left + i * step, bottom, paint);
+            }
+            int rows = template == NoteTemplate.GRID ? 16 : 12;
+            for (int i = template == NoteTemplate.GRID ? 0 : 1; i <= rows; i++)
+                canvas.drawLine(left, top + i * step, right, top + i * step, paint);
+        } finally { canvas.restoreToCount(saved); }
     }
 
     private void drawStroke(Canvas canvas, Path path, float x, float y, boolean hasSegment,

@@ -12,8 +12,13 @@ public final class InkNote {
     public static final int MAX_TOTAL_POINTS = 131072;
 
     private final List<Stroke> strokes;
+    private final NoteTemplate template;
 
-    public InkNote(List<Stroke> strokes) {
+    public InkNote(List<Stroke> strokes) { this(strokes, NoteTemplate.PLAIN); }
+
+    public InkNote(List<Stroke> strokes, NoteTemplate template) {
+        if (template == null) throw new IllegalArgumentException("Missing note template");
+        this.template = template;
         if (strokes == null || strokes.size() > MAX_STROKES) {
             throw new IllegalArgumentException("This note has too many strokes");
         }
@@ -32,6 +37,8 @@ public final class InkNote {
 
     public static InkNote empty() { return new InkNote(Collections.emptyList()); }
     public List<Stroke> strokes() { return strokes; }
+    public NoteTemplate template() { return template; }
+    public InkNote withTemplate(NoteTemplate value) { return new InkNote(strokes, value); }
 
     /** Erasers are replayed in stroke order, never applied to the underlying map. */
     public static final class Stroke {

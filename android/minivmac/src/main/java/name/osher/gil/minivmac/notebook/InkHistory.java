@@ -8,6 +8,7 @@ import java.util.List;
 public final class InkHistory {
     private final List<InkNote.Stroke> strokes = new ArrayList<>();
     private int cursor;
+    private NoteTemplate template;
     private int committedPoints;
     private float[] active;
     private int activePoints;
@@ -19,6 +20,7 @@ public final class InkHistory {
     public void reset(InkNote note) {
         if (note == null) throw new IllegalArgumentException("A note is required");
         cancelStroke();
+        template = note.template();
         strokes.clear();
         strokes.addAll(note.strokes());
         cursor = strokes.size();
@@ -26,7 +28,16 @@ public final class InkHistory {
         for (InkNote.Stroke stroke : strokes) committedPoints += stroke.pointCount();
     }
 
-    public InkNote getNote() { return new InkNote(strokes.subList(0, cursor)); }
+    public InkNote getNote() { return new InkNote(strokes.subList(0, cursor), template); }
+    /** Paper is independent of stroke undo/redo; switching it never discards handwriting. */
+    public boolean setTemplate(NoteTemplate value) {
+        if (value == null) throw new IllegalArgumentException("Missing note template");
+        cancelStroke();
+        if (template == value) return false;
+        template = value;
+        return true;
+    }
+    public NoteTemplate template() { return template; }
     public boolean canUndo() { return cursor > 0; }
     public boolean canRedo() { return cursor < strokes.size(); }
     public boolean isDrawing() { return active != null; }

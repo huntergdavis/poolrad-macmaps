@@ -214,7 +214,7 @@ public class NotebookArchiveTest {
         first.save(id, AREA, 1, 1, ink());
         byte[] note = bytes(file(source, id, AREA + "/17.ink"));
         byte[] damaged = note.clone(); damaged[damaged.length - 1] ^= 1;
-        byte[] future = note.clone(); ByteBuffer.wrap(future).putInt(4, 3);
+        byte[] future = note.clone(); ByteBuffer.wrap(future).putInt(4, 4);
         for (byte[] bad : new byte[][]{
                 archive(id, metadata(source, other)),
                 archive(id, metadata(source, id), new RawEntry(AREA + "/18.ink", note)),

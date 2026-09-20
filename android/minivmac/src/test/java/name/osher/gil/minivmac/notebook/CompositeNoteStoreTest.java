@@ -113,7 +113,24 @@ public class CompositeNoteStoreTest {
         assertArrayEquals(new String[]{"43.ink"}, note.getParentFile().list());
     }
 
-    @Test public void firstLegacySaveWritesVersionTwoAndRetainsByteExactOriginalBackup() throws Exception {
+    @Test public void oldCompositeNotesRemainPlainAndByteExactUntilSaved() throws Exception {
+        File root = temporary.getRoot();
+        NotebookStore store = new NotebookStore(root);
+        String book = store.createNotebook().id();
+        File file = fixture(root, book, 3, 4, 2, NoteIcon.TREASURE.id());
+        byte[] original = Files.readAllBytes(file.toPath());
+        InkNote note = store.read(book, AREA, 3, 4);
+        assertEquals(NoteTemplate.PLAIN, note.template());
+        assertInk(ink(), note);
+        assertArrayEquals(original, Files.readAllBytes(file.toPath()));
+        store.save(book, AREA, 3, 4, note.withTemplate(NoteTemplate.GRID));
+        InkNote reopened = new NotebookStore(root).read(book, AREA, 3, 4);
+        assertEquals(NoteTemplate.GRID, reopened.template());
+        assertEquals(NoteIcon.TREASURE, store.readIcon(book, AREA, 3, 4));
+        assertInk(note, reopened);
+    }
+
+    @Test public void firstLegacySaveWritesCurrentVersionAndRetainsByteExactOriginalBackup() throws Exception {
         File root = temporary.getRoot();
         NotebookStore store = new NotebookStore(root);
         String book = store.createNotebook().id();
@@ -125,7 +142,7 @@ public class CompositeNoteStoreTest {
         store.save(book, AREA, 11, 2, migrated, NoteIcon.TEMPLE);
         assertArrayEquals(original, Files.readAllBytes(backup(note).toPath()));
         try (RandomAccessFile record = new RandomAccessFile(note, "r")) {
-            assertEquals(0x50524e49, record.readInt()); assertEquals(2, record.readInt());
+            assertEquals(0x50524e49, record.readInt()); assertEquals(3, record.readInt());
         }
         try (RandomAccessFile record = new RandomAccessFile(metadata, "r")) {
             assertEquals(0x50524e42, record.readInt()); assertEquals(1, record.readInt());
@@ -141,7 +158,7 @@ public class CompositeNoteStoreTest {
         assertEquals(Collections.singleton(43), reopened.listFlags(book, AREA));
     }
 
-    @Test public void versionTwoKeepsBothCompositeHalvesAndEveryIconAcrossRestart() throws Exception {
+    @Test public void currentVersionKeepsBothCompositeHalvesAndEveryIconAcrossRestart() throws Exception {
         File root = temporary.getRoot();
         NotebookStore store = new NotebookStore(root);
         String book = store.createNotebook().id();

@@ -40,6 +40,7 @@ import name.osher.gil.minivmac.mapper.ExplorationStyle;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.notebook.InkNote;
+import name.osher.gil.minivmac.notebook.NoteTemplate;
 import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.journal.JournalBook;
 import name.osher.gil.minivmac.journal.JournalCitation;
@@ -1178,7 +1179,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         boolean closing, deleting, following;
         InkSheetView sheet;
         TextView status;
-        Button pen, eraser, undo, redo, symbol, journal, delete, fit, close;
+        Button pen, eraser, undo, redo, symbol, journal, template, delete, fit, close;
         AlertDialog dialog;
     }
 
@@ -1199,6 +1200,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         current.pen = content.pen; current.eraser = content.eraser;
         current.undo = content.undo; current.redo = content.redo;
         current.symbol = content.symbol; current.journal = content.journal;
+        current.template = content.template;
         current.delete = content.delete;
         current.fit = content.fit; current.close = content.close;
         current.delete.setContentDescription("Delete flag and linked handwritten note");
@@ -1247,6 +1249,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             ((MiniVMac) activity).journal().showFlagLinks(
                     current.area.id(), current.area.label(), current.x, current.y);
         });
+        current.template.setOnClickListener(v -> chooseTemplate(current));
         current.delete.setOnClickListener(v -> confirmDelete(current));
         current.fit.setOnClickListener(v -> current.sheet.fitPage());
         current.sheet.setOnChangeListener(() -> { current.revision++; updateTools(current); save(current, false); });
@@ -1257,6 +1260,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         boolean enabled = !current.closing && !current.deleting;
         current.sheet.setEnabled(enabled);
         current.pen.setEnabled(enabled); current.eraser.setEnabled(enabled); current.delete.setEnabled(enabled);
+        current.template.setEnabled(enabled);
+        current.template.setContentDescription("Choose writing-half template. Current: " + current.sheet.getNote().template().label());
         current.symbol.setEnabled(enabled);
         current.fit.setEnabled(enabled);
         current.symbol.setText(current.icon.label());
@@ -1300,6 +1305,24 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 });
             }
         });
+    }
+
+    private void chooseTemplate(Session current) {
+        if (disposed || current != session || current.closing || current.deleting) return;
+        current.sheet.cancelActiveStroke();
+        LinearLayout choices = column();
+        choices.addView(text("Writing half only. Your map and handwriting stay as they are."));
+        AlertDialog[] dialog = new AlertDialog[1];
+        for (NoteTemplate template : NoteTemplate.values()) {
+            Button choice = button(choices, template.label() + (current.sheet.getNote().template() == template ? " ✓" : ""));
+            choice.setOnClickListener(v -> {
+                if (!disposed && current == session && !current.closing && !current.deleting)
+                    current.sheet.setTemplate(template);
+                dialog[0].dismiss();
+            });
+        }
+        ScrollView scroll = new ScrollView(activity); scroll.addView(choices);
+        dialog[0] = picker = UpperHalfReferenceDialog.show(activity, "Page template", scroll);
     }
 
     private void chooseSymbol(Session current) {

@@ -16,7 +16,7 @@ import android.widget.TextView;
 public final class NoteEditorLayout extends LinearLayout {
     public final InkSheetView sheet;
     public final TextView heading, status;
-    public final Button pen, eraser, undo, redo, symbol, journal, fit, delete, close;
+    public final Button pen, eraser, undo, redo, symbol, journal, template, fit, delete, close;
     private final LinearLayout header, identity;
     private final HorizontalScrollView tools;
 
@@ -40,6 +40,7 @@ public final class NoteEditorLayout extends LinearLayout {
         pen = button(row, "Pen", 48); eraser = button(row, "Eraser", 56);
         undo = button(row, "Undo", 48); redo = button(row, "Redo", 48);
         symbol = button(row, "Symbol", 72); journal = button(row, "Journal", 68);
+        template = button(row, "Template", 68);
         fit = button(row, "Fit page", 64);
         delete = button(row, "Delete…", 60);
         tools = new HorizontalScrollView(context); tools.setFillViewport(false);

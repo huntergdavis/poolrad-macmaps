@@ -83,7 +83,12 @@ Take your combat actions in the original game below.
 ## Keep a notebook
 
 Tap a map tile to open a page with the map on the left and writing space on
-the right.
+the right. Choose **Template** for a blank grid, ruled list or blank map
+frame on the writing half. Plain paper remains the default.
+
+<img src="docs/images/note-template-grid.png" width="760" alt="Notebook grid template beside the area map, with handwriting preserved">
+
+*Screenshot from the running app. Game artwork belongs to its respective owners.*
 
 Entering a known area opens its last-used note, or a page at your arrival
 square if that note is missing.
@@ -132,10 +137,6 @@ illustrated manual lookup as a fallback.
   It skips a check if it has seen no activity since the last successful snapshot
   or restore. Game input, changes to the party, map or messages, and disk
   activity all count. [Autosave details](docs/SAVE_STATES.md#f103--autosaves-that-have-nothing-to-protect).
-
-<img src="docs/images/readme-save-preview.png" width="760" alt="Quick-save preview with capture time and the requirement for matching disks">
-
-*Screenshot from the running app. Game artwork belongs to its respective owners.*
 
 On launch, the app tries to resume your last completed snapshot. Its disks must
 match and its notebook must still exist. Otherwise, the Mac boots normally.

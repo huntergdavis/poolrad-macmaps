@@ -11,7 +11,7 @@ game and its saves. No account, cloud backup or handwriting service is involved.
    outside the app. Wait for **Notebook backup saved**.
 
 Repeat for each campaign. A backup contains that notebook's original run UUID,
-all areas' flags, chosen symbols and vector handwriting, including blank flags
+all areas' flags, chosen symbols, paper templates and vector handwriting, including blank flags
 and retained version-1 originals, walked-tile coverage and recent directional
 trails (0.12.0 onward), and its journal lookups, bookmarks, checked tasks and
 flag links (0.16.0 onward). From 0.88.0, discovered area connections are included

@@ -111,6 +111,16 @@ public final class NoteEditorLayoutCheck {
             visibleClose(narrow); checkSimpleControls(narrow);
         });
 
+        run("template action stays in the compact scrolling toolbar", () -> {
+            for(int width:new int[]{320,960}) {
+                NoteEditorLayout editor=create(context,dp(width),dp(416));
+                check(editor.template.getText().toString().equals("Template"),"Missing template action");
+                check(contains(scroll(editor),editor.template),"Template escaped toolbar");
+                check(editor.sheet.getTop()<=dp(56),"Template shrank writing height");
+                visibleClose(editor);checkSimpleControls(editor);
+            }
+        });
+
         run("large text retains a complete Close target without growing another toolbar", () -> {
             Configuration config = new Configuration(context.getResources().getConfiguration()); config.fontScale = 1.6f;
             Context enlarged = new ContextThemeWrapper(context.createConfigurationContext(config),

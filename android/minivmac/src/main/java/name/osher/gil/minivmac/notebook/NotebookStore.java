@@ -27,7 +27,7 @@ import name.osher.gil.minivmac.journal.MessageHistory;
 /** App-private user ink only: this class never opens an emulator disk or save. */
 public final class NotebookStore {
     private static final int BOOK_VERSION = 1;
-    private static final int INK_VERSION = 2;
+    private static final int INK_VERSION = 3;
     private static final int BOOK_MAGIC = 0x50524e42; // PRNB
     private static final int INK_MAGIC = 0x50524e49; // PRNI
     private static final int EXPLORATION_MAGIC = 0x50524558; // PREX
@@ -520,6 +520,7 @@ public final class NotebookStore {
             out.writeByte(x);
             out.writeByte(y);
             out.writeUTF(icon.id());
+            out.writeUTF(note.template().id());
             writeStrokes(out, note);
         }
         writeAtomic(file, INK_MAGIC, INK_VERSION, bytes.toByteArray());
@@ -653,11 +654,12 @@ public final class NotebookStore {
                 throw new IOException("Note identity does not match its flag");
             }
             NoteIcon icon = record.version == 1 ? NoteIcon.FLAG : NoteIcon.fromId(in.readUTF());
-            InkNote ink = readStrokes(in);
+            NoteTemplate template = record.version >= 3 ? NoteTemplate.fromId(in.readUTF()) : NoteTemplate.PLAIN;
+            InkNote ink = readStrokes(in).withTemplate(template);
             if (record.version == 1) ink = widenLegacySheet(ink);
             return new StoredNote(record.version, record.payload, ink, icon);
         } catch (IllegalArgumentException invalid) {
-            throw new IOException("Note contains an invalid icon or ink", invalid);
+            throw new IOException("Note contains an invalid icon, template or ink", invalid);
         }
     }
 

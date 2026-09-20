@@ -23,6 +23,7 @@ import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.notebook.InkNote;
 import name.osher.gil.minivmac.notebook.InkSheetLayout;
 import name.osher.gil.minivmac.notebook.NoteIcon;
+import name.osher.gil.minivmac.notebook.NoteTemplate;
 
 /**
  * Synthetic, real Android View/software-Canvas checks; no device input, files or guest fixture.
@@ -64,6 +65,30 @@ public final class NotePageImageCheck {
         Object thread=activityThread.getMethod("systemMain").invoke(null);
         context=(Context)activityThread.getMethod("getSystemContext").invoke(thread);
 
+        run("templates change only the writing half and export as distinct paper",()->{
+            Bitmap plain=export(InkNote.empty(),MAP,symbols(NoteIcon.FLAG),"Templates");
+            Set<Integer> appearances=new HashSet<>();
+            for(NoteTemplate template:NoteTemplate.values()) {
+                Bitmap page=export(InkNote.empty().withTemplate(template),MAP,symbols(NoteIcon.FLAG),"Templates");
+                check(differences(plain,page,0,0,800,768)==0,"Template changed map or header: "+template);
+                check(appearances.add(Arrays.hashCode(pixels(page))),"Templates look identical: "+template);
+                if(template!=NoteTemplate.PLAIN)
+                    check(differences(plain,page,800,PAGE_TOP,1600,768)>500,"Missing paper guides: "+template);
+            }
+        });
+        run("erasers and stroke undo preserve all template backgrounds",()->{
+            for(NoteTemplate template:NoteTemplate.values()) {
+                InkNote base=InkNote.empty().withTemplate(template);
+                Bitmap expected=export(base,MAP,symbols(NoteIcon.FLAG),"Templates");
+                InkNote erased=note(line(false,.035f),line(true,.15f)).withTemplate(template);
+                equal(expected,export(erased,MAP,symbols(NoteIcon.FLAG),"Templates"),"Eraser damaged template "+template);
+                InkSheetView sheet=view(note(line(false,.035f)).withTemplate(template),MAP,symbols(NoteIcon.FLAG),960,360);
+                sheet.undo();
+                equal(render(view(base,MAP,symbols(NoteIcon.FLAG),960,360)),render(sheet),"Undo damaged paper "+template);
+                sheet.redo();sheet.setTemplate(NoteTemplate.PLAIN);sheet.setTemplate(template);
+                check(sheet.getNote().strokes().size()==1,"Changing paper lost handwriting");
+            }
+        });
         run("readable 1600-pixel page has title/metadata, full map, white writing space and grayscale pixels",()->{
             Bitmap page=export(InkNote.empty(),MAP,symbols(NoteIcon.TEMPLE),"Notebook Alpha");
             check(page.getWidth()==1600 && page.getHeight()==768,"Unexpected export size");

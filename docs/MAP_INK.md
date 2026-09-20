@@ -45,8 +45,9 @@ position is constant within that page, so resizing does not shift ink to another
 tile. A cancelled, resized, extra-pointer or interrupted stroke is not committed;
 no page touch is forwarded to the Mac.
 
-The notebook UUID, verified area ID and tile identify a page. `PRNI` version 2
-adds a stable symbol ID. Existing version-1 handwriting moves proportionately
+The notebook UUID, verified area ID and tile identify a page. `PRNI` version 3
+adds a stable writing-half template ID after the symbol ID introduced in version 2.
+Version-1 and version-2 notes open on plain paper without changing their ink. Existing version-1 handwriting moves proportionately
 into the right-hand writing half, with its stroke widths, order and erasers
 preserved. Reading does not change the original file; the first successful save
 retains a byte-exact `.ink.v1` backup before atomic replacement. Unknown versions,

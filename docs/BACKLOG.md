@@ -1660,8 +1660,13 @@ needed. Confirmed 2026-09-18.
 
 ### P3
 
-- [ ] **F76 — Templates for a new notebook page** — a blank grid, a ruled list,
-  a blank map frame.
+- [x] **F76 (delivered 0.94.0) — Templates for a new notebook page.**
+  The optional Template toolbar action adds a blank grid, ruled list or blank
+  map frame to the writing half; the area map stays visible and plain paper
+  remains the default. Paper autosaves with each page, preserves ink, and
+  travels through backups and exports. All three choices, drawing, erasing
+  and save/reopen were verified live. 736 Java tests and 15 Android rendering
+  and layout checks pass. [Verification](NOTE_TEMPLATES.md).
 
 ### Back of the backlog
 

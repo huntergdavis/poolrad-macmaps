@@ -9,7 +9,9 @@ Original game artwork belongs to its respective owners.*
 
 1. Load a supported party and show the live map.
 2. Tap an empty tile to place a symbol; tap an existing symbol to reopen it.
-3. Its page contains a map at left and blank writing space at right.
+3. Its page contains a map at left and writing space at right. Plain paper is
+   the default. **Template** optionally adds a blank grid, ruled list or blank
+   map frame to the writing half; the area map stays visible.
 4. Draw with a pen or finger. **Pen**, **Eraser**, **Undo**, and **Redo** affect only
    this sheet. There is no handwriting recognition, text field, or network request.
 5. **Close & save** returns to the map. Completed strokes also autosave in the
@@ -27,7 +29,7 @@ each campaign and area, including after restarting the app. A deleted page
 falls back to the arrival square.
 
 A page being read follows the party into the next area. Once you start writing,
-erasing or changing its symbol, it stays on that page until **Close & save**;
+erasing, changing its symbol or choosing a template, it stays on that page until **Close & save**;
 then the latest area's note opens. An unfinished stroke is never interrupted
 by an area change. Walking within the same area, camp and temporary unreadable
 map readings do not reopen a page you closed.
@@ -38,6 +40,13 @@ The note sheet stays above the screen midpoint and does not dim the game. Its
 fixed-aspect paper keeps handwriting in proportion when the window changes size.
 An interrupted, unfinished stroke is cancelled rather than joined to the next one.
 Closing a note commits finished strokes, not an interrupted gesture.
+
+**Paper templates:** use **Template** in the note toolbar, then choose
+**Plain paper**, **Blank grid**, **Ruled list**, or **Blank map frame**.
+The choice autosaves with that page. Changing paper preserves handwriting;
+Eraser and stroke Undo/Redo leave the guides intact. Templates travel with
+notebook backups and appear in note images and PDFs. No chooser interrupts
+the normal new-page flow. See [template verification](NOTE_TEMPLATES.md).
 
 **Compact controls:** the title, save status, drawing tools, **Fit page** and
 **Close & save** share one row, leaving the rest of the pane for your sketch.
@@ -85,7 +94,7 @@ been removed from the flag editor to keep its controls compact; previously
 exported images remain readable. [Backup/restore guide](NOTEBOOK_BACKUPS.md).
 Keep a separate copy of irreplaceable notes; no Android cloud backup is used.
 
-Version 2 adds symbols and a wide composite page; version-1 handwriting moves
+Version 3 adds the writing-half template; version 2 added symbols and a wide composite page; version-1 handwriting moves
 into its right half without distortion, with an original-byte backup before
 the first rewrite. N3's pen controls are implemented; physical stylus/palm/e-ink
 acceptance remains unfinished. Emulator checks are not tablet acceptance.
