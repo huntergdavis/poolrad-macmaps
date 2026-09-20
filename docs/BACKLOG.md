@@ -1673,6 +1673,47 @@ should trade a requested feature for it.
   feature.
 
 
+### Battery & efficiency (owner audit, 2026-09-19)
+
+The subject-matter expert's read-only pass: the app already backs off its own
+polling when the player is idle, but a still screen does not mean the emulated
+Mac has stopped working — it keeps running underneath. In priority order:
+
+- [ ] **F99 — Audio off by default, and actually stop the work, not mute it.**
+  Owner: "I don't have audio running at all on an e-ink reader, nobody would."
+  No Android audio stream, no sample synthesis, no output-buffer transfers
+  between native and Java while off — not silence sent, no work done. Keep only
+  whatever emulated sound-hardware behaviour (status registers, interrupts) the
+  game needs to stay correct. Verify a game that asks for sound still behaves
+  once audio is turned back on. `android/minivmac/src/main/jni/src/ASCEMDEV.c`
+  and the native/Java sound path in `OSGLUJNI.c`/`Core.java`.
+- [ ] **F100 — Make "paused" actually wait.** The native paused loop
+  (`OSGLUJNI.c:1718`) spins with no real wait, so it can keep burning CPU while
+  backgrounded. Give it a real, reliable wait that still wakes promptly for
+  resume, shutdown, and any pending operation. No visible gameplay change; this
+  is pure waste removal.
+- [ ] **F101 — Skip redrawing combat when nothing changed.** Combat samples
+  invalidate the view on every accepted update even when nothing visible
+  moved (`LiveMapView.java:321`). Compare the displayed state first — acting
+  character, positions, everything the overview actually shows — and only
+  redraw on a real change.
+- [ ] **F102 — Pause the guest automatically while the player is just
+  reading or writing a note, transparent to the player.** Owner: this must not
+  be a mode switch the player has to notice or turn on — no visible toggle, no
+  "paused" indicator, it just quietly stops burning battery while nothing the
+  player would call "playing" is happening, and resumes the instant they act
+  again. The hard part flagged in the audit: detecting "waiting on the player"
+  automatically is real work, harder than an explicit toggle — build the
+  automatic version, not a settings switch.
+- [ ] **F103 — Skip autosaves that have nothing new to protect.** Autosaves
+  run on a timer regardless of whether anything actually changed
+  (`EmulatorFragment.java:510`), each paying for compression and a disk
+  fingerprint. Skip the write when the last autosave already covers the
+  current state, without losing a real recovery point.
+
+Dropped from the audit: slowing the code-wheel poll further — the expert's own
+estimate was "likely a smaller saving," not worth the added complexity.
+
 ## Not in this project
 
 LLMs, cloud accounts/sync, telemetry, rooting, an exposed RAM server, general
