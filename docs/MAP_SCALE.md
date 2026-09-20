@@ -1,7 +1,8 @@
 # Original area tile size
 
-Info → Options → **Original area tile size (1:1)** keeps the companion area
-map at 32 physical display pixels per square. It is off by default and saved
+Info → Options → **Original area tile size (1:1)** sets the companion area
+map to 32 physical display pixels per square. The map’s **−/+** controls can
+zoom from this scale; **1:1** resets it. It is off by default and saved
 globally. Drag to see the rest of a map that does not fit. Tapping its header
 brings the party back into view. Actual movement keeps the party visible;
 unchanged readings leave a manually scrolled view alone.
@@ -12,8 +13,8 @@ grid lines in the Area window are 60 display pixels apart (60 / 1.875 = 32).
 The companion uses 32 pixels directly, without Android density scaling or the
 guest display's enlargement. This preserves the companion's own artwork,
 notes, flags, exploration history and fog choices. Known-exit previews,
-Connections, the legend, party information and the battle overview keep their
-existing layouts.
+Connections, the legend and party information keep their existing layouts.
+[Map zoom](MAP_ZOOM.md) also provides independent combat framing and controls.
 
 The same viewport supplies drawing and note coordinates. Scroll bounds keep
 all 16×16 tiles reachable, and clipping prevents maps or note taps from spilling

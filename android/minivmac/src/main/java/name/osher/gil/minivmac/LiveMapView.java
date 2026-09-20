@@ -26,6 +26,7 @@ import name.osher.gil.minivmac.mapper.MapViewport;
 import name.osher.gil.minivmac.mapper.MapObservation;
 import name.osher.gil.minivmac.mapper.GameClock;
 import name.osher.gil.minivmac.mapper.CombatSnapshot;
+import name.osher.gil.minivmac.mapper.CombatViewport;
 import name.osher.gil.minivmac.mapper.MapMode;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 import name.osher.gil.minivmac.mapper.MapProgress;
@@ -77,6 +78,11 @@ public class LiveMapView extends View {
     }
     private boolean originalTileScale, panCandidate, mapDragging;
     private float mapScrollX, mapScrollY, panLastX, panLastY;
+    private float mapZoom = 1, battleZoom = 1, battleCenterX = 25, battleCenterY = 12.5f;
+    private boolean battleNeedsFocus = true;
+    private final RectF[] zoomTargets = {new RectF(), new RectF(), new RectF()};
+    private int touchZoom = -1;
+    private static final int ZOOM_OUT = 0x05000002, ZOOM_IN = 0x05000003, ZOOM_RESET = 0x05000004;
     private final float density;
     private final float textScale;
     /** Why the probe would not report a party, when it would not. */
@@ -247,7 +253,7 @@ public class LiveMapView extends View {
     private MapViewport viewport() {
         PartyPaneLayout p = pane();
         MapViewport v = new MapViewport(p.mapWidth-previewWidth(p), p.mapHeight, density,
-                originalTileScale, mapScrollX, mapScrollY);
+                originalTileScale, mapScrollX, mapScrollY, mapZoom);
         mapScrollX = v.scrollX; mapScrollY = v.scrollY;
         return v;
     }
@@ -255,13 +261,14 @@ public class LiveMapView extends View {
     public void setOriginalTileScale(boolean on) {
         if (originalTileScale == on) return;
         originalTileScale = on;
+        mapZoom = 1;
         mapScrollX = mapScrollY = 0;
         cancelTap(); revealParty(true); refreshDescription(); invalidate();
     }
 
     /** Keep actual movement visible, but leave a stationary player's manual pan alone. */
     private void revealParty(boolean center) {
-        if (!originalTileScale || state == null || !positionAvailable) return;
+        if (state == null || !positionAvailable) return;
         MapViewport v = viewport();
         float x = v.left + state.x * v.cell, y = v.top + state.y * v.cell;
         if (center) {
@@ -275,6 +282,46 @@ public class LiveMapView extends View {
         }
         viewport();
     }
+    private CombatViewport battleViewport() {
+        PartyPaneLayout p = pane();
+        CombatViewport v = battleNeedsFocus
+                ? CombatViewport.action(p.mapWidth, p.mapHeight, density, combat)
+                : new CombatViewport(p.mapWidth, p.mapHeight, density, battleZoom, battleCenterX, battleCenterY);
+        if (combat != null && v.cell > 0) battleNeedsFocus = false;
+        battleZoom = v.zoom; battleCenterX = v.centerX; battleCenterY = v.centerY;
+        return v;
+    }
+
+    private boolean canZoom() { return mode == MapMode.COMBAT ? combat != null : state != null; }
+
+    private int zoomAt(float x, float y) {
+        if (canZoom()) for (int i=0; i<zoomTargets.length; i++)
+            if (zoomTargets[i].contains(x,y)) return i;
+        return -1;
+    }
+
+    private void changeZoom(int control) {
+        if (!canZoom()) return;
+        cancelTap();
+        if (mode == MapMode.COMBAT) {
+            battleViewport();
+            battleNeedsFocus = false;
+            battleZoom = control == 2 ? 1 : Math.max(1, Math.min(8, battleZoom * (control == 1 ? 1.5f : 1/1.5f)));
+            battleViewport();
+        } else {
+            MapViewport before = viewport();
+            float cx = (before.clipLeft + before.clipRight) / 2, cy = (before.clipTop + before.clipBottom) / 2;
+            float x = (cx-before.left)/before.cell, y = (cy-before.top)/before.cell;
+            mapZoom = control == 2 ? 1 : Math.max(.5f, Math.min(8, mapZoom * (control == 1 ? 1.5f : 1/1.5f)));
+            MapViewport after = viewport();
+            mapScrollX += after.left + x*after.cell - cx;
+            mapScrollY += after.top + y*after.cell - cy;
+            viewport();
+            if (control == 2) revealParty(true);
+        }
+        refreshDescription(); invalidate();
+    }
+
     public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
         Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
         if (notebook.equals(label) && flags.equals(copy)) return;
@@ -354,7 +401,7 @@ public class LiveMapView extends View {
                     + " squares. " + combat.summary()
                     + ", between " + combat.left + "," + combat.top
                     + " and " + combat.right + "," + combat.bottom
-                    + ". Reference only; no terrain is shown and nothing here can be tapped.";
+                    + ". Reference only; no terrain is shown. Drag to pan; tap the header to frame the action.";
         setContentDescription(status + (gameClock == null ? "" : ". Game time: " + gameClock.label()) + (positionAvailable
                 ? ". Tap a tile to add a note; tap a symbol to reopen it. "
                 : ". Reference only; map notes resume with local exploration. ")
@@ -363,7 +410,11 @@ public class LiveMapView extends View {
                 + (pinging() ? "Your square is ringed. " : "")
                 + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
-                + (originalTileScale && mode == MapMode.EXPLORATION ? "Original tile size, 32 pixels. Drag to scroll; tap the area header to find the party. " : "")
+                + (originalTileScale && mode != MapMode.COMBAT ? "Original tile size at reset: 32 pixels. " : "")
+                + (canZoom() ? "Zoom " + Math.round((mode == MapMode.COMBAT ? battleZoom : mapZoom)*100)
+                    + " percent. Minus and plus change map zoom; reset restores "
+                    + (mode == MapMode.COMBAT ? "the whole arena. " : "the selected map scale. ")
+                    + "Drag to scroll; tap the header to find " + (mode == MapMode.COMBAT ? "the action. " : "the party. ") : "")
                 + "Info, Options changes map appearance. A Return key in the "
                 + "bottom-right corner presses Return in the game. "
                 + explorationStatus + health + previewDescription());
@@ -395,6 +446,7 @@ public class LiveMapView extends View {
         // Good repeats still renew the hold above, but do not redraw or
         // rebuild accessibility text when the displayed battle is unchanged.
         if (same) return;
+        if (combat != null) battleViewport();
         refreshDescription(); invalidate();
     }
 
@@ -462,7 +514,7 @@ public class LiveMapView extends View {
             if (where != null) listener.onAmbush(where, state.y * 16 + state.x);
         }
         if (nextMode != MapMode.COMBAT) {
-            combat = null; combatHold.reset();
+            combat = null; combatHold.reset(); battleNeedsFocus = true;
             // A lit row must not outlive the grid that explained it.
             highlightedMember = -1; highlightUntil = 0; combatCell = 0;
         }
@@ -491,6 +543,30 @@ public class LiveMapView extends View {
 
     @Override public boolean onTouchEvent(MotionEvent event) {
         int action = event.getActionMasked();
+        if (action == MotionEvent.ACTION_DOWN && zoomAt(event.getX(),event.getY()) >= 0) {
+            cancelTap();
+            touchZoom = zoomAt(event.getX(),event.getY());
+            touchPointer = event.getPointerId(0);
+            touchX = event.getX(); touchY = event.getY();
+            if (getParent()!=null) getParent().requestDisallowInterceptTouchEvent(true);
+            return true;
+        }
+        if (touchZoom >= 0) {
+            if (action == MotionEvent.ACTION_UP) {
+                int control = touchZoom;
+                boolean click = event.getPointerId(0) == touchPointer
+                        && (event.getFlags() & MotionEvent.FLAG_CANCELED) == 0
+                        && zoomAt(event.getX(),event.getY()) == control
+                        && Math.hypot(event.getX()-touchX,event.getY()-touchY)
+                            <= ViewConfiguration.get(getContext()).getScaledTouchSlop();
+                cancelTap();
+                if (click) { performClick(); changeZoom(control); }
+            } else if (action == MotionEvent.ACTION_CANCEL || action == MotionEvent.ACTION_POINTER_DOWN
+                    || action == MotionEvent.ACTION_POINTER_UP || (action == MotionEvent.ACTION_MOVE
+                    && Math.hypot(event.getX()-touchX,event.getY()-touchY)
+                        > ViewConfiguration.get(getContext()).getScaledTouchSlop())) cancelTap();
+            return true;
+        }
         if(action==MotionEvent.ACTION_DOWN && hasPreview() && previewTarget.contains(event.getX(),event.getY())) {
             cancelTap();touchingPreview=true;touchX=event.getX();touchY=event.getY();return true;
         }
@@ -514,9 +590,18 @@ public class LiveMapView extends View {
             if (mapDragging || Math.hypot(x-touchX, y-touchY)
                     > ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
                 mapDragging = true;
-                touchTile = -1;
-                mapScrollX -= x-panLastX; mapScrollY -= y-panLastY;
-                viewport(); invalidate();
+                touchTile = -1; touchCombatant = -1;
+                if (mode == MapMode.COMBAT) {
+                    CombatViewport v = battleViewport();
+                    if (v.cell > 0) {
+                        battleCenterX -= (x-panLastX)/v.cell; battleCenterY -= (y-panLastY)/v.cell;
+                        battleViewport();
+                    }
+                } else {
+                    mapScrollX -= x-panLastX; mapScrollY -= y-panLastY;
+                    viewport();
+                }
+                invalidate();
                 panLastX = x; panLastY = y;
             }
             return true;
@@ -536,8 +621,9 @@ public class LiveMapView extends View {
             touchParty = touchMember < 0 ? null : party;
             if (touchMember >= 0) postDelayed(partyLongPress, ViewConfiguration.getLongPressTimeout());
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
-            panCandidate = originalTileScale && state != null && mode != MapMode.COMBAT && !onButton
-                    && touchMember < 0 && viewport().contains(touchX, touchY);
+            panCandidate = !onButton && touchMember < 0 && (mode == MapMode.COMBAT
+                    ? combat != null && battleViewport().contains(touchX,touchY)
+                    : state != null && viewport().contains(touchX,touchY));
             panLastX = touchX; panLastY = touchY;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
@@ -578,7 +664,10 @@ public class LiveMapView extends View {
                 android.util.Log.i("PoolRad.Quick", "row tap " + touchMember + " mode=" + mode + " touchQuick=" + touchQuick);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
             } else if (gesture && touchHeader && headerTarget.contains(event.getX(), event.getY())) {
-                if (positionAvailable) {
+                if (mode == MapMode.COMBAT && combat != null) {
+                    battleNeedsFocus = true; battleViewport();
+                    performClick(); refreshDescription(); invalidate();
+                } else if (positionAvailable) {
                     revealParty(true);
                     pingUntil = now() + PING_MS;
                     performClick();
@@ -630,6 +719,12 @@ public class LiveMapView extends View {
 
     @Override public void onInitializeAccessibilityNodeInfo(AccessibilityNodeInfo info) {
         super.onInitializeAccessibilityNodeInfo(info);
+        if (canZoom()) {
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ZOOM_OUT,"Zoom map out"));
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ZOOM_IN,"Zoom map in"));
+            info.addAction(new AccessibilityNodeInfo.AccessibilityAction(ZOOM_RESET,
+                    mode == MapMode.COMBAT ? "Show whole combat arena" : "Reset map zoom"));
+        }
         if(hasPreview() && neighbors.size()>1) info.addAction(new AccessibilityNodeInfo.AccessibilityAction(NEXT_PREVIEW,"Next discovered exit destination"));
         if (listener != null) for (int i = 0; i < partyActions.size(); i++) {
             PartyState.Member member = partyActions.valueAt(i);
@@ -642,6 +737,9 @@ public class LiveMapView extends View {
     }
 
     @Override public boolean performAccessibilityAction(int action, Bundle args) {
+        if (canZoom() && (action==ZOOM_OUT || action==ZOOM_IN || action==ZOOM_RESET)) {
+            changeZoom(action==ZOOM_OUT ? 0 : action==ZOOM_IN ? 1 : 2); return true;
+        }
         if(action==NEXT_PREVIEW && hasPreview() && neighbors.size()>1) { nextPreview();return true; }
         PartyState.Member sheet = partySheetActions.get(action);
         if (sheet != null && listener != null) {
@@ -657,7 +755,7 @@ public class LiveMapView extends View {
     private void cancelTap() {
         panCandidate = mapDragging = false;
         removeCallbacks(partyLongPress);
-        touchReturn = false; touchQuick = -1;
+        touchReturn = false; touchQuick = -1; touchZoom = -1;
         touchPointer = touchTile = -1;
         touchMember = -1; touchParty = null; touchCombatant = -1; touchHeader = false;
         if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(false);
@@ -688,6 +786,7 @@ public class LiveMapView extends View {
         try {
             drawMap(canvas, pane);
             if (mirrorMessage && !gameMessage.isEmpty()) drawMessageMirror(canvas, pane);
+            drawZoomControls(canvas, pane);
         } finally { canvas.restore(); }
     }
 
@@ -850,13 +949,13 @@ public class LiveMapView extends View {
         ink.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < 16; i += 4) {
             float x = left + (i + .5f) * cell, y = top + (i + .7f) * cell;
-            if (!originalTileScale || (x >= viewport.clipLeft && x < viewport.clipRight))
-                canvas.drawText(Integer.toString(i), x, (originalTileScale ? viewport.clipTop : top) - 5 * density, ink);
-            if (!originalTileScale || (y >= viewport.clipTop && y < viewport.clipBottom))
-                canvas.drawText(Integer.toString(i), (originalTileScale ? Math.max(viewport.clipLeft, left) : left) - 11 * density, y, ink);
+            if (x >= viewport.clipLeft && x < viewport.clipRight)
+                canvas.drawText(Integer.toString(i), x, viewport.clipTop - 5 * density, ink);
+            if (y >= viewport.clipTop && y < viewport.clipBottom)
+                canvas.drawText(Integer.toString(i), Math.max(viewport.clipLeft, left) - 11 * density, y, ink);
         }
         int mapSave = canvas.save();
-        if (originalTileScale) canvas.clipRect(viewport.clipLeft, viewport.clipTop, viewport.clipRight, viewport.clipBottom);
+        canvas.clipRect(viewport.clipLeft, viewport.clipTop, viewport.clipRight, viewport.clipBottom);
         artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
         if (positionAvailable && pinging()) drawPing(canvas, left, top, cell);
@@ -886,10 +985,10 @@ public class LiveMapView extends View {
                     + " @" + density + (textScale == 1 ? "" : " ×" + textScale)
                 : null;
         canvas.drawText(fitHeaderText(
-                        (originalTileScale ? "1:1 · Drag to scroll · " : "") + (positionAvailable ? "Tap a tile or symbol · " : "") + notebook
+                        (originalTileScale && mapZoom == 1 ? "1:1 · " : Math.round(mapZoom*100) + "% · ") + (positionAvailable ? "Tap a tile or symbol · " : "") + notebook
                         + (missing == null ? "" : " · " + missing)
-                        + " · v" + BuildConfig.VERSION_NAME, available),
-                pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
+                        + " · v" + BuildConfig.VERSION_NAME, captionWidth(pane)),
+                captionCenter(pane), pane.mapHeight - 7 * density, ink);
     }
 
     /**
@@ -909,16 +1008,14 @@ public class LiveMapView extends View {
                     pane.mapWidth / 2f, pane.mapHeight / 2f, ink);
             return;
         }
-        float margin = 26 * density, header = 44 * density, caption = 22 * density;
-        float usableWidth = pane.mapWidth - 2 * margin;
-        float usableHeight = pane.mapHeight - header - caption - 10 * density;
-        if (usableWidth <= 0 || usableHeight <= 0) { combatCell = 0; return; }
-        float cell = Math.min(usableWidth / battle.width(), usableHeight / battle.height());
-        cell = Math.min(cell, 34 * density);
-        if (cell < 3) return;
+        CombatViewport viewport = battleViewport();
+        float cell = viewport.cell;
+        if (cell < 3) { combatCell = 0; return; }
         float gridWidth = cell * battle.width(), gridHeight = cell * battle.height();
-        float left = (pane.mapWidth - gridWidth) / 2f, top = header + (usableHeight - gridHeight) / 2f;
+        float left = viewport.left, top = viewport.top;
         combatLeft = left; combatTop = top; combatCell = cell;
+        int mapSave = canvas.save();
+        canvas.clipRect(viewport.clipLeft, viewport.clipTop, viewport.clipRight, viewport.clipBottom);
 
         ink.setColor(Color.BLACK);
         ink.setStyle(Paint.Style.STROKE);
@@ -963,18 +1060,44 @@ public class LiveMapView extends View {
             } else if (spot.party) canvas.drawCircle(cx, cy, radius, ink);
             else canvas.drawRect(cx - radius, cy - radius, cx + radius, cy + radius, ink);
         }
+        canvas.restoreToCount(mapSave);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextSize(11 * density);
         canvas.drawText(fitHeaderText(battle.width() + " × " + battle.height() + " squares · "
                         + battle.left + "," + battle.top + " to "
                         + battle.right + "," + battle.bottom, available),
-                pane.mapWidth / 2f, top - 8 * density, ink);
+                pane.mapWidth / 2f, viewport.clipTop - 8 * density, ink);
         ink.setTextSize(11 * density);
         canvas.drawText(fitHeaderText(
                         (battle.fallenCount() == 0
                             ? "Filled is yours · reference only, tap the game below to act"
-                            : "Filled is yours · ✕ still savable · ✝ past saving"), available),
-                pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);
+                            : "Filled is yours · ✕ still savable · ✝ past saving"), captionWidth(pane)),
+                captionCenter(pane), pane.mapHeight - 7 * density, ink);
+    }
+
+    private float captionWidth(PartyPaneLayout pane) { return Math.max(0, pane.mapWidth - 216*density); }
+    private float captionCenter(PartyPaneLayout pane) { return (160*density + pane.mapWidth - 56*density)/2; }
+
+    private void drawZoomControls(Canvas canvas, PartyPaneLayout pane) {
+        for (RectF target : zoomTargets) target.setEmpty();
+        if (!canZoom() || pane.mapWidth < 216*density || pane.mapHeight < 120*density) return;
+        for (int i=0; i<3; i++) {
+            RectF target = zoomTargets[i];
+            target.set((8+48*i)*density, pane.mapHeight-48*density, (56+48*i)*density, pane.mapHeight);
+            ink.setStyle(Paint.Style.FILL); ink.setColor(Color.WHITE);
+            canvas.drawRect(target, ink);
+            RectF button = new RectF(target); button.inset(8*density,8*density);
+            frame(canvas,button);
+            ink.setStyle(Paint.Style.FILL);
+            float zoom = mode == MapMode.COMBAT ? battleZoom : mapZoom;
+            boolean limit = i == 0 ? zoom <= (mode == MapMode.COMBAT ? 1 : .5f) : i == 1 && zoom >= 8;
+            ink.setColor(limit ? Color.GRAY : Color.BLACK);
+            ink.setTextAlign(Paint.Align.CENTER); ink.setTextSize((i==2 ? 11 : 22)*density);
+            Paint.FontMetrics metrics = ink.getFontMetrics();
+            String label = i==0 ? "−" : i==1 ? "+" : mode != MapMode.COMBAT && originalTileScale ? "1:1" : "Fit";
+            canvas.drawText(label,button.centerX(),button.centerY()-(metrics.ascent+metrics.descent)/2,ink);
+        }
+        ink.setColor(Color.BLACK);
     }
 
     /** The drawn button is 26dp; fingers get the 48dp target the guidelines ask for. */
@@ -1054,7 +1177,8 @@ public class LiveMapView extends View {
      */
     private int combatantAt(float x, float y) {
         CombatSnapshot battle = combat;
-        if (mode != MapMode.COMBAT || battle == null || party == null || combatCell < 3) return -1;
+        if (mode != MapMode.COMBAT || battle == null || party == null || combatCell < 3
+                || !battleViewport().contains(x,y)) return -1;
         int index = -1, found = -1;
         float closest = Float.MAX_VALUE;
         for (CombatSnapshot.Spot spot : battle.spots()) {

@@ -8,6 +8,28 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 public class MapViewportTest {
+    @Test public void zoomedMapKeepsLastTileReachableAndRejectsClippedNotes() {
+        MapViewport v = new MapViewport(400,300,1,false,9999,9999,4);
+        MapViewport fit = new MapViewport(400,300,1);
+        assertEquals(fit.cell*4,v.cell,.001f);
+        assertTrue(v.maxScrollX>0 && v.maxScrollY>0);
+        assertEquals(255,v.tileAt(v.left+15.5f*v.cell,v.top+15.5f*v.cell));
+        assertEquals(-1,v.tileAt(v.left+v.cell/2,v.top+v.cell/2));
+        assertEquals(-1,v.tileAt(100,v.clipBottom));
+        assertEquals(-1,v.tileAt(v.clipRight,100));
+    }
+
+    @Test public void zoomOutShowsEveryTileAndOriginalResetRemainsExact() {
+        MapViewport small = new MapViewport(400,300,1,false,9999,9999,.5f);
+        assertEquals(0,small.maxScrollX,0);
+        assertEquals(0,small.maxScrollY,0);
+        for(int tile=0;tile<256;tile++)
+            assertEquals(tile,small.tileAt(small.left+(tile%16+.5f)*small.cell,
+                    small.top+(tile/16+.5f)*small.cell));
+        assertEquals(64,new MapViewport(400,300,2,true,0,0,2).cell,0);
+        assertEquals(32,new MapViewport(400,300,2,true,0,0,1).cell,0);
+    }
+
     @Test public void originalTilesStay32PhysicalPixelsAcrossDensityAndSize() {
         for (float density : new float[]{1, 1.25f, 2, 3})
             for (int[] size : new int[][]{{1200,460},{400,250},{1600,800}}) {

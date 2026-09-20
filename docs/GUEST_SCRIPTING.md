@@ -194,3 +194,11 @@ quit question and Finder labels, chooses the visible Special → Shut Down,
 then requires the stopped-emulator screen and no open disk-image descriptors.
 It retains screenshots and OCR output, refuses unexpected screens, and never
 force-stops the app. Requires `tesseract`; test emulators only.
+
+## Keep a combat checkpoint
+
+Owner instruction, 2026-09-20: whenever testing reaches a real battle, take
+**PoolRad → Quick save** immediately. Record which emulator and save were used
+so later combat checks can start with **Quick load** instead of walking there
+again. Confirm the save completed; keep the private snapshot and its matching
+guest disks local, never in Git.

@@ -15,19 +15,24 @@ public final class MapViewport {
     }
 
     public MapViewport(int width, int height, float density, boolean original, float x, float y) {
+        this(width, height, density, original, x, y, 1);
+    }
+
+    public MapViewport(int width, int height, float density, boolean original, float x, float y, float zoom) {
+        zoom = finite(zoom) ? Math.max(.5f, Math.min(8, zoom)) : 1;
         clipLeft = 24 * density;
         clipTop = 42 * density;
         clipRight = Math.max(clipLeft, width - 24 * density);
         clipBottom = Math.max(clipTop, height - 22 * density);
-        cell = original ? ORIGINAL_TILE_PIXELS
-                : Math.min((width - 48 * density) / 16f, (height - clipTop - 22 * density) / 16f);
-        maxScrollX = original ? Math.max(0, cell * 16 - (clipRight - clipLeft)) : 0;
-        maxScrollY = original ? Math.max(0, cell * 16 - (clipBottom - clipTop)) : 0;
+        cell = (original ? ORIGINAL_TILE_PIXELS
+                : Math.min((width - 48 * density) / 16f, (height - clipTop - 22 * density) / 16f)) * zoom;
+        maxScrollX = Math.max(0, cell * 16 - (clipRight - clipLeft));
+        maxScrollY = Math.max(0, cell * 16 - (clipBottom - clipTop));
         scrollX = clamp(x, maxScrollX);
         scrollY = clamp(y, maxScrollY);
-        left = original ? Math.round(clipLeft + Math.max(0, (clipRight - clipLeft - cell * 16) / 2) - scrollX)
-                : (width - cell * 16) / 2;
-        top = original ? Math.round(clipTop - scrollY) : clipTop;
+        float origin = clipLeft + Math.max(0, (clipRight - clipLeft - cell * 16) / 2) - scrollX;
+        left = original ? Math.round(origin) : origin;
+        top = original ? Math.round(clipTop - scrollY) : clipTop - scrollY;
     }
 
     public boolean contains(float x, float y) {

@@ -175,22 +175,15 @@ public final class CombatMapRenderCheck {
         view.dispatchTouchEvent(up); up.recycle();
     }
 
-    /**
-     * Where drawCombat puts the marker for a battle square. This repeats the
-     * production geometry, so the check that uses it first confirms there is
-     * actually ink where this says there is -- otherwise the two could drift
-     * apart and the tap would still appear to work.
-     */
+    /** Read the active camera; the tap check separately requires ink at the marker center. */
     private static float[] spotCentre(LiveMapView view, CombatSnapshotGeometry battle, int x, int y) {
-        float density = view.getResources().getDisplayMetrics().density;
-        PartyPaneLayout pane = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 6);
-        float margin = 26 * density, header = 44 * density, caption = 22 * density;
-        float usableWidth = pane.mapWidth - 2 * margin;
-        float usableHeight = pane.mapHeight - header - caption - 10 * density;
-        float cell = Math.min(Math.min(usableWidth / battle.width, usableHeight / battle.height), 34 * density);
-        float gridWidth = cell * battle.width, gridHeight = cell * battle.height;
-        float left = (pane.mapWidth - gridWidth) / 2f, top = header + (usableHeight - gridHeight) / 2f;
-        return new float[]{left + (x - battle.left + .5f) * cell, top + (y - battle.top + .5f) * cell, cell};
+        try {
+            java.lang.reflect.Method method=LiveMapView.class.getDeclaredMethod("battleViewport");
+            method.setAccessible(true);
+            name.osher.gil.minivmac.mapper.CombatViewport v=
+                    (name.osher.gil.minivmac.mapper.CombatViewport)method.invoke(view);
+            return new float[]{v.left+(x+.5f)*v.cell,v.top+(y+.5f)*v.cell,v.cell};
+        } catch(Exception e) { throw new AssertionError(e); }
     }
 
     /** Arena dimensions verified from the original game, independent of occupants. */
@@ -387,6 +380,7 @@ public final class CombatMapRenderCheck {
             view.showSample(mapPacket(2, 5));
             int[][] rows = {{1, 27, 12}, {2, 28, 12}};
             view.showCombatSample(combatPacket(rows));
+            view.performAccessibilityAction(0x05000004, null); // Fit: show the real full arena.
             Bitmap before = draw(view);
             CombatSnapshotGeometry geometry = new CombatSnapshotGeometry(rows);
             float[] corner = spotCentre(view, geometry, 0, 0);

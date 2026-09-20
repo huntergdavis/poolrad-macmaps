@@ -960,9 +960,10 @@ research for sources and portability limits.
   proclamation and tavern-tale references belong in one encountered-entry list.
 - **L4 — More visual personalization: CUT by the user 2026-09-14.** Portrait
   picker, user artwork and guest-icon reuse are not wanted. Do not build.
-- **L5 — Fine layout preferences: CUT by the user 2026-09-14.** Adjustable
-  upper-pane sizing and map zoom are not wanted; the panes are tuned by hand
-  instead. Do not build.
+- **L5 — Fine layout preferences:** adjustable upper-pane sizing remains cut
+  by the user (2026-09-14). The user explicitly requested map zoom on 2026-09-20:
+  delivered in **0.107.0**, with minus/plus/reset controls and combat initially
+  framed around the combatants. [Behavior and verification](MAP_ZOOM.md).
 
 ## Queue from the brainstorm rounds (2026-09-17 → 2026-09-18)
 
