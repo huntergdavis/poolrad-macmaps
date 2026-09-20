@@ -11,6 +11,9 @@ Works offline. No root or account needed.
 [Download the 0.86.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.86.0/poolrad-macmaps-0.86.0.apk)
 for **Android 5.0 or later**.
 
+Features marked **0.87–0.89** below are newer than this download.
+Their APKs are not yet published.
+
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
 3. Import copies of your Mac system and game disks through the disk menu.
@@ -35,11 +38,15 @@ disks before uninstalling or clearing app data.
 - Tap the map header to highlight your party's square.
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
 - Open **Info → Map legend** for the symbols.
-- **Connections** (new in 0.88; APK not yet published) shows passages between
+- **Connections (0.88)** shows passages between
   areas you have visited. Arrows record only the directions you traveled.
   Tap an area to browse its neighbors; **Current area** returns the view to
   your party. Routes stay with your notebook and its backups. Loading a save
   adds no route. [See the Connections view](docs/AREA_CONNECTIONS.md).
+- **Exit previews (0.89):** stand on an exit square you have already used to see
+  its destination beside your map. Only explored squares appear, even with fog
+  off. Tap the preview to browse multiple destinations. Older notebooks gain
+  previews as you revisit areas. [See an exit preview](docs/NEIGHBOR_PREVIEW.md).
 
 When your position is unavailable, the app hides the party arrow and labels any
 retained map as a reference. Combat has its own overview.
@@ -78,7 +85,7 @@ Take your combat actions in the original game below.
 Tap a map tile to open a page with the map on the left and writing space on
 the right.
 
-**New in 0.87 (APK not yet published):** entering a known area opens its
+**New in 0.87:** entering a known area opens its
 last-used note, or a page at your arrival square if that note is missing.
 Once you start editing, the page stays put until **Close & save**; then the
 current area's note opens. You can still use the game beneath an automatically
