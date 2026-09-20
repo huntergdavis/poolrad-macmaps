@@ -27,6 +27,7 @@
 #include "EMULATION_WAIT.h"
 #include "POOLRAD.h"
 #include "POOLRAD_AUDIO.h"
+#include "POOLRAD_IDLE.h"
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
 #include "POOLRAD_SELECTION.h"
@@ -56,7 +57,23 @@ LOCALVAR emulation_wait EmulationWait = EMULATION_WAIT_INITIALIZER;
 /* Publish host controls without racing the guest's legacy flags. */
 enum { HostReset = 1, HostInterrupt = 2, HostRequestOff = 4, HostForceOff = 8 };
 LOCALVAR atomic_int HostCommands = 0;
+LOCALVAR atomic_int HostActivity = 0, HostMouseHeld = 0;
+LOCALVAR atomic_uint HostKeysHeld[4];
+LOCALVAR blnr AutomaticIdle = falseblnr;
+LOCALVAR poolrad_idle_tracker IdleTracker;
+#if EmASC || EmClassicSnd
+IMPORTFUNC blnr PoolRadSoundBusy(void);
+#endif
+LOCALFUNC uint64_t IdleNow(void) {
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    return (uint64_t)now.tv_sec * 1000 + now.tv_nsec / 1000000;
+}
 LOCALPROC WakeEmulation(void) { emulation_wait_wake(&EmulationWait); }
+LOCALPROC GuestActivity(void) {
+    atomic_store(&HostActivity, 1);
+    WakeEmulation();
+}
 LOCALFUNC jboolean RequestWork(atomic_int *request)
 {
     jboolean accepted = atomic_exchange(request, 1) == 0 ? JNI_TRUE : JNI_FALSE;
@@ -79,7 +96,7 @@ jmethodID jRamSnapshot;
 jmethodID jSaveState;
 jmethodID jStateRestored;
 jmethodID jCanRestoreState;
-jmethodID jPollStartupRestore, jEmulationReady;
+jmethodID jPollStartupRestore, jEmulationReady, jAutomaticIdle;
 LOCALVAR blnr StartupRestoreFinished = falseblnr;
 LOCALVAR atomic_int WantRamSnapshot = 0;
 LOCALVAR atomic_int WantSaveState = 0;
@@ -714,7 +731,7 @@ LOCALFUNC blnr EntropyGather(void)
  */
 GLOBALPROC notifyDiskInserted (jint drive, jboolean locked) {
     DiskInsertNotify((ui4b)drive, locked?trueblnr:falseblnr);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -724,7 +741,7 @@ GLOBALPROC notifyDiskInserted (jint drive, jboolean locked) {
  */
 GLOBALPROC notifyDiskEjected (jint drive) {
     DiskEjectedNotify((ui4b)drive);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -734,7 +751,7 @@ GLOBALPROC notifyDiskEjected (jint drive) {
  */
 GLOBALPROC notifyDiskCreated () {
     vSonyNewDiskWanted = falseblnr;
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -755,6 +772,7 @@ GLOBALFUNC jint getNumDrives () {
 // callbacks
 GLOBALFUNC tMacErr vSonyTransfer(blnr IsWrite, ui3p Buffer,	tDrive Drive_No, ui5r Sony_Start, ui5r Sony_Count, ui5r *Sony_ActCount)
 {
+    poolrad_idle_activity(&IdleTracker, IdleNow());
     jobject jBuffer;
     jBuffer = (*jEnv)->NewDirectByteBuffer(jEnv, Buffer, (jlong)Sony_Count);
     ui5r actCount = (*jEnv)->CallIntMethod(jEnv, mCore, jSonyTransfer, (jboolean)IsWrite, jBuffer, (jint)Drive_No, (jint)Sony_Start, (jint)Sony_Count);
@@ -1018,6 +1036,28 @@ GLOBALFUNC jintArray getScreenUpdate () {
     return jArray;
 }
 
+/* Native owns the sleep decision; Java suspends its polling without clearing
+ * the last visible map/note. Input only publishes activity and wakes the wait. */
+LOCALPROC SetAutomaticIdle(blnr idle) {
+    if (AutomaticIdle == idle) return;
+    AutomaticIdle = idle;
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jAutomaticIdle, idle ? JNI_TRUE : JNI_FALSE);
+    __android_log_print(ANDROID_LOG_INFO, "PoolRad.Idle", "automatic-idle=%d", idle);
+}
+
+LOCALPROC ObserveAutomaticIdle(const unsigned char *ram, size_t size) {
+    if (AutomaticIdle || CurSpeedStopped || !StartupRestoreFinished) return;
+    /* The verified input loop animates its cursor. Redraws alone are not
+     * gameplay; its call stack, input, disk and sound establish eligibility. */
+    int busy = atomic_load(&HostActivity) || atomic_load(&HostMouseHeld);
+    for (unsigned i = 0; i < 4; i++) busy |= atomic_load(&HostKeysHeld[i]) != 0;
+#if MySoundEnabled && (EmASC || EmClassicSnd)
+    busy |= SoundOutputActive && PoolRadSoundBusy();
+#endif
+    uint32_t frame = busy ? 0 : poolrad_idle_wait(ram, size, PoolRadGetAddressRegister(6));
+    if (poolrad_idle_observe(&IdleTracker, IdleNow(), frame, busy)) SetAutomaticIdle(trueblnr);
+}
+
 LOCALPROC MyDrawChangesAndClear(void)
 {
     if (ScreenChangedBottom > ScreenChangedTop) {
@@ -1040,7 +1080,7 @@ LOCALPROC MyDrawChangesAndClear(void)
 GLOBALPROC moveMouse (jint dx, jint dy) {
     HaveMouseMotion = trueblnr;
     MyMousePositionSetDelta(dx, dy);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -1054,7 +1094,7 @@ GLOBALPROC setMousePos (jint x, jint y) {
     CurMouseV = CLAMP(y, 0, vMacScreenHeight);
 
     MyMousePositionSet(CurMouseH, CurMouseV);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -1063,9 +1103,10 @@ GLOBALPROC setMousePos (jint x, jint y) {
  * Signature: (Z)V
  */
 GLOBALPROC setMouseButton (jboolean down) {
+    atomic_store(&HostMouseHeld, down != 0);
     CurMouseButton = down?trueblnr:falseblnr;
     MyMouseButtonSet(CurMouseButton);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -1106,8 +1147,9 @@ GLOBALFUNC jboolean getMouseButton () {
  * Signature: (I)V
  */
 GLOBALPROC setKeyDown (jint key) {
+    if (key >= 0 && key < 128) atomic_fetch_or(&HostKeysHeld[key / 32], 1u << (key % 32));
     Keyboard_UpdateKeyMap2(key, trueblnr);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -1116,8 +1158,9 @@ GLOBALPROC setKeyDown (jint key) {
  * Signature: (I)V
  */
 GLOBALPROC setKeyUp (jint key) {
+    if (key >= 0 && key < 128) atomic_fetch_and(&HostKeysHeld[key / 32], ~(1u << (key % 32)));
     Keyboard_UpdateKeyMap2(key, falseblnr);
-    WakeEmulation();
+    GuestActivity();
 }
 
 #if 0
@@ -1245,6 +1288,10 @@ LOCALPROC EnterSpeedStopped(void)
 
 LOCALPROC CheckForSavedTasks(void)
 {
+    if (atomic_exchange(&HostActivity, 0)) {
+        poolrad_idle_activity(&IdleTracker, IdleNow());
+        SetAutomaticIdle(falseblnr);
+    }
     int commands = atomic_exchange(&HostCommands, 0);
     if (commands & HostReset) WantMacReset = trueblnr;
     if (commands & HostInterrupt) WantMacInterrupt = trueblnr;
@@ -1264,7 +1311,7 @@ LOCALPROC CheckForSavedTasks(void)
         return;
     }
 
-    if (CurSpeedStopped != (SpeedStopped ||
+    if (CurSpeedStopped != (SpeedStopped || AutomaticIdle ||
                             atomic_load(&gBackgroundFlag)))
     {
         CurSpeedStopped = ! CurSpeedStopped;
@@ -1543,6 +1590,7 @@ LOCALPROC DeliverRestoreState(void)
 			}
 			/* No disk write, mount or eject can intervene before the apply. */
 			if (verified && PoolRadRestoreState(gRestoreBuf, gRestoreLen)) {
+                GuestActivity(); /* Start the restored wait/activity afresh. */
 				restored = JNI_TRUE;
 				NeedWholeScreenDraw = trueblnr;
 			}
@@ -1676,8 +1724,10 @@ GLOBALFUNC jboolean setPartyQuick(jint slot, jboolean on)
     ui5b size;
     ui3p ram = GetRamForSnapshot(&size);
     if (ram == NULL || slot < 0) return JNI_FALSE;
-    return poolrad_party_set_quick((unsigned char *) ram, size,
-                                   (unsigned) slot, on == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
+    int changed = poolrad_party_set_quick((unsigned char *) ram, size,
+                                   (unsigned) slot, on == JNI_TRUE);
+    if (changed) GuestActivity();
+    return changed ? JNI_TRUE : JNI_FALSE;
 }
 
 /* F40: the second write, bandaging one Dying party member at a fight's end.
@@ -1688,7 +1738,9 @@ GLOBALFUNC jint bandageParty(jint slot)
     ui5b size;
     ui3p ram = GetRamForSnapshot(&size);
     if (ram == NULL || slot < 0) return -1;
-    return poolrad_party_bandage((unsigned char *) ram, size, (unsigned) slot);
+    int changed = poolrad_party_bandage((unsigned char *) ram, size, (unsigned) slot);
+    if (changed > 0) GuestActivity();
+    return changed;
 }
 
 GLOBALFUNC jboolean requestMessageSample(void)
@@ -1767,6 +1819,7 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     ui5b mapRamSize;
     ui3p mapRam = GetRamForSnapshot(&mapRamSize);
     poolrad_walk_observe(mapRam, mapRamSize, &MapWalkTracker);
+    ObserveAutomaticIdle(mapRam, mapRamSize);
     uint64_t wakeTicket;
     label_retry:
     wakeTicket = emulation_wait_ticket(&EmulationWait);
@@ -1861,6 +1914,11 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 
     ForceMacOff = falseblnr;
     atomic_store(&HostCommands, 0);
+    atomic_store(&HostActivity, 0);
+    atomic_store(&HostMouseHeld, 0);
+    for (unsigned i = 0; i < 4; i++) atomic_store(&HostKeysHeld[i], 0);
+    AutomaticIdle = falseblnr;
+    poolrad_idle_activity(&IdleTracker, IdleNow());
     CurSpeedStopped = trueblnr;
     StartupRestoreFinished = falseblnr;
     atomic_store(&WantRamSnapshot, 0);
@@ -1898,6 +1956,7 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 	jStateRestored = (*env)->GetMethodID(env, this, "onStateRestored", "(Z)V");
 	jCanRestoreState = (*env)->GetMethodID(env, this, "canRestoreState", "()Z");
 	jEmulationReady = (*env)->GetMethodID(env, this, "onEmulationReady", "()V");
+    jAutomaticIdle = (*env)->GetMethodID(env, this, "onAutomaticIdle", "(Z)V");
 	jPollStartupRestore = (*env)->GetMethodID(env, this, "pollStartupRestore", "()Z");
     jMapSample = (*env)->GetMethodID(env, this, "onMapSample", "([B)V");
     jWheelSample = (*env)->GetMethodID(env, this, "onWheelSample", "([B)V");
@@ -1988,7 +2047,7 @@ LOCALPROC UnallocMyMemory(void)
  */
 GLOBALPROC setWantMacReset () {
     atomic_fetch_or(&HostCommands, HostReset);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -1998,7 +2057,7 @@ GLOBALPROC setWantMacReset () {
  */
 GLOBALPROC setWantMacInterrupt () {
     atomic_fetch_or(&HostCommands, HostInterrupt);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -2008,7 +2067,7 @@ GLOBALPROC setWantMacInterrupt () {
  */
 GLOBALPROC setRequestMacOff () {
     atomic_fetch_or(&HostCommands, HostRequestOff);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -2018,7 +2077,7 @@ GLOBALPROC setRequestMacOff () {
  */
 GLOBALPROC setForceMacOff () {
     atomic_fetch_or(&HostCommands, HostForceOff);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -2028,7 +2087,7 @@ GLOBALPROC setForceMacOff () {
  */
 GLOBALPROC resumeEmulation () {
     atomic_store(&gBackgroundFlag, 0);
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*
@@ -2057,7 +2116,7 @@ GLOBALFUNC jboolean isPaused () {
  */
 GLOBALPROC setSpeed (jint value) {
     SpeedValue = (ui3b)value;
-    WakeEmulation();
+    GuestActivity();
 }
 
 /*

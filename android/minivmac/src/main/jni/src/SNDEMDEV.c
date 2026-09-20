@@ -99,6 +99,10 @@ LOCALVAR ui4b SoundInvertState = 0;
 
 IMPORTFUNC ui4b GetSoundInvertTime(void);
 
+GLOBALFUNC blnr PoolRadSoundBusy(void) {
+    return !SoundDisable || GetSoundInvertTime() != 0;
+}
+
 GLOBALPROC MacSound_SubTick(int SubTick)
 {
 	if (!MySound_OutputEnabled()) return;

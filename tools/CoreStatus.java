@@ -17,7 +17,7 @@ public class CoreStatus {
                 System.out.println("audioTrack="+type.getValue(type.fieldByName("mAudioTrack")));
                 for (ObjectReference core:type.instances(8)) {
                     System.out.println("Core " + core.uniqueID());
-                    for(String name:List.of("initOk","emulationEnded","mIsInitialized","numInsertedDisks","emulationPaused"))
+                    for(String name:List.of("initOk","emulationEnded","mIsInitialized","numInsertedDisks","emulationPaused","automaticIdle"))
                         System.out.println(name+"="+core.getValue(type.fieldByName(name)));
                 }
             }

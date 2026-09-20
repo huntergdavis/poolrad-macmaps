@@ -144,7 +144,7 @@ public class EmulatorFragment extends Fragment
 
     private void startWheelPolling() {
         stopWheelPolling();
-        if (isResumed() && mScreenView != null) { mWheelPolling = true; mUIHandler.post(mWheelPoll); }
+        if (isResumed() && mScreenView != null && (mCore == null || !mCore.isAutomaticIdle())) { mWheelPolling = true; mUIHandler.post(mWheelPoll); }
     }
     private void stopWheelPolling() {
         mWheelPolling = false; mWheelGeneration++;
@@ -298,6 +298,9 @@ public class EmulatorFragment extends Fragment
     private final Runnable mBootDismissTick = new Runnable() {
         @Override public void run() {
             if (!mBootDismissArmed) return;
+            // A restored fight has no area-map snapshot, but it is a live game.
+            // Do not send synthetic Returns that keep foreground idle awake.
+            if (guestSignal() == GameSignal.PARTY) { stopBootDismiss(); return; }
             Core core = mCore;
             long now = SystemClock.elapsedRealtime();
             boolean noGameYet = mLiveMap == null || mLiveMap.snapshot() == null;
@@ -456,6 +459,10 @@ public class EmulatorFragment extends Fragment
     }
 
     private void startMapPolling() {
+        if (mCore != null && mCore.isAutomaticIdle()) {
+            requestCompanionSamples(mCore);
+            return;
+        }
         stopMapPolling();
         if (companionMapActive()) {
             mMapPolling = true;
@@ -474,6 +481,44 @@ public class EmulatorFragment extends Fragment
         if (mLiveMap != null) mLiveMap.clearReadings();
     }
 
+    /** Keep the last readings visible: this is invisible foreground sleep,
+     * not a lifecycle pause or a change of notebook. */
+    private void automaticIdleChanged(Core target, boolean idle) {
+        if (mCore != target || !isResumed() || target.isAutomaticIdle() != idle) return;
+        if (idle) {
+            mMapPolling = false; mMapGeneration++;
+            mUIHandler.removeCallbacks(mMapPoll);
+            stopWheelPolling();
+            stopBootDismiss();
+            mUIHandler.removeCallbacks(mAutoSaveTick); // preserve the due time
+            releaseMulticastLock();
+            requestCompanionSamples(target); // one final read, without advancing the guest
+        } else {
+            acquireMulticastLock();
+            mMapPolling = companionMapActive();
+            mMapPace.reset();
+            mUIHandler.removeCallbacks(mMapPoll);
+            if (mMapPolling) mUIHandler.post(mMapPoll);
+            startWheelPolling();
+            if (mAutoSaving) {
+                mUIHandler.removeCallbacks(mAutoSaveTick);
+                mUIHandler.postDelayed(mAutoSaveTick,
+                        Math.max(0, mNextAutoSaveMs - SystemClock.elapsedRealtime()));
+            }
+        }
+    }
+
+    private void requestCompanionSamples(Core target) {
+        if (!companionMapActive() || !target.isReady()) return;
+        target.requestMapSample(); target.requestPartySample();
+        target.requestMessageSample(); target.requestCombatSample();
+    }
+
+    private boolean acceptCompanionSample(Core target, int generation) {
+        return (mMapPolling || target.isAutomaticIdle()) && generation == mMapGeneration
+                && mCore == target && companionMapActive();
+    }
+
     private boolean companionMapActive() {
         // User-owned exploration keeps recording while Info is selected or the
         // companion is hidden. Pausing/destroying the activity still stops it.
@@ -485,10 +530,13 @@ public class EmulatorFragment extends Fragment
     /** How often an automatic save is taken while a party is in the world. */
     private static final long AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
     private boolean mAutoSaving;
+    private long mNextAutoSaveMs;
     private final Runnable mAutoSaveTick = new Runnable() {
         @Override public void run() {
             if (!mAutoSaving) return;
+            if (mCore != null && mCore.isAutomaticIdle()) return;
             maybeAutoSave();
+            mNextAutoSaveMs = SystemClock.elapsedRealtime() + AUTOSAVE_INTERVAL_MS;
             if (mUIHandler != null) mUIHandler.postDelayed(this, AUTOSAVE_INTERVAL_MS);
         }
     };
@@ -496,6 +544,7 @@ public class EmulatorFragment extends Fragment
     private void startAutoSave() {
         stopAutoSave();
         mAutoSaving = true;
+        mNextAutoSaveMs = SystemClock.elapsedRealtime() + AUTOSAVE_INTERVAL_MS;
         if (mUIHandler != null) mUIHandler.postDelayed(mAutoSaveTick, AUTOSAVE_INTERVAL_MS);
     }
 
@@ -1050,6 +1099,8 @@ public class EmulatorFragment extends Fragment
             mCore = sessionCore;
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
             final Core mapCore = mCore;
+            mapCore.setAutomaticIdleListener(idle ->
+                    mUIHandler.post(() -> automaticIdleChanged(mapCore, idle)));
             mUIHandler.post(() -> {
                 if (mCore != mapCore) return;
                 if (isResumed()) mapCore.resumeEmulation(); else mapCore.pauseEmulation();
@@ -1065,7 +1116,7 @@ public class EmulatorFragment extends Fragment
             mCore.setMapSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive()) {
+                    if (acceptCompanionSample(mapCore, generation)) {
                         mLiveMap.showSample(sample);
                         name.osher.gil.minivmac.mapper.MapObservation seen =
                                 name.osher.gil.minivmac.mapper.MapObservation.parse(sample);
@@ -1087,7 +1138,7 @@ public class EmulatorFragment extends Fragment
                 // true even with the map hidden.
                 mLastPartySample = sample;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive()) {
+                    if (acceptCompanionSample(mapCore, generation)) {
                         mLiveMap.showPartySample(sample); mLiveMap.refreshQuickPending();
                         mRestTally.observeSignal(GameSignal.of(sample));
                         mRestTally.observeParty(PartyState.parse(sample));
@@ -1098,7 +1149,7 @@ public class EmulatorFragment extends Fragment
             mCore.setCombatSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
+                    if (acceptCompanionSample(mapCore, generation))
                         mLiveMap.showCombatSample(sample);
                 });
             });
@@ -1107,8 +1158,7 @@ public class EmulatorFragment extends Fragment
             mCore.setMessageSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore
-                            && companionMapActive()) {
+                    if (acceptCompanionSample(mapCore, generation)) {
                         if (mNotebook != null) mNotebook.onGameMessage(sample);
                         gateObserveMessage(sample);
                         if (mLiveMap != null) {   // F64: mirror the text in larger type

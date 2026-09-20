@@ -29,6 +29,21 @@ public class Core {
 	@SuppressWarnings("FieldMayBeFinal") private volatile boolean initOk = false;
 	// Start asleep until the fragment supplies its current lifecycle state.
 	private volatile boolean emulationPaused = true;
+    private volatile boolean automaticIdle;
+    private volatile java.util.function.Consumer<Boolean> automaticIdleListener;
+    public boolean isAutomaticIdle() { return automaticIdle; }
+    public void setAutomaticIdleListener(java.util.function.Consumer<Boolean> listener) {
+        automaticIdleListener = listener;
+    }
+    /** Native has positively identified an untimed game input wait. */
+    @SuppressWarnings("unused")
+    private void onAutomaticIdle(boolean idle) {
+        automaticIdle = idle;
+        if (idle) quickRetry.removeCallbacks(retryQuick);
+        java.util.function.Consumer<Boolean> listener = automaticIdleListener;
+        if (listener != null) listener.accept(idle);
+    }
+
 	private volatile boolean emulationEnded = false;
 	private volatile boolean diskCloseFailed = false;
 
@@ -54,7 +69,7 @@ public class Core {
 	 */
 	private final QuickToggleQueue quickQueue = new QuickToggleQueue();
 	private final android.os.Handler quickRetry = new android.os.Handler(android.os.Looper.getMainLooper());
-	private final Runnable retryQuick = () -> { if (initOk && !emulationPaused && quickQueue.busy()) requestPartySample(); };
+	private final Runnable retryQuick = () -> { if (initOk && !emulationPaused && !automaticIdle && quickQueue.busy()) requestPartySample(); };
 	public boolean queuePartyQuick(name.osher.gil.minivmac.mapper.PartyState.Member member, boolean on) {
 		if (!initOk || member == null) return false;
 		if (!quickQueue.request(member, on)) return false;
@@ -178,7 +193,7 @@ public class Core {
 			android.util.Log.i("PoolRad.Quick", "drain parsed=" + (parsed != null) + " written=" + written + " stillBusy=" + quickQueue.busy()
 					+ (parsed == null && sample != null && sample.length >= 5 ? " refusal=" + (sample[4] & 255) : ""));
 			quickRetry.removeCallbacks(retryQuick);
-			if (quickQueue.busy() && !emulationPaused) quickRetry.postDelayed(retryQuick, 250);
+			if (quickQueue.busy() && !emulationPaused && !automaticIdle) quickRetry.postDelayed(retryQuick, 250);
 			else if (written) requestPartySample(); // Read back the result; never claim it from a queued intent.
 		}
 		MapSampleListener listener = mPartySampleListener;

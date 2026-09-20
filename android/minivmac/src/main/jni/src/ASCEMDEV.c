@@ -53,6 +53,13 @@ LOCALVAR ui4b ASC_FIFO_InA = 0;
 LOCALVAR ui4b ASC_FIFO_InB = 0;
 LOCALVAR blnr ASC_Playing = falseblnr;
 
+/* Do not suspend an audible FIFO or wavetable effect mid-playback. */
+GLOBALFUNC blnr PoolRadSoundBusy(void) {
+    return SoundReg801 == 2 || (SoundReg801 == 1 &&
+        (ASC_Playing || ASC_FIFO_InA != ASC_FIFO_Out ||
+         ((SoundReg802 & 2) && ASC_FIFO_InB != ASC_FIFO_Out)));
+}
+
 #define ASC_dolog (dbglog_HAVE && 0)
 
 #ifdef ASC_interrupt_PulseNtfy

@@ -58,6 +58,16 @@ static void options(void) {
 }
 int main(void) {
     options();
+    /* Idle must wait for audible work, but an unused mono B FIFO is inert. */
+    SoundReg801=1;SoundReg802=0;ASC_Playing=0;
+    ASC_FIFO_Out=100;ASC_FIFO_InA=100;ASC_FIFO_InB=0;
+    assert(!PoolRadSoundBusy());
+    SoundReg802=2;assert(PoolRadSoundBusy());
+    ASC_FIFO_InB=100;assert(!PoolRadSoundBusy());
+    ASC_FIFO_InA=101;assert(PoolRadSoundBusy());
+    ASC_FIFO_InA=100;ASC_Playing=1;assert(PoolRadSoundBusy());
+    SoundReg801=2;assert(PoolRadSoundBusy());
+    SoundReg801=0;assert(!PoolRadSoundBusy());
     unsigned counts[]={0,1,22,23,24,369,370,511,512,1023};
     unsigned checked=0;
     for(unsigned mode=0;mode<4;mode++)

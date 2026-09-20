@@ -1736,14 +1736,14 @@ Mac has stopped working — it keeps running underneath. In priority order:
   changes stay current, while a quiet turn's 10 accepted updates cause zero
   map draws. All 722 Java tests and 19 Android combat rendering checks pass.
   [Verification](COMBAT_REDRAW.md).
-- [ ] **F102 — Pause the guest automatically while the player is just
-  reading or writing a note, transparent to the player.** Owner: this must not
-  be a mode switch the player has to notice or turn on — no visible toggle, no
-  "paused" indicator, it just quietly stops burning battery while nothing the
-  player would call "playing" is happening, and resumes the instant they act
-  again. The hard part flagged in the audit: detecting "waiting on the player"
-  automatically is real work, harder than an explicit toggle — build the
-  automatic version, not a settings switch.
+- [x] **F102 (delivered 0.100.0) — Automatic idle while reading or writing.**
+  Positively recognize the game's untimed player-input wait, then sleep after
+  five quiet seconds. No toggle or paused indicator. Notes remain usable;
+  the first game action wakes and is delivered normally. Guest CPU, audio,
+  companion polling and multicast activity stop; timed/unknown waits keep
+  running. Verified live: zero emulator CPU while reading and writing,
+  first-key movement, Sounds enabled and clean background/foreground resume.
+  [Detection and verification](AUTOMATIC_IDLE.md).
 - [x] **F104 (delivered 0.96.0) — "Resting clears chosen spells" investigated.**
   Reproduced with RAM captures and read from CODE 4: the game itself forgets
   chosen spells on entering and leaving camp, the timed Camp → Rest never sets
