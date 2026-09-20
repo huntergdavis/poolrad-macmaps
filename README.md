@@ -8,19 +8,8 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.96.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.96.0/poolrad-macmaps-0.96.0.apk)
+[Download the 0.99.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.99.0/poolrad-macmaps-0.99.0.apk)
 for **Android 5.0 or later**.
-
-The source has three changes that are **not in the published APK yet**:
-
-- The emulator stops its background work when you switch away.
-  [Pause and resume](docs/PAUSED_IDLE.md).
-- The combat overview shows the full 50 × 25-square arena. Its frame stays fixed
-  as characters move or fall. [Arena view and verification](docs/COMBAT_MEMORY.md#full-arena-bounds-f73-0980).
-- After a fight's results and treasure screens, the app bandages Dying party
-  members if someone is still standing, then takes a quick save. Bandaged characters
-  remain Unconscious at zero hit points.
-  [Behavior and test limits](docs/PARTY.md#the-bandage-write-f40-2026-09-19).
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -88,11 +77,13 @@ last detected rest, with the game's rest time. Until a rest is detected, it
 counts from loading the game. Snapshots keep their own counts.
 [Counting rules and test coverage](docs/SINCE_LAST_REST.md).
 
-During combat, the overview shows your party and enemies, names the monsters,
-and counts those still standing. A ring and a marked party row identify the
+During combat, the overview shows the full 50 × 25-square arena, your party
+and enemies. Its frame stays fixed as characters move or fall. It names the
+monsters and counts those still standing. A ring and a marked party row identify the
 acting party member. Tap a party marker to highlight its row. Crosses distinguish
 fallen characters who can still be helped from those who are dead or petrified.
 Take your combat actions in the original game below.
+[Arena view and verification](docs/COMBAT_MEMORY.md#full-arena-bounds-f73-0980).
 
 ## Keep a notebook
 
@@ -143,6 +134,11 @@ audio work. **Walking Sounds** controls footsteps.
 ## Save and resume
 
 - **PoolRad → Quick save** keeps your ten latest quick snapshots.
+- After a fight's results and treasure screens, the app bandages Dying party
+  members if someone is still standing, then takes a quick save. Bandaged
+  characters remain Unconscious at zero hit points. A quick save is taken
+  even when nobody needs bandaging.
+  [Behavior and test limits](docs/PARTY.md#the-bandage-write-f40-2026-09-19).
 - **Quick load** immediately restores the newest quick save.
 - **Load…** lists quick, named and automatic saves with dates and screen previews.
   Choose one to preview and load.
@@ -161,6 +157,9 @@ On launch, the app tries to resume your last completed snapshot. Its disks must
 match and its notebook must still exist. Otherwise, the Mac boots normally.
 Choose **Start normally** to skip the attempt, or turn it off in **Info → Options**.
 That page also controls compact party rows and larger game messages.
+
+Switching away pauses the emulator and stops its background work until you
+return. [Pause and resume](docs/PAUSED_IDLE.md).
 
 **Snapshots restore the running Mac, not its disk contents.** Loading requires
 the mounted disks to match exactly; a mismatch leaves your current game intact.
