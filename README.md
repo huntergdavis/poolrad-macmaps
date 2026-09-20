@@ -1,5 +1,7 @@
 # PoolRad Mac Maps
 
+[![Build and test](https://github.com/huntergdavis/poolrad-macmaps/actions/workflows/ci.yml/badge.svg)](https://github.com/huntergdavis/poolrad-macmaps/actions/workflows/ci.yml)
+
 **Play Macintosh Pool of Radiance on Android, with a live map above the game.**
 
 Built for an e-ink tablet, with party details, handwritten notes and the
