@@ -10,7 +10,7 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.109.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.109.0/poolrad-macmaps-0.109.0.apk)
+[Download the 0.110.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.110.0/poolrad-macmaps-0.110.0.apk)
 for **Android 5.0 or later**.
 
 1. Tap the APK and allow installation from your file manager when prompted.
