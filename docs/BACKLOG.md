@@ -1699,14 +1699,17 @@ The subject-matter expert's read-only pass: the app already backs off its own
 polling when the player is idle, but a still screen does not mean the emulated
 Mac has stopped working — it keeps running underneath. In priority order:
 
-- [ ] **F99 — Audio off by default, and actually stop the work, not mute it.**
-  Owner: "I don't have audio running at all on an e-ink reader, nobody would."
-  No Android audio stream, no sample synthesis, no output-buffer transfers
-  between native and Java while off — not silence sent, no work done. Keep only
-  whatever emulated sound-hardware behaviour (status registers, interrupts) the
-  game needs to stay correct. Verify a game that asks for sound still behaves
-  once audio is turned back on. `android/minivmac/src/main/jni/src/ASCEMDEV.c`
-  and the native/Java sound path in `OSGLUJNI.c`/`Core.java`.
+- [x] **F99 (delivered 0.95.0) — Sound off stops audio work.**
+  Uses the original game's Sounds and Walking Sounds controls; no new UI or
+  default preference. Sounds remains the game's master switch, with Walking
+  Sounds filtering footsteps. Muting releases AudioTrack and skips synthesis,
+  volume conversion and native/Java sample transfers. The last verified game
+  choice survives System 7 background-process slices. Guest sound-chip FIFO
+  state, phase and interrupts still advance without sample processing.
+  Live mute: zero audio callbacks, no AudioTrack and unchanged native counters
+  for 98 seconds; re-enabling resumes output. All 25,600 native audible/muted
+  state comparisons and 736 Java tests pass.
+  [Behavior and live verification](AUDIO_MUTE.md).
 - [ ] **F100 — Make "paused" actually wait.** The native paused loop
   (`OSGLUJNI.c:1718`) spins with no real wait, so it can keep burning CPU while
   backgrounded. Give it a real, reliable wait that still wakes promptly for

@@ -535,6 +535,38 @@ LOCALVAR const ui3r SubTick_n[kNumSubTicks] = {
 	23,  23,  23,  23,  23,  23,  23,  24
 };
 
+/* Advance only guest-visible hardware while host audio is off. No sample
+ * reads, synthesis, volume conversion, output buffers or per-sample loop. */
+LOCALPROC ASC_AdvanceMuted(ui4r n)
+{
+	if (1 == SoundReg801) {
+		blnr stereo = (SoundReg802 & 2) != 0;
+		ui4b available = (ui4b)(ASC_FIFO_InA - ASC_FIFO_Out);
+		ui4b availableB = (ui4b)(ASC_FIFO_InB - ASC_FIFO_Out);
+		if (!ASC_Playing && available >= 0x200) {
+			if (!stereo || availableB >= 0x200) {
+				SoundReg804 &= ~0x01;
+				if (stereo) SoundReg804 &= ~0x04;
+				ASC_Playing = trueblnr;
+			} else if (availableB == 0 && available >= 370) {
+				SoundReg802 &= ~2;
+			}
+		}
+		if (ASC_Playing) {
+			if (stereo && availableB < available) available = availableB;
+			ASC_FIFO_Out += available < n ? available : n;
+			if (available < n) ASC_Playing = falseblnr;
+		}
+	} else if (2 == SoundReg801) {
+		int channel;
+		for (channel = 0; channel < 4; channel++) {
+			ui5b phase = do_get_mem_long(ASC_ChanA[channel].phase);
+			ui5b freq = do_get_mem_long(ASC_ChanA[channel].freq);
+			do_put_mem_long(ASC_ChanA[channel].phase, phase + freq * n);
+		}
+	}
+}
+
 GLOBALPROC ASC_SubTick(int SubTick)
 {
 	ui4r actL;
@@ -545,6 +577,10 @@ GLOBALPROC ASC_SubTick(int SubTick)
 	ui4r n = SubTick_n[SubTick];
 #if MySoundEnabled
 	ui3b SoundVolume = SoundReg_Volume;
+	if (!MySound_OutputEnabled()) {
+		ASC_AdvanceMuted(n);
+		goto update_status;
+	}
 #endif
 
 #if MySoundEnabled
@@ -799,6 +835,9 @@ label_retry:
 #endif
 	}
 
+#if MySoundEnabled
+update_status:
+#endif
 #if 1
 	if ((1 == SoundReg801) && ASC_Playing) {
 		if (((ui4b)(ASC_FIFO_InA - ASC_FIFO_Out)) >= 0x200) {

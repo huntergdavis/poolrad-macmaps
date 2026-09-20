@@ -101,6 +101,7 @@ IMPORTFUNC ui4b GetSoundInvertTime(void);
 
 GLOBALPROC MacSound_SubTick(int SubTick)
 {
+	if (!MySound_OutputEnabled()) return;
 	ui4r actL;
 	tpSoundSamp p;
 	ui4r i;

@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Run one explicitly supported local debugger helper against a disposable emulator.
 set -euo pipefail
-SERIAL="${1:?usage: debug-ui.sh emulator-NNNN GuestCommand|ReplayMessage|CoreStatus [args...]}"
+SERIAL="${1:?usage: debug-ui.sh emulator-NNNN GuestCommand|ReplayMessage|CoreStatus|AudioActivity [args...]}"
 CLASS="${2:?missing helper}"; shift 2
 [[ "$SERIAL" =~ ^emulator-[0-9]+$ ]] || { echo "Emulator only" >&2; exit 1; }
-case "$CLASS" in GuestCommand|ReplayMessage|CoreStatus) ;; *) echo "Unsupported helper" >&2; exit 1;; esac
+case "$CLASS" in GuestCommand|ReplayMessage|CoreStatus|AudioActivity) ;; *) echo "Unsupported helper" >&2; exit 1;; esac
 SDK="${ANDROID_HOME:-/usr/lib/android-sdk}"
 PKG=com.hunterdavis.poolradmacmaps.ii
 ADB="$SDK/platform-tools/adb"

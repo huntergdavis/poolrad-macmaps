@@ -25,6 +25,7 @@
 
 #include <stdatomic.h>
 #include "POOLRAD.h"
+#include "POOLRAD_AUDIO.h"
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
 #include "POOLRAD_SELECTION.h"
@@ -301,6 +302,45 @@ LOCALVAR ui4b ThePlayOffset = 0;
 LOCALVAR ui4b TheFillOffset = 0;
 LOCALVAR ui4b MinFilledSoundBuffs = kSoundBuffers;
 LOCALVAR ui4b TheWriteOffset = 0;
+LOCALVAR blnr SoundOutputActive = falseblnr;
+LOCALVAR blnr SoundOutputRequested = falseblnr;
+LOCALVAR int SoundOptions = -2;
+LOCALVAR int LastGameSoundOptions = -1;
+LOCALVAR unsigned long long SoundSamples = 0, SoundTransfers = 0;
+
+GLOBALFUNC blnr MySound_OutputEnabled(void) { return SoundOutputActive; }
+
+/* Called only on the emulation thread, after restore and before another tick.
+ * No preference writes: the game's own master Sounds flag is authoritative. */
+LOCALPROC MySound_UpdateOutput(void)
+{
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    int options = poolrad_audio_observe(ram, size, &LastGameSoundOptions);
+    blnr wanted = !CurSpeedStopped && StartupRestoreFinished
+        && (options < 0 || !(options & 1));
+    if (wanted != SoundOutputRequested) {
+        SoundOutputRequested = wanted;
+        if (wanted) {
+            if ((*jEnv)->CallBooleanMethod(jEnv, mCore, jMySoundInit)) {
+                (*jEnv)->CallVoidMethod(jEnv, mCore, jMySoundStart);
+                SoundOutputActive = trueblnr;
+            }
+        } else {
+            SoundOutputActive = falseblnr;
+            (*jEnv)->CallVoidMethod(jEnv, mCore, jMySoundUnInit);
+        }
+        __android_log_print(ANDROID_LOG_INFO, "PoolRad.Audio",
+            "output=%d options=%d samples=%llu transfers=%llu",
+            SoundOutputActive, options, SoundSamples, SoundTransfers);
+    }
+    if (options != SoundOptions) {
+        SoundOptions = options;
+        __android_log_print(ANDROID_LOG_INFO, "PoolRad.Audio",
+            "game-options=%d output=%d samples=%llu transfers=%llu",
+            options, SoundOutputActive, SoundSamples, SoundTransfers);
+    }
+}
 
 #if 4 == kLn2SoundSampSz
 LOCALPROC ConvertSoundBlockToNative(tpSoundSamp p)
@@ -318,6 +358,7 @@ LOCALPROC ConvertSoundBlockToNative(tpSoundSamp p)
 LOCALPROC MySound_WriteOut(void)
 {
     int retry_count = 32;
+    if (!SoundOutputActive) return;
 
     label_retry:
     if (--retry_count > 0) {
@@ -338,6 +379,7 @@ LOCALPROC MySound_WriteOut(void)
         }
 
         if (0 != PlayNowSize) {
+            ++SoundTransfers;
             jbyteArray jBuffer = (*jEnv)->NewByteArray(jEnv, PlayNowSize);
             if (jBuffer != NULL) {
                 (*jEnv)->SetByteArrayRegion(jEnv, jBuffer, 0, PlayNowSize, (jbyte *) NextPlayPtr);
@@ -373,6 +415,7 @@ LOCALFUNC blnr MySound_EndWrite0(ui4r actL)
 
 GLOBALPROC MySound_EndWrite(ui4r actL)
 {
+    if (!SoundOutputActive) return;
     if (MySound_EndWrite0(actL)) {
         ConvertSoundBlockToNative(TheSoundBuffer
                                           + ((TheFillOffset - kOneBuffLen) & kAllBuffMask));
@@ -382,6 +425,7 @@ GLOBALPROC MySound_EndWrite(ui4r actL)
 
 GLOBALFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
 {
+    if (!SoundOutputActive) { *actL = n; return nullpr; }
     ui4b ToFillLen = kAllBuffLen - (TheWriteOffset - ThePlayOffset);
     ui4b WriteBuffContig = kOneBuffLen - (TheWriteOffset & kOneBuffMask);
 
@@ -394,11 +438,13 @@ GLOBALFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL)
     }
 
     *actL = n;
+    SoundSamples += n;
     return TheSoundBuffer + (TheWriteOffset & kAllBuffMask);
 }
 
 LOCALPROC MySound_SecondNotify(void)
 {
+    if (!SoundOutputActive) return;
     if (MinFilledSoundBuffs <= kSoundBuffers) {
         if (MinFilledSoundBuffs > DesiredMinFilledSoundBuffs) {
             IncrNextTime();
@@ -1165,17 +1211,15 @@ GLOBALOSGLUFUNC tMacErr HTCEimport(tPbuf *r)
 
 LOCALPROC LeaveSpeedStopped(void)
 {
-#if MySoundEnabled
-    (*jEnv)->CallVoidMethod(jEnv, mCore, jMySoundStart);
-#endif
-
     StartUpTimeAdjust();
 }
 
 LOCALPROC EnterSpeedStopped(void)
 {
 #if MySoundEnabled
-    (*jEnv)->CallVoidMethod(jEnv, mCore, jMySoundStop);
+    SoundOutputActive = falseblnr;
+    SoundOutputRequested = falseblnr;
+    (*jEnv)->CallVoidMethod(jEnv, mCore, jMySoundUnInit);
 #endif
 }
 
@@ -1734,6 +1778,9 @@ GLOBALOSGLUPROC WaitForNextTick(void)
         goto label_retry;
     }
 
+#if MySoundEnabled
+    MySound_UpdateOutput();
+#endif
     if (CheckDateTime()) {
 #if MySoundEnabled
         MySound_SecondNotify();
@@ -1763,6 +1810,13 @@ GLOBALOSGLUPROC WaitForNextTick(void)
 
 LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
 {
+#if MySoundEnabled
+    SoundOutputActive = falseblnr;
+    SoundOutputRequested = falseblnr;
+    SoundOptions = -2;
+    LastGameSoundOptions = -1;
+    SoundSamples = SoundTransfers = 0;
+#endif
     //InitDrives();
     //ZapWinStateVars();
 
@@ -2021,9 +2075,6 @@ LOCALFUNC blnr InitOSGLU(void * romData, size_t romSize)
                 if (ActvCodeInit())
 #endif
                 if (InitLocationDat())
-#if MySoundEnabled
-                    if ((*jEnv)->CallBooleanMethod(jEnv, mCore, jMySoundInit))
-#endif
                         if (Screen_Init())
                             if ((*jEnv)->CallBooleanMethod(jEnv, mCore, jInitScreen))
                                 //if (KC2MKCInit())

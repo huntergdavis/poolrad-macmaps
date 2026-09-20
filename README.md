@@ -124,6 +124,10 @@ The Info tab also has spells, weapons and armor, and class progression tables.
 Code-wheel prompts are answered automatically when recognized, with an
 illustrated manual lookup as a fallback.
 
+The original game’s **Options → Sounds** switch also stops companion audio
+processing when off (source 0.95). **Walking Sounds** keeps its existing footstep behavior.
+[Sound behavior](docs/AUDIO_MUTE.md).
+
 ## Save and resume
 
 - **PoolRad → Quick save** keeps your ten latest quick snapshots.

@@ -510,13 +510,17 @@ public class Core {
 	private static final int kAllBuffLen = (1 << kLnAllBuffLen);
 
 	public boolean MySound_Init() {
+        if (mAudioTrack != null) return true;
         try {
 			mAudioTrack = new AudioTrack(AudioManager.STREAM_MUSIC, SOUND_SAMPLERATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_8BIT, kAllBuffLen, AudioTrack.MODE_STREAM);
-
+            if (mAudioTrack.getState() != AudioTrack.STATE_INITIALIZED) {
+                mAudioTrack.release(); mAudioTrack = null; return false;
+            }
 			mAudioTrack.pause();
 			return true;
 	    } catch (Throwable tr) {
 	    	Log.e(TAG, "MySound_Init() can't init sound.", tr);
+            MySound_UnInit();
 	    	return false;
 	    }
 	}

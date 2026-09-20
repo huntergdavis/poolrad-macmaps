@@ -260,6 +260,12 @@ EXPORTVAR(ui5r, QuietSubTicks)
 
 #if MySoundEnabled
 
+#if defined(__ANDROID__) || defined(POOLRAD_AUDIO_TEST)
+EXPORTOSGLUFUNC blnr MySound_OutputEnabled(void);
+#else
+#define MySound_OutputEnabled() trueblnr
+#endif
+
 EXPORTOSGLUFUNC tpSoundSamp MySound_BeginWrite(ui4r n, ui4r *actL);
 EXPORTOSGLUPROC MySound_EndWrite(ui4r actL);
 
