@@ -45,6 +45,8 @@
 #define POOLRAD_PARTY_UNKNOWN_CLASS 0xff
 #define POOLRAD_PARTY_LAST_CLASS 17
 #define POOLRAD_PARTY_CONDITION_OFFSET 0x118
+#define POOLRAD_PARTY_CONDITION_UNCONSCIOUS 4
+#define POOLRAD_PARTY_CONDITION_DYING 5
 #define POOLRAD_PARTY_EFFECT_HEAD_OFFSET 0x82
 #define POOLRAD_PARTY_UNKNOWN_CONDITION 0xff
 #define POOLRAD_PARTY_UNKNOWN_EFFECTS 0xff
@@ -577,6 +579,62 @@ static inline int poolrad_party_set_quick(unsigned char *ram, size_t size,
         handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
     }
     return 0;
+}
+
+/* The second write, F40: bandage a dying character when a fight ends.
+ *
+ * Authorised in docs/DESIGN.md (amended 2026-09-18) as "healing a bandageable
+ * character after a fight". It does exactly what the game's own Bandage does
+ * and nothing more: a character whose condition byte reads Dying (5) becomes
+ * Unconscious (4) with zero current hit points. Anyone not Dying is left
+ * untouched, byte for byte. The roster is walked with the reader's own checks,
+ * the same way poolrad_party_set_quick walks it.
+ *
+ * Returns 1 when the two bytes were written, 0 when the member is not Dying
+ * (nothing to do), and -1 when the party did not read cleanly or the member
+ * does not exist. */
+static inline int poolrad_party_bandage(unsigned char *ram, size_t size, unsigned member) {
+    unsigned char sample[POOLRAD_PARTY_SIZE];
+    uint32_t a5, head_address, handle;
+    unsigned links = 0, seen = 0;
+    uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
+    if (ram == NULL || member >= POOLRAD_PARTY_MAX_MEMBERS) return -1;
+    if (!poolrad_party_probe(ram, size, sample)) return -1;
+    a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
+    if (a5 < POOLRAD_PARTY_HEAD_BACK || !poolrad_range(a5 - POOLRAD_PARTY_HEAD_BACK, 4, size))
+        return -1;
+    head_address = a5 - POOLRAD_PARTY_HEAD_BACK;
+    handle = poolrad_u32(ram + head_address) & 0x00ffffff;
+    while (handle != 0) {
+        uint32_t record, block_header, physical_size;
+        if (links >= POOLRAD_PARTY_MAX_LINKS || handle < 0x1000 || (handle & 1)
+                || !poolrad_range(handle, 4, size)) return -1;
+        record = poolrad_u32(ram + handle) & 0x00ffffff;
+        if (record < 0x1000 || (record & 1)
+                || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) return -1;
+        block_header = poolrad_u32(ram + record - 8);
+        physical_size = block_header & 0x00ffffff;
+        if ((block_header >> 28) != 8
+                || physical_size != POOLRAD_PARTY_RECORD_SIZE + 8 + ((block_header >> 24) & 15)
+                || (physical_size & 1)
+                || !poolrad_range(record - 8, physical_size, size)) return -1;
+        for (unsigned i = 0; i < links; i++)
+            if (handles[i] == handle || records[i] == record) return -1;
+        handles[links] = handle; records[links] = record; links++;
+        if (ram[record + POOLRAD_PARTY_SLOT_OFFSET] >= POOLRAD_PARTY_MAX_MEMBERS) {
+            handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+            continue;
+        }
+        if (seen++ == member) {
+            unsigned char *condition = ram + record + POOLRAD_PARTY_CONDITION_OFFSET;
+            if (*condition != POOLRAD_PARTY_CONDITION_DYING) return 0;
+            *condition = POOLRAD_PARTY_CONDITION_UNCONSCIOUS;
+            ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+            return 1;
+        }
+        handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+    }
+    return -1;
 }
 
 #endif

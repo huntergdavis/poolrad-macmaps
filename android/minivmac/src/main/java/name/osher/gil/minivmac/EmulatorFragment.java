@@ -885,6 +885,26 @@ public class EmulatorFragment extends Fragment
         return root;
     }
 
+    private final name.osher.gil.minivmac.mapper.FightEnd mFightEnd = new name.osher.gil.minivmac.mapper.FightEnd();
+    /**
+     * F40: when a fight ends, bandage anyone the game left Dying (Unconscious at
+     * zero hit points, exactly the game's own Bandage) and quick-save the moment.
+     * The write runs on the core thread against a party that reads cleanly; the
+     * save follows whatever the write did, so the recovery point is kept either way.
+     */
+    private void afterFight(Core core) {
+        if (core == null || core != mCore || !core.isReady()) return;
+        boolean queued = core.requestBandage((bandaged, refused) -> mUIHandler.post(() -> {
+            if (!isAdded() || core != mCore) return;
+            Log.i("PoolRad.Bandage", "fight ended: bandaged=" + bandaged + " refused=" + refused + "; quick save requested");
+            if (bandaged > 0) android.widget.Toast.makeText(requireContext(),
+                    bandaged == 1 ? "Bandaged one dying character." : "Bandaged " + bandaged + " dying characters.",
+                    android.widget.Toast.LENGTH_SHORT).show();
+            saveState().quickSave();
+        }));
+        if (!queued) Log.i("PoolRad.Bandage", "fight ended: bandage already pending or core not ready");
+    }
+
     private name.osher.gil.minivmac.mapper.MapMode mTallyLoggedMode;
     private name.osher.gil.minivmac.mapper.GameClock mTallyLoggedClock;
     private String mTallyLoggedCounts;
@@ -1052,6 +1072,7 @@ public class EmulatorFragment extends Fragment
                         mRestTally.observeMap(seen.mode, seen.clock);
                         logRestTally(seen);
                         gateObserveMap(seen);
+                        if (mFightEnd.observe(seen.mode)) afterFight(mapCore);
                     }
                 });
             });

@@ -410,3 +410,51 @@ and selected-row byte 5 are unchanged. Character +0x87 >127 is the game's own
 NPC test, verified independently in its printed-name and Modify Character
 paths. See [NPC_MARKER.md](NPC_MARKER.md) for exact evidence, compatibility,
 monochrome render fixtures and acceptance scope.
+
+## The bandage write (F40, 2026-09-19)
+
+The second and only other write this project makes, authorised in
+[DESIGN.md](DESIGN.md) as "healing a bandageable character after a fight".
+`poolrad_party_bandage` walks the roster with every check the reader makes,
+exactly like `poolrad_party_set_quick`, and for one party member whose
+condition byte at `+0x118` reads **Dying (5)** writes **Unconscious (4)** there
+and **0** to current hit points at `+0x12b`. That is what the game's own
+Bandage command produces and how the game then shows the character. Anyone
+not Dying is left byte for byte; a party that does not read cleanly, a row the
+party lacks, or a missing roster refuses without writing.
+
+When the companion sees the mode leave combat for the world, camp or the
+wilderness (`FightEnd`), it asks the core to bandage every Dying member at the
+next readable party sample, provided someone is still Okay (`BandagePlan`),
+reads the party back, and then takes one quick save so the moment after the
+fight is protected whether or not anything needed bandaging. Rows are the
+reader's rows; the write runs on the core thread. `tools/test-party-probe.c`
+asserts a Dying member changes exactly two bytes of RAM, an Okay or already
+Unconscious member changes none, a repeat is nothing to do, and every refusal
+writes nothing.
+
+### F40 acceptance — 2026-09-19
+
+Disposable sandbox emulator-5586, installed behind a confirmed normal Mac
+shutdown, `f97guard` reloaded through the picker and walked to the Slums; a
+wandering-monster fight was answered with Combat and played out with the
+game's own Quick button. The party won ("Each character receives 38
+experience points"), the treasure screens were dismissed, and the moment
+exploration resumed the log read:
+
+```
+PoolRad.Bandage: fight ended: bandaged=0 refused=0; quick save requested
+PoolRad.SaveState: Saved QUICK: capture=87ms, worker=2179ms, preview=25ms
+```
+
+Info → Saves then showed "Quick save Sep 19 '26 · 10:23:15 PM PDT / Saved
+10:23 PM" as the active save, with the party at 13,7 W. Nobody was Dying at
+the end of this fight (the game left two members hurt and none down), so the
+write itself had nothing to do live. Its behaviour is proven two other ways:
+`tools/test-party-probe.c` under the sanitizers, and `scratch/f98/harness/
+bandage.c` against a real mid-combat RAM capture, where marking a member
+Dying and bandaging changed exactly two bytes (condition 5 → 4, hit points
+3 → 0) and every other member returned "nothing to do". The pass runs when
+the mode returns to exploration, camp or wilderness, which is after the
+game's own results and treasure screens, so the write always sees a settled
+party.

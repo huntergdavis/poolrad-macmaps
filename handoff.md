@@ -8,6 +8,10 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F40 shipped in 0.99.0: fight end → `poolrad_party_bandage` (Dying → Unconscious
+  at 0 HP) for each Dying member while someone is Okay, then a quick save.
+  `PoolRad.Bandage` logs each row's result. Second authorised write; see
+  docs/PARTY.md.
 - F104 shipped in 0.96.0: "rest clears chosen spells" is the game's rule
   (camp entry/exit forget pending; only Magic → Rest memorizes). Reminder text
   fixed; code sites in docs/SPELL_READINESS.md. `scratch/f98/venv` has

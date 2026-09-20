@@ -63,6 +63,40 @@ public class Core {
 	}
 	public Boolean pendingQuick(name.osher.gil.minivmac.mapper.PartyState.Member member) { return quickQueue.pending(member); }
 	private static native boolean setPartyQuickNative(int slot, boolean on);
+	private static native int bandagePartyNative(int slot);
+	/** F40: bandage every Dying member at the next readable party sample, then report. */
+	public interface BandageListener { void done(int bandaged, int refused); }
+	private final java.util.concurrent.atomic.AtomicReference<BandageListener> bandagePending = new java.util.concurrent.atomic.AtomicReference<>();
+	private volatile int bandageTries;
+	public boolean requestBandage(BandageListener listener) {
+		if (!initOk || listener == null || !bandagePending.compareAndSet(null, listener)) return false;
+		bandageTries = 0;
+		requestPartySample();
+		return true;
+	}
+	private void drainBandage(byte[] sample) {
+		BandageListener listener = bandagePending.get();
+		if (listener == null) return;
+		name.osher.gil.minivmac.mapper.PartyState party = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
+		if (party == null) {
+			// A transient refusal: ask again a few times, then give up quietly.
+			if (++bandageTries < 20) { requestPartySample(); return; }
+			bandagePending.set(null);
+			quickRetry.post(() -> listener.done(0, 0));
+			return;
+		}
+		int bandaged = 0, refused = 0;
+		if (name.osher.gil.minivmac.mapper.BandagePlan.anyoneStanding(party))
+			for (int row : name.osher.gil.minivmac.mapper.BandagePlan.dying(party)) {
+				int result = bandagePartyNative(row);
+				android.util.Log.i("PoolRad.Bandage", "row " + row + " " + party.members.get(row).name + " -> " + result);
+				if (result == 1) bandaged++; else if (result < 0) refused++;
+			}
+		bandagePending.set(null);
+		if (bandaged > 0) requestPartySample();   // read the game's own answer back
+		final int b = bandaged, r = refused;
+		quickRetry.post(() -> listener.done(b, r));
+	}
 	private static native int partyTargetNative(int member, boolean forSheet);
 	private final java.util.concurrent.atomic.AtomicReference<PartySelection> selection =
 			new java.util.concurrent.atomic.AtomicReference<>();
@@ -133,6 +167,7 @@ public class Core {
 	public void onPartySample(byte[] sample) {
 		confirmPartySelection(sample);
 		deliverPartySelection(sample);
+		drainBandage(sample);
 		if (quickQueue.busy()) {
 			name.osher.gil.minivmac.mapper.PartyState parsed = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
 			boolean written = quickQueue.drain(parsed, (slot, on) -> {

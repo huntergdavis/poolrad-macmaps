@@ -1512,12 +1512,15 @@ passed every check the party reader makes, and refuses rather than guessing when
 the field does not hold a value it recognises — the same contract as the shipped
 quick-flag write.
 
-- [ ] **F40 — Bandage when a fight ends,** by writing the character's condition
-  and current HP, and quicksave alongside it. The owner's standing answer to
-  what should always happen after a fight. Needs the condition byte at `+0x118`
-  and current HP at `+0x12b`, both already read. This supersedes the
-  "auto-heal" exclusion for this specific case; see DESIGN.md. The quicksave
-  half is F37's problem, not a memory write — see the note there.
+- [x] **F40 (delivered 0.99.0) — Bandage when a fight ends,** by writing the
+  character's condition and current HP, and quicksave alongside it. Shipped as
+  the game's own Bandage and nothing more: when the mode leaves combat with
+  someone still Okay, every member the game left Dying (`+0x118` = 5) becomes
+  Unconscious (4) at zero current HP (`+0x12b`), then one quick save lands
+  whether or not anyone needed it. `poolrad_party_bandage` mirrors the quick
+  write's roster checks; a non-Dying member is untouched byte for byte.
+  Native, plan and fight-end tests; live quick save after a real fight.
+  See [PARTY.md](PARTY.md#the-bandage-write-f40-2026-09-19).
 - [x] **F41 — DROPPED (owner decision 2026-09-19), too expensive.** The
   decoding work this needed (which equipment field marks a weapon equipped)
   was judged not worth the cost.

@@ -938,6 +938,44 @@ static int replay(const char *path) {
 
 int main(int argc, char **argv) {
     purse_tests();
+    /* F40: bandage. Only a Dying member changes, and only two bytes of RAM. */
+    {
+        unsigned char before[sizeof(ram)];
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        ram[member_record(2) + POOLRAD_PARTY_CONDITION_OFFSET] = POOLRAD_PARTY_CONDITION_DYING;
+        ram[member_record(2) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 3;
+        ram[member_record(4) + POOLRAD_PARTY_CONDITION_OFFSET] = POOLRAD_PARTY_CONDITION_UNCONSCIOUS;
+        memcpy(before, ram, sizeof(ram));
+
+        /* Someone who is merely Okay, or already Unconscious, is left alone. */
+        assert(poolrad_party_bandage(ram, sizeof(ram), 0) == 0);
+        assert(poolrad_party_bandage(ram, sizeof(ram), 4) == 0);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        /* The Dying member becomes Unconscious at zero, and nothing else moves. */
+        assert(poolrad_party_bandage(ram, sizeof(ram), 2) == 1);
+        assert(ram[member_record(2) + POOLRAD_PARTY_CONDITION_OFFSET] == POOLRAD_PARTY_CONDITION_UNCONSCIOUS);
+        assert(ram[member_record(2) + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 0);
+        unsigned changed = 0;
+        for (unsigned i = 0; i < sizeof(ram); i++) if (ram[i] != before[i]) changed++;
+        assert(changed == 2);
+        /* Bandaging again is nothing to do, not a second write. */
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_bandage(ram, sizeof(ram), 2) == 0);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        /* Refusals write nothing: past the party, a member it lacks, no roster. */
+        assert(poolrad_party_bandage(ram, sizeof(ram), POOLRAD_PARTY_MAX_MEMBERS) == -1);
+        assert(poolrad_party_bandage(ram, sizeof(ram), 6) == -1);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+        put32(member_record(0) - 8, 0x81000137);   // a rejected heap header: the party no longer reads
+        unavailable();
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_bandage(ram, sizeof(ram), 0) == -1);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+        assert(poolrad_party_bandage(NULL, sizeof(ram), 0) == -1);
+    }
+
     if (argc == 1) { tests(); return 0; }
     if (argc == 2) return replay(argv[1]);
     fprintf(stderr, "Usage: test-party-probe [private-capture.ram]\n");

@@ -1680,6 +1680,17 @@ GLOBALFUNC jboolean setPartyQuick(jint slot, jboolean on)
                                    (unsigned) slot, on == JNI_TRUE) ? JNI_TRUE : JNI_FALSE;
 }
 
+/* F40: the second write, bandaging one Dying party member at a fight's end.
+ * Guarded entirely inside poolrad_party_bandage; called on the core thread
+ * from Core.onPartySample like setPartyQuick. */
+GLOBALFUNC jint bandageParty(jint slot)
+{
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    if (ram == NULL || slot < 0) return -1;
+    return poolrad_party_bandage((unsigned char *) ram, size, (unsigned) slot);
+}
+
 GLOBALFUNC jboolean requestMessageSample(void)
 {
     return RequestWork(&WantMessageSample);
