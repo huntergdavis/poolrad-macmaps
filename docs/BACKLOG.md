@@ -1667,9 +1667,10 @@ should trade a requested feature for it.
   round-trip restores notebooks with their notes and the fog switches and skips
   an existing one; live, "Back up everything…" produced a valid ZIP holding both
   notebooks (valid PRNA archives) and the real fog switch. 613 unit tests pass.
-- [ ] **F65 — Teach `tools/play.py` to reach a named area on demand,** so
-  screenshots for a feature are repeatable instead of hand-driven. Complex, and
-  filed behind everything under the standing rule above.
+- [x] **F65 — DROPPED (owner decision 2026-09-19).** General-purpose
+  `play.py` navigation is off the table. `play.py` only gets changed when a
+  specific open backlog item needs it to move forward — never as its own
+  feature.
 
 
 ## Not in this project
