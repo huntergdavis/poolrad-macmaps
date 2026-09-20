@@ -10,9 +10,9 @@ on:
   pull_request:
   workflow_dispatch:
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# Every push gets its own complete result. A newer push does not cancel an
+# older run: main moves several times an hour here, and a cancelled Gradle
+# job would leave most commits with no verdict at all.
 
 jobs:
   android:
