@@ -31,6 +31,8 @@ flock -n 9 || { echo "Another release is running" >&2; exit 1; }
 
 [ -n "$(git status --porcelain)" ] && { echo "Working tree is dirty; commit first." >&2; exit 1; }
 git rev-parse "v$VERSION" >/dev/null 2>&1 && { echo "v$VERSION already exists." >&2; exit 1; }
+JOURNAL=android/minivmac/src/main/assets/journal/adventurers-journal.prjr
+[ -f "$JOURNAL" ] || { echo "Prepare the bundled journal first; see docs/JOURNAL.md." >&2; exit 1; }
 
 if [ -n "$EXISTING_REF" ]; then
     SOURCE_COMMIT="$(git rev-parse --verify "$EXISTING_REF^{commit}")"
@@ -46,6 +48,10 @@ if not names or set(names) != {sys.argv[1]}:
     BUILD_ROOT="$ROOT/scratch/release-source-$VERSION"
     [ ! -e "$BUILD_ROOT" ] || { echo "Build directory already exists: $BUILD_ROOT" >&2; exit 1; }
     git worktree add --detach "$BUILD_ROOT" "$SOURCE_COMMIT"
+    # The generated journal is intentionally ignored by Git. Supply the
+    # documented release asset, then check the packaged bytes before upload.
+    mkdir -p "$BUILD_ROOT/$(dirname "$JOURNAL")"
+    cp "$JOURNAL" "$BUILD_ROOT/$JOURNAL"
     # Retain the checkout on failure for diagnosis. Never change the active
     # checkout or borrow an APK from a different source revision.
     (
@@ -57,6 +63,7 @@ if not names or set(names) != {sys.argv[1]}:
         (cd android && ./gradlew :minivmac:assembleMacIIDebug :minivmac:testMacIIDebugUnitTest --max-workers=2 -q)
         APK=android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-debug.apk
         tools/check-apk.sh "$APK"
+        node tools/check-wheel-apk.mjs "$APK"
         cp "$APK" "$ROOT/scratch/poolrad-macmaps-$VERSION.apk"
     )
     echo "APK: scratch/poolrad-macmaps-$VERSION.apk  $(sha256sum "scratch/poolrad-macmaps-$VERSION.apk" | cut -d' ' -f1)"
@@ -110,6 +117,7 @@ APK="android/minivmac/build/outputs/apk/macII/debug/minivmac-macII-universal-deb
 [ -f "$APK" ] || { echo "No universal APK at $APK" >&2; exit 1; }
 cp "$APK" "scratch/poolrad-macmaps-$VERSION.apk"
 "$ROOT/tools/check-apk.sh" "scratch/poolrad-macmaps-$VERSION.apk"
+node "$ROOT/tools/check-wheel-apk.mjs" "scratch/poolrad-macmaps-$VERSION.apk"
 echo "APK: scratch/poolrad-macmaps-$VERSION.apk  $(sha256sum "scratch/poolrad-macmaps-$VERSION.apk" | cut -d' ' -f1)"
 
 git diff --check
