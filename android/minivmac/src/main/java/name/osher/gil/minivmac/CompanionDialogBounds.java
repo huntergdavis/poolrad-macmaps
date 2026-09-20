@@ -28,6 +28,11 @@ final class CompanionDialogBounds {
         window.setWindowAnimations(0);
         window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         window.addFlags(WindowManager.LayoutParams.FLAG_ALT_FOCUSABLE_IM);
+        // The page sits above the guest, so the guest must stay usable while it
+        // is open: a touch outside the dialog goes to the game below instead of
+        // dying at a modal boundary. Keys still go to the page; Close it, or
+        // tap outside, and the game has the screen back as before.
+        window.addFlags(WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL);
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN
                 | WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING);
         window.setBackgroundDrawable(new ColorDrawable(Color.WHITE));

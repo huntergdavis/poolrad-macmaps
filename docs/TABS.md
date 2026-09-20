@@ -89,3 +89,11 @@ layout with keyboard/portrait/landscape/narrow sizes; it is not a device test.
 Live window/input checks and limitations are recorded in
 [local acceptance](LOCAL_TESTING.md). Physical e-ink/stylus acceptance remains
 untested by these software checks.
+
+## Pages stay out of the game's way (2026-09-20)
+
+Every bounded companion page (Info tools, Load…, the rest confirmation) is
+placed above the guest by `CompanionDialogBounds`, and since 0.109.0 it is
+also not touch-modal: a touch outside the page reaches the game below while
+the page stays open. Keys still go to the page, and tapping outside does not
+close it. The player can read Money or Saves and keep walking.
