@@ -11,6 +11,10 @@ Works offline. No root or account needed.
 [Download the 0.102.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.102.0/poolrad-macmaps-0.102.0.apk)
 for **Android 5.0 or later**.
 
+**In development:** 0.103.0 adds optional skipping of routine notices.
+Story prompts and choices still wait for you. This is not in the download above.
+[Preview and test details](docs/AUTO_SKIP_MESSAGES.md).
+
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
 3. Import copies of your Mac system and game disks through the disk menu.

@@ -1,8 +1,22 @@
-# Informational message auto-skip (F31)
+# Skip routine notices
 
-The companion Options dialog has **Auto-skip informational messages**, off by
-default. The preference persists and applies immediately. Story/tutorial
-Continue prompts, choices, confirmations and unrecognized dialogs stay manual.
+**In development for 0.103.0.** The published 0.102.0 APK does not include this option.
+
+Turn on **Info → Options → Auto-skip informational messages** to dismiss
+supported notices automatically. It starts off, remembers your choice, and
+takes effect when you change it.
+
+- Skips notices about invalid numbers, empty or overlong character names,
+  character departures, awarded experience, and NPC shares.
+- Leaves story and tutorial prompts, choices, confirmations, loot selection,
+  save/load errors, and unrecognized dialogs for you to answer.
+- Turn it off in the same place to read each notice yourself.
+
+![Auto-skip enabled in Options, with the character-name form still open below](images/auto-skip-messages.png)
+
+Development-build capture from the 0.103.0 test. The empty-name warning has
+closed; the game still waits for a name. Only the name warning was tested
+live among the notices listed above. See the verification notes below.
 
 ## Detection
 
