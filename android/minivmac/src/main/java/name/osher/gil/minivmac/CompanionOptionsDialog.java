@@ -26,6 +26,10 @@ final class CompanionOptionsDialog {
         label(activity, list, area == null ? "Map defaults for areas without saved choices" : "Map appearance · " + area);
         toggle(activity, list, "Show only walked squares (fog of war)", fog, setFog);
         toggle(activity, list, "Show directional footprints", footprints, setFootprints);
+        label(activity, list, "Map size · all areas");
+        preference(activity, list, prefs, SettingsFragment.KEY_PREF_ORIGINAL_TILE_SCALE,
+                "Original area tile size (1:1)", false, changed);
+        label(activity, list, "32 pixels per tile. Drag the map to scroll; tap its header to find the party.");
         label(activity, list, "Party and messages");
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_ONELINE_PARTY,
                 "One-line party rows", false, changed);

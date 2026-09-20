@@ -8,6 +8,8 @@ The page contains:
 
 - Show only walked squares (fog of war).
 - Show directional footprints.
+- Original area tile size (1:1): 32 physical pixels per tile, with drag scrolling.
+  Off by default; saved globally. Tap the map header to find the party.
 - One-line party rows.
 - Large message text.
 - Auto-save every five minutes, retaining the latest 20 automatic states.
@@ -16,7 +18,10 @@ Every change applies immediately. The first two choices belong to the area
 named on the page. Before an area is available, they set defaults for areas
 without their own saved choices. A page opened for one area never silently
 changes another area's preferences if the guest moves while it is open.
-Existing global and per-area preference keys are retained.
+Existing global and per-area preference keys are retained. The original-size choice
+keeps the companion map, notes, markers and known-exit previews. It changes the
+exploration viewport only; the battle overview and reference previews retain
+their own layouts.
 
 The old map-corner switches have moved here, giving their space back to the
 header. Return stays in the map's lower-right corner. Exploration trail still

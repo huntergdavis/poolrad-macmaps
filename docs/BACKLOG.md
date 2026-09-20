@@ -1732,6 +1732,16 @@ Mac has stopped working — it keeps running underneath. In priority order:
 Dropped from the audit: slowing the code-wheel poll further — the expert's own
 estimate was "likely a smaller saving," not worth the added complexity.
 
+## Latest map option
+
+- [x] **F104 (delivered 0.92.0) — Optional original area tile size.**
+  Info → Options keeps the companion map at the original game's 32 physical
+  pixels per tile, with bounded drag scrolling. Fit remains the default.
+  Notes, markers, exploration, connections and known-exit previews stay intact;
+  the header finds the party and real movement keeps it visible. Verified live
+  on the emulator; 725 Java tests and six Android viewport checks pass.
+  [Verification](MAP_SCALE.md).
+
 ## Not in this project
 
 LLMs, cloud accounts/sync, telemetry, rooting, an exposed RAM server, general

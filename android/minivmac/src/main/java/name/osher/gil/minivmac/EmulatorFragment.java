@@ -523,6 +523,7 @@ public class EmulatorFragment extends Fragment
         if (mLiveMap == null) return;
         try {
             SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(requireContext());
+            mLiveMap.setOriginalTileScale(prefs.getBoolean(SettingsFragment.KEY_PREF_ORIGINAL_TILE_SCALE, false));
             mLiveMap.setOneLineParty(prefs.getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
             mLiveMap.setMirrorMessage(prefs.getBoolean(SettingsFragment.KEY_PREF_MIRROR_MESSAGE, false));
         } catch (RuntimeException ignored) { }

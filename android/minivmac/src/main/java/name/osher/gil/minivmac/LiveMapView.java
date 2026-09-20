@@ -55,7 +55,7 @@ public class LiveMapView extends View {
         if(neighbors.isEmpty() && previews.isEmpty()) return;
         cancelTap();touchingPreview=false;
         neighbors=Collections.unmodifiableList(new ArrayList<>(previews));neighborIndex=0;
-        previewTarget.setEmpty();refreshDescription();invalidate();
+        previewTarget.setEmpty();revealParty(false);refreshDescription();invalidate();
     }
     private boolean hasPreview() {
         if(!positionAvailable || state==null || neighbors.isEmpty() || mode!=MapMode.EXPLORATION) return false;
@@ -75,6 +75,8 @@ public class LiveMapView extends View {
                 +(p.count()==0?"Revisit this area to remember its map. ":"Arrival "+p.passage.toTile%16+","+p.passage.toTile/16+". ")
                 +(neighbors.size()>1?"Preview "+(neighborIndex+1)+" of "+neighbors.size()+". Tap preview for next destination. ":"");
     }
+    private boolean originalTileScale, panCandidate, mapDragging;
+    private float mapScrollX, mapScrollY, panLastX, panLastY;
     private final float density;
     private final float textScale;
     /** Why the probe would not report a party, when it would not. */
@@ -242,7 +244,37 @@ public class LiveMapView extends View {
         refreshDescription(); invalidate();
     }
     private PartyPaneLayout pane() { return new PartyPaneLayout(getWidth(), getHeight(), density, party == null ? 0 : party.members.size(), textScale, oneLineParty); }
-    private MapViewport viewport() { PartyPaneLayout p=pane(); return new MapViewport(p.mapWidth-previewWidth(p),p.mapHeight,density); }
+    private MapViewport viewport() {
+        PartyPaneLayout p = pane();
+        MapViewport v = new MapViewport(p.mapWidth-previewWidth(p), p.mapHeight, density,
+                originalTileScale, mapScrollX, mapScrollY);
+        mapScrollX = v.scrollX; mapScrollY = v.scrollY;
+        return v;
+    }
+
+    public void setOriginalTileScale(boolean on) {
+        if (originalTileScale == on) return;
+        originalTileScale = on;
+        mapScrollX = mapScrollY = 0;
+        cancelTap(); revealParty(true); refreshDescription(); invalidate();
+    }
+
+    /** Keep actual movement visible, but leave a stationary player's manual pan alone. */
+    private void revealParty(boolean center) {
+        if (!originalTileScale || state == null || !positionAvailable) return;
+        MapViewport v = viewport();
+        float x = v.left + state.x * v.cell, y = v.top + state.y * v.cell;
+        if (center) {
+            mapScrollX += x + v.cell / 2 - (v.clipLeft + v.clipRight) / 2;
+            mapScrollY += y + v.cell / 2 - (v.clipTop + v.clipBottom) / 2;
+        } else {
+            if (x < v.clipLeft) mapScrollX += x - v.clipLeft;
+            else if (x + v.cell > v.clipRight) mapScrollX += x + v.cell - v.clipRight;
+            if (y < v.clipTop) mapScrollY += y - v.clipTop;
+            else if (y + v.cell > v.clipBottom) mapScrollY += y + v.cell - v.clipBottom;
+        }
+        viewport();
+    }
     public void showNotebook(String label, Map<Integer, NoteIcon> tiles) {
         Map<Integer, NoteIcon> copy = new HashMap<>(tiles);
         if (notebook.equals(label) && flags.equals(copy)) return;
@@ -330,6 +362,7 @@ public class LiveMapView extends View {
                 + (pinging() ? "Your square is ringed. " : "")
                 + (visitedOnly ? "Visited-only map. " : "Full map. ")
                 + (footprints ? "Footprints shown; " : "Footprints hidden; ")
+                + (originalTileScale && mode == MapMode.EXPLORATION ? "Original tile size, 32 pixels. Drag to scroll; tap the area header to find the party. " : "")
                 + "Info, Options changes map appearance. A Return key in the "
                 + "bottom-right corner presses Return in the game. "
                 + explorationStatus + health + previewDescription());
@@ -432,6 +465,9 @@ public class LiveMapView extends View {
             // A lit row must not outlive the grid that explained it.
             highlightedMember = -1; highlightUntil = 0; combatCell = 0;
         }
+        boolean moved = available && (state == null || next.map.id != state.map.id
+                || next.x != state.x || next.y != state.y);
+        boolean newArea = next != null && (state == null || next.map.id != state.map.id);
         positionAvailable = available;
         if (next != null) state = next; // Status-only packets retain a reference, not a live map.
         cancelTap(); // A press begun in one mode cannot finish in another.
@@ -447,6 +483,7 @@ public class LiveMapView extends View {
             if (listener != null) listener.onAreaChanged(current);
         }
         if (listener != null && deliver) listener.onExplorationSample(next);
+        if (moved) revealParty(newArea);
         refreshDescription();
         invalidate();
     }
@@ -466,6 +503,23 @@ public class LiveMapView extends View {
             } else if(action==MotionEvent.ACTION_CANCEL) touchingPreview=false;
             return true;
         }
+        if (action == MotionEvent.ACTION_UP && mapDragging) {
+            cancelTap(); return true;
+        }
+        if (action == MotionEvent.ACTION_MOVE && panCandidate) {
+            int pointer = event.findPointerIndex(touchPointer);
+            if (pointer < 0) { cancelTap(); return true; }
+            float x = event.getX(pointer), y = event.getY(pointer);
+            if (mapDragging || Math.hypot(x-touchX, y-touchY)
+                    > ViewConfiguration.get(getContext()).getScaledTouchSlop()) {
+                mapDragging = true;
+                touchTile = -1;
+                mapScrollX -= x-panLastX; mapScrollY -= y-panLastY;
+                viewport(); invalidate();
+                panLastX = x; panLastY = y;
+            }
+            return true;
+        }
         if (action == MotionEvent.ACTION_DOWN) {
             cancelTap();
             touchPointer = event.getPointerId(0); touchX = event.getX(); touchY = event.getY();
@@ -481,6 +535,9 @@ public class LiveMapView extends View {
             touchParty = touchMember < 0 ? null : party;
             if (touchMember >= 0) postDelayed(partyLongPress, ViewConfiguration.getLongPressTimeout());
             touchTile = touchMember < 0 && !onButton ? viewport().tileAt(touchX, touchY) : -1;
+            panCandidate = originalTileScale && state != null && mode != MapMode.COMBAT && !onButton
+                    && touchMember < 0 && viewport().contains(touchX, touchY);
+            panLastX = touchX; panLastY = touchY;
             AreaIdentity area = currentArea(); touchArea = area == null ? null : area.id();
             if (getParent() != null) getParent().requestDisallowInterceptTouchEvent(true);
         } else if (action == MotionEvent.ACTION_MOVE) {
@@ -521,6 +578,7 @@ public class LiveMapView extends View {
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
             } else if (gesture && touchHeader && headerTarget.contains(event.getX(), event.getY())) {
                 if (positionAvailable) {
+                    revealParty(true);
                     pingUntil = now() + PING_MS;
                     performClick();
                     refreshDescription();
@@ -596,6 +654,7 @@ public class LiveMapView extends View {
     }
 
     private void cancelTap() {
+        panCandidate = mapDragging = false;
         removeCallbacks(partyLongPress);
         touchReturn = false; touchQuick = -1;
         touchPointer = touchTile = -1;
@@ -604,7 +663,7 @@ public class LiveMapView extends View {
     }
 
     @Override protected void onSizeChanged(int w, int h, int oldW, int oldH) {
-        super.onSizeChanged(w, h, oldW, oldH); cancelTap();
+        super.onSizeChanged(w, h, oldW, oldH); cancelTap(); revealParty(false);
     }
 
     @Override public void onWindowFocusChanged(boolean focused) {
@@ -789,13 +848,19 @@ public class LiveMapView extends View {
         ink.setTextSize(Math.min(11 * density, cell * .7f));
         ink.setTextAlign(Paint.Align.CENTER);
         for (int i = 0; i < 16; i += 4) {
-            canvas.drawText(Integer.toString(i), left + (i + .5f) * cell, top - 5 * density, ink);
-            canvas.drawText(Integer.toString(i), left - 11 * density, top + (i + .7f) * cell, ink);
+            float x = left + (i + .5f) * cell, y = top + (i + .7f) * cell;
+            if (!originalTileScale || (x >= viewport.clipLeft && x < viewport.clipRight))
+                canvas.drawText(Integer.toString(i), x, (originalTileScale ? viewport.clipTop : top) - 5 * density, ink);
+            if (!originalTileScale || (y >= viewport.clipTop && y < viewport.clipBottom))
+                canvas.drawText(Integer.toString(i), (originalTileScale ? Math.max(viewport.clipLeft, left) : left) - 11 * density, y, ink);
         }
+        int mapSave = canvas.save();
+        if (originalTileScale) canvas.clipRect(viewport.clipLeft, viewport.clipTop, viewport.clipRight, viewport.clipBottom);
         artwork.drawExploration(canvas, state.map, exploration, visitedOnly, footprints, left, top, cell, density);
         artwork.drawMarkers(canvas, flags, state, positionAvailable, left, top, cell, density);
-        drawNeighborPreview(canvas,pane);
         if (positionAvailable && pinging()) drawPing(canvas, left, top, cell);
+        canvas.restoreToCount(mapSave);
+        drawNeighborPreview(canvas,pane);
         ink.setStyle(Paint.Style.FILL);
         ink.setTextAlign(Paint.Align.CENTER);
         // One caption line. The old "North up · N walked" reminder is gone; the
@@ -820,7 +885,7 @@ public class LiveMapView extends View {
                     + " @" + density + (textScale == 1 ? "" : " ×" + textScale)
                 : null;
         canvas.drawText(fitHeaderText(
-                        (positionAvailable ? "Tap a tile or symbol · " : "") + notebook
+                        (originalTileScale ? "1:1 · Drag to scroll · " : "") + (positionAvailable ? "Tap a tile or symbol · " : "") + notebook
                         + (missing == null ? "" : " · " + missing)
                         + " · v" + BuildConfig.VERSION_NAME, available),
                 pane.mapWidth / 2f, pane.mapHeight - 7 * density, ink);

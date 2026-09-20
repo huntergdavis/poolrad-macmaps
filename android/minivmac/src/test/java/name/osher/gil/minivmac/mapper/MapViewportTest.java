@@ -8,6 +8,33 @@ import java.util.List;
 import static org.junit.Assert.*;
 
 public class MapViewportTest {
+    @Test public void originalTilesStay32PhysicalPixelsAcrossDensityAndSize() {
+        for (float density : new float[]{1, 1.25f, 2, 3})
+            for (int[] size : new int[][]{{1200,460},{400,250},{1600,800}}) {
+                MapViewport v = new MapViewport(size[0],size[1],density,true,0,0);
+                assertEquals(32, v.cell, 0);
+                assertEquals(Math.round(v.left), v.left, 0);
+                assertEquals(Math.round(v.top), v.top, 0);
+            }
+    }
+    @Test public void scrollClampsAndLastTileRemainsReachableWithoutHittingCaption() {
+        MapViewport v = new MapViewport(300,250,1,true,9999,9999);
+        assertEquals(260, v.scrollX, 0);
+        assertEquals(326, v.scrollY, 0);
+        assertEquals(255, v.tileAt(v.left+15.5f*32,v.top+15.5f*32));
+        assertEquals(-1, v.tileAt(100,41));
+        assertEquals(-1, v.tileAt(100,228));
+        assertEquals(-1, v.tileAt(277,100));
+        MapViewport first = new MapViewport(300,250,1,true,-999,-999);
+        assertEquals(0,first.scrollX,0); assertEquals(0,first.scrollY,0);
+        assertEquals(0,first.tileAt(first.left+16,first.top+16));
+    }
+    @Test public void clippedFlagsDoNotBecomeNearbyTapTargets() {
+        MapViewport v = new MapViewport(300,250,1,true,32,32);
+        assertArrayEquals(new int[]{17},v.nearbyFlags(v.left+48,v.top+48,Arrays.asList(0,1,16,17),100));
+        assertEquals(-1,v.tileAt(v.left+16,v.top+16));
+    }
+
     @Test public void tileCentersSurviveResizeAndDensity() {
         for (int[] size : new int[][]{{1200, 520}, {1600, 300}, {600, 700}}) {
             for (float density : new float[]{1, 1.25f, 2}) {
