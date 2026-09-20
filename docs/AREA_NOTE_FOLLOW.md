@@ -6,8 +6,8 @@ page. The page is editable immediately. Last-used squares are local app
 preferences keyed by notebook UUID and area ID; they survive process restart
 but are not added to notebook export archives.
 
-Reading follows the party. The first edit (including erase, undo/redo or symbol
-change) pins that editor until Close & save, even after autosave completes.
+Reading follows the party. The first edit (including erase, undo/redo, symbol
+change or a template choice) pins that editor until Close & save, even after autosave completes.
 An active stroke also pins it before the edit callback fires. Closing opens
 only the latest destination, preserving ink under the original notebook,
 area and square. Same-area steps and unavailable/camp frames do not count as
@@ -21,14 +21,6 @@ the automatic editor through a dialog-lifecycle Activity callback and the existi
 note on its ordered I/O queue, and rechecks the area generation and editing
 state on the UI thread before showing it. Obsolete requests cannot create
 stray arrival flags. Manual editor and index opens remember the selected square.
-
-## In use
-
-![The Slums arrival opens its note page above the game, with the map at left and writing space at right](images/area-note-follow-slums.png)
-
-*Live gate-crossing test capture from the notebook development build.
-Source: `poolrad-macmaps-for-codex/scratch/f57-live-slums.png`.
-The verification notes below distinguish this live test from the synthetic checks.*
 
 ## Verification
 

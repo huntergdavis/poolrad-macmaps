@@ -11,6 +11,8 @@ Works offline. No root or account needed.
 [Download the 0.93.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.93.0/poolrad-macmaps-0.93.0.apk)
 for **Android 5.0 or later**.
 
+Notebook templates are in source version 0.94. Its APK is not yet published.
+
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
 3. Import copies of your Mac system and game disks through the disk menu.
@@ -83,18 +85,19 @@ Take your combat actions in the original game below.
 ## Keep a notebook
 
 Tap a map tile to open a page with the map on the left and writing space on
-the right. Choose **Template** for a blank grid, ruled list or blank map
-frame on the writing half. Plain paper remains the default.
+the right.
 
-<img src="docs/images/note-template-grid.png" width="760" alt="Notebook grid template beside the area map, with handwriting preserved">
-
-*Screenshot from the running app. Game artwork belongs to its respective owners.*
+- **Template** adds a blank grid, ruled list or blank map frame to the writing
+  half (source 0.94). Plain paper is the default.
+- Changing templates keeps your handwriting. Erasing removes ink, not the guides.
+- Each page remembers its template. Templates appear in backups, images and PDFs.
+  [Template guide](docs/NOTE_TEMPLATES.md).
 
 Entering a known area opens its last-used note, or a page at your arrival
 square if that note is missing.
 Once you start editing, the page stays put until **Close & save**; then the
 current area's note opens. You can still use the game beneath an automatically
-opened page. [See it in use](docs/AREA_NOTE_FOLLOW.md).
+opened page. [How notes follow your party](docs/AREA_NOTE_FOLLOW.md).
 
 - Draw with a pen or one finger. Use two fingers to zoom and move the page.
 - Erase your ink, undo or redo, and choose from nine note symbols. Notes autosave.

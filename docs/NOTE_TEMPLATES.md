@@ -40,3 +40,5 @@ eraser-safe guides, narrow scrolling controls and large text. APK content,
 ABI, signature and README screenshot checks also pass.
 
 ![Blank grid on the writing half beside the area map](images/note-template-grid.png)
+
+*Test-build screenshot from 0.94. Templates are not included in the published 0.93 APK.*
