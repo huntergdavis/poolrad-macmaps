@@ -1,6 +1,6 @@
 # Companion tabs
 
-**Map**, **Connections**, and **Info** share the space above the original
+**Map**, **World**, and **Info** share the space above the original
 Mac display. The keyboard stays below the game. Switching tabs never replaces,
 pauses or restarts the emulator.
 
@@ -9,8 +9,8 @@ HP bars, AC, class symbols and tap-for-details when there is room. The sidebar
 collapses in narrow/short windows without reducing the guest's allocation.
 Walked squares and recorded directional footprints stay with each notebook's
 area; optional fog hides unvisited geometry without changing the original game.
-**Connections** shows the passages your party has traveled.
-[Connections guide](AREA_CONNECTIONS.md).
+**World** joins areas from recorded travel into a map you can drag and zoom.
+Tap an area to see its crossings. [World guide](WORLD.md).
 
 **Info** opens tools such as Saves, the message log, Journal, and reference
 tables. Each page fits above the game. Lists scroll within that space;
@@ -27,7 +27,8 @@ Desktop appearance while the companion is hidden reveals it first.
 - The old hidden-map preference migrates once to `poolrad_show_companion`.
   Hide/show retains the selected tab; its checkmark describes the whole pane.
 - A fresh session starts on Map. Activity/fragment saved state carries stable
-  `map`/`connections`/`info` IDs through restoration; unknown IDs fall back to Map.
+  `map`/`world`/`info` IDs through restoration. The old `connections` ID
+  opens World; unknown IDs fall back to Map.
 - One `LiveMapView` and notebook controller stay mounted across tab changes.
   Map/party polling and eligible exploration recording continue while the
   activity is resumed, including on Info or with the companion hidden. Tab
@@ -46,7 +47,7 @@ Desktop appearance while the companion is hidden reveals it first.
 
 ## Implementation
 
-`CompanionPane` owns the two retained pages. `MapStackLayout` allocates the old
+`CompanionPane` owns the three retained pages. `MapStackLayout` allocates the old
 upper-space budget to that direct child, including its 48dp tab row. It never
 casts the nested map's frame-layout parameters or changes the guest siblings.
 `EmulatorFragment` owns selection, polling and preference migration; `MiniVMac`
@@ -62,8 +63,7 @@ half-window fallback. No dimming or opening animation is added.
 
 The original UI1 slice now includes [Journal](JOURNAL.md) as a working Info
 tool: private-book import, numbered lookup, illustrations and bookmarks.
-Handwritten pages already work from
-Map; a dedicated Notes index remains future navigation, not an empty tab.
+Open handwritten pages from Map or **Info → Notes index**.
 Native session recovery after forced activity recreation is the separate Q1
 backlog item, not a benefit claimed for tab restoration.
 

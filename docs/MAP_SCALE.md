@@ -13,7 +13,7 @@ grid lines in the Area window are 60 display pixels apart (60 / 1.875 = 32).
 The companion uses 32 pixels directly, without Android density scaling or the
 guest display's enlargement. This preserves the companion's own artwork,
 notes, flags, exploration history and fog choices. Known-exit previews,
-Connections, the legend and party information keep their existing layouts.
+World, the legend and party information are unaffected by this option.
 [Map zoom](MAP_ZOOM.md) also provides independent combat framing and controls.
 
 The same viewport supplies drawing and note coordinates. Scroll bounds keep

@@ -30,10 +30,10 @@ labels. Empty edges do not acquire false walls from unused door bits.
 
 ## Connections between areas
 
-Open **Connections**, beside **Map**, to browse passages the party has traveled.
-Arrows record only observed directions; the crossing list keeps the departure
-and arrival squares. Loading a save never adds a connection.
-[Connections guide](AREA_CONNECTIONS.md).
+Open **World**, beside **Map**, to browse areas joined by your recorded travel.
+Tap an area to see crossings with their departure and arrival squares.
+Only directions actually traveled are recorded. Loading a save never adds a
+connection. [World guide](WORLD.md) · [Recording rules](AREA_CONNECTIONS.md).
 
 ## What is and is not recorded
 

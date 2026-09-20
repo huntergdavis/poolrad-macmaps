@@ -1,21 +1,13 @@
 # Discovered area connections — F58
 
-> Since 0.113.0 the **World** tab ([WORLD.md](WORLD.md)) presents this data as
-> one stitched map; the Connections tab described below is retired. Recording,
-> storage and the evidence contract here are unchanged.
+Open **World**, beside **Map**, to browse areas joined by your recorded travel.
+Tap an area to see its crossings with departure and arrival squares.
+[World controls and layout](WORLD.md).
 
-**Connections**, beside **Map**, shows passages this party actually traveled.
-The view starts empty. It records doors, stairs, teleports and scripted travel
-between identified local areas; it does not reveal destinations from game data.
-An arrow appears only in a direction actually traveled. Walking back adds the
-return direction. Separate passages between the same areas keep separate
-source/arrival-square entries; repeating a trip does not duplicate an entry.
-
-Tap a neighboring area to inspect its connections, choose a discovered area
-from the list, or use **Current area** to follow the party again. The graph is
-schematic: box placement does not claim geographic distance or direction.
-The crossing list preserves coordinates from the observations. **Map** returns
-to the usual local map.
+The app records travel between identified local areas. It does not reveal
+destinations you have not reached. A crossing records only the direction you
+traveled; walking back adds the return direction. Separate passages keep their
+own entries. Repeating a trip does not duplicate an entry.
 
 History belongs to the selected campaign notebook and survives restarts and
 loading older game saves. Loading a save creates no discoveries. Notebook
@@ -66,9 +58,8 @@ pause at the gate. The Connections view and travel log both recorded
 New Phlan 0,4 → Slums 15,4. Automated tests cover unreadable frames, slow
 polling, and rejection of changed travel epochs, skipped areas and long gaps.
 
-![Connections records New Phlan to the Slums after a pause at the gate](images/connections-gate-check.png)
-
-*0.108.0 development-build capture from the live gate test described below.*
+The old Connections display was replaced by World in 0.113.0.
+[Current World screenshots and verification](WORLD.md#verification--2026-09-20).
 
 ## Earlier 0.88.0 validation
 

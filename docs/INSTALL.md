@@ -41,7 +41,7 @@ on that exact application identity; renaming it can stop tracking.
 The Mac Plus flavor needs its own matching ROM and has not been runtime-tested.
 
 The **keyboard icon** opens the keyboard beneath the game.
-**Map / Connections / Info** switches only the upper pane; the game and
+**Map / World / Info** switches only the upper pane; the game and
 keyboard stay put.
 **PoolRad → Show companion** hides or shows that whole pane and remembers your
 visibility choice. References and all rune pickers fit its actual bounds without
@@ -61,9 +61,9 @@ guessed connecting paths. Tracking continues on Info or with the pane hidden
 while the app is resumed. Clear footprints or reset one walked map explicitly;
 neither removes your handwritten flags. [Exploration guide](EXPLORATION.md).
 
-**Connections** records passages your party has traveled, with arrows for each
-direction used. On a known exit square, the map can preview explored squares
-in the destination. [Connections](AREA_CONNECTIONS.md) ·
+**World** joins areas from recorded travel into a map you can drag and zoom.
+Tap an area to see its crossings. On a known exit square, the Map tab can
+preview explored squares in the destination. [World](WORLD.md) ·
 [Exit previews](NEIGHBOR_PREVIEW.md).
 
 **PoolRad → Screenshot** captures the selected companion tab, game, and
