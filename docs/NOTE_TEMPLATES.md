@@ -41,4 +41,4 @@ ABI, signature and README screenshot checks also pass.
 
 ![Blank grid on the writing half beside the area map](images/note-template-grid.png)
 
-*Test-build screenshot from 0.94. Templates are not included in the published 0.93 APK.*
+*Test-build screenshot from 0.94. Templates are included in the published 0.96 APK.*

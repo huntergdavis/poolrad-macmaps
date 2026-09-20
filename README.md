@@ -8,11 +8,8 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.93.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.93.0/poolrad-macmaps-0.93.0.apk)
+[Download the 0.96.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.96.0/poolrad-macmaps-0.96.0.apk)
 for **Android 5.0 or later**.
-
-Source includes notebook templates, the sound change below and corrected
-spell-memorization guidance. These updates are not yet in the published APK.
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -92,7 +89,7 @@ Tap a map tile to open a page with the map on the left and writing space on
 the right.
 
 - **Template** adds a blank grid, ruled list or blank map frame to the writing
-  half (source 0.94). Plain paper is the default.
+  half. Plain paper is the default.
 - Changing templates keeps your handwriting. Erasing removes ink, not the guides.
 - Each page remembers its template. Templates appear in backups, images and PDFs.
   [Template guide](docs/NOTE_TEMPLATES.md).
@@ -129,7 +126,7 @@ Code-wheel prompts are answered automatically when recognized, with an
 illustrated manual lookup as a fallback.
 
 Turning off **Options → Sounds** in the original game also stops the app's
-audio work (source 0.95). **Walking Sounds** controls footsteps.
+audio work. **Walking Sounds** controls footsteps.
 [Sound behavior](docs/AUDIO_MUTE.md).
 
 ## Save and resume
