@@ -22,8 +22,11 @@
 #define POOLRAD_COMBAT_STRIDE 4
 /* The roster reader already refuses more than this many linked combatants. */
 #define POOLRAD_COMBAT_MAX (POOLRAD_PARTY_MAX_LINKS)
-/* Both observed battles stay well inside this; anything larger is not a grid. */
-#define POOLRAD_COMBAT_MAX_COORDINATE 63
+/* Fixed arena in the supported game: CODE 9 allocates a 50x25 tile array;
+ * CODE 10:5712 rejects x outside 0..49 and y outside 0..24.
+ * See docs/COMBAT_MEMORY.md; the viewport and occupied bounds are smaller. */
+#define POOLRAD_COMBAT_ARENA_WIDTH 50
+#define POOLRAD_COMBAT_ARENA_HEIGHT 25
 /* PRC2 appended the acting character's name, NUL padded. Whose turn it is was
  * the one thing the overview could not say, and it is the thing a small screen
  * makes hardest to keep track of. Read from the Combat Message window; see
@@ -223,8 +226,8 @@ static int poolrad_combat_probe(const unsigned char *ram, size_t size, unsigned 
         /* Each entry states its own index; a table that disagrees with itself
          * is not this table. */
         if (entry[0] != i || entry[1] > 1) return 1;
-        if (entry[2] > POOLRAD_COMBAT_MAX_COORDINATE
-                || entry[3] > POOLRAD_COMBAT_MAX_COORDINATE) return 1;
+        if (entry[2] >= POOLRAD_COMBAT_ARENA_WIDTH
+                || entry[3] >= POOLRAD_COMBAT_ARENA_HEIGHT) return 1;
     }
     if (ram[table + count * POOLRAD_COMBAT_STRIDE + 2] != 0
             || ram[table + count * POOLRAD_COMBAT_STRIDE + 3] != 0) return 1;

@@ -184,26 +184,19 @@ public final class CombatMapRenderCheck {
     private static float[] spotCentre(LiveMapView view, CombatSnapshotGeometry battle, int x, int y) {
         float density = view.getResources().getDisplayMetrics().density;
         PartyPaneLayout pane = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 6);
-        float margin = 26 * density, caption = 22 * density;
+        float margin = 26 * density, header = 44 * density, caption = 22 * density;
         float usableWidth = pane.mapWidth - 2 * margin;
-        float usableHeight = pane.mapHeight - margin - caption - 10 * density;
+        float usableHeight = pane.mapHeight - header - caption - 10 * density;
         float cell = Math.min(Math.min(usableWidth / battle.width, usableHeight / battle.height), 34 * density);
         float gridWidth = cell * battle.width, gridHeight = cell * battle.height;
-        float left = (pane.mapWidth - gridWidth) / 2f, top = margin + (usableHeight - gridHeight) / 2f;
+        float left = (pane.mapWidth - gridWidth) / 2f, top = header + (usableHeight - gridHeight) / 2f;
         return new float[]{left + (x - battle.left + .5f) * cell, top + (y - battle.top + .5f) * cell, cell};
     }
 
-    /** The bounds the overview derives from a set of rows. */
+    /** Arena dimensions verified from the original game, independent of occupants. */
     private static final class CombatSnapshotGeometry {
-        final int left, top, width, height;
-        CombatSnapshotGeometry(int[][] rows) {
-            int minX = Integer.MAX_VALUE, minY = Integer.MAX_VALUE, maxX = -1, maxY = -1;
-            for (int[] row : rows) {
-                minX = Math.min(minX, row[1]); maxX = Math.max(maxX, row[1]);
-                minY = Math.min(minY, row[2]); maxY = Math.max(maxY, row[2]);
-            }
-            left = minX; top = minY; width = maxX - minX + 1; height = maxY - minY + 1;
-        }
+        final int left = 0, top = 0, width = 50, height = 25;
+        CombatSnapshotGeometry(int[][] rows) {}
     }
 
     private static LiveMapView map(Context context, int width, int height) {
@@ -386,6 +379,38 @@ public final class CombatMapRenderCheck {
                     "Accessible text does not announce the overview");
             check(full.getContentDescription().toString().contains("Reference only"),
                     "Accessible text does not say the overview is reference only");
+        });
+
+        run("The whole arena stays fixed when combatants move or disappear", () -> {
+            LiveMapView view = map(context, 1440, 684);
+            view.showPartySample(loadPacket(9, 9, 9, 9, 9, 9));
+            view.showSample(mapPacket(2, 5));
+            int[][] rows = {{1, 27, 12}, {2, 28, 12}};
+            view.showCombatSample(combatPacket(rows));
+            Bitmap before = draw(view);
+            CombatSnapshotGeometry geometry = new CombatSnapshotGeometry(rows);
+            float[] corner = spotCentre(view, geometry, 0, 0);
+            int x = Math.round(corner[0] - corner[2] / 2);
+            int y = Math.round(corner[1] - corner[2] / 2);
+            check(inkPixels(before, x - 1, y - 1, x + 3, y + 3) > 0,
+                    "The empty northwest arena corner was cropped away");
+            float[] old = spotCentre(view, geometry, 27, 12);
+            check(inkPixels(before, (int)old[0]-2, (int)old[1]-2,
+                    (int)old[0]+2, (int)old[1]+2) > 0, "Party marker missing");
+            view.showCombatSample(combatPacket(new int[][]{{1, 29, 12}}));
+            Bitmap after = draw(view);
+            check(inkPixels(after, (int)old[0]-2, (int)old[1]-2,
+                    (int)old[0]+2, (int)old[1]+2) == 0, "Old marker stayed after movement");
+            float[] moved = spotCentre(view, geometry, 29, 12);
+            check(inkPixels(after, (int)moved[0]-2, (int)moved[1]-2,
+                    (int)moved[0]+2, (int)moved[1]+2) > 0,
+                    "Movement changed the scale instead of the marker position");
+            for (int dx = -1; dx < 4; dx++)
+                for (int dy = -1; dy < 4; dy++)
+                    check(before.getPixel(x + dx, y + dy) == after.getPixel(x + dx, y + dy),
+                            "Arena edge shifted when the occupied bounds changed");
+            check(String.valueOf(view.getContentDescription()).contains("Arena 50 by 25"),
+                    "Accessible description omitted the full arena");
         });
 
         run("Party squares are filled and the others are hollow", () -> {

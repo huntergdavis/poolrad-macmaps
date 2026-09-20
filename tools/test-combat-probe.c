@@ -16,9 +16,9 @@ static void put32(size_t at, uint32_t v) {
 }
 /* One relocatable heap block holding a character record, shaped exactly as the
  * roster reader demands: 24-bit tag 8, logical 302 plus header and correction. */
-/* Distinct squares for every combatant, always inside the grid ceiling. */
-static unsigned char expected_x(unsigned i) { return (unsigned char)((3 + i) % 64); }
-static unsigned char expected_y(unsigned i) { return (unsigned char)((20 + i * 3) % 64); }
+/* Invented squares for every combatant, always inside the real arena. */
+static unsigned char expected_x(unsigned i) { return (unsigned char)((3 + i) % 50); }
+static unsigned char expected_y(unsigned i) { return (unsigned char)((20 + i * 3) % 25); }
 static void record(uint32_t at, unsigned slot, uint32_t next_handle) {
     /* 302 + 8 is not a multiple of four, so the allocator's own low-nibble
      * size correction of two is part of a legitimate block. */
@@ -104,16 +104,20 @@ int main(void) {
         assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
     }
 
-    /* Coordinates past the grid ceiling are not squares. */
+    /* Both arena edges are legal; every byte beyond either axis is refused. */
     for (unsigned axis = 2; axis <= 3; axis++) {
-        for (unsigned value = POOLRAD_COMBAT_MAX_COORDINATE + 1; value < 256; value += 17) {
+        unsigned extent = axis == 2 ? 50 : 25;
+        for (unsigned value = extent; value < 256; value++) {
             fixture(6, 10);
             ram[g_table + 9 * POOLRAD_COMBAT_STRIDE + axis] = (unsigned char) value;
             assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
         }
-        /* The ceiling itself is a legal square. */
+        /* First and last squares are legal on each axis. */
         fixture(6, 10);
-        ram[g_table + 9 * POOLRAD_COMBAT_STRIDE + axis] = POOLRAD_COMBAT_MAX_COORDINATE;
+        ram[g_table + 9 * POOLRAD_COMBAT_STRIDE + axis] = extent - 1;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
+        ram[g_table + 9 * POOLRAD_COMBAT_STRIDE + axis] = 0;
         assert(poolrad_combat_probe(ram, sizeof ram, out));
         assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
     }

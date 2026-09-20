@@ -163,13 +163,11 @@ Two leads, neither of them acted on, if that experiment shows a break:
 
 ## Still undecoded
 
-- **Terrain.** Nothing in the A5 globals looks like an arena grid: the largest
-  block that appears only during a battle is the position table itself. The
-  terrain is presumably in a heap allocation that has not been located, so the
-  shipped overview draws no walls and says so.
-- **The arena's own bounds.** Coordinates from 18 to 36 and 9 to 19 have been
-  seen, but no width or height field has been identified, so the overview
-  frames the squares that are occupied instead of claiming an arena size.
+- **Terrain artwork/semantics.** F73 located the heap tile array described
+  below. Decoding its tile graphics and deciding what terrain the overview
+  should show remain separate work; the shipped overview draws no walls.
+- **Arena bounds are now decoded:** see the F73 findings below. The earlier
+  occupied-square framing was replaced in 0.98.0.
 - **Initiative, facing, and which combatant is acting.**
 
 ## Scope reminder
@@ -178,3 +176,69 @@ L2 is a **distinct read-only view**. It must not automate combat, move anyone,
 or reveal anything the player cannot already see on the game's own Combat View.
 The companion already names Combat mode correctly and refuses to present the
 retained exploration map as a tactical one; that behaviour stays.
+
+## Full arena bounds (F73, 0.98.0)
+
+The supported Macintosh game has a **fixed 50-column × 25-row combat arena**,
+with inclusive coordinates **(0,0)–(49,24)**. These bounds come from the game's
+own allocation, terrain addressing and coordinate validator, not the occupied
+combatant rectangle or the older probe's conservative 0–63 sanity limit.
+
+Read-only disassembly of the user-supplied game resource fork established:
+
+| CODE resource / offset | Evidence |
+| --- | --- |
+| 9 / 28d4–28e0 | Allocates 0x4ea (1,258) bytes and stores the handle at A5−0x3ee0. |
+| 9 / 12c6–142e | Visits x=0 through 49 and y=0 through 24, addressing terrain at handle data +7 + y×50 + x. |
+| 9 / 15d0–1614 | Rejects tile writes outside x=0…49 and y=0…24. |
+| 10 / 5712–5784 | The tile/occupancy lookup checks both axes against those same inclusive limits before indexing; outside returns zero. |
+| 10 / 5180–521a | Computes viewport-relative combatant coordinates by subtracting arena data bytes +2 and +3; those bytes are the scrolling viewport origin, not arena bounds. |
+
+The allocation fits seven header bytes, 1,250 tiles and one alignment byte.
+Live RAM in the restored tavern fight corroborated it: A5=0x790aec, arena handle
+0x68ef40, data 0x751cf8, heap header 0x820004f4 (physical 1,268 bytes, eight-byte
+heap header, two-byte allocator correction: 1,258 logical bytes). The viewport
+origin was (24,9). All 35 roster positions fit the full arena; the surviving
+markers occupied only (25,11)–(35,20).
+
+Reproduce the read-only code inspection with `tools/disassemble-game.py
+RESOURCE_FORK 10 5712 5786` and `RESOURCE_FORK 9 28d4 291c`, using locally
+installed `capstone` and `macresources`. Private game resources, RAM and disk
+fixtures remain under ignored scratch storage.
+
+The companion now keeps this entire rectangle fixed as characters move or
+monsters disappear. Native and Java readers both reject coordinates outside
+the actual arena. The PRC3 packet shape is unchanged: every accepted battle in
+this supported game uses these same bounds, so no guessed per-fight dimensions
+or new RAM field is needed. Terrain is not included in the overview.
+
+Regression coverage includes both axis limits and all out-of-range byte
+values, a single remaining combatant, movement, disappearance, stable empty
+arena corners, marker tapping, and unchanged-update redraw suppression.
+
+### Live verification
+
+On emulator-5590, the installed 0.98.0 APK (versionCode 164) restored the
+fingerprint-matched 35-combatant tavern fight through the normal snapshot path.
+The full arena measured 730 × 365 screen pixels (50 × 25 at 14.6 pixels per
+square), retaining empty space outside the occupied cluster. The bounds label
+is on its own line below the battle header.
+
+Normal combat input advanced the fight: enemy markers moved, Zarram changed
+from standing to dying, Arax's HP changed from 12 to 7, and the turn ring moved
+to Shara. A numeric-keypad northwest step moved Shara from (25,11) to (24,10);
+the game reported Move Left = 7. A second read-only RAM capture confirmed the
+same coordinate change and the unchanged arena allocation, while its viewport
+origin changed from (24,9) to (22,8). The companion marker followed the step
+without moving or resizing the arena border.
+
+![Full arena after Shara's northwest step](images/combat-arena.png)
+
+Validation: 735 Java unit tests, the ASan/UBSan native combat probe (including
+every out-of-range coordinate byte on both axes), and all 20 detached Android
+combat rendering checks passed. The rendering checks include fixed framing
+after movement/disappearance, party marker taps, fallen shapes, narrow panes,
+held readings and zero redraw requests for unchanged combat samples. The
+render helper printed its complete 20-check success summary before Android's
+app_process shutdown returned status 143; no check failed.
+APK ABI/content, code-wheel assets and signing checks passed.

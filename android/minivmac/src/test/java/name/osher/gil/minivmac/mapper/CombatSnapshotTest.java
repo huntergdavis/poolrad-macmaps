@@ -73,23 +73,18 @@ public class CombatSnapshotTest {
         assertEquals(12, snapshot.spots().get(0).y);
     }
 
-    @Test public void theOccupiedAreaIsTheBoundsOfWhatWasRead() {
-        CombatSnapshot snapshot = CombatSnapshot.parse(packet(BATTLE));
-        assertEquals(19, snapshot.left);
-        assertEquals(31, snapshot.right);
-        assertEquals(11, snapshot.top);
-        assertEquals(14, snapshot.bottom);
-        assertEquals(13, snapshot.width());
-        assertEquals(4, snapshot.height());
-    }
-
-    @Test public void aSingleCombatantIsAOneSquareArea() {
-        CombatSnapshot snapshot = CombatSnapshot.parse(packet(new int[][]{{1, 5, 9}}));
-        assertNotNull(snapshot);
-        assertEquals(1, snapshot.width());
-        assertEquals(1, snapshot.height());
-        assertEquals(5, snapshot.left);
-        assertEquals(9, snapshot.top);
+    @Test public void arenaIncludesEmptySpaceAndDoesNotShrinkAfterMovementOrLosses() {
+        for (int[][] rows : new int[][][]{BATTLE, {{1, 5, 9}}, {{1, 6, 8}},
+                {{1, 0, 0}, {2, 49, 24}}}) {
+            CombatSnapshot snapshot = CombatSnapshot.parse(packet(rows));
+            assertNotNull(snapshot);
+            assertEquals(0, snapshot.left);
+            assertEquals(49, snapshot.right);
+            assertEquals(0, snapshot.top);
+            assertEquals(24, snapshot.bottom);
+            assertEquals(50, snapshot.width());
+            assertEquals(25, snapshot.height());
+        }
     }
 
     @Test public void noBattleIsNotAnEmptyBattlefield() {
@@ -105,15 +100,17 @@ public class CombatSnapshotTest {
                 CombatSnapshot.parse(packet(new int[][]{{2, 1, 1}})).summary());
     }
 
-    @Test public void theCeilingIsAcceptedAndOneMoreIsNot() {
-        assertNotNull(CombatSnapshot.parse(packet(new int[][]{{1, 63, 63}})));
+    @Test public void eachAxisUsesTheRealArenaLimit() {
+        assertNotNull(CombatSnapshot.parse(packet(new int[][]{{1, 0, 0}, {2, 49, 24}})));
         for (int axis = 1; axis <= 2; axis++) {
-            byte[] b = packet(new int[][]{{1, 5, 5}});
-            b[8 + axis] = 64;
-            assertNull("coordinate 64 accepted", CombatSnapshot.parse(b));
+            for (int value = axis == 1 ? 50 : 25; value < 256; value++) {
+                byte[] b = packet(new int[][]{{1, 5, 5}});
+                b[8 + axis] = (byte) value;
+                assertNull("out-of-arena coordinate " + value + " accepted", CombatSnapshot.parse(b));
+            }
         }
         int[][] full = new int[CombatSnapshot.MAX_COMBATANTS][];
-        for (int i = 0; i < full.length; i++) full[i] = new int[]{i < 6 ? 1 : 2, i % 64, (i * 3) % 64};
+        for (int i = 0; i < full.length; i++) full[i] = new int[]{i < 6 ? 1 : 2, i % 50, (i * 3) % 25};
         assertEquals(CombatSnapshot.MAX_COMBATANTS, CombatSnapshot.parse(packet(full)).size());
     }
 

@@ -350,7 +350,8 @@ public class LiveMapView extends View {
                     .append('.');
         }
         if (mode == MapMode.COMBAT && combat != null)
-            status = "Battle overview. " + combat.summary()
+            status = "Battle overview. Arena " + combat.width() + " by " + combat.height()
+                    + " squares. " + combat.summary()
                     + ", between " + combat.left + "," + combat.top
                     + " and " + combat.right + "," + combat.bottom
                     + ". Reference only; no terrain is shown and nothing here can be tapped.";
@@ -893,8 +894,8 @@ public class LiveMapView extends View {
 
     /**
      * The battle as an overview: one square per combatant, the party filled and
-     * everyone else hollow, on the bounds of the squares actually read. No
-     * terrain is drawn, because none has been decoded, and nothing here is a
+     * everyone else hollow, inside the game's full 50 by 25 arena. No
+     * terrain is drawn, and nothing here is a
      * suggestion: the original Combat View below remains the place to act.
      */
     private void drawCombat(Canvas canvas, PartyPaneLayout pane, float available) {
@@ -908,15 +909,15 @@ public class LiveMapView extends View {
                     pane.mapWidth / 2f, pane.mapHeight / 2f, ink);
             return;
         }
-        float margin = 26 * density, caption = 22 * density;
+        float margin = 26 * density, header = 44 * density, caption = 22 * density;
         float usableWidth = pane.mapWidth - 2 * margin;
-        float usableHeight = pane.mapHeight - margin - caption - 10 * density;
+        float usableHeight = pane.mapHeight - header - caption - 10 * density;
         if (usableWidth <= 0 || usableHeight <= 0) { combatCell = 0; return; }
         float cell = Math.min(usableWidth / battle.width(), usableHeight / battle.height());
         cell = Math.min(cell, 34 * density);
         if (cell < 3) return;
         float gridWidth = cell * battle.width(), gridHeight = cell * battle.height();
-        float left = (pane.mapWidth - gridWidth) / 2f, top = margin + (usableHeight - gridHeight) / 2f;
+        float left = (pane.mapWidth - gridWidth) / 2f, top = header + (usableHeight - gridHeight) / 2f;
         combatLeft = left; combatTop = top; combatCell = cell;
 
         ink.setColor(Color.BLACK);
@@ -963,8 +964,9 @@ public class LiveMapView extends View {
             else canvas.drawRect(cx - radius, cy - radius, cx + radius, cy + radius, ink);
         }
         ink.setStyle(Paint.Style.FILL);
-        ink.setTextSize(Math.min(11 * density, cell * .8f));
-        canvas.drawText(fitHeaderText(battle.left + "," + battle.top + " to "
+        ink.setTextSize(11 * density);
+        canvas.drawText(fitHeaderText(battle.width() + " × " + battle.height() + " squares · "
+                        + battle.left + "," + battle.top + " to "
                         + battle.right + "," + battle.bottom, available),
                 pane.mapWidth / 2f, top - 8 * density, ink);
         ink.setTextSize(11 * density);

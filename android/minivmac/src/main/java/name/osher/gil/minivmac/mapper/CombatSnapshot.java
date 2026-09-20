@@ -26,8 +26,12 @@ public final class CombatSnapshot {
     public static final int FOES_MAX = 8, FOE_NAME = 16;
     public static final int FOES_OUT = ENTRIES_SIZE + ACTOR_BYTES;
     public static final int PACKET_SIZE = FOES_OUT + 1 + FOES_MAX * (FOE_NAME + 1);
-    /** Coordinates the native reader will accept at all. */
-    public static final int MAX_COORDINATE = 63;
+    /**
+     * The supported game's fixed arena, decoded from CODE 9 allocation and
+     * CODE 10 coordinate validation (docs/COMBAT_MEMORY.md). These are not the
+     * occupied bounds or the scrolling Combat View's seven-square viewport.
+     */
+    public static final int ARENA_WIDTH = 50, ARENA_HEIGHT = 25;
 
     /** One combatant's square. Party membership comes from the roster order. */
     public static final class Spot {
@@ -72,7 +76,7 @@ public final class CombatSnapshot {
 
     private final List<Spot> spots;
     private final List<Foe> foes;
-    public final int left, top, right, bottom;
+    public final int left = 0, top = 0, right = ARENA_WIDTH - 1, bottom = ARENA_HEIGHT - 1;
     /**
      * Whose turn it is, by name, or null when the game is not saying. Read from
      * the game's own Combat Message window rather than worked out, so it is the
@@ -84,12 +88,7 @@ public final class CombatSnapshot {
         this.acting = acting;
         this.foes = Collections.unmodifiableList(foes);
         this.spots = Collections.unmodifiableList(spots);
-        int l = MAX_COORDINATE, t = MAX_COORDINATE, r = 0, b = 0;
-        for (Spot spot : spots) {
-            l = Math.min(l, spot.x); r = Math.max(r, spot.x);
-            t = Math.min(t, spot.y); b = Math.max(b, spot.y);
-        }
-        left = l; top = t; right = r; bottom = b;
+
     }
 
     /** True when this name is the one the game says is acting. */
@@ -195,7 +194,7 @@ public final class CombatSnapshot {
 
     public List<Spot> spots() { return spots; }
     public int size() { return spots.size(); }
-    /** Inclusive width and height of the squares actually occupied. */
+    /** Full arena size, unchanged when combatants move or leave the fight. */
     public int width() { return right - left + 1; }
     public int height() { return bottom - top + 1; }
     /** Your own, down where they fell and worth reaching. */
@@ -232,7 +231,7 @@ public final class CombatSnapshot {
             if (kind != 1 && kind != 2 && kind != 4) return null;
             // The fourth byte used to have to be zero. It now carries the
             // condition, which is checked above instead.
-            if (x > MAX_COORDINATE || y > MAX_COORDINATE) return null;
+            if (x >= ARENA_WIDTH || y >= ARENA_HEIGHT) return null;
             if (kind == 4 && condition >= 0 && (condition < 4 || condition > 7)) return null;
             spots.add(new Spot(kind == 1 || kind == 4, kind == 4, x, y, condition));
         }

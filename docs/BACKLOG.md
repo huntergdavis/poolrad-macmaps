@@ -1539,9 +1539,11 @@ quick-flag write.
   reads their name bytes; "29 others" is the least informative thing on the
   overview.
 - [x] **F71 (delivered 0.57.0) — Count how many of each monster type remain** as the fight thins.
-- [ ] **F73 — Draw the real arena bounds.** The overview frames the occupied
-  squares today because the arena's own bounds were never decoded, which is
-  the known limit recorded under L2.
+- [x] **F73 (delivered 0.98.0) — Draw the real arena bounds.** Decoded the
+  original game's fixed 50 × 25 arena, coordinates (0,0)–(49,24). The overview
+  includes empty space and holds its frame as combatants move or fall; native
+  and Java readers reject coordinates outside those bounds. Verified in a live
+  emulator fight. [Research and verification](COMBAT_MEMORY.md#full-arena-bounds-f73-0980).
 
 ### The map
 
