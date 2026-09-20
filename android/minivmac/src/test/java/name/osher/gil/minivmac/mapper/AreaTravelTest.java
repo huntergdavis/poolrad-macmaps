@@ -27,13 +27,38 @@ public class AreaTravelTest {
         assertEquals(new AreaConnections.Edge(20,79,0,64),recorder.observe(parse(packet(0,64,1,2,20,79)),800));
     }
     @Test public void reloadChangedEpochAndSkippedAreaNeverConnect() {
-        for(int mode=0;mode<4;mode++) {
+        for(int mode=0;mode<3;mode++) {
             ConnectionRecorder recorder=new ConnectionRecorder();
             recorder.observe(parse(packet(0,64,1,0,0,0)),100);
             if(mode==2)recorder.interrupt();
-            if(mode==3)recorder.observe(null,200);
             assertNull(recorder.observe(parse(packet(20,79,mode==0?2:1,mode==1?2:1,0,64)),400));
         }
+    }
+    @Test public void unreadableFramesDuringTheAreaLoadBridgeARealCrossing() {
+        // The probe says Position unavailable while the next area loads and is
+        // authenticated; that is what a real gate crossing looks like.
+        ConnectionRecorder recorder=new ConnectionRecorder();
+        recorder.observe(parse(packet(0,64,1,0,0,0)),100);
+        assertNull(recorder.observe(null,350));
+        assertNull(recorder.observe(null,600));
+        assertNull(recorder.observe(null,850));
+        assertEquals(new AreaConnections.Edge(0,64,20,79),recorder.observe(parse(packet(20,79,1,1,0,64)),1100));
+        // But the guards still hold across those frames: a new epoch (a load)...
+        recorder=new ConnectionRecorder();
+        recorder.observe(parse(packet(0,64,1,0,0,0)),100);
+        recorder.observe(null,350);
+        assertNull(recorder.observe(parse(packet(20,79,2,1,0,64)),600));
+        // ...a skipped native area change...
+        recorder=new ConnectionRecorder();
+        recorder.observe(parse(packet(0,64,1,0,0,0)),100);
+        recorder.observe(null,350);
+        assertNull(recorder.observe(parse(packet(20,79,1,2,0,64)),600));
+        // ...and polling that stops for longer than 1.25 seconds.
+        recorder=new ConnectionRecorder();
+        recorder.observe(parse(packet(0,64,1,0,0,0)),100);
+        recorder.observe(null,350);
+        recorder.observe(null,1700);
+        assertNull(recorder.observe(parse(packet(20,79,1,1,0,64)),1900));
     }
     @Test public void pollingGapNeverConnectsAndProcessingCanBridgeContinuousLoading() {
         ConnectionRecorder recorder=new ConnectionRecorder();

@@ -32,7 +32,12 @@ No guest RAM, game disk or save is changed by connection tracking.
 Both endpoints must independently pass the existing area fingerprint check.
 Java requires the same travel epoch, exactly one native area change, a matching
 source ID, and continuous polling with gaps no longer than 1.25 seconds. Busy
-local frames can bridge an area load; they cannot supply an endpoint. The
+local frames and unreadable frames can bridge an area load; neither can supply
+an endpoint. (Corrected 2026-09-20: the recorder used to discard the departure
+on any unreadable frame, and a real gate crossing shows Position unavailable
+while the next map loads and is authenticated, so no genuine crossing was ever
+recorded. The epoch, serial and source guards were always the real protection
+and are unchanged.) The
 native tick observer counts intermediate GEO changes even between Java reads.
 Unknown areas, wilderness, camp/combat, backgrounding, invalid samples and
 missed transitions cannot invent a shortcut. This is sampled observation, not

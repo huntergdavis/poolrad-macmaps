@@ -329,6 +329,8 @@ public class EmulatorFragment extends Fragment
     }
 
     private volatile byte[] mLastPartySample;
+    /** Mac key codes: the modifier and Return, for the debug-access typing helpers below. */
+    private static final int MAC_COMMAND = 0x37, MAC_RETURN = 0x24;
     /** Long enough for the guest to notice each key; it is not a fast typist. */
     private static final long KEY_GAP_MS = 70;
 
@@ -343,6 +345,60 @@ public class EmulatorFragment extends Fragment
             Core still = mCore;
             if (still == target && still.isReady()) still.keyUp(macKey);
         }, KEY_GAP_MS / 2);
+    }
+
+    /*
+     * The three helpers below have no caller inside the app. They are the
+     * test harness's way in: tools/GuestCommand.java invokes them over local
+     * debug access (JDWP) so tools/shutdown-test-guest.py can quit the game
+     * normally and tools/load-test-save.py can type a save name. Keep them, and
+     * keep their names, or the disposable-emulator workflow loses its normal
+     * shutdown. The restart-based loader that once used them is gone.
+     */
+    /** Hold Command, press a letter, let go. */
+    @SuppressWarnings("unused")
+    private void sendCommandKey(char letter) {
+        Core target = mCore;
+        int macKey = translateKeyCode(KeyEvent.KEYCODE_A + Character.toUpperCase(letter) - 'A');
+        if (target == null || !target.isReady() || macKey < 0) return;
+        target.keyDown(MAC_COMMAND);
+        mUIHandler.postDelayed(() -> {
+            Core still = mCore;
+            if (still != target || !still.isReady()) return;
+            still.keyDown(macKey);
+            mUIHandler.postDelayed(() -> {
+                Core again = mCore;
+                if (again != target || !again.isReady()) return;
+                again.keyUp(macKey);
+                mUIHandler.postDelayed(() -> {
+                    Core last = mCore;
+                    if (last == target && last.isReady()) last.keyUp(MAC_COMMAND);
+                }, KEY_GAP_MS);
+            }, KEY_GAP_MS);
+        }, KEY_GAP_MS);
+    }
+
+    /** Type text one key at a time, with Return afterwards only if asked. */
+    @SuppressWarnings("unused")
+    private void sendGuestLine(String text, boolean thenReturn) {
+        long at = 0;
+        for (int i = 0; i < text.length(); i++) {
+            int macKey = macKeyFor(text.charAt(i));
+            if (macKey < 0) continue;
+            at += KEY_GAP_MS * 2;
+            mUIHandler.postDelayed(() -> tapGuestKey(macKey), at);
+        }
+        if (thenReturn) mUIHandler.postDelayed(() -> tapGuestKey(MAC_RETURN), at + KEY_GAP_MS * 3);
+    }
+
+    /** Letters, digits, space and period; anything else is skipped rather than guessed at. */
+    private int macKeyFor(char letter) {
+        char upper = Character.toUpperCase(letter);
+        if (upper >= 'A' && upper <= 'Z') return translateKeyCode(KeyEvent.KEYCODE_A + upper - 'A');
+        if (upper >= '0' && upper <= '9') return translateKeyCode(KeyEvent.KEYCODE_0 + upper - '0');
+        if (upper == ' ') return translateKeyCode(KeyEvent.KEYCODE_SPACE);
+        if (upper == '.') return translateKeyCode(KeyEvent.KEYCODE_PERIOD);
+        return -1;
     }
 
 
@@ -883,6 +939,15 @@ public class EmulatorFragment extends Fragment
         if (!queued) Log.i("PoolRad.Bandage", "fight ended: bandage already pending or core not ready");
     }
 
+    private String mMapModeLogged = "";
+    /** Every named-mode or unreadable-reason change, for the travel diagnosis. */
+    private void logMapMode(name.osher.gil.minivmac.mapper.MapObservation seen) {
+        String line = "mode=" + seen.mode + (seen.state == null ? "" : " area=" + seen.state.map.id + " at " + seen.state.x + "," + seen.state.y);
+        if (line.equals(mMapModeLogged)) return;
+        mMapModeLogged = line;
+        Log.i("PoolRad.Travel", line);
+    }
+
     private name.osher.gil.minivmac.mapper.MapMode mTallyLoggedMode;
     private name.osher.gil.minivmac.mapper.GameClock mTallyLoggedClock;
     private String mTallyLoggedCounts;
@@ -1054,6 +1119,7 @@ public class EmulatorFragment extends Fragment
                         mRestTally.observeMap(seen.mode, seen.clock);
                         logRestTally(seen);
                         gateObserveMap(seen);
+                        logMapMode(seen);
                         if (mFightEnd.observe(seen.mode)) afterFight(mapCore);
                     }
                 });

@@ -141,9 +141,15 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         if(connectionsView!=null) connectionsView.show(notebook==null?"Notebook loading":notebook.label(),
                 connections,area==null?null:area.id(),connectionError);
     }
+    private String travelLogged="";
     @Override public void onConnectionSample(AreaTravel sample) {
+        String line = sample==null ? "travel=null" : "epoch="+sample.epoch+" serial="+sample.serial
+                +" from="+sample.fromArea+"@"+sample.fromTile+" to="+sample.toArea
+                +" pos="+(sample.position==null?"-":sample.position.map.id+":"+sample.position.x+","+sample.position.y);
+        if(!line.equals(travelLogged)) { travelLogged=line; android.util.Log.i("PoolRad.Travel", line); }
         if(disposed || restoringNotebook || notebook==null) { connectionRecorder.interrupt(); return; }
         AreaConnections.Edge edge=connectionRecorder.observe(sample,SystemClock.elapsedRealtime());
+        if(edge!=null) android.util.Log.i("PoolRad.Travel", "EDGE "+edge.fromArea+"@"+edge.fromTile+" -> "+edge.toArea+"@"+edge.toTile);
         if(edge==null)return;
         final NotebookStore.Notebook book=notebook;
         IO.execute(()->{

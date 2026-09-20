@@ -8,6 +8,12 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- Connections fix in 0.105.0:  bridges unreadable frames
+  (real crossings show Position unavailable mid-load). Not watched live yet;
+   logs per-sample epoch/serial/from/to. If a live crossing
+  shows the epoch changing, look at  in POOLRAD.h.
+  Note: / are JDWP entry points for
+  tools/GuestCommand.java; never remove them again.
 - F36 closed as not needed in 0.102.0: no companion path drives the game's
   save prompts (all saves are snapshots; the Cmd-key loader is dead F86 code).
   Evidence in docs/SAVE_STATES.md; `LoadSequence` and its plumbing were removed.
