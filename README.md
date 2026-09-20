@@ -11,8 +11,8 @@ Works offline. No root or account needed.
 [Download the 0.93.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.93.0/poolrad-macmaps-0.93.0.apk)
 for **Android 5.0 or later**.
 
-Notebook templates (0.94) and the sound change below (0.95) are in source.
-Neither APK has been published yet.
+Source includes notebook templates, the sound change below and corrected
+spell-memorization guidance. These updates are not yet in the published APK.
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -68,6 +68,9 @@ The heading counts anyone hurt, down, waiting for rest or ready to train.
 - **T** marks someone eligible to train. They still need a suitable training hall.
 - **NPC** marks a non-player party member.
 - **Info → Marching order** lists everyone from first to last.
+- To memorize chosen spells, use **Magic → Rest** before leaving camp.
+  Timed **Camp → Rest** does not memorize them. Leaving camp clears those
+  choices. [Memorizing steps and verification](docs/SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
 
 **Info → Money** shows each purse, party coin totals and their gold value.
 Gems and jewelry are counted separately. Open the coin converter from this page.
