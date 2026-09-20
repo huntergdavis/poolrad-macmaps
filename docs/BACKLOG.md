@@ -1526,10 +1526,14 @@ quick-flag write.
   was judged not worth the cost.
 - [x] **F39 — DROPPED (owner decision 2026-09-19), too expensive.** Same call
   as F41 — the spell-section decoding this needed was judged not worth the cost.
-- [ ] **F52 — "Rest until healed",** by restoring HP, conditions and spells
-  directly. Diverges further from the game's own rest than the others do,
-  because resting also advances the game clock; decide whether the clock is
-  advanced to match, and say so in the release note either way.
+- [x] **F52 (delivered 0.101.0) — "Rest until healed",** by restoring HP,
+  conditions and spells directly. **PoolRad → Rest until healed** confirms the
+  counts, then for every Okay, Unconscious or Dying member sets hit points to
+  maximum, wakes the down to Okay and makes chosen spells ready, the way a
+  finished camp rest would. The dead, petrified and absent, tracked effects and
+  **the game clock are not touched**; the release note says so. Refused during
+  a fight. Native, summary and outcome tests; live acceptance in
+  [PARTY.md](PARTY.md#rest-until-healed-f52-2026-09-19).
 - [x] **F61 — DROPPED (owner decision 2026-09-19), duplicative.** The one
   item in this block that stays as input rather than a write, because it is the
   player answering the game, not the helper acting for them. Same family as

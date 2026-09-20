@@ -39,6 +39,8 @@
                 android:checkable="true" />
             <item android:id="@+id/action_notebooks"
                 android:title="Notebooks" />
+            <item android:id="@+id/action_rest_healed"
+                android:title="Rest until healed" />
             <item android:id="@+id/action_quick_save"
                 android:title="Quick save" />
             <item android:id="@+id/action_quick_load"

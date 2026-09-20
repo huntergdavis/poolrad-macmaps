@@ -86,6 +86,7 @@ typedef jint (*PartyTargetType)(jint, jboolean);
 static PartyTargetType partyTargetPtr = NULL;
 typedef jint (*BandagePartyType)(jint);
 static BandagePartyType bandagePartyPtr = NULL;
+static BandagePartyType restPartyPtr = NULL;
 static RequestRamSnapshotType requestSaveStatePtr = NULL;
 static RequestRestoreStateType requestRestoreStatePtr = NULL;
 static RequestRamSnapshotType requestCombatSamplePtr = NULL;
@@ -97,6 +98,7 @@ void unloadCurrentVariant() {
     requestRestoreStatePtr = NULL;
     partyTargetPtr = NULL;
     bandagePartyPtr = NULL;
+    restPartyPtr = NULL;
     requestMapSamplePtr = NULL;
     requestWheelSamplePtr = NULL;
     requestPartySamplePtr = NULL;
@@ -196,6 +198,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     partyTargetPtr = (PartyTargetType)dlsym(variantHandle, "partyTarget");
     setPartyQuickPtr = (SetPartyQuickType)dlsym(variantHandle, "setPartyQuick");
     bandagePartyPtr = (BandagePartyType)dlsym(variantHandle, "bandageParty");
+    restPartyPtr = (BandagePartyType)dlsym(variantHandle, "restParty");
     requestSaveStatePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestSaveState");
     requestRestoreStatePtr = (RequestRestoreStateType)dlsym(variantHandle, "requestRestoreState");
     requestCombatSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestCombatSample");
@@ -210,6 +213,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         requestCombatSamplePtr = NULL;
         setPartyQuickPtr = NULL;
         bandagePartyPtr = NULL;
+        restPartyPtr = NULL;
         requestSaveStatePtr = NULL;
         requestRestoreStatePtr = NULL;
         partyTargetPtr = NULL;
@@ -308,6 +312,12 @@ JNIEXPORT jboolean JNICALL
 Java_name_osher_gil_minivmac_Core_setPartyQuickNative(JNIEnv *env, jclass cls,
                                                       jint slot, jboolean on) {
     return setPartyQuickPtr ? setPartyQuickPtr(slot, on) : JNI_FALSE;
+}
+
+JNIEXPORT jint JNICALL
+Java_name_osher_gil_minivmac_Core_restPartyNative(JNIEnv *env, jclass cls, jint slot) {
+    (void)env; (void)cls;
+    return restPartyPtr ? restPartyPtr(slot) : -1;
 }
 
 JNIEXPORT jint JNICALL

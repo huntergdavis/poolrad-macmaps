@@ -79,6 +79,36 @@ public class Core {
 	public Boolean pendingQuick(name.osher.gil.minivmac.mapper.PartyState.Member member) { return quickQueue.pending(member); }
 	private static native boolean setPartyQuickNative(int slot, boolean on);
 	private static native int bandagePartyNative(int slot);
+	private static native int restPartyNative(int slot);
+	/** F52: rest the whole party at the next readable sample; flags per row, -1 refused. */
+	public interface RestListener { void done(int[] flags); }
+	private final java.util.concurrent.atomic.AtomicReference<RestListener> restPending = new java.util.concurrent.atomic.AtomicReference<>();
+	private volatile int restTries;
+	public boolean requestRest(RestListener listener) {
+		if (!initOk || listener == null || !restPending.compareAndSet(null, listener)) return false;
+		restTries = 0;
+		requestPartySample();
+		return true;
+	}
+	private void drainRest(byte[] sample) {
+		RestListener listener = restPending.get();
+		if (listener == null) return;
+		name.osher.gil.minivmac.mapper.PartyState party = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
+		if (party == null) {
+			if (++restTries < 20) { requestPartySample(); return; }
+			restPending.set(null);
+			quickRetry.post(() -> listener.done(new int[0]));
+			return;
+		}
+		int[] flags = new int[party.members.size()];
+		for (int row = 0; row < flags.length; row++) {
+			flags[row] = restPartyNative(row);
+			android.util.Log.i("PoolRad.Rest", "row " + row + " " + party.members.get(row).name + " -> " + flags[row]);
+		}
+		restPending.set(null);
+		requestPartySample();   // read the game's own answer back
+		quickRetry.post(() -> listener.done(flags));
+	}
 	/** F40: bandage every Dying member at the next readable party sample, then report. */
 	public interface BandageListener { void done(int bandaged, int refused); }
 	private final java.util.concurrent.atomic.AtomicReference<BandageListener> bandagePending = new java.util.concurrent.atomic.AtomicReference<>();
@@ -183,6 +213,7 @@ public class Core {
 		confirmPartySelection(sample);
 		deliverPartySelection(sample);
 		drainBandage(sample);
+		drainRest(sample);
 		if (quickQueue.busy()) {
 			name.osher.gil.minivmac.mapper.PartyState parsed = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
 			boolean written = quickQueue.drain(parsed, (slot, on) -> {

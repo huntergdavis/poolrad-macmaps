@@ -47,6 +47,11 @@
 #define POOLRAD_PARTY_CONDITION_OFFSET 0x118
 #define POOLRAD_PARTY_CONDITION_UNCONSCIOUS 4
 #define POOLRAD_PARTY_CONDITION_DYING 5
+#define POOLRAD_PARTY_CONDITION_OKAY 0
+#define POOLRAD_PARTY_REST_HOURS_OFFSET 0x2c
+#define POOLRAD_PARTY_RESTED_HP 1
+#define POOLRAD_PARTY_RESTED_CONDITION 2
+#define POOLRAD_PARTY_RESTED_SPELLS 4
 #define POOLRAD_PARTY_EFFECT_HEAD_OFFSET 0x82
 #define POOLRAD_PARTY_UNKNOWN_CONDITION 0xff
 #define POOLRAD_PARTY_UNKNOWN_EFFECTS 0xff
@@ -631,6 +636,80 @@ static inline int poolrad_party_bandage(unsigned char *ram, size_t size, unsigne
             *condition = POOLRAD_PARTY_CONDITION_UNCONSCIOUS;
             ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
             return 1;
+        }
+        handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+    }
+    return -1;
+}
+
+/* The third write, F52: what a full, uninterrupted camp rest leaves behind,
+ * for one party member, in one step.
+ *
+ * Authorised in docs/DESIGN.md (amended 2026-09-18) as "restoring memorised
+ * spells after rest" and "restoring the party after rest". For a member who is
+ * Okay, Unconscious or Dying: current hit points become the maximum, an
+ * Unconscious or Dying condition becomes Okay, every chosen-but-unmemorized
+ * spell slot (bit 7 set) becomes ready exactly as CODE4 +0x2848 does (add
+ * 0x80), and the rest-hours byte is cleared as a finished rest clears it.
+ * Dead, Petrified, Gone and Temporarily-gone members, and the odd Animated and
+ * Running states, are left byte for byte: no rest fixes those. Tracked
+ * effects (poison, helplessness) live in a separate chain and are not touched.
+ * The game clock is not advanced here.
+ *
+ * Returns -1 when the party does not read cleanly or the member does not
+ * exist; otherwise a bitmask of POOLRAD_PARTY_RESTED_* saying what changed
+ * (0 when there was nothing to do). */
+static inline int poolrad_party_rest(unsigned char *ram, size_t size, unsigned member) {
+    unsigned char sample[POOLRAD_PARTY_SIZE];
+    uint32_t a5, head_address, handle;
+    unsigned links = 0, seen = 0;
+    uint32_t handles[POOLRAD_PARTY_MAX_LINKS], records[POOLRAD_PARTY_MAX_LINKS];
+    if (ram == NULL || member >= POOLRAD_PARTY_MAX_MEMBERS) return -1;
+    if (!poolrad_party_probe(ram, size, sample)) return -1;
+    a5 = poolrad_u32(ram + 0x904) & 0x00ffffff;
+    if (a5 < POOLRAD_PARTY_HEAD_BACK || !poolrad_range(a5 - POOLRAD_PARTY_HEAD_BACK, 4, size))
+        return -1;
+    head_address = a5 - POOLRAD_PARTY_HEAD_BACK;
+    handle = poolrad_u32(ram + head_address) & 0x00ffffff;
+    while (handle != 0) {
+        uint32_t record, block_header, physical_size;
+        if (links >= POOLRAD_PARTY_MAX_LINKS || handle < 0x1000 || (handle & 1)
+                || !poolrad_range(handle, 4, size)) return -1;
+        record = poolrad_u32(ram + handle) & 0x00ffffff;
+        if (record < 0x1000 || (record & 1)
+                || !poolrad_range(record, POOLRAD_PARTY_RECORD_SIZE, size)) return -1;
+        block_header = poolrad_u32(ram + record - 8);
+        physical_size = block_header & 0x00ffffff;
+        if ((block_header >> 28) != 8
+                || physical_size != POOLRAD_PARTY_RECORD_SIZE + 8 + ((block_header >> 24) & 15)
+                || (physical_size & 1)
+                || !poolrad_range(record - 8, physical_size, size)) return -1;
+        for (unsigned i = 0; i < links; i++)
+            if (handles[i] == handle || records[i] == record) return -1;
+        handles[links] = handle; records[links] = record; links++;
+        if (ram[record + POOLRAD_PARTY_SLOT_OFFSET] >= POOLRAD_PARTY_MAX_MEMBERS) {
+            handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
+            continue;
+        }
+        if (seen++ == member) {
+            unsigned char condition = ram[record + POOLRAD_PARTY_CONDITION_OFFSET];
+            int rested = 0;
+            if (condition != POOLRAD_PARTY_CONDITION_OKAY && condition != POOLRAD_PARTY_CONDITION_UNCONSCIOUS
+                    && condition != POOLRAD_PARTY_CONDITION_DYING) return 0;
+            if (ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] != ram[record + POOLRAD_PARTY_MAX_HP_OFFSET]) {
+                ram[record + POOLRAD_PARTY_CURRENT_HP_OFFSET] = ram[record + POOLRAD_PARTY_MAX_HP_OFFSET];
+                rested |= POOLRAD_PARTY_RESTED_HP;
+            }
+            if (condition != POOLRAD_PARTY_CONDITION_OKAY) {
+                ram[record + POOLRAD_PARTY_CONDITION_OFFSET] = POOLRAD_PARTY_CONDITION_OKAY;
+                rested |= POOLRAD_PARTY_RESTED_CONDITION;
+            }
+            for (unsigned slot = 0; slot < POOLRAD_PARTY_SPELL_SLOTS; slot++) {
+                unsigned char *entry = ram + record + POOLRAD_PARTY_SPELL_OFFSET + slot;
+                if (*entry > 0x7f) { *entry = (unsigned char) (*entry + 0x80); rested |= POOLRAD_PARTY_RESTED_SPELLS; }
+            }
+            if (ram[record + POOLRAD_PARTY_REST_HOURS_OFFSET] != 0) ram[record + POOLRAD_PARTY_REST_HOURS_OFFSET] = 0;
+            return rested;
         }
         handle = poolrad_u32(ram + record + POOLRAD_PARTY_NEXT_OFFSET) & 0x00ffffff;
     }

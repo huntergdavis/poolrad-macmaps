@@ -1743,6 +1743,15 @@ GLOBALFUNC jint bandageParty(jint slot)
     return changed;
 }
 
+/* F52: the third write, one member's full rest; guarded inside poolrad_party_rest. */
+GLOBALFUNC jint restParty(jint slot)
+{
+    ui5b size;
+    ui3p ram = GetRamForSnapshot(&size);
+    if (ram == NULL || slot < 0) return -1;
+    return poolrad_party_rest((unsigned char *) ram, size, (unsigned) slot);
+}
+
 GLOBALFUNC jboolean requestMessageSample(void)
 {
     return RequestWork(&WantMessageSample);

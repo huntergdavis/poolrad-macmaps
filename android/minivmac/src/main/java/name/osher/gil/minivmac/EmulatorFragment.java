@@ -896,6 +896,9 @@ public class EmulatorFragment extends Fragment
                 } else if (menuItem.getItemId() == R.id.action_notebooks) {
                     openCompanionTool(() -> mNotebook.chooseNotebook());
                     return true;
+                } else if (menuItem.getItemId() == R.id.action_rest_healed) {
+                    restUntilHealed();
+                    return true;
                 } else if (menuItem.getItemId() == R.id.action_quick_save) {
                     saveState().quickSave();
                     return true;
@@ -932,6 +935,45 @@ public class EmulatorFragment extends Fragment
         updateByPrefs();
 
         return root;
+    }
+
+    /**
+     * F52: one step instead of sitting through a full camp rest. Confirms what
+     * will change, then the core writes it at the next readable party sample:
+     * hit points to maximum, Unconscious or Dying to Okay, chosen spells ready.
+     * Refused during a fight, and never on a party that does not read cleanly.
+     */
+    private void restUntilHealed() {
+        Core core = mCore;
+        if (core == null || !core.isReady()) { toastShort("The emulator is not running."); return; }
+        if (mGateMap != null && mGateMap.mode == name.osher.gil.minivmac.mapper.MapMode.COMBAT) {
+            toastShort("Not during a fight. Finish the battle first."); return;
+        }
+        PartyState party = PartyState.parse(mLastPartySample);
+        if (party == null) { toastShort("No party is in the world to rest."); return; }
+        String plan = name.osher.gil.minivmac.mapper.RestSummary.plan(party);
+        if (plan == null) { toastShort("Everyone is already rested."); return; }
+        android.app.AlertDialog dialog = new android.app.AlertDialog.Builder(requireActivity())
+                .setTitle("Rest until healed")
+                .setMessage(plan)
+                .setPositiveButton("Rest", (d, w) -> {
+                    boolean queued = core.requestRest(flags -> mUIHandler.post(() -> {
+                        if (!isAdded() || core != mCore) return;
+                        String outcome = name.osher.gil.minivmac.mapper.RestSummary.outcome(flags);
+                        Log.i("PoolRad.Rest", outcome);
+                        toastShort(outcome);
+                    }));
+                    if (!queued) toastShort("A rest is already being applied.");
+                })
+                .setNegativeButton("Cancel", null).create();
+        if (CompanionDialogBounds.prepare(requireActivity(), dialog)) {
+            dialog.show();
+            CompanionDialogBounds.Binding bounds = CompanionDialogBounds.track(requireActivity(), dialog);
+            dialog.setOnDismissListener(ignored -> bounds.close());
+        } else dialog.show();
+    }
+    private void toastShort(String message) {
+        if (isAdded()) android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show();
     }
 
     private final name.osher.gil.minivmac.mapper.FightEnd mFightEnd = new name.osher.gil.minivmac.mapper.FightEnd();

@@ -458,3 +458,55 @@ Dying and bandaging changed exactly two bytes (condition 5 → 4, hit points
 the mode returns to exploration, camp or wilderness, which is after the
 game's own results and treasure screens, so the write always sees a settled
 party.
+
+## Rest until healed (F52, 2026-09-19)
+
+The third write, **PoolRad → Rest until healed**, authorised in
+[DESIGN.md](DESIGN.md) as restoring memorised spells and the party after rest.
+It does in one step what a full, uninterrupted camp rest leaves behind, for
+every member the reader shows as Okay, Unconscious or Dying:
+
+- current hit points (`+0x12b`) become the maximum (`+0x32`);
+- an Unconscious (4) or Dying (5) condition (`+0x118`) becomes Okay (0);
+- every chosen-but-unmemorized spell slot (`+0x17`.., bit 7 set) becomes ready,
+  by the same `+0x80` the game's own rest loop applies (CODE4 `+0x2848`);
+- the rest-hours byte (`+0x2c`) is cleared as a finished rest clears it.
+
+Left exactly as they are: the dead, petrified, gone and temporarily-gone, the
+odd Animated and Running states, tracked effects (poison and helplessness live
+in a separate chain and no rest cures poison), and **the game clock**, which is
+not advanced — the release note says so, as F52 asked. Nothing is saved.
+
+The option confirms first, with the counts of who will be healed, who wakes,
+how many chosen spells memorize and who is beyond rest (`RestSummary`). It is
+refused during a fight and when no party reads cleanly. The core applies it
+row by row at the next readable party sample and reads the result back;
+`PoolRad.Rest` logs each row's flags. `tools/test-party-probe.c` asserts the
+exact bytes changed for a hurt caster, a Dying and an Unconscious member, that
+the dead and petrified change nothing, that a repeat is nothing to do, and
+that every refusal writes nothing.
+
+### F52 acceptance — 2026-09-19
+
+Verified live on the disposable sandbox emulator-5586 (installed behind a
+confirmed normal Mac shutdown, `f97guard` reloaded through the picker):
+
+- In camp, Tanarakis chose Cause Light Wounds and Sleep at Magic → Memorize;
+  the party details read "Awaiting rest: level 1 × 2". PoolRad → Rest until
+  healed showed "Does what a full, uninterrupted rest would: • 2 chosen spells
+  memorized … The game clock does not advance and poison is not cured. Nothing
+  is saved." After Rest the log read `row 2 Tanarakis -> 4` and
+  "Rested: 1 caster memorized."; the details read "Ready to cast: level 1 × 2 /
+  Nothing waiting on rest"; and the game's own Magic → Cast list showed
+  "Tanarakis's Spells in Memory: Cause Light Wounds, Sleep". The since-rest
+  tally recorded the memorization as a rest.
+- Three Slums fights played with the game's Quick button ended with nobody
+  hurt or down, so the hit-point and condition halves were not exercised live
+  in this session. They are proven by `tools/test-party-probe.c` under the
+  sanitizers (a hurt caster, a Dying and an Unconscious member: exact bytes;
+  the dead and petrified: none; a repeat and every refusal: none) and by
+  `scratch/f98/harness/rest.c` against a real mid-combat RAM capture, where
+  the seven bytes that changed were exactly the hurt members' hit points, the
+  two down members' conditions and one chosen spell slot.
+
+The game clock was not advanced (Day 1 · 12:00 am before and after).

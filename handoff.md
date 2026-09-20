@@ -8,6 +8,9 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F52 shipped in 0.101.0: PoolRad → Rest until healed (`poolrad_party_rest`):
+  HP to max, Unconscious/Dying → Okay, chosen spells ready, +0x2c cleared;
+  clock and effects untouched. `PoolRad.Rest` logs per-row flags.
 - F40 shipped in 0.99.0: fight end → `poolrad_party_bandage` (Dying → Unconscious
   at 0 HP) for each Dying member while someone is Okay, then a quick save.
   `PoolRad.Bandage` logs each row's result. Second authorised write; see

@@ -976,6 +976,69 @@ int main(int argc, char **argv) {
         assert(poolrad_party_bandage(NULL, sizeof(ram), 0) == -1);
     }
 
+    /* F52: rest until healed. Hit points, condition and chosen spells for the
+     * restable; the dead and absent untouched; refusals write nothing. */
+    {
+        unsigned char before[sizeof(ram)];
+        fixture(0xe000, 0x2000, 0x3000, 6);
+        /* 0: hurt and Okay with two chosen spells and a rest-hours byte. */
+        ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 4;
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 19] = 0x84;
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 20] = 0x95;
+        ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 0] = 0x04;   /* already ready: untouched */
+        ram[member_record(0) + POOLRAD_PARTY_REST_HOURS_OFFSET] = 4;
+        /* 1: Dying at zero. 2: Unconscious. 3: Dead, hurt. 4: Petrified. 5: full, Okay. */
+        ram[member_record(1) + POOLRAD_PARTY_CONDITION_OFFSET] = POOLRAD_PARTY_CONDITION_DYING;
+        ram[member_record(1) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+        ram[member_record(2) + POOLRAD_PARTY_CONDITION_OFFSET] = POOLRAD_PARTY_CONDITION_UNCONSCIOUS;
+        ram[member_record(2) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+        ram[member_record(3) + POOLRAD_PARTY_CONDITION_OFFSET] = 6;
+        ram[member_record(3) + POOLRAD_PARTY_CURRENT_HP_OFFSET] = 0;
+        ram[member_record(3) + POOLRAD_PARTY_SPELL_OFFSET + 5] = 0x83;
+        ram[member_record(4) + POOLRAD_PARTY_CONDITION_OFFSET] = 7;
+        memcpy(before, ram, sizeof(ram));
+
+        assert(poolrad_party_rest(ram, sizeof(ram), 0) == (POOLRAD_PARTY_RESTED_HP | POOLRAD_PARTY_RESTED_SPELLS));
+        assert(ram[member_record(0) + POOLRAD_PARTY_CURRENT_HP_OFFSET] == ram[member_record(0) + POOLRAD_PARTY_MAX_HP_OFFSET]);
+        assert(ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 19] == 0x04);
+        assert(ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 20] == 0x15);
+        assert(ram[member_record(0) + POOLRAD_PARTY_SPELL_OFFSET + 0] == 0x04);
+        assert(ram[member_record(0) + POOLRAD_PARTY_REST_HOURS_OFFSET] == 0);
+        unsigned changed = 0;
+        for (unsigned i = 0; i < sizeof(ram); i++) if (ram[i] != before[i]) changed++;
+        assert(changed == 4);   /* hp, two slots, rest hours */
+
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_rest(ram, sizeof(ram), 1) == (POOLRAD_PARTY_RESTED_HP | POOLRAD_PARTY_RESTED_CONDITION));
+        assert(ram[member_record(1) + POOLRAD_PARTY_CONDITION_OFFSET] == POOLRAD_PARTY_CONDITION_OKAY);
+        assert(ram[member_record(1) + POOLRAD_PARTY_CURRENT_HP_OFFSET] == 11);
+        assert(poolrad_party_rest(ram, sizeof(ram), 2) == (POOLRAD_PARTY_RESTED_HP | POOLRAD_PARTY_RESTED_CONDITION));
+        changed = 0;
+        for (unsigned i = 0; i < sizeof(ram); i++) if (ram[i] != before[i]) changed++;
+        assert(changed == 4);
+
+        /* The dead and the petrified are beyond rest: nothing to do, nothing written. */
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_rest(ram, sizeof(ram), 3) == 0);
+        assert(poolrad_party_rest(ram, sizeof(ram), 4) == 0);
+        assert(poolrad_party_rest(ram, sizeof(ram), 5) == 0);   /* already rested */
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+        /* Resting again is nothing to do. */
+        assert(poolrad_party_rest(ram, sizeof(ram), 0) == 0);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+
+        /* Refusals write nothing. */
+        assert(poolrad_party_rest(ram, sizeof(ram), POOLRAD_PARTY_MAX_MEMBERS) == -1);
+        assert(poolrad_party_rest(ram, sizeof(ram), 6) == -1);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+        put32(member_record(0) - 8, 0x81000137);
+        unavailable();
+        memcpy(before, ram, sizeof(ram));
+        assert(poolrad_party_rest(ram, sizeof(ram), 0) == -1);
+        assert(memcmp(ram, before, sizeof(ram)) == 0);
+        assert(poolrad_party_rest(NULL, sizeof(ram), 0) == -1);
+    }
+
     if (argc == 1) { tests(); return 0; }
     if (argc == 2) return replay(argv[1]);
     fprintf(stderr, "Usage: test-party-probe [private-capture.ram]\n");
