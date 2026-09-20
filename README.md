@@ -11,10 +11,15 @@ Works offline. No root or account needed.
 [Download the 0.99.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.99.0/poolrad-macmaps-0.99.0.apk)
 for **Android 5.0 or later**.
 
-Source 0.100 automatically idles the game after five quiet seconds at a
-recognized player prompt. You can keep writing notes; your next game action
-wakes it. Timed rest and automatic combat keep running.
-Its APK is not yet published. [Idle behavior and verification](docs/AUTOMATIC_IDLE.md).
+The source includes two changes **not yet in the published APK**:
+
+- **Automatic idle:** after five quiet seconds at a recognized player prompt,
+  the game sleeps while you read or write notes. Your next game action wakes it.
+  Timed rest and automatic combat keep running. [Details](docs/AUTOMATIC_IDLE.md).
+- **PoolRad → Rest until healed:** preview and confirm full healing, waking
+  Unconscious or Dying members, and memorizing chosen spells outside combat.
+  It does not advance time, cure poison, revive the dead or save your game.
+  [Rest helper guide and limits](docs/REST_UNTIL_HEALED.md).
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
