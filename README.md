@@ -11,6 +11,9 @@ Works offline. No root or account needed.
 [Download the 0.96.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.96.0/poolrad-macmaps-0.96.0.apk)
 for **Android 5.0 or later**.
 
+Source version 0.97 stops the emulator's background work when you switch away.
+Its APK is not yet published. [Pause and resume details](docs/PAUSED_IDLE.md).
+
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
 3. Import copies of your Mac system and game disks through the disk menu.
