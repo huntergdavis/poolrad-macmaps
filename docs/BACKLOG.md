@@ -1646,10 +1646,9 @@ needed. Confirmed 2026-09-18.
   wilderness time is independent of local geometry. Midnight and a live Look
   advance matched the original game. 657 Java tests, native sanitizer checks
   and 17 Android rendering checks passed. See [GAME_CLOCK.md](GAME_CLOCK.md).
-- [ ] **F68 — Trim the on-screen keyboard to the keys the game uses,** with
-  bigger targets. Needs care rather than a fixed subset: names still have to be
-  typeable, so the full alphabet must stay reachable — most likely a compact
-  default that expands when the game is asking for text.
+- [x] **F68 — DROPPED (owner decision 2026-09-19), duplicative.** Superseded
+  by other companion input work already shipped; no separate compact-keyboard
+  feature is being built.
 - [x] **F47 (delivered 0.77.0) — A message log.** Info → Message log keeps
   the latest 200 distinct observed Message-window readings per notebook, with
   am/pm observation times and explicit truncation marks. Repeated polls are
