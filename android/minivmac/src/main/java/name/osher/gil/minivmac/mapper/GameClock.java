@@ -11,7 +11,7 @@ public final class GameClock {
     }
 
     static GameClock parse(byte[] packet) {
-        if (packet.length != 1212 || packet[3] != '6' || packet[1204] != 1
+        if ((packet[3] != '6' && packet[3] != '7') || packet.length != PoolRadState.packetSize(packet[3]) || packet[1204] != 1
                 || packet[1211] != 0 || packet[24] < 1 || packet[24] > 4) return null;
         long day = ((packet[1205] & 255L) << 24) | ((packet[1206] & 255L) << 16)
                 | ((packet[1207] & 255L) << 8) | (packet[1208] & 255L);

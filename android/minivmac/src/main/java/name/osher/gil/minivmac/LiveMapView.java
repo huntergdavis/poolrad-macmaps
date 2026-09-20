@@ -137,6 +137,7 @@ public final class LiveMapView extends View {
         default void onPartyMemberTapped(PartyState.Member member) { }
         default void onPartyMemberLongPressed(PartyState.Member member) { }
         default void onExplorationSample(PoolRadState sample) { }
+        default void onConnectionSample(name.osher.gil.minivmac.mapper.AreaTravel sample) { }
         default void onExplorationAreaChanged(AreaIdentity area) { }
         /** The player tapped the Return key in the map's corner. */
         default void onReturnPressed() { }
@@ -330,6 +331,7 @@ public final class LiveMapView extends View {
     }
 
     public void showSample(byte[] sample) {
+        if (listener != null) listener.onConnectionSample(name.osher.gil.minivmac.mapper.AreaTravel.parse(sample));
         MapObservation observation = MapObservation.parse(sample);
         showState(observation.state, observation.mode, observation.clock);
     }

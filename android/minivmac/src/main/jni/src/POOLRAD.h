@@ -9,7 +9,8 @@
 #include <stddef.h>
 #include <string.h>
 
-#define POOLRAD_PROBE_SIZE 1212
+#define POOLRAD_PROBE_SIZE 1228
+#define POOLRAD_TRAVEL_OUT 1212
 #define POOLRAD_CLOCK_OUT 1204
 #define POOLRAD_GLOBALS_BACK 15168
 #define POOLRAD_GLOBALS_SIZE 128
@@ -203,6 +204,9 @@ static int poolrad_probe(const unsigned char *ram, size_t size, unsigned char *o
 typedef struct {
     uint32_t epoch, a5, map, state, id;
     unsigned char initialized, discontinuity, exhausted;
+    uint32_t travel_epoch, travel_serial, travel_a5, travel_state, travel_id;
+    unsigned char travel_initialized, travel_broken, travel_exhausted;
+    unsigned char last_valid, last_tile, last_facing, from_valid, from_id, from_tile, from_facing;
 } poolrad_walk_tracker;
 
 static inline void poolrad_walk_advance(poolrad_walk_tracker *tracker) {
@@ -217,6 +221,11 @@ static inline void poolrad_walk_reset(poolrad_walk_tracker *tracker) {
     poolrad_walk_advance(tracker);
     tracker->initialized = 0;
     tracker->discontinuity = 1;
+    if (tracker->travel_epoch == UINT32_MAX) tracker->travel_exhausted = 1;
+    else tracker->travel_epoch++;
+    tracker->travel_initialized = 0;
+    tracker->travel_broken = 1;
+    tracker->last_valid = tracker->from_valid = 0;
 }
 
 /* New Phlan's original 34-entry Rolf route uses table-driven SAVE x/y,
@@ -271,6 +280,56 @@ static inline int poolrad_tour_sample(const unsigned char *ram, size_t size,
     return phase && poolrad_tour_profile(ram, size, a5, state, id) ? phase : 0;
 }
 
+/* Unlike footprints, actual area travel permits script relocation and GEO changes.
+ * The existing verified load/menu/engine guards still break this independent
+ * epoch. Count every native GEO change so Java cannot bridge an unseen area.
+ * Source square is the last settled native observation, never a guessed edge. */
+static inline int poolrad_mode_profile(const unsigned char *, size_t, uint32_t *);
+static inline void poolrad_travel_update(const unsigned char *ram, size_t size,
+        const unsigned char *packet, int safe, poolrad_walk_tracker *t) {
+    uint32_t a5 = 0, state = 0, id = 0;
+    int valid = poolrad_mode_profile(ram, size, &a5);
+    if (valid) {
+        uint32_t handle = poolrad_u32(ram + a5 - POOLRAD_STATE_BACK) & 0xffffff;
+        state = poolrad_u32(ram + handle) & 0xffffff;
+        id = ((unsigned)ram[state + 0x18a] << 8) | ram[state + 0x18b];
+        valid = id <= 32 && ram[a5 - POOLRAD_ENGINE_BACK] == 4
+            && ram[a5 - POOLRAD_MODE_BACK] == 1
+            && ram[a5 - POOLRAD_MENU_STATE_BACK] == 0
+            && ram[a5 - POOLRAD_MENU_STATE_BACK + 1] == 2
+            && ram[a5 - POOLRAD_STARTUP_BACK] == 0
+            && ram[a5 - POOLRAD_LOADED_BACK] == 0;
+    }
+    if (!t->travel_initialized || (!valid && !t->travel_broken)
+            || (valid && (t->travel_a5 != a5 || t->travel_state != state))) {
+        if (t->travel_epoch == UINT32_MAX) t->travel_exhausted = 1;
+        else t->travel_epoch++;
+        t->travel_serial = 0;
+        t->last_valid = t->from_valid = 0;
+        t->travel_id = id;
+    }
+    if (valid && t->travel_broken) {
+        t->travel_id = id; t->last_valid = t->from_valid = 0;
+    }
+    t->travel_initialized = 1;
+    t->travel_broken = !valid;
+    if (!valid) return;
+    t->travel_a5 = a5; t->travel_state = state;
+    if (id != t->travel_id) {
+        if (t->travel_serial == UINT32_MAX) t->travel_exhausted = 1;
+        else t->travel_serial++;
+        t->from_valid = t->last_valid;
+        t->from_id = t->travel_id; t->from_tile = t->last_tile; t->from_facing = t->last_facing;
+        t->travel_id = id; t->last_valid = 0;
+    }
+    if (safe && packet != NULL && packet[POOLRAD_ID_VALID_OUT] == 1
+            && packet[POOLRAD_ID_OUT + 1] == id) {
+        t->last_valid = 1;
+        t->last_tile = packet[131] * 16 + packet[130];
+        t->last_facing = packet[132] / 2;
+    }
+}
+
 static inline int poolrad_walk_update(const unsigned char *ram, size_t size,
         const unsigned char *packet, poolrad_walk_tracker *tracker,
         unsigned char *engine_out) {
@@ -311,6 +370,7 @@ static inline int poolrad_walk_update(const unsigned char *ram, size_t size,
         }
     }
     if (tracker == NULL) return 0;
+    poolrad_travel_update(ram, size, packet, safe, tracker);
     if (!tracker->initialized || (hard_break && !tracker->discontinuity)
             || tracker->a5 != a5 || tracker->map != map
             || tracker->state != state || tracker->id != id) {
@@ -417,7 +477,7 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
          * the search record was never validated, so say unavailable instead. */
         out[POOLRAD_SEARCH_OUT] = POOLRAD_SEARCH_UNAVAILABLE;
     }
-    memcpy(out, "PRM6", 4);
+    memcpy(out, "PRM7", 4);
     out[POOLRAD_DISPLAY_MODE_OUT] = (unsigned char)mode;
     out[POOLRAD_WALK_VERSION_OUT] = 1;
     out[POOLRAD_WALK_ENGINE_OUT] = (unsigned char)engine;
@@ -444,6 +504,15 @@ static inline int poolrad_display_probe(const unsigned char *ram, size_t size,
     }
     if (epoch == 0) out[POOLRAD_WALK_SAFE_OUT] = 0;
     poolrad_clock(ram, size, a5, mode, out);
+    if (tracker != NULL && !tracker->travel_broken && !tracker->travel_exhausted) {
+        unsigned char *travel = out + POOLRAD_TRAVEL_OUT;
+        uint32_t epoch = tracker->travel_epoch, serial = tracker->travel_serial;
+        travel[0] = epoch >> 24; travel[1] = epoch >> 16; travel[2] = epoch >> 8; travel[3] = epoch;
+        travel[4] = serial >> 24; travel[5] = serial >> 16; travel[6] = serial >> 8; travel[7] = serial;
+        travel[8] = tracker->from_valid;
+        travel[9] = tracker->from_id; travel[10] = tracker->from_tile; travel[11] = tracker->from_facing;
+        travel[12] = tracker->travel_id;
+    }
     return 1;
 }
 #endif

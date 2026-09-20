@@ -16,12 +16,15 @@ import android.widget.ScrollView;
 public final class CompanionPane extends LinearLayout {
     public static final String MAP = "map";
     public static final String INFO = "info";
+    public static final String CONNECTIONS = "connections";
 
     public enum Tool { OPTIONS, SAVES, PARTY_ORDER, MESSAGE_LOG, EXPLORATION, LEVELS, SPELLS, EQUIPMENT, MONEY, WHEEL, JOURNAL, LEGEND, NOTE_INDEX }
     public interface OnTabSelectedListener { void onTabSelected(String tab); }
     public interface OnToolSelectedListener { void onToolSelected(Tool tool); }
 
-    private final Button mapTab, infoTab;
+    private final Button mapTab, infoTab, connectionsTab;
+    private final ConnectionsView connections;
+    public ConnectionsView connections() { return connections; }
     private final LinearLayout citationNotice;
     private final Button citationOpen;
     private Runnable citationAction;
@@ -51,6 +54,8 @@ public final class CompanionPane extends LinearLayout {
         mapTab = tab(context, R.id.companion_tab_map, R.string.companion_tab_map, MAP);
         infoTab = tab(context, R.id.companion_tab_info, R.string.companion_tab_info, INFO);
         tabs.addView(mapTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
+        connectionsTab = tab(context, R.id.companion_tab_connections, R.string.companion_tab_connections, CONNECTIONS);
+        tabs.addView(connectionsTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
         tabs.addView(infoTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
 
         citationNotice = new LinearLayout(context);
@@ -80,6 +85,10 @@ public final class CompanionPane extends LinearLayout {
         map = new LiveMapView(context, null);
         map.setId(R.id.live_map);
         content.addView(map, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
+
+        connections = new ConnectionsView(context);
+        connections.setId(R.id.companion_connections);
+        content.addView(connections, new FrameLayout.LayoutParams(-1, -1));
 
         info = new ScrollView(context);
         info.setId(R.id.companion_info);
@@ -132,7 +141,7 @@ public final class CompanionPane extends LinearLayout {
 
     /** Unknown persisted IDs safely fall back to Map; unchanged selection does not notify again. */
     public void setTab(String tab) {
-        String next = INFO.equals(tab) ? INFO : MAP;
+        String next = INFO.equals(tab) ? INFO : CONNECTIONS.equals(tab) ? CONNECTIONS : MAP;
         if (selected.equals(next)) return;
         selected = next;
         updateSelection();
@@ -201,10 +210,13 @@ public final class CompanionPane extends LinearLayout {
     private void updateSelection() {
         boolean mapSelected = isMapSelected();
         mapTab.setSelected(mapSelected);
-        infoTab.setSelected(!mapSelected);
+        infoTab.setSelected(INFO.equals(selected));
+        connectionsTab.setSelected(CONNECTIONS.equals(selected));
+        connectionsTab.setTextColor(CONNECTIONS.equals(selected) ? Color.WHITE : Color.BLACK);
         mapTab.setTextColor(mapSelected ? Color.WHITE : Color.BLACK);
-        infoTab.setTextColor(mapSelected ? Color.BLACK : Color.WHITE);
+        infoTab.setTextColor(INFO.equals(selected) ? Color.WHITE : Color.BLACK);
         map.setVisibility(mapSelected ? View.VISIBLE : View.GONE);
-        info.setVisibility(mapSelected ? View.GONE : View.VISIBLE);
+        info.setVisibility(INFO.equals(selected) ? View.VISIBLE : View.GONE);
+        connections.setVisibility(CONNECTIONS.equals(selected) ? View.VISIBLE : View.GONE);
     }
 }

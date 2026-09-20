@@ -1339,6 +1339,7 @@ GLOBALFUNC blnr PoolRadRestoreState(const ui3b *buf, ui5b len)
 	c.buf = (ui3p)buf; c.pos = PRSS_BULK_AT; c.cap = len; c.mode = 2; c.ok = trueblnr;
 	PRSSVisitAll(PRSSVisit, &c);
 	if (! c.ok) { return falseblnr; }
+    poolrad_walk_reset(&MapWalkTracker); /* A restored machine is never traveled space. */
     SCC_AfterRestore();
     GlobGlue_AfterRestore();
 #if 0 != vMacScreenDepth

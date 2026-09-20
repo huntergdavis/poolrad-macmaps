@@ -1546,8 +1546,10 @@ quick-flag write.
 - [x] **F60 (delivered 0.52.0) — Tap the header to ping your own square,** for finding yourself on
   a large map.
 - [ ] **F75 — A 1:1 option** drawing the map at the game's own grid scale.
-- [ ] **F58 — An area-connection map** — which door led where, built only from
-  movement this party actually made.
+- [x] **F58 (delivered 0.88.0) — An area-connection map.** Connections beside
+  Map records observed travel between identified areas, with arrows only for
+  directions traveled and per-passage coordinates. Reloads never create links;
+  history stays with the notebook and its backups. See [AREA_CONNECTIONS.md](AREA_CONNECTIONS.md).
 - [ ] **F62 — A stitch view:** the neighbouring area's map beside the current
   one when you cross a boundary.
 

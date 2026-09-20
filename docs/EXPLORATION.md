@@ -28,6 +28,13 @@ Door outlines are neutral, not promises of passability or automatic secret-door
 labels. Empty edges do not acquire false walls from unused door bits.
 [Wall and doorway symbols](MAP_EDGES.md).
 
+## Connections between areas
+
+Open **Connections**, beside **Map**, to browse passages the party has traveled.
+Arrows record only observed directions; the crossing list keeps the departure
+and arrival squares. Loading a save never adds a connection.
+[Connections guide](AREA_CONNECTIONS.md).
+
 ## What is and is not recorded
 
 Travel direction comes from a real change in tile coordinates, **not facing**.

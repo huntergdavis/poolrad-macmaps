@@ -164,6 +164,9 @@ public final class NotebookStore {
             if (name.equals("notebook.bin")) {
                 entries.add(new NotebookArchive.Entry(name, child)); continue;
             }
+            if (name.equals("connections.bin")) {
+                readConnections(child,id); entries.add(new NotebookArchive.Entry(name,child)); continue;
+            }
             if (name.equals("messages.bin")) {
                 readMessages(child, id);
                 entries.add(new NotebookArchive.Entry(name, child)); continue;
@@ -237,7 +240,7 @@ public final class NotebookStore {
                     requireDirectChild(book, child);
                     if (child.isFile()) {
                         String name = child.getName();
-                        if (name.equals("notebook.bin") || name.equals("journal.bin") || name.equals("messages.bin")
+                        if (name.equals("notebook.bin") || name.equals("journal.bin") || name.equals("messages.bin") || name.equals("connections.bin")
                                 || name.startsWith(".pending-")) child.delete();
                     } else if (NotebookArchive.area(child.getName()) && child.isDirectory()) {
                         for (File file : children(child)) {
@@ -275,6 +278,31 @@ public final class NotebookStore {
             out.writeUTF(book.id); out.writeUTF(book.label);
         }
         writeAtomic(new File(directory, "notebook.bin"), BOOK_MAGIC, BOOK_VERSION, bytes.toByteArray());
+    }
+
+    public synchronized AreaConnections loadConnections(String notebookId) throws IOException {
+        readNotebook(notebookId);
+        File file=connectionsFile(notebookId);
+        return file.exists() ? readConnections(file,notebookId) : new AreaConnections();
+    }
+    public synchronized AreaConnections recordConnection(String notebookId, AreaConnections.Edge edge) throws IOException {
+        AreaConnections before=loadConnections(notebookId), after=before.add(edge);
+        if(after==before) return before;
+        ByteArrayOutputStream bytes=new ByteArrayOutputStream();
+        try(DataOutputStream out=new DataOutputStream(bytes)) { out.writeUTF(notebookId); after.write(out); }
+        writeAtomic(connectionsFile(notebookId),0x5052434e,1,bytes.toByteArray());
+        return after;
+    }
+    private File connectionsFile(String id) throws IOException {
+        requireId(id); File parent=new File(root,id), file=new File(parent,"connections.bin");
+        requireDirectChild(root,parent); requireDirectChild(parent,file); return file;
+    }
+    private static AreaConnections readConnections(File file,String id) throws IOException {
+        Envelope record=readEnvelope(file,0x5052434e,1,AreaConnections.MAX_BYTES);
+        try(DataInputStream in=record.input()) {
+            if(!id.equals(in.readUTF())) throw new IOException("Connections belong to another notebook");
+            return AreaConnections.read(in);
+        }
     }
 
     /** A missing record means nothing has been observed; malformed records never become empty. */

@@ -542,7 +542,8 @@ public class EmulatorFragment extends Fragment
     }
 
     void restoreCompanionTab(String tab) {
-        mSelectedCompanionTab = CompanionPane.INFO.equals(tab) ? CompanionPane.INFO : CompanionPane.MAP;
+        mSelectedCompanionTab = CompanionPane.INFO.equals(tab) ? CompanionPane.INFO
+                : CompanionPane.CONNECTIONS.equals(tab) ? CompanionPane.CONNECTIONS : CompanionPane.MAP;
         if (mCompanionPane != null) mCompanionPane.setTab(mSelectedCompanionTab);
     }
 
@@ -652,6 +653,7 @@ public class EmulatorFragment extends Fragment
         mCompanionPane.setOnTabSelectedListener(this::onCompanionTabSelected);
         mCompanionPane.setOnToolSelectedListener(this::showCompanionTool);
         mNotebook = new NotebookController(requireActivity(), mLiveMap);
+        mNotebook.setConnectionsView(mCompanionPane.connections());
         mNotebook.setCitationNotice(keys -> {
             if (keys.isEmpty()) { mCompanionPane.clearCitationNotice(); return; }
             String label = keys.size() == 1 ? "Read " + keys.get(0).label()

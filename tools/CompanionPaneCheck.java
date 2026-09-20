@@ -104,6 +104,19 @@ public final class CompanionPaneCheck {
             check(changes.size() == 2, "Cleared listener was still called");
         });
 
+        run("Connections is retained beside Map and Info without replacing the live map", () -> {
+            CompanionPane pane=pane(context,480,320);
+            View original=pane.findViewById(R.id.live_map);
+            Button connections=pane.findViewById(R.id.companion_tab_connections);
+            connections.performClick();
+            check(CompanionPane.CONNECTIONS.equals(pane.selectedTab()),"Connections click failed");
+            check(connections.isSelected() && pane.connections().getVisibility()==View.VISIBLE,"Connections not shown");
+            check(original.getVisibility()==View.GONE && pane.findViewById(R.id.companion_info).getVisibility()==View.GONE,"Other page leaked");
+            check(!connections.isFocusable() && connections.getHeight()==dp(context,48),"Connections focus or hit height changed");
+            pane.setTab(CompanionPane.MAP);
+            check(pane.findViewById(R.id.live_map)==original && pane.connections().getVisibility()==View.GONE,"Map was replaced or graph remained visible");
+        });
+
         run("Tab selection/accessibility metadata is correct and buttons do not claim keyboard focus", () -> {
             CompanionPane pane = pane(context, 360, 240);
             Button map = pane.findViewById(R.id.companion_tab_map);
@@ -214,17 +227,18 @@ public final class CompanionPaneCheck {
 
         run("Tab bounds and selected black/white contrast survive repeated layout changes", () -> {
             CompanionPane pane = pane(context, 480, 260);
-            for (String tab : new String[]{"map", "info", "map"}) {
+            for (String tab : new String[]{"map", "connections", "info", "map"}) {
                 pane.setTab(tab);
                 layout(pane, context, 480, 260);
                 check(pane.getHeight() == dp(context, 260), "Tab changed allocated height");
                 Bitmap bitmap = Bitmap.createBitmap(pane.getWidth(), pane.getHeight(), Bitmap.Config.ARGB_8888);
                 try {
                     pane.draw(new Canvas(bitmap));
-                    int left = bitmap.getPixel(dp(context, 8), dp(context, 6));
-                    int right = bitmap.getPixel(pane.getWidth() / 2 + dp(context, 8), dp(context, 6));
-                    check(left == (pane.isMapSelected() ? Color.BLACK : Color.WHITE), "Map tab contrast mismatch");
-                    check(right == (pane.isMapSelected() ? Color.WHITE : Color.BLACK), "Info tab contrast mismatch");
+                    for(int id:new int[]{R.id.companion_tab_map,R.id.companion_tab_connections,R.id.companion_tab_info}) {
+                        Button button=pane.findViewById(id);
+                        int pixel=bitmap.getPixel(button.getLeft()+dp(context,8),dp(context,6));
+                        check(pixel==(button.isSelected()?Color.BLACK:Color.WHITE),"Tab contrast mismatch: "+button.getText());
+                    }
                 } finally { bitmap.recycle(); }
             }
             layout(pane, context, 240, 100);

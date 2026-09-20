@@ -25,7 +25,7 @@ public final class MapObservation {
         if (packet[0] != 'P' || packet[1] != 'R' || packet[2] != 'M') return UNAVAILABLE;
         // PRM5 appends one search byte to PRM4; every earlier version keeps its size.
         if (packet.length != PoolRadState.packetSize(packet[3])) return UNAVAILABLE;
-        if (packet[3] == '4' || packet[3] == '5' || packet[3] == '6') return current(packet, identities);
+        if (packet[3] == '4' || packet[3] == '5' || packet[3] == '6' || packet[3] == '7') return current(packet, identities);
         if (packet[3] != '1' && packet[3] != '2' && packet[3] != '3') return UNAVAILABLE;
         PoolRadState state = PoolRadState.parse(packet, identities);
         if (state == null) return UNAVAILABLE;

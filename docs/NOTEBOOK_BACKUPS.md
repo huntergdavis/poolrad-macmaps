@@ -14,7 +14,8 @@ Repeat for each campaign. A backup contains that notebook's original run UUID,
 all areas' flags, chosen symbols and vector handwriting, including blank flags
 and retained version-1 originals, walked-tile coverage and recent directional
 trails (0.12.0 onward), and its journal lookups, bookmarks, checked tasks and
-flag links (0.16.0 onward). It does not contain ROMs, disks, character stats,
+flag links (0.16.0 onward). From 0.88.0, discovered area connections are included
+as well. It does not contain ROMs, disks, character stats,
 game saves, the journal reference book itself or another notebook.
 
 **0.14.0 backups did not include journal history**, which lived in app
@@ -45,6 +46,9 @@ number; its campaign UUID and note bytes are unchanged.
 Old backups restore normally with no exploration history until you walk again.
 A backup containing exploration requires 0.12.0 or newer; older apps refuse the
 unknown record rather than silently dropping it. [Exploration guide](EXPLORATION.md).
+
+Backups containing connections require 0.88.0 or newer. Earlier backups restore
+with an empty connections map. [Connections guide](AREA_CONNECTIONS.md).
 
 Malformed, incomplete, corrupt, unsupported or oversized backups are rejected
 before they become visible. A full backup is limited to 64 MiB; individual page

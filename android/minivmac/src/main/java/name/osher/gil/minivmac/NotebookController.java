@@ -49,6 +49,9 @@ import name.osher.gil.minivmac.journal.GameMessage;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
 import name.osher.gil.minivmac.notebook.AreaNoteFollow;
+import name.osher.gil.minivmac.notebook.AreaConnections;
+import name.osher.gil.minivmac.notebook.ConnectionRecorder;
+import name.osher.gil.minivmac.mapper.AreaTravel;
 import name.osher.gil.minivmac.notebook.ExplorationRecorder;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
@@ -79,6 +82,30 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private int generation;
     private Session session;
     private final AreaNoteFollow areaFollow = new AreaNoteFollow();
+    private final ConnectionRecorder connectionRecorder = new ConnectionRecorder();
+    private AreaConnections connections = new AreaConnections();
+    private String connectionError = "";
+    private ConnectionsView connectionsView;
+    public void setConnectionsView(ConnectionsView view) { connectionsView=view; publishConnections(); }
+    private void publishConnections() {
+        if(connectionsView!=null) connectionsView.show(notebook==null?"Notebook loading":notebook.label(),
+                connections,area==null?null:area.id(),connectionError);
+    }
+    @Override public void onConnectionSample(AreaTravel sample) {
+        if(disposed || restoringNotebook || notebook==null) { connectionRecorder.interrupt(); return; }
+        AreaConnections.Edge edge=connectionRecorder.observe(sample,SystemClock.elapsedRealtime());
+        if(edge==null)return;
+        final NotebookStore.Notebook book=notebook;
+        IO.execute(()->{
+            try {
+                AreaConnections saved=store.recordConnection(book.id(),edge);
+                main.post(()->{if(!disposed && notebook==book){connections=saved;connectionError="";publishConnections();}});
+            } catch(IOException | RuntimeException failure) {
+                main.post(()->{if(!disposed && notebook==book){connectionError="Connection could not be saved. Existing history is kept.";publishConnections();}});
+                report("Cannot save area connection",failure);
+            }
+        });
+    }
     private AlertDialog picker;
     private boolean explorationInterrupted = true, explorationFailed;
     private JournalHistory journal;
@@ -185,6 +212,11 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         try { readMessages = store.loadMessages(selected.id()); }
         catch (IOException failure) { android.util.Log.w("PoolRad.Notebook", "Message history unavailable", failure); }
         final MessageHistory loadedMessages = readMessages;
+        AreaConnections readConnections = new AreaConnections(); String readConnectionError = "";
+        try { readConnections=store.loadConnections(selected.id()); }
+        catch(IOException failure) { readConnectionError="Connections unavailable. Existing history is kept."; }
+        final AreaConnections loadedConnections=readConnections;
+        final String loadedConnectionError=readConnectionError;
         main.post(() -> {
             if (disposed || (restoringNotebook && !finishRestore)) {
                 if (finished != null) finished.run();
@@ -193,6 +225,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             if (finishRestore) restoringNotebook = false;
             citationNotice.accept(Collections.emptyList());
             notebook = selected; journal = loadedJournal; messages = loadedMessages;
+            connectionRecorder.interrupt(); connections=loadedConnections; connectionError=loadedConnectionError;
+            publishConnections();
             areaFollow.reset();
             observeNoteArea();
             messagesDirty = false; messageSaveFailed = false; opening = false; refreshFlags();
@@ -668,6 +702,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     @Override public void onAreaChanged(AreaIdentity next) {
         area = next;
+        publishConnections();
         observeNoteArea();
         refreshFlags();
     }

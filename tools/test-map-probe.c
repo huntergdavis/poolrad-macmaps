@@ -27,7 +27,7 @@ static void fixture(uint32_t globals, uint32_t handle, uint32_t map) {
     ram[a5 - POOLRAD_MENU_STATE_BACK + 1] = 2;
 }
 static void status_only(unsigned mode, unsigned engine) {
-    assert(memcmp(output, "PRM6", 4) == 0);
+    assert(memcmp(output, "PRM7", 4) == 0);
     assert(output[24] == mode && output[25] == 1 && output[26] == 0 && output[27] == engine);
     assert(output[33] == 0 && output[34] == 255 && output[35] == 255);
     for (int i = 40; i < 48; i++) assert(output[i] == 0);
@@ -46,7 +46,7 @@ static void display_tests(void) {
     unsigned char original[sizeof(ram)];
     memcpy(original, ram, sizeof(ram));
     assert(poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    assert(memcmp(output, "PRM6", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
+    assert(memcmp(output, "PRM7", 4) == 0 && output[24] == POOLRAD_DISPLAY_EXPLORATION);
     assert(output[26] == 1 && output[33] == 1 && poolrad_u32(output + 28) != 0);
     assert(output[130] == 15 && output[131] == 1 && output[132] == 6);
     assert(memcmp(output + 176, ram + 0x4000, 1024) == 0);
@@ -189,7 +189,7 @@ static void display_tests(void) {
     fixture(0x8000, 0x2000, 0x4000);
     ram[0x910] = 6; memcpy(ram + 0x911, "Finder", 6);
     assert(!poolrad_display_probe(ram, sizeof(ram), &tracker, output));
-    puts("Display probe: PRM6 explicit modes, search marker, status-only clearing and independent profile passed.");
+    puts("Display probe: PRM7 explicit modes, search marker, status-only clearing and independent profile passed.");
 }
 static void clock_tests(void) {
     const uint32_t a5 = 0x8000 + POOLRAD_GLOBALS_BACK;
@@ -584,6 +584,42 @@ static void replay(const char *path) {
     captured_tour_tests(capture, (size_t)length);
     free(capture);
 }
+static void travel_tests(void) {
+    const uint32_t a5=0x8000+POOLRAD_GLOBALS_BACK;
+    poolrad_walk_tracker t={0};
+    fixture(0x8000,0x2000,0x4000);
+    assert(poolrad_display_probe(ram,sizeof(ram),&t,output));
+    uint32_t epoch=poolrad_u32(output+1212);
+    assert(epoch && poolrad_u32(output+1216)==0);
+    ram[a5-POOLRAD_RELOCATION_BACK]=1; ram[0x618b]=0;
+    poolrad_walk_observe(ram,sizeof(ram),&t);
+    ram[a5-POOLRAD_RELOCATION_BACK]=0;ram[0x8052]=0;ram[0x8053]=4;
+    assert(poolrad_display_probe(ram,sizeof(ram),&t,output));
+    assert(poolrad_u32(output+1212)==epoch && poolrad_u32(output+1216)==1);
+    assert(output[1220]==1 && output[1221]==20 && output[1222]==31 && output[1224]==0);
+    // An unseen middle area cannot become a direct A-to-C connection.
+    ram[0x618b]=1;poolrad_walk_observe(ram,sizeof(ram),&t);
+    ram[0x618b]=2;poolrad_walk_observe(ram,sizeof(ram),&t);
+    assert(t.travel_serial==3);
+    const unsigned guards[]={POOLRAD_STARTUP_BACK,POOLRAD_LOADED_BACK,POOLRAD_MENU_STATE_BACK-1,POOLRAD_ENGINE_BACK};
+    for(unsigned i=0;i<sizeof(guards)/sizeof(guards[0]);i++) {
+        fixture(0x8000,0x2000,0x4000);poolrad_walk_observe(ram,sizeof(ram),&t);
+        epoch=t.travel_epoch;
+        ram[a5-guards[i]]=1;poolrad_walk_observe(ram,sizeof(ram),&t);
+        fixture(0x8000,0x2000,0x4000);ram[0x618b]=0;
+        assert(poolrad_display_probe(ram,sizeof(ram),&t,output));
+        assert(poolrad_u32(output+1212)!=epoch && output[1220]==0 && t.travel_serial==0);
+    }
+    epoch=t.travel_epoch;poolrad_walk_reset(&t);
+    assert(poolrad_display_probe(ram,sizeof(ram),&t,output));
+    assert(poolrad_u32(output+1212)!=epoch && output[1220]==0);
+    unsigned char before[sizeof(ram)];memcpy(before,ram,sizeof(ram));
+    poolrad_walk_observe(ram,sizeof(ram),&t);assert(!memcmp(before,ram,sizeof(ram)));
+    t.travel_epoch=UINT32_MAX;poolrad_walk_reset(&t);
+    assert(poolrad_display_probe(ram,sizeof(ram),&t,output));assert(poolrad_u32(output+1212)==0);
+    puts("Travel: relocation, native transition count, load guards, reset, overflow and read-only checks passed.");
+}
+
 int main(int argc, char **argv) {
     fixture(0x8000, 0x2000, 0x4000);
     assert(poolrad_probe(ram, sizeof(ram), output));
@@ -678,6 +714,7 @@ int main(int argc, char **argv) {
     assert(poolrad_probe(ram, sizeof(ram), output) && output[35] == 20);
     assert(output[176 + 768] == ram[0x4300]);
     puts("Map probe: PRM2 identity, modes, logical heap sizes, relocation and bounds passed.");
+    travel_tests();
     walk_tests();
     display_tests();
     clock_tests();
