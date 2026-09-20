@@ -427,6 +427,13 @@ public class Core {
 	private native static void _pauseEmulation();
 	private native static boolean isPaused();
 	private native static void _setSpeed(int value);
+	private native static void _setAutoSkipMessages(boolean enabled);
+	private boolean autoSkipMessages;
+
+	public synchronized void setAutoSkipMessages(boolean enabled) {
+		autoSkipMessages = enabled;
+		if (initOk) _setAutoSkipMessages(enabled);
+	}
 	private native static int _getSpeed();
 	private native static void setWantMacReset();
 	private native static void setWantMacInterrupt();
@@ -503,6 +510,7 @@ public class Core {
 	@SuppressWarnings("unused")
 	private synchronized void onEmulationReady() {
 		if (!initOk) return;
+		_setAutoSkipMessages(autoSkipMessages);
 		if (emulationPaused) _pauseEmulation(); else _resumeEmulation();
 	}
 

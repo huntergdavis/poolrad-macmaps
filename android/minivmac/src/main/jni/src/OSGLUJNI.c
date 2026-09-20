@@ -28,6 +28,7 @@
 #include "POOLRAD.h"
 #include "POOLRAD_AUDIO.h"
 #include "POOLRAD_IDLE.h"
+#include "POOLRAD_SKIP.h"
 #include "POOLRAD_WHEEL.h"
 #include "POOLRAD_PARTY.h"
 #include "POOLRAD_SELECTION.h"
@@ -61,6 +62,8 @@ LOCALVAR atomic_int HostActivity = 0, HostMouseHeld = 0;
 LOCALVAR atomic_uint HostKeysHeld[4];
 LOCALVAR blnr AutomaticIdle = falseblnr;
 LOCALVAR poolrad_idle_tracker IdleTracker;
+LOCALVAR atomic_int AutoSkipMessages = 0;
+LOCALVAR poolrad_skip_tracker SkipTracker;
 #if EmASC || EmClassicSnd
 IMPORTFUNC blnr PoolRadSoundBusy(void);
 #endif
@@ -1045,11 +1048,38 @@ LOCALPROC SetAutomaticIdle(blnr idle) {
     __android_log_print(ANDROID_LOG_INFO, "PoolRad.Idle", "automatic-idle=%d", idle);
 }
 
+LOCALPROC ReleaseSkippedKey(void) {
+    /* Preserve a real Return key the player is currently holding. */
+    if (!(atomic_load(&HostKeysHeld[1]) & (1u << 4))) Keyboard_UpdateKeyMap2(36, falseblnr);
+}
+
+LOCALPROC CancelMessageSkip(void) {
+    if (SkipTracker.held) ReleaseSkippedKey();
+    memset(&SkipTracker, 0, sizeof SkipTracker);
+}
+
+LOCALPROC ObserveMessageSkip(const unsigned char *ram, size_t size) {
+    int busy = CurSpeedStopped || !StartupRestoreFinished || atomic_load(&gBackgroundFlag)
+            || atomic_load(&HostCommands) || atomic_load(&HostActivity) || atomic_load(&HostMouseHeld)
+            || atomic_load(&WantRestoreState);
+    for (unsigned i=0;i<4;i++) busy |= atomic_load(&HostKeysHeld[i]) != 0;
+    int enabled = atomic_load(&AutoSkipMessages);
+    poolrad_notice notice = {0,0};
+    if (enabled && !busy) notice=poolrad_skip_notice(ram,size,PoolRadGetAddressRegister(6));
+    int action=poolrad_skip_observe(&SkipTracker,IdleNow(),notice,enabled,busy);
+    if (action < 0) ReleaseSkippedKey();
+    if (action > 0) {
+        Keyboard_UpdateKeyMap2(36,trueblnr);
+        poolrad_idle_activity(&IdleTracker,IdleNow());
+        __android_log_print(ANDROID_LOG_INFO,"PoolRad.Skip","informational acknowledgement caller=%x",notice.caller);
+    }
+}
+
 LOCALPROC ObserveAutomaticIdle(const unsigned char *ram, size_t size) {
     if (AutomaticIdle || CurSpeedStopped || !StartupRestoreFinished) return;
     /* The verified input loop animates its cursor. Redraws alone are not
      * gameplay; its call stack, input, disk and sound establish eligibility. */
-    int busy = atomic_load(&HostActivity) || atomic_load(&HostMouseHeld);
+    int busy = SkipTracker.held || atomic_load(&HostActivity) || atomic_load(&HostMouseHeld);
     for (unsigned i = 0; i < 4; i++) busy |= atomic_load(&HostKeysHeld[i]) != 0;
 #if MySoundEnabled && (EmASC || EmClassicSnd)
     busy |= SoundOutputActive && PoolRadSoundBusy();
@@ -1288,7 +1318,10 @@ LOCALPROC EnterSpeedStopped(void)
 
 LOCALPROC CheckForSavedTasks(void)
 {
+    if (!atomic_load(&AutoSkipMessages) || atomic_load(&gBackgroundFlag)
+            || atomic_load(&HostCommands) || atomic_load(&WantRestoreState)) CancelMessageSkip();
     if (atomic_exchange(&HostActivity, 0)) {
+        CancelMessageSkip();
         poolrad_idle_activity(&IdleTracker, IdleNow());
         SetAutomaticIdle(falseblnr);
     }
@@ -1828,6 +1861,7 @@ GLOBALOSGLUPROC WaitForNextTick(void)
     ui5b mapRamSize;
     ui3p mapRam = GetRamForSnapshot(&mapRamSize);
     poolrad_walk_observe(mapRam, mapRamSize, &MapWalkTracker);
+    ObserveMessageSkip(mapRam, mapRamSize);
     ObserveAutomaticIdle(mapRam, mapRamSize);
     uint64_t wakeTicket;
     label_retry:
@@ -1927,6 +1961,8 @@ LOCALPROC ZapOSGLUVars(JNIEnv * env, jclass this, jobject core)
     atomic_store(&HostMouseHeld, 0);
     for (unsigned i = 0; i < 4; i++) atomic_store(&HostKeysHeld[i], 0);
     AutomaticIdle = falseblnr;
+    atomic_store(&AutoSkipMessages, 0);
+    memset(&SkipTracker, 0, sizeof SkipTracker);
     poolrad_idle_activity(&IdleTracker, IdleNow());
     CurSpeedStopped = trueblnr;
     StartupRestoreFinished = falseblnr;
@@ -2116,6 +2152,10 @@ GLOBALPROC pauseEmulation () {
  */
 GLOBALFUNC jboolean isPaused () {
     return CurSpeedStopped?JNI_TRUE:JNI_FALSE;
+}
+
+GLOBALPROC setAutoSkipMessages(jboolean enabled) {
+    if (atomic_exchange(&AutoSkipMessages, enabled != 0) != (enabled != 0)) GuestActivity();
 }
 
 /*

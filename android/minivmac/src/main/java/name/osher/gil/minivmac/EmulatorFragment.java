@@ -516,6 +516,7 @@ public class EmulatorFragment extends Fragment
             mLiveMap.setOriginalTileScale(prefs.getBoolean(SettingsFragment.KEY_PREF_ORIGINAL_TILE_SCALE, false));
             mLiveMap.setOneLineParty(prefs.getBoolean(SettingsFragment.KEY_PREF_ONELINE_PARTY, false));
             mLiveMap.setMirrorMessage(prefs.getBoolean(SettingsFragment.KEY_PREF_MIRROR_MESSAGE, false));
+            if (mCore != null) mCore.setAutoSkipMessages(prefs.getBoolean(SettingsFragment.KEY_PREF_AUTO_SKIP_MESSAGES, false));
         } catch (RuntimeException ignored) { }
     }
 
@@ -1025,6 +1026,8 @@ public class EmulatorFragment extends Fragment
             try {
             sessionCore = new Core();
             mCore = sessionCore;
+            mCore.setAutoSkipMessages(PreferenceManager.getDefaultSharedPreferences(requireContext())
+                    .getBoolean(SettingsFragment.KEY_PREF_AUTO_SKIP_MESSAGES, false));
             mCore.setRamSnapshotListener(this::saveRamSnapshot);
             final Core mapCore = mCore;
             mapCore.setAutomaticIdleListener(idle ->

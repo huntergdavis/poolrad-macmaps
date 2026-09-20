@@ -22,13 +22,13 @@ static uint32_t poolrad_idle_entry(const unsigned char *ram, size_t size,
 
 /* Returns the menu frame's identity only while its event reader is inside
  * GetNextEvent/WaitNextEvent. Neither action handlers nor timed waits match. */
-static uint32_t poolrad_idle_wait(const unsigned char *ram, size_t size, uint32_t frame) {
+static uint32_t poolrad_menu_wait(const unsigned char *ram, size_t size, uint32_t frame, unsigned max_engine) {
     uint32_t a5, menu, events;
     if (!poolrad_game_name(ram, size)) return 0;
     a5 = poolrad_u32(ram + 0x904) & 0xffffff;
     if (a5 < 0x617e || (a5 & 1) || !poolrad_range(a5 - 0x617e, 0x617e, size)) return 0;
     unsigned engine = ram[a5 - POOLRAD_ENGINE_BACK];
-    if (engine < 2 || engine > 5
+    if (engine < 2 || engine > max_engine
             || ram[a5 - POOLRAD_STARTUP_BACK] || ram[a5 - POOLRAD_LOADED_BACK]
             || ram[a5 - POOLRAD_PENDING_INPUT_BACK]
             || ram[a5 - POOLRAD_MENU_STATE_BACK] != 0
@@ -56,6 +56,10 @@ static uint32_t poolrad_idle_wait(const unsigned char *ram, size_t size, uint32_
         frame = parent;
     }
     return 0;
+}
+
+static uint32_t poolrad_idle_wait(const unsigned char *ram, size_t size, uint32_t frame) {
+    return poolrad_menu_wait(ram, size, frame, 5);
 }
 
 typedef struct {

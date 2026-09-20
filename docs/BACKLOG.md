@@ -1444,7 +1444,13 @@ reads back correctly.
   the map-corner entry point can follow if wanted. `MapLegendDialog` reads
   nothing and changes nothing. Verified live: the dialog opens and every glyph
   renders and scrolls.
-- [ ] **F31 — Option: auto-skip messages.**
+- [x] **F31 (delivered 0.103.0) — Option: auto-skip informational messages.**
+  Opt-in in companion Options, off by default. A native caller allowlist
+  acknowledges proven informational alerts and post-fight reports with one
+  ordinary Return press. Story/tutorial Continue prompts, choices,
+  confirmations and unknown dialogs stay manual. Pending input cancels on
+  player input, disabling the option, pause or restore. See
+  [detection and verification](AUTO_SKIP_MESSAGES.md).
 - [x] **F64 (delivered 2026-09-19) — Mirror the game's message window in larger
   type,** as a toggle. The game's Message-window text (already read via the PRT1
   reader, `GameMessage.parse`) is drawn in an 18dp white card with a black border

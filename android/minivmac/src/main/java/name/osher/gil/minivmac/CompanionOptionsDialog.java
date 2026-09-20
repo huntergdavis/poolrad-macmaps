@@ -35,6 +35,9 @@ final class CompanionOptionsDialog {
                 "One-line party rows", false, changed);
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_MIRROR_MESSAGE,
                 "Large message text", false, changed);
+        preference(activity, list, prefs, SettingsFragment.KEY_PREF_AUTO_SKIP_MESSAGES,
+                "Auto-skip informational messages", false, changed);
+        label(activity, list, "Story prompts, choices and confirmations stay manual.");
         label(activity, list, "Save states");
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_AUTOLOAD,
                 "Load last snapshot when the app starts", true, changed);

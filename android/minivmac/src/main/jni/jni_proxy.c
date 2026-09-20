@@ -75,6 +75,7 @@ static ResumeEmulationType resumeEmulationPtr = NULL;
 static PauseEmulationType pauseEmulationPtr = NULL;
 static IsPausedType isPausedPtr = NULL;
 static SetSpeedType setSpeedPtr = NULL;
+static SetMouseButtonType setAutoSkipMessagesPtr = NULL;
 static GetSpeedType getSpeedPtr = NULL;
 static RequestRamSnapshotType requestRamSnapshotPtr = NULL;
 static RequestRamSnapshotType requestMapSamplePtr = NULL;
@@ -134,6 +135,7 @@ void unloadCurrentVariant() {
         pauseEmulationPtr = NULL;
         isPausedPtr = NULL;
         setSpeedPtr = NULL;
+        setAutoSkipMessagesPtr = NULL;
         getSpeedPtr = NULL;
         LOGI("Variant library unloaded.");
     }
@@ -189,6 +191,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
     pauseEmulationPtr = (PauseEmulationType)dlsym(variantHandle, "pauseEmulation");
     isPausedPtr = (IsPausedType)dlsym(variantHandle, "isPaused");
     setSpeedPtr = (SetSpeedType)dlsym(variantHandle, "setSpeed");
+    setAutoSkipMessagesPtr = (SetMouseButtonType)dlsym(variantHandle, "setAutoSkipMessages");
     getSpeedPtr = (GetSpeedType)dlsym(variantHandle, "getSpeed");
     requestRamSnapshotPtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestRamSnapshot");
     requestMapSamplePtr = (RequestRamSnapshotType)dlsym(variantHandle, "requestMapSample");
@@ -247,6 +250,7 @@ Java_name_osher_gil_minivmac_Core_loadVariant(JNIEnv* env, jobject this, jstring
         pauseEmulationPtr = NULL;
         isPausedPtr = NULL;
         setSpeedPtr = NULL;
+        setAutoSkipMessagesPtr = NULL;
         getSpeedPtr = NULL;
         (*env)->ReleaseStringUTFChars(env, libPath, path);
         return JNI_FALSE;
@@ -722,4 +726,8 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *jvm, void *reserved)
     CATCHSIG(SIGPIPE);
 
     return JNI_VERSION_1_2;
+}
+
+JNIEXPORT void JNICALL Java_name_osher_gil_minivmac_Core__1setAutoSkipMessages(JNIEnv *env, jclass type, jboolean enabled) {
+    if (setAutoSkipMessagesPtr) setAutoSkipMessagesPtr(enabled);
 }
