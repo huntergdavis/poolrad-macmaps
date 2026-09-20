@@ -2,12 +2,12 @@
 
 Use **−** and **+** at the lower left of the map to see more of the area or
 enlarge details. Drag the enlarged map to look around. Notes, flags, footprints,
-fog, and the party marker all share the same transform, including note taps.
+fog, and the party marker stay aligned as you zoom.
 
 Exploration starts at the existing selected scale. **Fit** restores the fitted
 map; with **Original area tile size (1:1)** enabled, the reset button reads
 **1:1** and restores 32 physical pixels per tile. Tapping the area header
-brings the party into view. Zoom is local to the current view, not a new setting.
+brings the party into view. Zoom changes apply to the current view.
 
 A new fight starts framed around all known combatants, with two squares of
 margin and a bounded maximum enlargement. This includes fallen party members.
@@ -15,6 +15,16 @@ The arena is still the game's full **50×25 squares**; no terrain is inferred.
 Use **Fit** to see the entire arena, or tap the battle header to frame the
 current action again. Combat updates preserve manual zoom and pan. Leaving
 combat restores the exploration view; the next fight starts freshly framed.
+
+![New Phlan enlarged with minus, plus, and 1:1 reset controls](images/map-zoom-detail.png)
+
+*Development-build capture for 0.107.0, still labeled 0.106.0. New Phlan is
+enlarged to 225%.*
+
+![Combat view framed around the party and twelve enemies, with zoom and Fit controls](images/combat-zoom.png)
+
+*From the same test build. Tapping the battle header brought all fighters
+back into view without changing Lara's turn.*
 
 Buttons have 48dp touch targets and named accessibility actions. Zoom and pan
 do not send game input or open notebook pages. Rendering stays event-driven;

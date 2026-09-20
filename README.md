@@ -35,9 +35,11 @@ disks before uninstalling or clearing app data.
 - Turn on **fog of war** in **Info → Options** to hide unwalked squares.
   Fog and footprint settings are remembered for each area.
 - Tap the map header to highlight your party's square.
-- **Original area tile size (1:1)** in **Info → Options** keeps map squares at
-  32 screen pixels. Drag to see the rest; tap the header to bring
-  your party back into view. Leave it off to fit the whole map on screen.
+- Use **−/+** to zoom and drag to look around. **Fit** resets the view.
+  [Map and combat zoom](docs/MAP_ZOOM.md).
+- **Original area tile size (1:1)** in **Info → Options** starts map squares at
+  32 screen pixels. With it enabled, **1:1** replaces **Fit** and resets that
+  scale. Tap the header to bring your party back into view.
   [See the map size option](docs/MAP_SCALE.md).
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
 - Open **Info → Map legend** for the symbols.
@@ -86,13 +88,14 @@ last detected rest, with the game's rest time. Until a rest is detected, it
 counts from loading the game. Snapshots keep their own counts.
 [Counting rules and test coverage](docs/SINCE_LAST_REST.md).
 
-During combat, the overview shows the full 50 × 25-square arena, your party
-and enemies. Its frame stays fixed as characters move or fall. It names the
-monsters and counts those still standing. A ring and a marked party row identify the
-acting party member. Tap a party marker to highlight its row. Crosses distinguish
+Each fight opens with your party and enemies in view. Use **−/+** to zoom,
+drag to look around, or **Fit** to see the full 50 × 25-square arena.
+Tap the battle header to frame the fighters again. The view keeps your chosen
+zoom and position as the fight continues. It names the monsters and counts
+those still standing. A ring and a marked party row identify the acting party member. Tap a party marker to highlight its row. Crosses distinguish
 fallen characters who can still be helped from those who are dead or petrified.
 Take your combat actions in the original game below.
-[Arena view and verification](docs/COMBAT_MEMORY.md#full-arena-bounds-f73-0980).
+[Combat view and verification](docs/MAP_ZOOM.md).
 
 ## Keep a notebook
 
@@ -126,6 +129,10 @@ automatic combat keep running. [Idle behavior and verification](docs/AUTOMATIC_I
 [Handwriting guide](docs/NOTEBOOK.md) · [Notebook backups](docs/NOTEBOOK_BACKUPS.md)
 
 ## Read without leaving the game
+
+You can tap the game below an open companion page, such as Saves or Money.
+The page stays open. Keyboard input still goes to the page; close it to use
+game keys. [Page behavior](docs/TABS.md#pages-stay-out-of-the-games-way-2026-09-20).
 
 **Info → Journal** includes all 58 journal entries, 18 proclamations,
 23 tavern tales and 14 original illustrations. References detected in game
@@ -192,7 +199,6 @@ before stopping the emulator; a forced quit can damage a disk.
 This is a prototype tested with Macintosh Pool of Radiance v1.1.
 Tracking has been checked in New Phlan and on the Slums gate round trip.
 Full-game area transitions and newly recruited NPCs still need testing.
-The latest Connections fix still needs a live crossing check.
 The combat overview shows no terrain. In the wilderness, use the game's own map;
 a separate companion map is not planned.
 

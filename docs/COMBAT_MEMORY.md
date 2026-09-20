@@ -4,6 +4,10 @@
 original game's tactical combat is read, what was ruled out on the way, and
 what is still undecoded.
 
+For the current view controls, see [map and combat zoom](MAP_ZOOM.md).
+Since 0.107.0, fights open framed around the combatants; **Fit** shows the
+whole arena. The fixed arena dimensions researched below still apply.
+
 ## The table, verified
 
     A5-0x46e8            count, zero whenever no battle is running

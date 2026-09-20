@@ -57,12 +57,14 @@ No path is interpolated, and no reciprocal direction is assumed.
 
 ## Current verification
 
-The 0.105.0 fix preserves a departure while the next map briefly reports
-Position unavailable. Automated tests cover that sequence and still reject
-changed travel epochs, skipped areas and long polling gaps.
+The 0.108.0 fix passed a live New Phlan → Slums crossing after a 25-second
+pause at the gate. The Connections view and travel log both recorded
+New Phlan 0,4 → Slums 15,4. Automated tests cover unreadable frames, slow
+polling, and rejection of changed travel epochs, skipped areas and long gaps.
 
-A live gate crossing was not completed on this build. The older results below
-do not verify the new fix. [0.105.0 test limits](releases/0.105.0.md).
+![Connections records New Phlan to the Slums after a pause at the gate](images/connections-gate-check.png)
+
+*0.108.0 development-build capture from the live gate test described below.*
 
 ## Earlier 0.88.0 validation
 

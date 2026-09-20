@@ -1,38 +1,23 @@
 # Companion tabs
 
-Map and Info share the space above the original Mac display. The keyboard stays
-below the game. Switching tabs never replaces, pauses or restarts the emulator.
-
-```text
- +---------------------+---------------------+
- |         Map         |        Info         |
- +---------------------+---------------------+
- | Live map + flags     OR  offline tools     |
- +-------------------------------------------+
- |              Original Mac game            |
- +-------------------------------------------+
- |              Optional keyboard            |
- +-------------------------------------------+
-```
+**Map**, **Connections**, and **Info** share the space above the original
+Mac display. The keyboard stays below the game. Switching tabs never replaces,
+pauses or restarts the emulator.
 
 **Map** retains the map, flag pages and [compact party sidebar](PARTY.md):
 HP bars, AC, class symbols and tap-for-details when there is room. The sidebar
 collapses in narrow/short windows without reducing the guest's allocation.
 Walked squares and recorded directional footprints stay with each notebook's
 area; optional fog hides unvisited geometry without changing the original game.
-**Info** groups seven working tools, in order: **Exploration trail**, **Journal**, Levels &
-skills, Spells, Weapons & armor, Money conversion, and the illustrated Code
-wheel. [Exploration trail](EXPLORATION.md) controls fog, footprints and the
-recent observed route, with separate confirmed actions to clear feet or reset
-coverage. A tool opens within the companion's actual rectangle; Close returns
-to Info. Lists scroll inside that space, including when the guest keyboard
-makes it shorter. No search keyboard, swipe navigation, flashing marker or
-animated tab transition is added.
+**Connections** shows the passages your party has traveled.
+[Connections guide](AREA_CONNECTIONS.md).
 
-[Actual Info + game screenshot](images/companion-info.png), captured in the
-Android emulator during Rolf's introduction, not a mockup or physical tablet.
+**Info** opens tools such as Saves, the message log, Journal, and reference
+tables. Each page fits above the game. Lists scroll within that space;
+**Close** returns to Info. [Exploration trail](EXPLORATION.md) controls fog,
+footprints and the recent route.
 
-The PoolRad menu now contains **Show companion**, **Notebooks**, **Screenshot**
+The PoolRad menu includes **Show companion**, **Notebooks**, **Screenshot**
 and **Desktop appearance**. Keyboard, disk/import and Settings keep their
 existing toolbar locations. Capture RAM remains absent. Opening Notebooks or
 Desktop appearance while the companion is hidden reveals it first.
@@ -42,7 +27,7 @@ Desktop appearance while the companion is hidden reveals it first.
 - The old hidden-map preference migrates once to `poolrad_show_companion`.
   Hide/show retains the selected tab; its checkmark describes the whole pane.
 - A fresh session starts on Map. Activity/fragment saved state carries stable
-  `map`/`info` IDs through restoration; unknown IDs fall back to Map.
+  `map`/`connections`/`info` IDs through restoration; unknown IDs fall back to Map.
 - One `LiveMapView` and notebook controller stay mounted across tab changes.
   Map/party polling and eligible exploration recording continue while the
   activity is resumed, including on Info or with the companion hidden. Tab
@@ -97,3 +82,9 @@ placed above the guest by `CompanionDialogBounds`, and since 0.109.0 it is
 also not touch-modal: a touch outside the page reaches the game below while
 the page stays open. Keys still go to the page, and tapping outside does not
 close it. The player can read Money or Saves and keep walking.
+
+
+![Saves stays open above the game after the player taps Look](images/companion-page-game-touch.png)
+
+*Development-build capture from the 0.109.0 touch test. The game clock advanced
+while Saves remained open.*
