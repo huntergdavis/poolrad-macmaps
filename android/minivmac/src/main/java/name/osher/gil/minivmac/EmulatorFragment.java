@@ -53,6 +53,7 @@ import java.util.List;
 import name.osher.gil.minivmac.mapper.PollingPace;
 import name.osher.gil.minivmac.mapper.LoadSequence;
 import name.osher.gil.minivmac.mapper.GameSignal;
+import name.osher.gil.minivmac.mapper.PartyState;
 import name.osher.gil.minivmac.mapper.AutomaticWheel;
 import name.osher.gil.minivmac.mapper.WheelPrompt;
 import name.osher.gil.minivmac.desktop.DiskAccessGate;
@@ -181,6 +182,7 @@ public class EmulatorFragment extends Fragment
         Core target = mCore;
         if (target == null || !target.isReady()) return false;
         boolean written = target.queuePartyQuick(mLiveMap.partyMember(member), on);
+        Log.i("PoolRad.Quick", "queue member " + member + " on=" + on + " accepted=" + written);
         // Show the game's own answer, not an assumption: ask for a fresh sample
         // rather than repainting what we hoped happened.
         if (written) target.requestPartySample();
@@ -221,6 +223,7 @@ public class EmulatorFragment extends Fragment
     private NotebookController mNotebook;
     private SaveBackupController mSaveBackup;
     private SaveStateController mSaveState;
+    private final name.osher.gil.minivmac.mapper.RestTally mRestTally = new name.osher.gil.minivmac.mapper.RestTally();
     private MapStackLayout mMapStack;
     private boolean mMapPolling;
     private volatile int mMapGeneration;
@@ -595,6 +598,13 @@ public class EmulatorFragment extends Fragment
             switch (tool) {
                 case OPTIONS: mNotebook.showOptions(this::applyOneLinePartyPref); break;
                 case SAVES: saveState().showStatus(); break;
+                case REST: LiveTextReferenceDialog.show(requireActivity(), "Since last rest",
+                        "Fights fought and spells cast since the party last rested, read from the game.",
+                        mRestTally::describe,
+                        "A rest counts once camp time passes an hour or spells finish memorizing; an interrupted "
+                        + "few minutes does not. Casts are read from the game's own memorized-spell slots. "
+                        + "The count is saved with each snapshot and starts over after a load.",
+                        18, null, null); break;
                 case PARTY_ORDER: PartyOrderDialog.show(requireActivity(),
                         () -> mLiveMap == null ? null : mLiveMap.partySnapshot()); break;
                 case MESSAGE_LOG: mNotebook.showMessageLog(); break;
@@ -821,9 +831,25 @@ public class EmulatorFragment extends Fragment
         return root;
     }
 
+    private name.osher.gil.minivmac.mapper.MapMode mTallyLoggedMode;
+    private name.osher.gil.minivmac.mapper.GameClock mTallyLoggedClock;
+    private String mTallyLoggedCounts;
+    /** One line per mode change or clock jump: the evidence trail for Info → Since last rest. */
+    private void logRestTally(name.osher.gil.minivmac.mapper.MapObservation seen) {
+        boolean modeChanged = seen.mode != mTallyLoggedMode;
+        boolean clockJumped = seen.clock != null && mTallyLoggedClock != null
+                && Math.abs(seen.clock.minutesSince(mTallyLoggedClock)) >= 10;
+        String counts = "fights=" + mRestTally.fights() + " spells=" + mRestTally.spells() + " anchor=" + mRestTally.anchor();
+        if (!modeChanged && !clockJumped && counts.equals(mTallyLoggedCounts)) return;
+        mTallyLoggedMode = seen.mode; mTallyLoggedCounts = counts;
+        if (seen.clock != null) mTallyLoggedClock = seen.clock;
+        Log.i("PoolRad.RestTally", "mode=" + seen.mode + " clock=" + (seen.clock == null ? "-" : seen.clock.label()) + " " + counts);
+    }
+
     private SaveStateController saveState() {
         if (mSaveState == null) {
             mSaveState = new SaveStateController(requireActivity(), () -> mCore);
+            mSaveState.setRestTally(mRestTally::encode, mRestTally::restore);
             // Pair a save with the notebook open at save time, and bring it back on load.
             mSaveState.setNotebookLink(new SaveStateController.NotebookLink() {
                 @Override public String currentNotebookId() {
@@ -969,8 +995,13 @@ public class EmulatorFragment extends Fragment
             mCore.setMapSampleListener(sample -> {
                 final int generation = mMapGeneration;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive()) {
                         mLiveMap.showSample(sample);
+                        name.osher.gil.minivmac.mapper.MapObservation seen =
+                                name.osher.gil.minivmac.mapper.MapObservation.parse(sample);
+                        mRestTally.observeMap(seen.mode, seen.clock);
+                        logRestTally(seen);
+                    }
                 });
             });
             final SaveStateController stateController = saveState();
@@ -984,8 +1015,11 @@ public class EmulatorFragment extends Fragment
                 // true even with the map hidden.
                 mLastPartySample = sample;
                 mUIHandler.post(() -> {
-                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive())
-                        { mLiveMap.showPartySample(sample); mLiveMap.refreshQuickPending(); }
+                    if (mMapPolling && generation == mMapGeneration && mCore == mapCore && companionMapActive()) {
+                        mLiveMap.showPartySample(sample); mLiveMap.refreshQuickPending();
+                        mRestTally.observeSignal(GameSignal.of(sample));
+                        mRestTally.observeParty(PartyState.parse(sample));
+                    }
                 });
             });
             mCore.setCombatSampleListener(sample -> {

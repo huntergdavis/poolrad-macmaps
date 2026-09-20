@@ -49,6 +49,21 @@ public class SaveStateStoreTest {
         assertTrue(usage.totalBytes > usage.saveBytes);
     }
 
+    @Test public void sidecarsPublishAtomicallyAndLeaveWithTheirSave() throws IOException {
+        SaveStateStore s = store();
+        File save = s.write("Camp", machine(20_000, 1), DiskSnapshotGuard.Fingerprint.empty());
+        assertNull(s.readSidecar(save, SaveStateStore.TALLY_SUFFIX, 4096));
+        assertTrue(s.writeSidecar(save, SaveStateStore.TALLY_SUFFIX, "PRRT1\n".getBytes()));
+        assertArrayEquals("PRRT1\n".getBytes(), s.readSidecar(save, SaveStateStore.TALLY_SUFFIX, 4096));
+        assertNull("over the limit reads as absent", s.readSidecar(save, SaveStateStore.TALLY_SUFFIX, 3));
+        assertFalse(new File(save.getPath() + SaveStateStore.TALLY_SUFFIX + ".part").exists());
+        assertTrue(s.writeSidecar(save, SaveStateStore.TALLY_SUFFIX, null));
+        assertNull(s.readSidecar(save, SaveStateStore.TALLY_SUFFIX, 4096));
+        assertTrue(s.writeSidecar(save, SaveStateStore.TALLY_SUFFIX, "PRRT1\n".getBytes()));
+        assertTrue(s.delete(save));
+        assertFalse(new File(save.getPath() + SaveStateStore.TALLY_SUFFIX).exists());
+    }
+
     @Test public void compressionActuallyShrinksATypicalImage() throws IOException {
         SaveStateStore s = store();
         byte[] raw = machine(1_000_000, 3);

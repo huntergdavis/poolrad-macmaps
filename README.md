@@ -128,6 +128,9 @@ illustrated manual lookup as a fallback.
   saves you have, and how much space is left. It estimates how many more saves
   will fit. Use **Load… → Delete…** to remove an old save.
   [See the Saves page](docs/SAVE_STATES.md#f98--info--saves).
+- **Info → Since last rest** counts the fights fought and spells cast since the
+  party last rested, with the rest's time on the game's clock. The count is
+  saved with each snapshot.
 - Each snapshot remembers its notebook.
 - **Info → Options** controls five-minute autosaves, which keep the latest 20
   automatic snapshots while a party is in the world.

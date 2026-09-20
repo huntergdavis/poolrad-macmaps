@@ -132,7 +132,14 @@ public class Core {
 		confirmPartySelection(sample);
 		deliverPartySelection(sample);
 		if (quickQueue.busy()) {
-			boolean written = quickQueue.drain(name.osher.gil.minivmac.mapper.PartyState.parse(sample), Core::setPartyQuickNative);
+			name.osher.gil.minivmac.mapper.PartyState parsed = name.osher.gil.minivmac.mapper.PartyState.parse(sample);
+			boolean written = quickQueue.drain(parsed, (slot, on) -> {
+				boolean ok = setPartyQuickNative(slot, on);
+				android.util.Log.i("PoolRad.Quick", "native write slot " + slot + " on=" + on + " -> " + ok);
+				return ok;
+			});
+			android.util.Log.i("PoolRad.Quick", "drain parsed=" + (parsed != null) + " written=" + written + " stillBusy=" + quickQueue.busy()
+					+ (parsed == null && sample != null && sample.length >= 5 ? " refusal=" + (sample[4] & 255) : ""));
 			quickRetry.removeCallbacks(retryQuick);
 			if (quickQueue.busy()) quickRetry.postDelayed(retryQuick, 250);
 			else if (written) requestPartySample(); // Read back the result; never claim it from a queued intent.

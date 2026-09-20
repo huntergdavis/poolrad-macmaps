@@ -51,6 +51,13 @@ public final class SaveStateController {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final SaveRequestGate requests = new SaveRequestGate();
     private final SaveStatus status = new SaveStatus();
+    private java.util.function.Supplier<byte[]> tallySupplier;
+    private java.util.function.Consumer<byte[]> tallyRestore;
+
+    /** The since-rest tally rides along with each snapshot and comes back with a restore. */
+    public void setRestTally(java.util.function.Supplier<byte[]> supplier, java.util.function.Consumer<byte[]> restore) {
+        tallySupplier = supplier; tallyRestore = restore;
+    }
     private volatile boolean disposed;
     private boolean loading;
     private NotebookLink notebook;
@@ -96,6 +103,8 @@ public final class SaveStateController {
                         written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, AUTO_KEEP, fingerprint);
                     } else written = store.write(request.label, state, fingerprint);
                     store.writeBinding(written, request.notebook);
+                    if (request.tally != null && !store.writeSidecar(written, SaveStateStore.TALLY_SUFFIX, request.tally))
+                        Log.w(TAG, "State saved; since-rest tally sidecar unavailable");
                     store.rememberLatest(written);
                     long previewStart = SystemClock.elapsedRealtime();
                     boolean preview = false;
@@ -127,7 +136,9 @@ public final class SaveStateController {
         if (disposed) return;
         Core core = access.current(); boolean quiet = kind == SaveRequestGate.Kind.AUTO;
         if (core == null || !core.isReady()) { if (!quiet) toast("The emulator is not running."); return; }
-        SaveRequestGate.Request request = new SaveRequestGate.Request(kind, label, currentNotebookId(), SystemClock.elapsedRealtime());
+        byte[] tally = null;
+        try { if (tallySupplier != null) tally = tallySupplier.get(); } catch (RuntimeException ignored) { }
+        SaveRequestGate.Request request = new SaveRequestGate.Request(kind, label, currentNotebookId(), SystemClock.elapsedRealtime(), tally);
         if (loading || !requests.begin(request)) { if (!quiet) toast("Finishing the current save/load…"); return; }
         if (!core.requestSaveState()) {
             requests.finish(request);
@@ -363,6 +374,8 @@ public final class SaveStateController {
                         io.execute(() -> {
                             if (!store.writeBinding(file, transition.notebookId()))
                                 main.post(() -> toast("Loaded, but notebook pairing could not be saved."));
+                            byte[] tally = store.readSidecar(file, SaveStateStore.TALLY_SUFFIX, 4096);
+                            main.post(() -> { if (alive() && tallyRestore != null) tallyRestore.accept(tally); });
                         });
                         toast("Loaded " + SaveStateStore.displayLabel(file));
                     } else toast("Snapshot refused: the machine or mounted disks changed. Try loading an original game save.");

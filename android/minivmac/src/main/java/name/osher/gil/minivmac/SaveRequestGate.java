@@ -7,8 +7,10 @@ final class SaveRequestGate {
         final Kind kind;
         final String label, notebook;
         final long started;
-        Request(Kind kind, String label, String notebook, long started) {
-            this.kind=kind; this.label=label; this.notebook=notebook; this.started=started;
+        final byte[] tally;
+        Request(Kind kind, String label, String notebook, long started) { this(kind, label, notebook, started, null); }
+        Request(Kind kind, String label, String notebook, long started, byte[] tally) {
+            this.kind=kind; this.label=label; this.notebook=notebook; this.started=started; this.tally=tally;
         }
     }
     private Request pending;

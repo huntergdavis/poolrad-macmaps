@@ -20,4 +20,5 @@
     <string name="companion_tool_party_order">Marching order</string>
     <string name="companion_tool_saves">Saves</string>
     <string name="companion_tab_connections">Connections</string>
+    <string name="companion_tool_rest">Since last rest</string>
 </resources>

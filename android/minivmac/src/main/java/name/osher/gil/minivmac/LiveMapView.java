@@ -507,6 +507,7 @@ public final class LiveMapView extends View {
                 Boolean queued = quickPending.desired(party.members.get(touchQuick));
                 if (queued != null) current = queued;
                 performClick();
+                android.util.Log.i("PoolRad.Quick", "Q tap row " + touchQuick + " current=" + current + " mode=" + mode);
                 listener.onQuickToggled(touchQuick, !Boolean.TRUE.equals(current));
             } else if (valid && touchReturn && returnTarget.contains(event.getX(), event.getY())) {
                 performClick();
@@ -514,6 +515,7 @@ public final class LiveMapView extends View {
             } else if (valid && touchMember >= 0 && touchParty == party && party != null
                     && pane().memberAt(event.getX(), event.getY()) == touchMember) {
                 PartyState.Member selected = party.members.get(touchMember);
+                android.util.Log.i("PoolRad.Quick", "row tap " + touchMember + " mode=" + mode + " touchQuick=" + touchQuick);
                 cancelTap(); performClick(); listener.onPartyMemberTapped(selected);
             } else if (gesture && touchHeader && headerTarget.contains(event.getX(), event.getY())) {
                 if (positionAvailable) {

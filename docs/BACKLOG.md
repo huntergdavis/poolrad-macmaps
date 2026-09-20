@@ -1464,8 +1464,18 @@ reads back correctly.
   one-line mode — every row drawn, tappable and monochrome — so the map keeps
   its full width. A rendered bitmap confirmed it visually.
 - [x] **F32 — superseded by F98.** Same request (which save is loaded, room left), shipped as Info → Saves in 0.86.0. See F98.
-- [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
-  on the info screen, not on the map. Pairs with F39 and F52.
+- [x] **F59 (delivered 0.90.0) — A "since last rest" counter:** fights fought,
+  spells spent. **Info → Since last rest** counts a fight when the game's mode
+  turns to combat, a cast when a character's ready memorized-spell slot empties
+  with nothing else moving, and a rest when camp time passes an hour or chosen
+  spells finish memorizing; a rousted five-minute rest does not count. The
+  page names the last rest by the game's own clock with the hours rested and
+  the game time since, or says it is counting since the game was loaded. The
+  tally rides with each snapshot (`.rest` sidecar) and comes back on restore;
+  the game's load screen or a clock running backwards starts it over, and the
+  party probe's mid-fight refusals deliberately do not. Read-only; nothing in
+  the guest changes. 719 Java tests; live fights and rests read in the
+  tally log, casts not exercised live: [SINCE_LAST_REST.md](SINCE_LAST_REST.md).
 - [x] **F30 (delivered 2026-09-19) — Auto-dismiss the Mac's boot dialog.** After
   an unclean shutdown the Mac stalls forever at "This computer may not have been
   shut down properly", waiting on Return, and never reaches the game. Now, during

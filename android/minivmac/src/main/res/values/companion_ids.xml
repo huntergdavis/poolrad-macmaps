@@ -24,4 +24,5 @@
     <item type="id" name="companion_tool_saves" />
     <item type="id" name="companion_tab_connections" />
     <item type="id" name="companion_connections" />
+    <item type="id" name="companion_tool_rest" />
 </resources>

@@ -8,6 +8,15 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F59 shipped in 0.90.0: Info → Since last rest (`mapper/RestTally`, pure
+  Java) counts fights from the mode byte, casts from ready-slot drops and
+  rests from an hour of camp clock or memorization; `.rest` snapshot sidecar.
+  Casts were never exercised live: every rest in this build emptied chosen
+  spell slots without memorizing them (worth its own investigation). The
+  Q-toggle-in-combat report was not reproduced; `PoolRad.Quick` logs each step.
+  **Sandbox caution:** one APK install on emulator-5586 followed a failed OCR
+  shutdown check, so the guest may have been stopped hard; re-seed the sandbox
+  disks before trusting them (docs/SINCE_LAST_REST.md, process note).
 - F98 shipped in 0.86.0: Info → Saves names the active snapshot (loaded or
   the later manual save) and the room left; `SaveStatus` is pure Java. Live
   checks ran on emulator-5586 via `tools/update-test-app.py`.

@@ -379,6 +379,31 @@ public final class SaveStateStore {
         }
     }
 
+    public static final String TALLY_SUFFIX = ".rest";
+
+    /** A small named sidecar beside a save, published atomically; the save itself is untouched. */
+    public boolean writeSidecar(File save, String suffix, byte[] bytes) {
+        File target = new File(save.getPath() + suffix), partial = new File(target.getPath() + ".part");
+        if (bytes == null) return !target.exists() || target.delete();
+        try (FileOutputStream out = new FileOutputStream(partial)) {
+            out.write(bytes);
+            out.getFD().sync();
+        } catch (IOException failure) { partial.delete(); return false; }
+        if (!partial.renameTo(target)) { partial.delete(); return false; }
+        return true;
+    }
+
+    /** The sidecar's bytes, or null when absent, empty or over {@code maxLength}. */
+    public byte[] readSidecar(File save, String suffix, int maxLength) {
+        File sidecar = new File(save.getPath() + suffix);
+        if (!sidecar.isFile() || sidecar.length() == 0 || sidecar.length() > maxLength) return null;
+        try (FileInputStream in = new FileInputStream(sidecar)) {
+            byte[] all = new byte[(int) sidecar.length()];
+            readFully(in, all);
+            return all;
+        } catch (IOException unreadable) { return null; }
+    }
+
     public static File previewFile(File save) { return new File(save.getPath() + ".png"); }
 
     /** Optional small PNG; failure never invalidates a successfully written machine image. */
@@ -399,6 +424,7 @@ public final class SaveStateStore {
         if (!save.delete()) return false;
         bindingFile(save).delete();
         previewFile(save).delete();
+        new File(save.getPath() + TALLY_SUFFIX).delete();
         return true;
     }
 

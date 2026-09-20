@@ -20,6 +20,17 @@ public final class GameClock {
                 ? new GameClock((int) day, hour, minute) : null;
     }
 
+    /** The same validation as the packet reader, for sidecars and tests. Null when out of range. */
+    public static GameClock of(int day, int hour, int minute) {
+        return day >= 1 && day <= 92160 && hour >= 0 && hour < 24 && minute >= 0 && minute < 60
+                ? new GameClock(day, hour, minute) : null;
+    }
+
+    /** Signed game minutes from {@code earlier} to this clock; negative means the clock went back. */
+    public int minutesSince(GameClock earlier) {
+        return ((day - earlier.day) * 24 + (hour - earlier.hour)) * 60 + (minute - earlier.minute);
+    }
+
     public String label() {
         return String.format(Locale.US, "Day %d · %d:%02d %s", day,
                 hour % 12 == 0 ? 12 : hour % 12, minute, hour < 12 ? "am" : "pm");
