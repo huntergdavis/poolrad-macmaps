@@ -1370,9 +1370,19 @@ reads back correctly.
   earned, and converting is not editing. Clamping down to what this version
   supports is conversion; anything that improves a character is an edit, and the
   sign-off for that is his to give per edit, not the converter's to assume.
-- [ ] **F36 — Answer the game's own save and overwrite prompts.** Kept, demoted:
-  it is only needed on whatever paths still go through the game's own dialogs
-  once F79 exists, and may turn out to be unnecessary.
+- [x] **F36 (closed as not needed, 0.102.0) — Answer the game's own save and
+  overwrite prompts.** Checked rather than built. No companion path reaches the
+  game's Save Current Game, Camp → Save, the Standard File "Replace?" or the
+  quit confirmation: every save the companion makes (quick, named, automatic,
+  the fight-end quick save) and every restore is an emulator snapshot with no
+  game menu involved; the only keys the companion ever sends are the boot
+  dialog's Return (F30), the code-wheel answer, the V sheet key the player asks
+  for (F43) and the selection click (F89); the Cmd-key load sequence belongs to
+  the withdrawn F86 and has no caller. Live, a quick save and a load left the
+  game screen untouched apart from the treasure animation. The game's own
+  prompts appear only when the player chooses those commands, and answering
+  those for the player was ruled out with F61. Evidence in
+  [SAVE_STATES.md](SAVE_STATES.md#f36--the-games-own-save-prompts-2026-09-19).
 
 ### P1 — his designation
 
