@@ -11,6 +11,9 @@ Works offline. No root or account needed.
 [Download the 0.90.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
 for **Android 5.0 or later**.
 
+Source version 0.91 also avoids redrawing an unchanged combat overview.
+Its APK has not been published yet. [What changed](docs/COMBAT_REDRAW.md).
+
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
 3. Import copies of your Mac system and game disks through the disk menu.
@@ -62,14 +65,8 @@ The heading counts anyone hurt, down, waiting for rest or ready to train.
 - **NPC** marks a non-player party member.
 - **Info → Marching order** lists everyone from first to last.
 
-<img src="docs/images/readme-marching-order.png" width="760" alt="Marching order lists the six party members from first to last">
-
-*Screenshots from the running app. Game artwork belongs to its respective owners.*
-
 **Info → Money** shows each purse, party coin totals and their gold value.
 Gems and jewelry are counted separately. Open the coin converter from this page.
-
-<img src="docs/images/readme-money.png" width="760" alt="Money page with party coin totals and individual purses">
 
 **Info → Since last rest** shows observed fights and spell casts since the
 last detected rest, with the game's rest time. Until a rest is detected, it
@@ -114,8 +111,6 @@ messages collect in your notebook; a **Read** notice opens a new citation.
 **Info → Message log** keeps the latest 200 distinct messages the app observed
 in the current notebook.
 
-<img src="docs/images/readme-message-log.png" width="760" alt="Message log with recent game messages and the times they were observed">
-
 The Info tab also has spells, weapons and armor, and class progression tables.
 Code-wheel prompts are answered automatically when recognized, with an
 illustrated manual lookup as a fallback.
@@ -135,6 +130,8 @@ illustrated manual lookup as a fallback.
   automatic snapshots while a party is in the world.
 
 <img src="docs/images/readme-save-preview.png" width="760" alt="Quick-save preview with capture time and the requirement for matching disks">
+
+*Screenshots from the running app. Game artwork belongs to its respective owners.*
 
 On launch, the app tries to resume your last completed snapshot. Its disks must
 match and its notebook must still exist. Otherwise, the Mac boots normally.
