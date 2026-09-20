@@ -1782,7 +1782,10 @@ GLOBALFUNC jint restParty(jint slot)
     ui5b size;
     ui3p ram = GetRamForSnapshot(&size);
     if (ram == NULL || slot < 0) return -1;
-    return poolrad_party_rest((unsigned char *) ram, size, (unsigned) slot);
+    int changed = poolrad_party_rest((unsigned char *) ram, size, (unsigned) slot);
+    /* Match bandage/quick: refresh activity after a successful helper write. */
+    if (changed > 0) GuestActivity();
+    return changed;
 }
 
 GLOBALFUNC jboolean requestMessageSample(void)

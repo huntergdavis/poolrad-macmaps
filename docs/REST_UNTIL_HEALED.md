@@ -30,3 +30,31 @@ original game's Cast list, with no clock change. Healing and waking fallen
 members were verified with code tests and a captured game-memory fixture;
 those changes were not exercised on a live injured party in that session.
 [Implementation and verification](PARTY.md#rest-until-healed-f52-2026-09-19).
+
+## Companion HP refresh — 0.106.0
+
+A successful rest now counts as activity and wakes emulation, matching the
+existing bandage and quick helpers. The companion's existing post-rest party
+sample reads back the resulting HP without requiring a character tap.
+No character selection or gameplay input is synthesized.
+
+Live acceptance on the owned emulator used a party injured in an actual fight:
+Arax had 7/12 HP and Lara had 6/8 HP. After **PoolRad → Rest until healed → Rest**,
+the companion displayed 12/12 and 8/8 without selecting either character.
+The rest log reported two healed; the screenshot and recording retained the
+same selected character, position (Slums 2,11 south), and game time (00:47).
+Dead members remained dead.
+
+The original game's small Information window retained its previous pixels.
+The product lead confirmed that the companion display is the acceptance target;
+original-game window redraw changes are outside this fix.
+
+Evidence is retained locally under ignored scratch paths:
+`rest-refresh-candidate-ready.png`, `rest-refresh-fixed-after.png`, and
+`rest-refresh-first-attempt.mp4`. The development build also contained an
+experimental original-window invalidation; that ineffective experiment was
+removed before release. The successful-rest activity wake remains.
+
+Prior rest behavior and fixture guidance were reused from
+[PARTY.md](PARTY.md#rest-until-healed-f52-2026-09-19) and Deja session
+`1d01c279-196`.

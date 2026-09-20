@@ -1550,6 +1550,9 @@ quick-flag write.
   **the game clock are not touched**; the release note says so. Refused during
   a fight. Native, summary and outcome tests; live acceptance in
   [PARTY.md](PARTY.md#rest-until-healed-f52-2026-09-19).
+  **Companion refresh in 0.106.0:** a successful rest wakes activity while
+  the companion reads back the healed party. Live verification confirmed
+  updated HP without selecting a character. [Release note](releases/0.106.0.md).
 - [x] **F61 — DROPPED (owner decision 2026-09-19), duplicative.** The one
   item in this block that stays as input rather than a write, because it is the
   player answering the game, not the helper acting for them. Same family as
