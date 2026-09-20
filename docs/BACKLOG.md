@@ -1787,7 +1787,7 @@ Mac has stopped working — it keeps running underneath. In priority order:
   frames now bridge like busy frames; the epoch, serial, source and 1.25 s
   polling guards are unchanged. Unit-tested against the crossing as the probe
   reports it; the live New Phlan → Slums walk was not completed on this build
-  (sandbox stuck behind the code wheel).  logs each
+  (sandbox stuck behind the code wheel). `PoolRad.Travel` logs each
   travel-sample change so the first real crossing is self-evident.
 - [x] **F103 (delivered 0.93.0) — Skip autosaves that have nothing new to
   protect.** The five-minute tick now asks `AutosaveGate` first. Activity is
