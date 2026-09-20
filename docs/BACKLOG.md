@@ -1463,8 +1463,7 @@ reads back correctly.
   that falls back to two columns in two-line mode stays a single column in
   one-line mode — every row drawn, tappable and monochrome — so the map keeps
   its full width. A rendered bitmap confirmed it visually.
-- [ ] **F32 — An info panel** naming which save is loaded and how much room is
-  left on the save disk.
+- [x] **F32 — superseded by F98.** Same request (which save is loaded, room left), shipped as Info → Saves in 0.86.0. See F98.
 - [ ] **F59 — A "since last rest" counter:** fights fought, spells spent. Kept
   on the info screen, not on the map. Pairs with F39 and F52.
 - [x] **F30 (delivered 2026-09-19) — Auto-dismiss the Mac's boot dialog.** After
