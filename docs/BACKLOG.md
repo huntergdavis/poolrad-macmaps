@@ -1336,7 +1336,11 @@ reads back correctly.
   race and spell lists. The running game's item names are already read correctly
   by the party probe, by a different route. F81 needs this, because an item from
   another version that does not exist here is exactly the case it has to refuse.
-- [ ] **F81 — A converter: any platform's save into a Macintosh one.** The
+- [~] **F81 — SHELVED (owner decision 2026-09-19), not dropped.** Not being
+  worked for now; revisit if it turns out to be needed. Original scope kept
+  below for whenever it comes back.
+
+  A converter: any platform's save into a Macintosh one. The
   reason for the whole block. It lets a party somebody else played, at any point
   in the game, be loaded here — which is a test fixture the scripting harness
   cannot produce at any price.
@@ -1514,19 +1518,16 @@ quick-flag write.
   and current HP at `+0x12b`, both already read. This supersedes the
   "auto-heal" exclusion for this specific case; see DESIGN.md. The quicksave
   half is F37's problem, not a memory write — see the note there.
-- [ ] **F41 — Equip a weapon at battle start** for anyone without one, by
-  writing the equipped field directly. **Blocked on decoding:** the equipment
-  section of the character record is known to start where the fixture puts it,
-  stride 68, but which field marks a weapon as equipped has not been
-  established. Decode it before building.
-- [ ] **F39 — Restore memorised spells after rest,** the same spells as last
-  time, by writing the memorised-spell fields. **Blocked on decoding:** the
-  spell section's layout is known by position but not by meaning.
+- [x] **F41 — DROPPED (owner decision 2026-09-19), too expensive.** The
+  decoding work this needed (which equipment field marks a weapon equipped)
+  was judged not worth the cost.
+- [x] **F39 — DROPPED (owner decision 2026-09-19), too expensive.** Same call
+  as F41 — the spell-section decoding this needed was judged not worth the cost.
 - [ ] **F52 — "Rest until healed",** by restoring HP, conditions and spells
   directly. Diverges further from the game's own rest than the others do,
   because resting also advances the game clock; decide whether the clock is
   advanced to match, and say so in the release note either way.
-- [ ] **F61 — Big Yes/No buttons when the game asks a yes/no question.** The one
+- [x] **F61 — DROPPED (owner decision 2026-09-19), duplicative.** The one
   item in this block that stays as input rather than a write, because it is the
   player answering the game, not the helper acting for them. Same family as
   F30, and it routes around the keyboard-focus problem that has repeatedly
