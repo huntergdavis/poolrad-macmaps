@@ -22,6 +22,14 @@ note on its ordered I/O queue, and rechecks the area generation and editing
 state on the UI thread before showing it. Obsolete requests cannot create
 stray arrival flags. Manual editor and index opens remember the selected square.
 
+## In use
+
+![The Slums arrival opens its note page above the game, with the map at left and writing space at right](images/area-note-follow-slums.png)
+
+*Live gate-crossing test capture from the notebook development build.
+Source: `poolrad-macmaps-for-codex/scratch/f57-live-slums.png`.
+The verification notes below distinguish this live test from the synthetic checks.*
+
 ## Verification
 
 - 693 Java tests pass on the integrated 0.87.0 branch, including five entry-state regressions.

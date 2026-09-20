@@ -75,6 +75,12 @@ Take your combat actions in the original game below.
 Tap a map tile to open a page with the map on the left and writing space on
 the right.
 
+**New in 0.87 (APK not yet published):** entering a known area opens its
+last-used note, or a page at your arrival square if that note is missing.
+Once you start editing, the page stays put until **Close & save**; then the
+current area's note opens. You can still use the game beneath an automatically
+opened page. [See it in use](docs/AREA_NOTE_FOLLOW.md).
+
 - Draw with a pen or one finger. Use two fingers to zoom and move the page.
 - Erase your ink, undo or redo, and choose from nine note symbols. Notes autosave.
 - Keep separate notebooks for separate campaigns.
