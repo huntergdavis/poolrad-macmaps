@@ -8,7 +8,7 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.102.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.102.0/poolrad-macmaps-0.102.0.apk)
+[Download the 0.103.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.103.0/poolrad-macmaps-0.103.0.apk)
 for **Android 5.0 or later**.
 
 **Info → Options → Auto-skip informational messages** skips supported routine
