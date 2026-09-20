@@ -1640,12 +1640,12 @@ needed. Confirmed 2026-09-18.
   containing only the new references. It clears on notebook switch or snapshot
   transition. Nine companion checks and isolated message-fixture UI acceptance
   passed; see [CITATION_NOTICE.md](CITATION_NOTICE.md).
-- [x] **F57 (delivered 0.87.0) — Open the notebook page for the area you just
-  entered.** Reopens the last-used tile note per campaign/area, remembered across
-  app restarts, with the arrival square as the first-visit/deleted-note fallback.
-  Reading pages follow; active strokes and edited pages stay pinned until
-  Close & save, then follow the latest area. Same-area steps and temporary
-  unavailable samples do not reopen a closed page. See [release notes](releases/0.87.0.md).
+- [x] **F57 (corrected 0.104.0) — Open notebook pages only on player request.**
+  The automatic area-entry behavior from 0.87.0 got in the way of exploration.
+  Area changes now update the map and its flags without opening a page or
+  queuing one to reopen after Close & save. Map-tap and note-index opening,
+  existing handwriting and normal saving remain available.
+  See [release notes](releases/0.104.0.md).
 - [x] **F56 (delivered 2026-09-19) — A note index:** every note listed by area
   and date, tap to open. Reached from **Info → Notes index**. `NotebookStore`
   gains `listNotes(notebookId)` — every `<tile>.ink` across every area, newest

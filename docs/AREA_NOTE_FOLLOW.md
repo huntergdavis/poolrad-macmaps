@@ -1,4 +1,39 @@
-# Notes follow area entries — F57
+# Notebook pages open on request
+
+From 0.104.0, entering an area never opens or switches a notebook page.
+Open a page yourself by tapping a map tile or selecting a saved note in the
+index. Closing a page leaves it closed; there is no deferred destination page.
+An already-open note remains attached to its original area and square.
+Existing handwriting and notebook backups are unchanged.
+
+This fixes the automatic-opening behavior introduced in 0.87.0. The production
+controller no longer schedules note reads or editor creation from area changes,
+exploration samples, flag-load completion, or editor dismissal. The old
+last-page preferences are left on disk but are no longer read or written.
+
+## 0.104.0 verification
+
+- The candidate universal APK built successfully; all 727 Java tests passed.
+- On disposable emulator-5590, a real SampleParty walked New Phlan → Slums,
+  returned to New Phlan, then crossed the Slums to Kuto’s Well and returned.
+  Screenshots were inspected at the crossings: no notebook appeared. Kuto’s
+  Well displayed the existing reference-only/unavailable-position view; no
+  claim is made here about improving that separate map-reading behavior.
+- The isolated Android controller/editor regression passed on emulator-5592:
+  initial, new and returning areas stay closed; no arrival flags are created;
+  manually opened reading and ink pages stay pinned; closing has no deferred
+  reopen; saved ink reopens manually; physical Back saves and closes.
+  These explicitly synthetic samples test the real Android UI but are separate
+  from the live walking evidence above.
+- Private local evidence: `scratch/manual-notes-slums-arrival.png`,
+  `scratch/manual-notes-new-phlan-return.png`,
+  `scratch/manual-notes-kuto-stable.png`, `scratch/manual-notes-walk*.log`, and
+  `scratch/area-note-follow-check.2w54X2/screenshots/f57-check/`.
+
+The earlier area-follow investigation was recalled from Deja session
+`1d01c279-196` before removing the automatic-opening path.
+
+## Historical 0.87.0 behavior and evidence (superseded)
 
 An identified area opens its last-used tile note. If the campaign has never
 opened a note there, or that note was deleted, the entry square supplies the

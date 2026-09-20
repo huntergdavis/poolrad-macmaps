@@ -32,5 +32,5 @@ javac -cp "$SDK/platforms/android-34/android.jar" -d "$OUT/classes" "$ROOT/tools
 "$ADB" -s "$SERIAL" shell am instrument -w com.hunterdavis.poolradmacmaps.f57check/name.osher.gil.minivmac.check.AreaNoteFollowCheck | tee "$OUT/result.txt"
 mkdir -p "$OUT/screenshots"
 "$ADB" -s "$SERIAL" exec-out run-as "$PACKAGE" tar -C files -cf - f57-check | tar -C "$OUT/screenshots" -xf -
-grep -q '^PASS arrival fallback' "$OUT/result.txt"
+grep -q '^PASS manual opening only' "$OUT/result.txt"
 echo "Evidence: $OUT"

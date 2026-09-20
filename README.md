@@ -104,11 +104,9 @@ the right.
 - Each page remembers its template. Templates appear in backups, images and PDFs.
   [Template guide](docs/NOTE_TEMPLATES.md).
 
-Entering a known area opens its last-used note, or a page at your arrival
-square if that note is missing.
-Once you start editing, the page stays put until **Close & save**; then the
-current area's note opens. You can still use the game beneath an automatically
-opened page. [How notes follow your party](docs/AREA_NOTE_FOLLOW.md).
+Notes open only when you choose a map tile or a note in the index. Entering an
+area never opens or switches a notebook page, and closing a note leaves it
+closed. [Notebook opening behavior](docs/AREA_NOTE_FOLLOW.md).
 
 - Draw with a pen or one finger. Use two fingers to zoom and move the page.
 - Erase your ink, undo or redo, and choose from nine note symbols. Notes autosave.

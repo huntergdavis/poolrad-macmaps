@@ -41,24 +41,15 @@ public final class AreaNoteFollowCheck extends Instrumentation {
             });
             ui(() -> call(field(activity, "_currentFragment"), "stopMapPolling"));
             stateClass = Class.forName("name.osher.gil.minivmac.mapper.PoolRadState");
-            area(0, 1, 2); page(0, 1, 2); shot("arrival");
-            android.app.Dialog automatic = (android.app.Dialog) field(session(), "dialog");
-            int passThrough = android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                    | android.view.WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL;
-            check((automatic.getWindow().getAttributes().flags & passThrough) == passThrough,
-                    "automatic page blocks game keyboard or outside touches");
-            close();
-            area(0, 2, 2); SystemClock.sleep(400); check(session() == null, "ordinary movement reopened page");
-            ui(() -> {
-                Object sample = call(map, "snapshot");
-                Object identity = field(sample, "area");
-                method(controller.getClass(), "onTileTapped", identity.getClass(), int.class, int.class)
-                        .invoke(controller, identity, 7, 8);
-            });
-            page(0, 7, 8); close();
-            area(20, 3, 4); page(20, 3, 4); shot("new-area");
-            area(0, 9, 10); page(0, 7, 8); shot("remembered");
+            area(0, 1, 2); noPage(); shot("arrival-closed");
+            area(20, 3, 4); noPage();
+            area(1, 5, 6); noPage(); shot("new-areas-closed");
+            check(((java.util.Map<?, ?>)field(controller,"flags")).isEmpty(), "arrival created a note flag");
+            area(0, 2, 2); noPage();
+            open(7, 8); page(0, 7, 8);
             Object pinned = session();
+            area(20, 4, 4); waitForIdleSync();
+            check(session() == pinned, "area change replaced manually opened reading page");
             View sheet = (View) field(pinned, "sheet");
             Rect bounds = new Rect(); ui(() -> sheet.getGlobalVisibleRect(bounds));
             float x = bounds.left + bounds.width() * .8f, y = bounds.top + bounds.height() * .5f;
@@ -66,28 +57,19 @@ public final class AreaNoteFollowCheck extends Instrumentation {
             touch(down, MotionEvent.ACTION_DOWN, x, y);
             touch(down, MotionEvent.ACTION_MOVE, x + 35, y + 20);
             check((Boolean) call(sheet, "isDrawing"), "stroke did not start");
-            area(20, 4, 4); area(1, 5, 6); SystemClock.sleep(400);
-            check(session() == pinned, "area switch interrupted active stroke");
-            shot("active-stroke");
+            area(1, 5, 6); SystemClock.sleep(400);
+            check(session() == pinned, "area change interrupted active stroke");
             touch(down, MotionEvent.ACTION_UP, x + 70, y + 30);
             await(() -> integer(pinned, "revision") > 0);
-            area(20, 4, 4); area(1, 6, 6); SystemClock.sleep(400);
-            check(session() == pinned, "area switch replaced edited page");
-            shot("protected-ink");
-            close(); page(1, 6, 6); shot("deferred-latest");
-            area(0, 0, 0); page(0, 7, 8);
+            shot("manual-ink-preserved");
+            close(); noPage(); shot("close-stays-closed");
+            area(0, 0, 0); noPage();
+            open(7, 8); page(0, 7, 8);
             Object ink = call(field(session(), "sheet"), "getNote");
             check(!((java.util.List<?>) call(ink, "strokes")).isEmpty(), "ink was not saved to its original page");
-            shot("ink-preserved");
-            Object original = session();
-            touch(down = SystemClock.uptimeMillis(), MotionEvent.ACTION_DOWN, x, y + 40);
-            touch(down, MotionEvent.ACTION_UP, x + 25, y + 55);
-            await(() -> integer(original, "revision") > 0);
-            area(20, 2, 4); area(0, 0, 0); waitForIdleSync();
-            check(session() == original, "return to open area replaced its editor");
-            close(); SystemClock.sleep(400);
-            check(session() == null, "return to open area reopened a page just closed");
-            area(20, 2, 4); page(20, 3, 4);
+            shot("manual-reopen");
+            close(); noPage();
+            area(20, 2, 4); noPage(); open(2, 4); page(20, 2, 4);
             Object beforeBack = session();
             long keyTime = SystemClock.uptimeMillis();
             check(getUiAutomation().injectInputEvent(new android.view.KeyEvent(keyTime, keyTime,
@@ -95,7 +77,8 @@ public final class AreaNoteFollowCheck extends Instrumentation {
             check(getUiAutomation().injectInputEvent(new android.view.KeyEvent(keyTime, SystemClock.uptimeMillis(),
                     android.view.KeyEvent.ACTION_UP, android.view.KeyEvent.KEYCODE_BACK, 0), true), "Back up rejected");
             await(() -> { try { return session() != beforeBack; } catch(Exception e) { return false; } });
-            results.append("PASS arrival fallback, remembered page, no same-area reopen, read-only follow, active-stroke protection, edited-page protection, latest deferred area, original ink persistence, return to open area, game-input window flags, physical Back\n");
+            noPage();
+            results.append("PASS manual opening only, initial and returning areas stay closed, no arrival flags, reading and active ink stay pinned, no deferred reopen, saved ink reopens manually, physical Back\n");
             result.putString("stream", results.toString()); finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
             result.putString("stream", results + "FAIL " + android.util.Log.getStackTraceString(failure));
@@ -114,6 +97,18 @@ public final class AreaNoteFollowCheck extends Instrumentation {
         Object state=method(stateClass,"parse",byte[].class,catalog).invoke(null,packet,identities);
         check(state != null && field(state,"area") != null,"synthetic identity rejected");
         ui(() -> method(map.getClass(),"showState",stateClass).invoke(map,state));
+    }
+    private void noPage() throws Exception {
+        await(() -> { try { return (Boolean)field(controller,"flagsReady"); } catch(Exception e){return false;} });
+        waitForIdleSync(); SystemClock.sleep(500);
+        check(session() == null, "area change or close opened a note without a player request");
+    }
+    private void open(int x, int y) throws Exception {
+        ui(() -> {
+            Object identity = field(call(map,"snapshot"),"area");
+            method(controller.getClass(),"onTileTapped",identity.getClass(),int.class,int.class)
+                    .invoke(controller,identity,x,y);
+        });
     }
     private void page(int id,int x,int y) throws Exception {
         long started=SystemClock.elapsedRealtime();
