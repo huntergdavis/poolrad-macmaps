@@ -10,7 +10,7 @@ the older d4 reference below for the active run.
 
 - F36 closed as not needed in 0.102.0: no companion path drives the game's
   save prompts (all saves are snapshots; the Cmd-key loader is dead F86 code).
-  Evidence in docs/SAVE_STATES.md; removing `LoadSequence` is a follow-up.
+  Evidence in docs/SAVE_STATES.md; `LoadSequence` and its plumbing were removed.
 - F52 shipped in 0.101.0: PoolRad → Rest until healed (`poolrad_party_rest`):
   HP to max, Unconscious/Dying → Okay, chosen spells ready, +0x2c cleared;
   clock and effects untouched. `PoolRad.Rest` logs per-row flags.

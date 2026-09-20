@@ -1235,7 +1235,7 @@ reads back correctly.
   machine to reach a state where the game offers Load, and on the owner's device
   a restart that did not come back cleanly wedged the emulator so badly it needed
   a force-reboot. That is far too destructive to leave in front of anyone. The
-  menu item is gone; the `LoadSequence` state machine and its tests stay, and
+  menu item is gone; the `LoadSequence` state machine and its tests were removed on 2026-09-19 (dead code), and
   the backup/restore of save *files* is untouched because it never restarts
   anything.
 

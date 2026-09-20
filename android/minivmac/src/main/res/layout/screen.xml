@@ -40,26 +40,6 @@
             android:src="@drawable/ic_fullscreen"
             android:contentDescription="@string/toggle_system_ui"
             android:visibility="gone" />
-    <!-- Covers the guest while the companion works its menus for it -->
-    <LinearLayout
-        android:id="@+id/busy_layout"
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:gravity="center"
-        android:background="#FFFFFF"
-        android:visibility="gone"
-        android:clickable="true"
-        android:focusable="false">
-        <TextView
-            android:id="@+id/busy_text"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textColor="#000000"
-            android:textSize="18sp"
-            android:padding="16dp" />
-    </LinearLayout>
-
     <!-- Restart button -->
     <RelativeLayout
         android:id="@+id/restart_layout"

@@ -335,8 +335,9 @@ prompts. F36 was closed without an app change.
   emulator snapshots. `SaveStateController` calls `Core.requestSaveState()`
   and `Core.restoreState()`; neither action selects a game menu.
 - **Withdrawn loader:** `SaveBackupController` no longer offers its
-  restart-based load option. `EmulatorFragment.loadSavedGame()` has no caller;
-  its `LoadSequence` and `sendCommandKey()` plumbing remains unused.
+  restart-based load option. `EmulatorFragment.loadSavedGame()` had no caller;
+  it, `LoadSequence`, the Cmd-key typing helpers and the busy overlay were
+  removed on 2026-09-19.
 - **Live check:** A quick save and a load completed on the sandbox
   (`Saved QUICK`, `Restore completed: true`) while the game showed its treasure
   screen. Only the treasure animation changed.
@@ -345,7 +346,7 @@ prompts. F36 was closed without an app change.
   overwrite and quit confirmations remain the player's to answer. F61 ruled
   out answering these choices on the player's behalf.
 
-Removing the unused restart-loader plumbing would be separate cleanup.
+The unused restart-loader plumbing has since been removed.
 
 ## How this relates to the game's own save format
 
