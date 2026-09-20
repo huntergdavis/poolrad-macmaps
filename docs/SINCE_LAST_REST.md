@@ -39,6 +39,12 @@ Since then
 Before any completed rest: "No completed rest seen yet. Counting since the
 game was loaded at Day 1 · 12:10 am."
 
+![Since last rest after loading a game, before any rest has been detected](images/since-last-rest.png)
+
+*Fresh-load view captured from the F59 test build.
+Source: `poolrad-macmaps-for-claude/scratch/f98/rest-page-fresh.png`.
+This image shows the starting counts; live-test limits are recorded below.*
+
 ## Snapshots
 
 Every quick, named and automatic snapshot writes a small `.rest` sidecar next

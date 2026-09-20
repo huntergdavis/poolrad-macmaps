@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.86.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.86.0)
+[0.90.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.90.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.86.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.86.0/poolrad-macmaps-0.86.0.apk)
+   [`poolrad-macmaps-0.90.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -41,7 +41,8 @@ on that exact application identity; renaming it can stop tracking.
 The Mac Plus flavor needs its own matching ROM and has not been runtime-tested.
 
 The **keyboard icon** opens the keyboard beneath the game.
-**Map / Info** switches only the upper pane; the game and keyboard stay put.
+**Map / Connections / Info** switches only the upper pane; the game and
+keyboard stay put.
 **PoolRad → Show companion** hides or shows that whole pane and remembers your
 visibility choice. References and all rune pickers fit its actual bounds without
 dimming or covering the game. Close returns to the selected tab.
@@ -56,7 +57,13 @@ guessed connecting paths. Tracking continues on Info or with the pane hidden
 while the app is resumed. Clear footprints or reset one walked map explicitly;
 neither removes your handwritten flags. [Exploration guide](EXPLORATION.md).
 
-**PoolRad → Screenshot** captures the selected Map/Info tab, game, and visible keyboard.
+**Connections** records passages your party has traveled, with arrows for each
+direction used. On a known exit square, the map can preview explored squares
+in the destination. [Connections](AREA_CONNECTIONS.md) ·
+[Exit previews](NEIGHBOR_PREVIEW.md).
+
+**PoolRad → Screenshot** captures the selected companion tab, game, and
+visible keyboard.
 Choose **Save PNG…** to keep it in Downloads or another location, or **Share
 PNG…** to open Android's share chooser. Menus and system bars are not part of
 the picture. Unsaved captures are temporary; use Save for pictures you want to keep.
@@ -87,8 +94,14 @@ Draw on the map at left and write in the white space at right. Pen, eraser,
 undo/redo and **Close & save** affect only that page. The symbol button chooses
 smithy, temple, monster and other personal labels. No annotation checkbox or
 separate drawing menu is needed. **Notebooks** selects a separate campaign;
-changing a Mac save does not select a notebook for you.
+loading an original-game save does not select a notebook for you.
+Emulator snapshots reopen their paired notebook.
 [Handwriting guide](NOTEBOOK.md) · [Map-plus-writing pages](MAP_INK.md).
+
+Entering a known area opens its last-used note, or a page at the arrival square.
+Edited pages stay open until **Close & save**; then the current area's page
+opens. Automatically opened pages leave the game controls available.
+[Automatic notebook pages](AREA_NOTE_FOLLOW.md).
 
 The compact header leaves the rest of the upper pane for drawing. A pen or
 one finger writes; two fingers zoom and move the page. **Fit page** sits with

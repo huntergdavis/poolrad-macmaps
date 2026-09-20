@@ -8,11 +8,8 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.86.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.86.0/poolrad-macmaps-0.86.0.apk)
+[Download the 0.90.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
 for **Android 5.0 or later**.
-
-Features marked **0.87–0.89** below are newer than this download.
-Their APKs are not yet published.
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -38,12 +35,12 @@ disks before uninstalling or clearing app data.
 - Tap the map header to highlight your party's square.
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
 - Open **Info → Map legend** for the symbols.
-- **Connections (0.88)** shows passages between
-  areas you have visited. Arrows record only the directions you traveled.
+- **Connections** shows passages between areas you have visited.
+  Arrows record only the directions you traveled.
   Tap an area to browse its neighbors; **Current area** returns the view to
   your party. Routes stay with your notebook and its backups. Loading a save
   adds no route. [See the Connections view](docs/AREA_CONNECTIONS.md).
-- **Exit previews (0.89):** stand on an exit square you have already used to see
+- **Exit previews:** stand on an exit square you have already used to see
   its destination beside your map. Only explored squares appear, even with fog
   off. Tap the preview to browse multiple destinations. Older notebooks gain
   previews as you revisit areas. [See an exit preview](docs/NEIGHBOR_PREVIEW.md).
@@ -74,6 +71,11 @@ Gems and jewelry are counted separately. Open the coin converter from this page.
 
 <img src="docs/images/readme-money.png" width="760" alt="Money page with party coin totals and individual purses">
 
+**Info → Since last rest** shows observed fights and spell casts since the
+last detected rest, with the game's rest time. Until a rest is detected, it
+counts from loading the game. Snapshots keep their own counts.
+[Counting rules and test coverage](docs/SINCE_LAST_REST.md).
+
 During combat, the overview shows your party and enemies, names the monsters,
 and counts those still standing. A ring and a marked party row identify the
 acting party member. Tap a party marker to highlight its row. Crosses distinguish
@@ -85,8 +87,8 @@ Take your combat actions in the original game below.
 Tap a map tile to open a page with the map on the left and writing space on
 the right.
 
-**New in 0.87:** entering a known area opens its
-last-used note, or a page at your arrival square if that note is missing.
+Entering a known area opens its last-used note, or a page at your arrival
+square if that note is missing.
 Once you start editing, the page stays put until **Close & save**; then the
 current area's note opens. You can still use the game beneath an automatically
 opened page. [See it in use](docs/AREA_NOTE_FOLLOW.md).
@@ -128,9 +130,6 @@ illustrated manual lookup as a fallback.
   saves you have, and how much space is left. It estimates how many more saves
   will fit. Use **Load… → Delete…** to remove an old save.
   [See the Saves page](docs/SAVE_STATES.md#f98--info--saves).
-- **Info → Since last rest** counts the fights fought and spells cast since the
-  party last rested, with the rest's time on the game's clock. The count is
-  saved with each snapshot.
 - Each snapshot remembers its notebook.
 - **Info → Options** controls five-minute autosaves, which keep the latest 20
   automatic snapshots while a party is in the world.
