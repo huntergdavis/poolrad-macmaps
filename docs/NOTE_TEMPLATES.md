@@ -8,8 +8,9 @@ unchanged default, with no extra prompt when opening or creating a page.
 Paper is separate from handwriting. Changing templates keeps existing ink;
 Eraser and stroke Undo/Redo affect ink only. The choice autosaves per page
 and is included in notebook backups, page images and PDFs. The chooser stays
-above the guest and scrolls on short displays; the toolbar retains its
-single row and fixed Close & save button.
+above the game and scrolls on short displays. Since 0.112.0, the editor tools
+sit in two fixed rows with **Close & save** beside them.
+[Current controls](NOTEBOOK.md).
 
 The note model carries a stable template ID, saved in the checksummed PRNI
 version-3 envelope. Version-1 and version-2 notes read as plain paper; merely
@@ -22,6 +23,8 @@ The prior-session search (`deja "notebook template"`) found no earlier
 template design beyond backlog F76. The implementation reuses the existing
 InkHistory, checksummed note envelope and shared InkSheetView export path.
 
+## Original template verification — 0.94.0
+
 Verified in the installed app on the owned API 30 emulator: a new
 Slums 14,4 page began on plain paper without a prompt. Grid, ruled list and
 map-frame choices each appeared beside the unchanged area map. A real
@@ -32,13 +35,9 @@ with zero changed pixels in the page body. After integrating the separate
 autosave release, the final 0.94.0 build restored that frame and ink, switched
 to grid paper, and saved/reopened with identical page pixels again.
 
-All 736 Java tests pass, including old-note compatibility, blank template
+All 736 Java tests passed, including old-note compatibility, blank template
 pages, restart/backup round trips, independent stroke undo/redo and refusing
 unknown template IDs without data loss. Eight actual Android export checks
-and seven editor-layout checks pass, including unchanged map pixels,
+and seven editor-layout checks passed, including unchanged map pixels,
 eraser-safe guides, narrow scrolling controls and large text. APK content,
 ABI, signature and README screenshot checks also pass.
-
-![Blank grid on the writing half beside the area map](images/note-template-grid.png)
-
-*Test-build screenshot from 0.94. Templates are included in the published 0.96 APK.*

@@ -115,6 +115,8 @@ area never opens or switches a notebook page, and closing a note leaves it
 closed. [Notebook opening behavior](docs/AREA_NOTE_FOLLOW.md).
 
 - Draw with a pen or one finger. Use two fingers to zoom and move the page.
+- Tools stay visible in two rows, with **Close & save** beside them.
+  No sideways scrolling is needed.
 - Erase your ink, undo or redo, and choose from nine note symbols. Notes autosave.
 - Keep separate notebooks for separate campaigns.
 - Open **Info → Notes index** to browse saved notes by area and date.

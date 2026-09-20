@@ -8,7 +8,6 @@ symbol persistence, cross-sheet ink/erasing, undo/redo and confirmed deletion.
 [Evidence and hardware limits](LOCAL_TESTING.md#050-integrated-acceptance-2026-09-13).
 
 ```text
-  [Pen] [Eraser] [Undo] [Redo] [Symbol] [Delete]
   +----------------------+----------------------+
   |                      |                      |
   |  MAP OF THIS AREA    |  WHITE WRITING SPACE |

@@ -39,15 +39,15 @@ Eraser and stroke Undo/Redo leave the guides intact. Templates travel with
 notebook backups and appear in note images and PDFs. No chooser interrupts
 the normal new-page flow. See [template verification](NOTE_TEMPLATES.md).
 
-**Compact controls:** the title and save status sit beside two fixed rows of
-tools, drawing tools above (Pen, Eraser, Undo, Redo, Symbol) and page actions
-below (Journal, Template, Fit page, Delete…), with **Close & save** standing
-beside both. Nothing scrolls: every control is visible at once at every width
-(since 2026-09-20; the single strip had grown a scrollbar). The rest of the
-pane is your sketch. A pen or
-one finger draws; two fingers zoom/pan. The old Pen only preference is no longer
-applied. A nearby finger tap can open a large flag-choice list without
-accidentally creating another note.
+**Tools stay visible in two rows:**
+
+- Drawing: Pen, Eraser, Undo, Redo, and the symbol button.
+- Page actions: Journal, Template, Fit page, and Delete….
+
+**Close & save** sits beside both rows. The tools do not scroll.
+A pen or one finger draws; two fingers zoom and move the page.
+A finger tap near a flag offers a larger chooser for nearby flags.
+
 [Controls, input behavior and the remaining tablet check](PEN_NOTES.md).
 
 ## Separate campaigns
