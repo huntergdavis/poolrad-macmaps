@@ -75,7 +75,8 @@ The heading counts anyone hurt, down, waiting for rest or ready to train.
 **PoolRad → Rest until healed** previews full healing, waking Unconscious or
 Dying members, and memorizing chosen spells. Confirm it to apply those changes
 outside combat. It does not advance time, cure poison, revive the dead or save
-your game. [Rest helper guide and limits](docs/REST_UNTIL_HEALED.md).
+your game. The companion HP display updates after healing; the original game
+window may still show old numbers. [Rest helper guide and limits](docs/REST_UNTIL_HEALED.md).
 
 **Info → Money** shows each purse, party coin totals and their gold value.
 Gems and jewelry are counted separately. Open the coin converter from this page.
@@ -191,6 +192,7 @@ before stopping the emulator; a forced quit can damage a disk.
 This is a prototype tested with Macintosh Pool of Radiance v1.1.
 Tracking has been checked in New Phlan and on the Slums gate round trip.
 Full-game area transitions and newly recruited NPCs still need testing.
+The latest Connections fix still needs a live crossing check.
 The combat overview shows no terrain. In the wilderness, use the game's own map;
 a separate companion map is not planned.
 

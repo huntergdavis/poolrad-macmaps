@@ -47,7 +47,16 @@ The departure is the last settled native square before the area changed; the
 arrival is the first authenticated settled destination observed by Android.
 No path is interpolated, and no reciprocal direction is assumed.
 
-## Validation
+## Current verification
+
+The 0.105.0 fix preserves a departure while the next map briefly reports
+Position unavailable. Automated tests cover that sequence and still reject
+changed travel epochs, skipped areas and long polling gaps.
+
+A live gate crossing was not completed on this build. The older results below
+do not verify the new fix. [0.105.0 test limits](releases/0.105.0.md).
+
+## Earlier 0.88.0 validation
 
 The 0.88.0 universal APK passes all 702 Java tests. New coverage checks directed
 recording, exact departure/arrival squares, duplicate suppression, interrupted
