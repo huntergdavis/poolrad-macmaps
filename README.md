@@ -11,8 +11,16 @@ Works offline. No root or account needed.
 [Download the 0.96.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.96.0/poolrad-macmaps-0.96.0.apk)
 for **Android 5.0 or later**.
 
-Source version 0.97 stops the emulator's background work when you switch away.
-Its APK is not yet published. [Pause and resume details](docs/PAUSED_IDLE.md).
+The source has three changes that are **not in the published APK yet**:
+
+- The emulator stops its background work when you switch away.
+  [Pause and resume](docs/PAUSED_IDLE.md).
+- The combat overview shows the full 50 × 25-square arena. Its frame stays fixed
+  as characters move or fall. [Arena view and verification](docs/COMBAT_MEMORY.md#full-arena-bounds-f73-0980).
+- After a fight's results and treasure screens, the app bandages Dying party
+  members if someone is still standing, then takes a quick save. Bandaged characters
+  remain Unconscious at zero hit points.
+  [Behavior and test limits](docs/PARTY.md#the-bandage-write-f40-2026-09-19).
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -168,8 +176,9 @@ before stopping the emulator; a forced quit can damage a disk.
 
 This is a prototype tested with Macintosh Pool of Radiance v1.1.
 Tracking has been checked in New Phlan and on the Slums gate round trip.
-Full-game area transitions, wilderness maps, the combat arena's full boundaries
-and newly recruited NPCs still need work or testing.
+Full-game area transitions and newly recruited NPCs still need testing.
+The combat overview shows no terrain. In the wilderness, use the game's own map;
+a separate companion map is not planned.
 
 Stylus drawing and two-finger zoom/scroll have been tested on a real e-ink
 tablet. Rotation and keyboard layout still need checking.

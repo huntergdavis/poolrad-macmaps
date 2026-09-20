@@ -3,9 +3,9 @@
 `LiveMapView.showCombatSample` compares the displayed combat state before
 requesting a redraw or rebuilding accessibility text. The comparison includes
 ordered combatant positions and sides, fallen marker shapes, the acting name,
-and the ordered enemy names/counts. Bounds and summary counts follow from
-those same entries. Party HP and condition words still update through the
-existing independent party comparison.
+and the ordered enemy names/counts. Summary counts follow from those entries.
+Since 0.98.0, the arena bounds stay fixed at 50 × 25 squares. Party HP and
+condition words still update through the existing independent party comparison.
 
 Every valid sample, including an unchanged one, renews the existing reading
 hold. A prolonged refusal clears the overview once; a valid reading restores
@@ -59,4 +59,6 @@ and the next acting ring transferred to Shara, whose 3 HP matched the game.
 No captured RAM, game disks, or debugger instrumentation is included in the
 app or repository.
 
-![The final build follows Shara's turn and the game's 3 HP reading](images/combat-redraw.png)
+The overview now shows the full arena. See the
+[0.98.0 test screenshot and verification](COMBAT_MEMORY.md#full-arena-bounds-f73-0980)
+for its current layout.
