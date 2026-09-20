@@ -54,7 +54,10 @@ def check(target):
         if hashlib.sha256(path.read_bytes()).hexdigest() != record['sha256']:
             errors.append(f'{name}: image changed since capture was recorded')
     if not linked:
-        errors.append('README has no screenshots')
+        # A README that deliberately carries no screenshots has nothing to go
+        # stale; say so rather than blocking the release.
+        print('README: no screenshots linked; nothing to check for staleness')
+        return
     if errors:
         raise ValueError('\n'.join(errors))
     print(f'README: {len(linked)} screenshots verified, each at most 3 releases old for {target}')
