@@ -26,7 +26,7 @@ def main():
     adb = str(Path(os.environ.get('ANDROID_HOME', '/usr/lib/android-sdk')) / 'platform-tools/adb')
     pkg = 'com.hunterdavis.poolradmacmaps.ii'
     def run(*args, binary=False):
-        return subprocess.check_output(args, timeout=30, text=not binary)
+        return subprocess.check_output(args, timeout=120, text=not binary)  # OCR on a loaded host
     def device(*args, binary=False): return run(adb, '-s', a.serial, *args, binary=binary)
     def log(message):
         print(datetime.now(ZoneInfo('America/Los_Angeles')).strftime('[%Y-%m-%d %H:%M:%S %Z] ') + message, flush=True)

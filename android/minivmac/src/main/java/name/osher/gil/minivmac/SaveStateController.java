@@ -51,6 +51,9 @@ public final class SaveStateController {
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final SaveRequestGate requests = new SaveRequestGate();
     private final SaveStatus status = new SaveStatus();
+    public interface Outcome { void saved(SaveRequestGate.Kind kind); void failed(SaveRequestGate.Kind kind); void restored(); }
+    private Outcome outcome;
+    public void setOutcome(Outcome listener) { outcome = listener; }
     private java.util.function.Supplier<byte[]> tallySupplier;
     private java.util.function.Consumer<byte[]> tallyRestore;
 
@@ -88,6 +91,7 @@ public final class SaveStateController {
         long captureMs = SystemClock.elapsedRealtime() - request.started;
         if (state == null || disks == null) {
             requests.finish(request);
+            main.post(() -> { if (outcome != null) outcome.failed(request.kind); });
             if (request.kind != SaveRequestGate.Kind.AUTO) main.post(() -> toast("The machine could not be captured."));
             return;
         }
@@ -117,6 +121,7 @@ public final class SaveStateController {
                     Log.i(TAG, "Saved " + request.kind + ": capture=" + captureMs + "ms, worker="
                             + (SystemClock.elapsedRealtime() - began) + "ms, preview="
                             + (SystemClock.elapsedRealtime() - previewStart) + "ms");
+                    main.post(() -> { if (outcome != null) outcome.saved(request.kind); });
                     if (request.kind != SaveRequestGate.Kind.AUTO) {
                         status.saved(written, capturedAt);
                         final String message = "Saved " + SaveStateStore.displayLabel(written)
@@ -125,6 +130,7 @@ public final class SaveStateController {
                     }
                 } catch (IOException | RuntimeException failure) {
                     Log.w(TAG, "Save failed", failure);
+                    main.post(() -> { if (outcome != null) outcome.failed(request.kind); });
                     if (request.kind != SaveRequestGate.Kind.AUTO)
                         main.post(() -> toast("Could not save: " + failure.getMessage()));
                 } finally { requests.finish(request); }
@@ -371,6 +377,7 @@ public final class SaveStateController {
                     if (!alive()) return;
                     if (restored) {
                         status.loaded(file, System.currentTimeMillis());
+                        if (outcome != null) outcome.restored();
                         io.execute(() -> {
                             if (!store.writeBinding(file, transition.notebookId()))
                                 main.post(() -> toast("Loaded, but notebook pairing could not be saved."));

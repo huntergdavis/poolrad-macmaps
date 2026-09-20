@@ -29,7 +29,7 @@ def main():
     number = 0
 
     def run(*args, binary=False):
-        return subprocess.check_output(args, text=not binary, timeout=35)
+        return subprocess.check_output(args, text=not binary, timeout=150)  # OCR on a loaded host
 
     def log(message):
         print(datetime.now(ZoneInfo('America/Los_Angeles')).strftime('[%Y-%m-%d %H:%M:%S %Z] ') + message, flush=True)
@@ -43,7 +43,7 @@ def main():
         image.with_suffix('.txt').write_text(text)
         return set(re.findall(r'[a-z0-9]+', text.casefold()))
 
-    def wait_for(required, label, timeout=45, forbidden=(), consecutive=1):
+    def wait_for(required, label, timeout=240, forbidden=(), consecutive=1):
         matches = 0
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:

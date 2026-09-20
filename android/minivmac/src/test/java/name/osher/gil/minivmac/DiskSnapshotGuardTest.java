@@ -24,6 +24,17 @@ public class DiskSnapshotGuardTest {
         ByteArrayOutputStream out = new ByteArrayOutputStream(); f.writeTo(out); return out.toByteArray();
     }
 
+    @Test public void theRevisionCountMovesOnEveryMountOrWrite() throws java.io.IOException {
+        DiskSnapshotGuard guard = new DiskSnapshotGuard();
+        long start = guard.revisionCount();
+        guard.beforeWrite();
+        assertEquals(start + 1, guard.revisionCount());
+        guard.unmounted(0);
+        assertEquals(start + 2, guard.revisionCount());
+        guard.stopped();
+        assertEquals(start + 3, guard.revisionCount());
+    }
+
     @Test public void fullContentsRoundTripWithoutMovingTheGuestFilePointer() throws Exception {
         File f = disk(); byte[] before = Files.readAllBytes(f.toPath());
         try (RandomAccessFile file = new RandomAccessFile(f, "rw")) {

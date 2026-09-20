@@ -12,7 +12,8 @@ The page contains:
   Off by default; saved globally. Tap the map header to find the party.
 - One-line party rows.
 - Large message text.
-- Auto-save every five minutes, retaining the latest 20 automatic states.
+- Auto-save every five minutes, retaining the latest 20 automatic states. A
+  tick with nothing new since the last snapshot is skipped (F103).
 
 Every change applies immediately. The first two choices belong to the area
 named on the page. Before an area is available, they set defaults for areas

@@ -457,8 +457,13 @@ public class Core {
 
 	public void setMouseBtn(Boolean down) {
         if (startupGate != null && startupGate.held()) return;
+		if (Boolean.TRUE.equals(down)) inputEvents++;
 		setMouseButton(down);
 	}
+	private volatile long inputEvents;
+	/** Guest key and mouse presses so far; the autosave gate treats any change as activity. */
+	public long inputEvents() { return inputEvents; }
+	public long diskRevision() { return snapshotDisks.revisionCount(); }
 
 	public void setMoveMouse(int dx, int dy) {
         if (startupGate != null && startupGate.held()) return;
@@ -471,6 +476,7 @@ public class Core {
 
 	public void keyDown(int scancode) {
         if (startupGate != null && startupGate.held()) return;
+		inputEvents++;
 		setKeyDown(scancode);
 	}
 

@@ -21,6 +21,9 @@ public final class DiskSnapshotGuard {
     private static final int MAX_DRIVES = 32;
     private final TreeMap<Integer, Drive> drives = new TreeMap<>();
     private Object revision = new Object();
+    private long revisionCount;
+    /** How many times the mounted set or its contents have changed; any change is autosave activity. */
+    public synchronized long revisionCount() { return revisionCount; }
     private boolean stopped;
 
     private static final class Drive {
@@ -35,20 +38,20 @@ public final class DiskSnapshotGuard {
     public synchronized void mounted(int slot, RandomAccessFile file, boolean writable) {
         if (stopped || slot < 0 || slot >= MAX_DRIVES || file == null)
             throw new IllegalArgumentException("Invalid mounted disk");
-        revision = new Object();
+        revision = new Object(); revisionCount++;
         drives.put(slot, new Drive(slot, file, writable));
     }
 
     /** Invalidate before attempting a write, including a write that fails part way. */
-    public synchronized void beforeWrite() { revision = new Object(); }
+    public synchronized void beforeWrite() { revision = new Object(); revisionCount++; }
 
     public synchronized void unmounted(int slot) {
-        revision = new Object();
+        revision = new Object(); revisionCount++;
         drives.remove(slot);
     }
 
     public synchronized void stopped() {
-        stopped = true; revision = new Object(); drives.clear();
+        stopped = true; revision = new Object(); revisionCount++; drives.clear();
     }
 
     public static final class Ticket {

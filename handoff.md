@@ -8,6 +8,9 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F103 shipped in 0.93.0: `AutosaveGate` skips a five-minute autosave when no
+  guest input, sample change or disk change happened since the last snapshot
+  or restore; `PoolRad.Autosave` logs each skip/request.
 - F59 shipped in 0.90.0: Info → Since last rest (`mapper/RestTally`, pure
   Java) counts fights from the mode byte, casts from ready-slot drops and
   rests from an hour of camp clock or memorization; `.rest` snapshot sidecar.

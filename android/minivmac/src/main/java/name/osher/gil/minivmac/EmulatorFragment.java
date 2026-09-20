@@ -515,7 +515,60 @@ public class EmulatorFragment extends Fragment
         Core core = mCore;
         if (core == null || !core.isReady()) return;
         if (mLiveMap == null || mLiveMap.snapshot() == null) return;
+        mAutosaveGate.observeInput(core.inputEvents());
+        mAutosaveGate.observeDisks(core.diskRevision());
+        if (!mAutosaveGate.shouldSave()) {
+            mAutosaveGate.skipped();
+            Log.i("PoolRad.Autosave", "Skipped: nothing new since the last snapshot (skipped "
+                    + mAutosaveGate.skippedCount() + ", saved " + mAutosaveGate.savedCount() + ")");
+            return;
+        }
+        Log.i("PoolRad.Autosave", "Requesting: " + mAutosaveGate.lastReason());
+        mAutosaveGate.requested();
         saveState().autoSave();
+    }
+    private final AutosaveGate mAutosaveGate = new AutosaveGate();
+    private PartyState mGateParty;
+    private String mGateMessage;
+    private name.osher.gil.minivmac.mapper.MapObservation mGateMap;
+    /** Only a parsed party counts: a transient probe refusal is not the party changing. */
+    private void gateObservePartySample(byte[] sample) {
+        PartyState next = PartyState.parse(sample);
+        if (next == null) return;
+        if (mGateParty != null && !mGateParty.sameDisplay(next)) {
+            mAutosaveGate.noteActivity("party changed");
+            Log.i("PoolRad.Autosave", "party changed: " + gateDescribeParty(mGateParty) + " -> " + gateDescribeParty(next));
+        }
+        mGateParty = next;
+    }
+    private static String gateDescribeParty(PartyState party) {
+        StringBuilder out = new StringBuilder();
+        for (PartyState.Member m : party.members) out.append(m.name).append(' ').append(m.currentHp).append('/').append(m.maxHp)
+                .append(" c").append(m.condition).append(" q").append(m.quick).append(" s").append(m.spellsReadyTotal()).append('/')
+                .append(m.spellsAwaitingRestTotal()).append("; ");
+        return out.append("sel=").append(party.selectedIndex).toString();
+    }
+    /** Unreadable and updating frames are the probe blinking, not the game moving. */
+    private void gateObserveMap(name.osher.gil.minivmac.mapper.MapObservation seen) {
+        if (seen.mode == name.osher.gil.minivmac.mapper.MapMode.UNAVAILABLE
+                || seen.mode == name.osher.gil.minivmac.mapper.MapMode.UPDATING) return;
+        name.osher.gil.minivmac.mapper.MapObservation last = mGateMap;
+        if (last != null) {
+            String why = seen.mode != last.mode ? "mode " + last.mode + "->" + seen.mode
+                    : (seen.clock == null ? last.clock != null : !seen.clock.equals(last.clock)) ? "clock"
+                    : (seen.state == null ? last.state != null : !seen.state.sameDisplay(last.state)) ? "position/display" : null;
+            if (why != null) { mAutosaveGate.noteActivity("map changed"); Log.i("PoolRad.Autosave", "map changed: " + why); }
+        }
+        mGateMap = seen;
+    }
+    private void gateObserveMessage(byte[] sample) {
+        name.osher.gil.minivmac.journal.GameMessage msg = name.osher.gil.minivmac.journal.GameMessage.parse(sample);
+        if (msg == null) return;
+        if (mGateMessage != null && !mGateMessage.equals(msg.text)) {
+            mAutosaveGate.noteActivity("message changed");
+            Log.i("PoolRad.Autosave", "message changed");
+        }
+        mGateMessage = msg.text;
     }
 
     /** Push the companion view preferences (one-line rows F69, message mirror F64) to the map; applied on resume so returning from Settings takes effect. */
@@ -851,6 +904,11 @@ public class EmulatorFragment extends Fragment
         if (mSaveState == null) {
             mSaveState = new SaveStateController(requireActivity(), () -> mCore);
             mSaveState.setRestTally(mRestTally::encode, mRestTally::restore);
+            mSaveState.setOutcome(new SaveStateController.Outcome() {
+                @Override public void saved(SaveRequestGate.Kind kind) { mAutosaveGate.saved(kind == SaveRequestGate.Kind.AUTO); }
+                @Override public void failed(SaveRequestGate.Kind kind) { mAutosaveGate.failed(); }
+                @Override public void restored() { mAutosaveGate.restored(); }
+            });
             // Pair a save with the notebook open at save time, and bring it back on load.
             mSaveState.setNotebookLink(new SaveStateController.NotebookLink() {
                 @Override public String currentNotebookId() {
@@ -1002,6 +1060,7 @@ public class EmulatorFragment extends Fragment
                                 name.osher.gil.minivmac.mapper.MapObservation.parse(sample);
                         mRestTally.observeMap(seen.mode, seen.clock);
                         logRestTally(seen);
+                        gateObserveMap(seen);
                     }
                 });
             });
@@ -1020,6 +1079,7 @@ public class EmulatorFragment extends Fragment
                         mLiveMap.showPartySample(sample); mLiveMap.refreshQuickPending();
                         mRestTally.observeSignal(GameSignal.of(sample));
                         mRestTally.observeParty(PartyState.parse(sample));
+                        gateObservePartySample(sample);
                     }
                 });
             });
@@ -1038,6 +1098,7 @@ public class EmulatorFragment extends Fragment
                     if (mMapPolling && generation == mMapGeneration && mCore == mapCore
                             && companionMapActive()) {
                         if (mNotebook != null) mNotebook.onGameMessage(sample);
+                        gateObserveMessage(sample);
                         if (mLiveMap != null) {   // F64: mirror the text in larger type
                             name.osher.gil.minivmac.journal.GameMessage msg =
                                     name.osher.gil.minivmac.journal.GameMessage.parse(sample);

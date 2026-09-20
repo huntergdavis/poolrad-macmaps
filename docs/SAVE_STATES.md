@@ -275,6 +275,57 @@ any disk image was changed by the page.
 *Captured from the F98 test build during the acceptance checks above.
 Source: `poolrad-macmaps-for-claude/scratch/f98/saves-final.png`.*
 
+## F103 — autosaves that have nothing to protect
+
+The five-minute autosave used to run whether or not anything had happened,
+paying for an 8 MB capture, gzip and a disk fingerprint each time. It now asks
+`AutosaveGate` first, and skips the tick when nothing has moved since the last
+protected point.
+
+Activity is anything that could have changed the machine:
+
+- a guest key or mouse press (`Core.inputEvents()`),
+- a party, map or message sample that differs from the previous one (the same
+  change-only comparison the companion uses to redraw),
+- a disk write, mount or unmount (`DiskSnapshotGuard.revisionCount()`).
+
+A protected point is a successful snapshot of any kind (automatic, quick or
+named) or a completed restore, since the loaded snapshot already holds that
+exact state. Activity that arrives while a save is still compressing counts
+toward the next tick: the published image predates it. A failed capture or
+write never skips; the next tick saves.
+
+What is unchanged: the interval, the 20-autosave rotation, the snapshot format,
+and every guard on the write path. A player who walks, fights, rests, saves
+the game or even opens a menu still gets the next autosave. Only a genuinely
+idle period is skipped, and the log says so.
+
+### F103 acceptance — 2026-09-19
+
+On the disposable sandbox emulator-5586, after a normal Mac shutdown and
+install, with `f97guard` loaded through the original game's picker and the
+party standing at 15,1 W in New Phlan (`PoolRad.Autosave` log):
+
+- First tick after the load (20:20): `Requesting: party changed` →
+  `Saved AUTO`. The load itself is the change; there was no protected point.
+- Second tick, nothing touched for five minutes (20:25):
+  `Skipped: nothing new since the last snapshot (skipped 1, saved 1)`.
+- Third tick, after one turn key between ticks (20:30): `Requesting: guest
+  input` → `Saved AUTO`. The turn also logged `map changed: position/display`.
+
+An earlier build compared raw party packets and did not skip the idle tick:
+a transient party-probe refusal packet differs from a normal one and read as
+"party changed". The observers now compare parsed party states, parsed
+message text, and map mode/clock/position with unreadable and updating frames
+ignored, and log which reading moved. Unit tests cover the gate's rules
+(first save, activity, input and disk counters, mid-save activity, failure,
+restore); the observers are fragment code exercised only live, as above.
+
+Two shutdown/reinstall cycles needed manual Finder steps because OCR timed
+out on a heavily loaded host; the OCR timeouts in `tools/shutdown-test-guest.py`
+and `tools/load-test-save.py` were raised. No physical-device battery
+measurement was made.
+
 ## How this relates to the game's own save format
 
 The record and save-file work already done (F77, F78, F82, F85) is **not

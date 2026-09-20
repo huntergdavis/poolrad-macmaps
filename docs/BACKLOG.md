@@ -1723,11 +1723,16 @@ Mac has stopped working — it keeps running underneath. In priority order:
   again. The hard part flagged in the audit: detecting "waiting on the player"
   automatically is real work, harder than an explicit toggle — build the
   automatic version, not a settings switch.
-- [ ] **F103 — Skip autosaves that have nothing new to protect.** Autosaves
-  run on a timer regardless of whether anything actually changed
-  (`EmulatorFragment.java:510`), each paying for compression and a disk
-  fingerprint. Skip the write when the last autosave already covers the
-  current state, without losing a real recovery point.
+- [x] **F103 (delivered 0.93.0) — Skip autosaves that have nothing new to
+  protect.** The five-minute tick now asks `AutosaveGate` first. Activity is
+  any guest key or mouse press, a party, map or message sample that differs
+  from the last one, or a disk write or mount change; a successful snapshot of
+  any kind, or a completed restore, is the protected point. A tick with no
+  activity since that point is skipped and logged (`PoolRad.Autosave`);
+  anything else, a failed save, or an unknown outcome saves as before. Activity
+  that lands while a save is being compressed counts toward the next tick, so
+  a step taken mid-save is never treated as covered. 731 Java tests; live
+  evidence in [SAVE_STATES.md](SAVE_STATES.md#f103--autosaves-that-have-nothing-to-protect).
 
 Dropped from the audit: slowing the code-wheel poll further — the expert's own
 estimate was "likely a smaller saving," not worth the added complexity.
@@ -1739,7 +1744,7 @@ estimate was "likely a smaller saving," not worth the added complexity.
   pixels per tile, with bounded drag scrolling. Fit remains the default.
   Notes, markers, exploration, connections and known-exit previews stay intact;
   the header finds the party and real movement keeps it visible. Verified live
-  on the emulator; 725 Java tests and six Android viewport checks pass.
+  on the emulator; 731 Java tests and six Android viewport checks pass.
   [Verification](MAP_SCALE.md).
 
 ## Not in this project
