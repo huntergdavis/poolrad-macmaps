@@ -5,7 +5,7 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
-Current published release: **0.112.0**. Releases 0.71–0.82 delivered F89, F79,
+Current published release: **0.113.0**. Releases 0.71–0.82 delivered F89, F79,
 F66, F35, F80, F29, F47, F42, F43, F72, F67 and F48, individually. F46 Money
 is verified for 0.83.0. F97 is next: require the new disk-verified format and
 refuse older snapshots, following the owner's pre-1.0 decision. F33/F86 below
@@ -1607,7 +1607,10 @@ quick-flag write.
   map before crossing. Only that notebook's explored squares appear, with an
   observed arrival marker. Remembered geometry stays in notebook backups.
   See [NEIGHBOR_PREVIEW.md](NEIGHBOR_PREVIEW.md).
-- [ ] **F105 — Replace Connections with a browsable World tab.** Owner: F58's
+- [x] **F105 (delivered 0.113.0) — Replace Connections with a browsable World tab.**
+  Shipped as the World tab: border crossings stitch areas edge to edge, other
+  crossings link islands, a chip row animates the board to each place, the
+  crossing list lives in the footer. See [WORLD.md](WORLD.md). Owner: F58's
   Connections tab is an internal idea — arrows and coordinates nobody but the
   developer asked for. What a player actually wants is to see how the areas
   they've found fit together as one map they can scroll and pan, with

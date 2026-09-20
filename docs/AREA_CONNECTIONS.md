@@ -1,5 +1,9 @@
 # Discovered area connections — F58
 
+> Since 0.113.0 the **World** tab ([WORLD.md](WORLD.md)) presents this data as
+> one stitched map; the Connections tab described below is retired. Recording,
+> storage and the evidence contract here are unchanged.
+
 **Connections**, beside **Map**, shows passages this party actually traveled.
 The view starts empty. It records doors, stairs, teleports and scripted travel
 between identified local areas; it does not reveal destinations from game data.

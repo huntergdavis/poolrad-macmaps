@@ -45,11 +45,11 @@ disks before uninstalling or clearing app data.
   puts it in either lower corner of the map or game screen, or turns it off.
   It starts at the map's lower right. [Placement guide](docs/ENTER_SHORTCUT.md).
 - Open **Info → Map legend** for the symbols.
-- **Connections** shows passages between areas you have visited.
-  Arrows record only the directions you traveled.
-  Tap an area to browse its neighbors; **Current area** returns the view to
-  your party. Routes stay with your notebook and its backups. Loading a save
-  adds no route. [See the Connections view](docs/AREA_CONNECTIONS.md).
+- **World** fits every area you have discovered together as one map you can
+  drag and pinch: gate crossings stitch districts edge to edge, stairs and
+  boats leave islands joined by dotted links, and a chip row jumps to each
+  place. Only travel you actually made adds an area or a link.
+  [See the World tab](docs/WORLD.md).
 - **Exit previews:** stand on an exit square you have already used to see
   its destination beside your map. Only explored squares appear, even with fog
   off. Tap the preview to browse multiple destinations. Older notebooks gain

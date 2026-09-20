@@ -22,7 +22,15 @@
     <item type="id" name="companion_citation_dismiss" />
     <item type="id" name="companion_tool_party_order" />
     <item type="id" name="companion_tool_saves" />
-    <item type="id" name="companion_tab_connections" />
-    <item type="id" name="companion_connections" />
+    <item type="id" name="companion_tab_world" />
+    <item type="id" name="companion_world" />
+    <item type="id" name="companion_world_board" />
+    <item type="id" name="companion_world_chips" />
+    <item type="id" name="companion_world_chip_all" />
+    <item type="id" name="companion_world_chip_here" />
+    <item type="id" name="companion_world_zoom_out" />
+    <item type="id" name="companion_world_zoom_in" />
+    <item type="id" name="companion_world_fit" />
+    <item type="id" name="companion_world_footer" />
     <item type="id" name="companion_tool_rest" />
 </resources>

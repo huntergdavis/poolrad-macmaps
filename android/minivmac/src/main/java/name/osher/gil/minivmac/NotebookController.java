@@ -32,6 +32,9 @@ import java.util.Map;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.Set;
+import java.util.HashSet;
+import java.util.TreeSet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import name.osher.gil.minivmac.journal.DiscoveryMessage;
@@ -50,6 +53,7 @@ import name.osher.gil.minivmac.journal.GameMessage;
 import name.osher.gil.minivmac.notebook.NotebookStore;
 import name.osher.gil.minivmac.notebook.NotebookSelection;
 import name.osher.gil.minivmac.notebook.AreaConnections;
+import name.osher.gil.minivmac.mapper.WorldLayout;
 import name.osher.gil.minivmac.notebook.ConnectionRecorder;
 import name.osher.gil.minivmac.mapper.AreaTravel;
 import name.osher.gil.minivmac.mapper.ExploredMap;
@@ -86,7 +90,13 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
     private final ConnectionRecorder connectionRecorder = new ConnectionRecorder();
     private AreaConnections connections = new AreaConnections();
     private String connectionError = "";
-    private ConnectionsView connectionsView;
+    private WorldView worldView;
+    // World tab data: remembered sheets per catalog area, refreshed live for the party's area.
+    private final Map<Integer, WorldView.Sheet> worldSheets = new HashMap<>();
+    private Map<Integer, WorldView.Sheet> worldSnapshot = Collections.emptyMap();
+    private final Set<Integer> worldLoading = new HashSet<>();
+    private int worldGeneration;
+    private PoolRadState worldPosition;
     private String previewKey="";
     private int previewGeneration;
     // Only the ordered I/O executor accesses this single-area write cache.
@@ -123,7 +133,8 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
                 map.showNeighbors(previews);});
         });
     }
-    private void rememberExploredMap(NotebookStore.Notebook book,PoolRadState sample,ExplorationTrail trail) {
+    /** The remembered map after this sample, or null when it could not be read or kept. */
+    private ExploredMap rememberExploredMap(NotebookStore.Notebook book,PoolRadState sample,ExplorationTrail trail) {
         String key=book.id()+":"+sample.area.id();
         try {
             if(!key.equals(rememberedKey)) {
@@ -131,15 +142,46 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             }
             ExploredMap next=rememberedMap.observe(sample.map,trail);
             if(next!=rememberedMap) { store.saveExploredMap(book.id(),sample.area.id(),next);rememberedMap=next; }
+            return rememberedMap;
         } catch(IOException | RuntimeException failure) {
             // Keep corrupt data; an unavailable remembered map must never become a full-map fallback.
             rememberedKey="";
+            return null;
         }
     }
-    public void setConnectionsView(ConnectionsView view) { connectionsView=view; publishConnections(); }
-    private void publishConnections() {
-        if(connectionsView!=null) connectionsView.show(notebook==null?"Notebook loading":notebook.label(),
-                connections,area==null?null:area.id(),connectionError);
+    public void setWorldView(WorldView view) { worldView=view; publishWorld(); }
+    private void resetWorld() { worldGeneration++; worldSheets.clear(); worldLoading.clear(); worldSnapshot=Collections.emptyMap(); }
+    /** Show what is known now, then read any discovered area's remembered map that is not loaded yet. */
+    private void publishWorld() {
+        if(worldView==null) return;
+        int here=area==null?-1:WorldLayout.number(area.id());
+        worldView.show(notebook==null?"Notebook loading":notebook.label(),connections,here,worldPosition,worldSnapshot,connectionError);
+        if(notebook==null) return;
+        TreeSet<Integer> wanted=new TreeSet<>(); if(here>=0) wanted.add(here);
+        for(AreaConnections.Edge e:connections.edges){wanted.add(e.fromArea);wanted.add(e.toArea);}
+        final List<Integer> missing=new ArrayList<>();
+        for(int a:wanted) if(!worldSheets.containsKey(a) && !worldLoading.contains(a)) missing.add(a);
+        if(missing.isEmpty()) return;
+        worldLoading.addAll(missing);
+        final NotebookStore.Notebook book=notebook; final int request=worldGeneration;
+        IO.execute(()->{
+            Map<Integer,WorldView.Sheet> loaded=new HashMap<>();
+            for(int a:missing) {
+                String id=WorldLayout.ID_PREFIX+a;
+                try {
+                    ExplorationTrail trail=store.loadExploration(book.id(),id);
+                    loaded.put(a,new WorldView.Sheet(store.loadExploredMap(book.id(),id).geometry(a,trail),trail));
+                } catch(IOException | RuntimeException failure) {
+                    // Unreadable remembered data draws as an empty area; it is never replaced by game data.
+                    loaded.put(a,new WorldView.Sheet(new ExploredMap().geometry(a,ExplorationTrail.empty()),ExplorationTrail.empty()));
+                }
+            }
+            main.post(()->{
+                if(disposed || notebook!=book || request!=worldGeneration) return;
+                worldLoading.removeAll(missing); worldSheets.putAll(loaded);
+                worldSnapshot=new HashMap<>(worldSheets); publishWorld();
+            });
+        });
     }
     private String travelLogged="";
     @Override public void onConnectionSample(AreaTravel sample) {
@@ -155,9 +197,9 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         IO.execute(()->{
             try {
                 AreaConnections saved=store.recordConnection(book.id(),edge);
-                main.post(()->{if(!disposed && notebook==book){connections=saved;connectionError="";clearNeighborPreview();publishConnections();}});
+                main.post(()->{if(!disposed && notebook==book){connections=saved;connectionError="";clearNeighborPreview();publishWorld();}});
             } catch(IOException | RuntimeException failure) {
-                main.post(()->{if(!disposed && notebook==book){connectionError="Connection could not be saved. Existing history is kept.";publishConnections();}});
+                main.post(()->{if(!disposed && notebook==book){connectionError="Connection could not be saved. Existing history is kept.";publishWorld();}});
                 report("Cannot save area connection",failure);
             }
         });
@@ -283,7 +325,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             notebook = selected; journal = loadedJournal; messages = loadedMessages;
             clearNeighborPreview();
             connectionRecorder.interrupt(); connections=loadedConnections; connectionError=loadedConnectionError;
-            publishConnections();
+            resetWorld(); worldPosition=null; publishWorld();
             messagesDirty = false; messageSaveFailed = false; opening = false; refreshFlags();
             explorationInterrupted = true; explorationFailed = false;
             map.showExploration(ExplorationTrail.empty(), "Loading trail");
@@ -755,7 +797,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
 
     @Override public void onAreaChanged(AreaIdentity next) {
         area = next;
-        publishConnections();
+        publishWorld();
         refreshFlags();
     }
 
@@ -780,6 +822,7 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
         // the fact -- the game says it found treasure, not where.
         lastArea = sample.area.id();
         lastTile = sample.y * 16 + sample.x;
+        worldPosition = sample; publishWorld();
         final NotebookStore.Notebook book = notebook;
         final String key = sample.area.id();
         final long time = SystemClock.elapsedRealtime();
@@ -787,10 +830,18 @@ public final class NotebookController implements LiveMapView.Listener, JournalCo
             try {
                 ExplorationTrail recorded = exploration.observe(book.id(), key,
                         sample.y * 16 + sample.x, sample.continuityToken, time);
-                rememberExploredMap(book,sample,recorded);
+                ExploredMap remembered = rememberExploredMap(book,sample,recorded);
+                final int areaNumber = WorldLayout.number(key);
+                final WorldView.Sheet sheet = remembered != null && areaNumber >= 0
+                        ? new WorldView.Sheet(remembered.geometry(areaNumber, recorded), recorded) : null;
                 main.post(() -> {
                     if (!explorationTarget(book, key)) return;
                     explorationFailed = false; map.showExploration(recorded, "");
+                    WorldView.Sheet known = worldSheets.get(areaNumber);
+                    if (sheet != null && (known == null || known.trail != recorded)) {
+                        worldSheets.put(areaNumber, sheet); worldLoading.remove(areaNumber);
+                        worldSnapshot = new HashMap<>(worldSheets); publishWorld();
+                    }
                 });
             } catch (IOException | RuntimeException failure) {
                 main.post(() -> {

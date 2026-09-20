@@ -8,6 +8,11 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- 0.113.0: Connections tab replaced by World (`WorldView` + pure-Java
+  `mapper/WorldLayout`: border crossings stitch, others link islands; chip row
+  focuses places). `ConnectionsView` removed; `tools/ConnectionsCheck.java`
+  now asserts through the World board; `tools/WorldViewCheck.java` is the
+  render check. Legacy tab id "connections" maps to World.
 - 0.112.0: journal tool strip is two fixed rows (`NoteEditorLayout`, no
   `HorizontalScrollView`); the device check `NoteEditorLayoutCheck` encodes it.
   Sandbox lesson: after a clean Finder Shut Down the relaunched app mounts no

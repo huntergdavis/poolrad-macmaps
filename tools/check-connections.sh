@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Visible synthetic acceptance. Use a disposable emulator, installed candidate APK,
+# Visible synthetic acceptance of connection recording and the World tab. Use a disposable emulator, installed candidate APK,
 # selected ROM and NO game disks. Never run against an active game/campaign.
 set -euo pipefail
 SERIAL="${1:?usage: check-area-note-follow.sh emulator-SERIAL}"

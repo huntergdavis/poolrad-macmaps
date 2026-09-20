@@ -16,7 +16,7 @@ import java.lang.reflect.*;
 import java.security.MessageDigest;
 import java.util.function.BooleanSupplier;
 
-/** Visible, synthetic area transitions through the production controller/editor.
+/** Visible, synthetic area transitions through the production controller and the World tab.
  * Run only on a disposable emulator with no disks mounted. Not a live-game test.
  */
 public final class ConnectionsCheck extends Instrumentation {
@@ -43,22 +43,32 @@ public final class ConnectionsCheck extends Instrumentation {
             stateClass = Class.forName("name.osher.gil.minivmac.mapper.PoolRadState");
             Class<?> paneClass=Class.forName("name.osher.gil.minivmac.CompanionPane");
             Object pane=field(field(activity,"_currentFragment"),"mCompanionPane");
-            ui(()->method(paneClass,"setTab",String.class).invoke(pane,"connections"));
+            ui(()->method(paneClass,"setTab",String.class).invoke(pane,"world"));
             travel(0,64,1,0,0,0);page(0,0,4);close();count(0);shot("empty");
             travel(20,79,1,1,0,64);page(20,15,4);close();count(1);shot("one-way");
-            Object view=field(controller,"connectionsView");
-            check(((android.view.View)view).isShown(),"connections view hidden");
-            Object graph=field(view,"graph");
-            android.graphics.RectF neighbor=(android.graphics.RectF)((java.util.Map<?,?>)field(graph,"targets")).get(0);
-            int[] location=new int[2];ui(()->((View)graph).getLocationOnScreen(location));
+            Object view=field(controller,"worldView");
+            check(((android.view.View)view).isShown(),"world view hidden");
+            Object layout=call(view,"layout");
+            check(((java.util.List<?>)field(layout,"places")).size()==1,"the gate crossing did not stitch one city");
+            View board=(View)call(view,"board");
+            ui(()->board.performAccessibilityAction(0x04000000+0,null));
+            check(integer(view,"selected")==0,"accessible area selection failed");
+            // A tap on New Phlan's square of the stitched city selects it through the board's own gesture path.
+            Object placed=method(layout.getClass(),"find",int.class).invoke(layout,0);
+            float[] t=new float[3]; String[] names={"scale","offsetX","offsetY"};
+            for(int i=0;i<3;i++){java.lang.reflect.Field f=board.getClass().getDeclaredField(names[i]);f.setAccessible(true);t[i]=f.getFloat(board);}
+            int[] location=new int[2];ui(()->board.getLocationOnScreen(location));
+            float px=location[0]+t[1]+(integer(placed,"x")+8)*t[0], py=location[1]+t[2]+(integer(placed,"y")+8)*t[0];
+            ui(()->board.performAccessibilityAction(0x04000000+20,null));
+            check(integer(view,"selected")==20,"selecting the Slums failed");
             long down=SystemClock.uptimeMillis();
-            touch(down,MotionEvent.ACTION_DOWN,location[0]+neighbor.centerX(),location[1]+neighbor.centerY());
-            touch(down,MotionEvent.ACTION_UP,location[0]+neighbor.centerX(),location[1]+neighbor.centerY());
-            waitForIdleSync();check(integer(view,"selected")==0,"neighbor touch navigation failed");
-            ui(()->((View)graph).performAccessibilityAction(0x04000000+20,null));
-            check(integer(view,"selected")==20,"accessible neighbor navigation failed");
-            ui(()->((View)field(view,"current")).performClick());
-            check(integer(view,"selected")==20,"current-area navigation failed");
+            touch(down,MotionEvent.ACTION_DOWN,px,py);
+            touch(down,MotionEvent.ACTION_UP,px,py);
+            waitForIdleSync(); SystemClock.sleep(400); waitForIdleSync();
+            check(integer(view,"selected")==0,"tap selection on the board failed");
+            int hereChip=getTargetContext().getResources().getIdentifier("companion_world_chip_here","id",getTargetContext().getPackageName());
+            ui(()->((View)view).findViewById(hereChip).performClick());
+            check("here".equals(field(view,"focus")),"Current area chip did not take focus");
             // A save reload into an otherwise new area must not draw an edge.
             travel(1,17,2,0,0,0);page(1,1,1);close();count(1);shot("reload-no-link");
             travel(20,79,3,0,0,0);page(20,15,4);close();count(1);
@@ -66,7 +76,7 @@ public final class ConnectionsCheck extends Instrumentation {
             travel(20,79,3,2,0,64);page(20,15,4);close();count(2);
             // Skipping a native transition cannot invent a shortcut to area 2.
             travel(2,34,3,4,1,17);page(2,2,2);close();count(2);shot("missed-area-no-link");
-            results.append("PASS empty graph, one-way discovery, graph navigation, observed return, duplicate suppression, reload rejection, missed-area rejection, durable history\n");
+            results.append("PASS empty world, one-way discovery stitched into one city, board and accessible selection, current-area chip, observed return, duplicate suppression, reload rejection, missed-area rejection, durable history\n");
             result.putString("stream", results.toString()); finish(Activity.RESULT_OK, result);
         } catch (Throwable failure) {
             result.putString("stream", results + "FAIL " + android.util.Log.getStackTraceString(failure));

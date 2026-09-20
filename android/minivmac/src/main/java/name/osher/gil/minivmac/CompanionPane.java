@@ -12,19 +12,21 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 
-/** Two retained companion pages; tab navigation never replaces or focuses the guest. */
+/** Three retained companion pages; tab navigation never replaces or focuses the guest. */
 public final class CompanionPane extends LinearLayout {
     public static final String MAP = "map";
     public static final String INFO = "info";
-    public static final String CONNECTIONS = "connections";
+    public static final String WORLD = "world";
+    /** The tab World replaced in 0.113.0; a remembered selection of it opens World. */
+    public static final String LEGACY_CONNECTIONS = "connections";
 
     public enum Tool { OPTIONS, SAVES, REST, PARTY_ORDER, MESSAGE_LOG, EXPLORATION, LEVELS, SPELLS, EQUIPMENT, MONEY, WHEEL, JOURNAL, LEGEND, NOTE_INDEX }
     public interface OnTabSelectedListener { void onTabSelected(String tab); }
     public interface OnToolSelectedListener { void onToolSelected(Tool tool); }
 
-    private final Button mapTab, infoTab, connectionsTab;
-    private final ConnectionsView connections;
-    public ConnectionsView connections() { return connections; }
+    private final Button mapTab, infoTab, worldTab;
+    private final WorldView world;
+    public WorldView world() { return world; }
     private final LinearLayout citationNotice;
     private final Button citationOpen;
     private Runnable citationAction;
@@ -54,8 +56,8 @@ public final class CompanionPane extends LinearLayout {
         mapTab = tab(context, R.id.companion_tab_map, R.string.companion_tab_map, MAP);
         infoTab = tab(context, R.id.companion_tab_info, R.string.companion_tab_info, INFO);
         tabs.addView(mapTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
-        connectionsTab = tab(context, R.id.companion_tab_connections, R.string.companion_tab_connections, CONNECTIONS);
-        tabs.addView(connectionsTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
+        worldTab = tab(context, R.id.companion_tab_world, R.string.companion_tab_world, WORLD);
+        tabs.addView(worldTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
         tabs.addView(infoTab, new LayoutParams(0, LayoutParams.MATCH_PARENT, 1));
 
         citationNotice = new LinearLayout(context);
@@ -86,9 +88,9 @@ public final class CompanionPane extends LinearLayout {
         map.setId(R.id.live_map);
         content.addView(map, new FrameLayout.LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT));
 
-        connections = new ConnectionsView(context);
-        connections.setId(R.id.companion_connections);
-        content.addView(connections, new FrameLayout.LayoutParams(-1, -1));
+        world = new WorldView(context);
+        world.setId(R.id.companion_world);
+        content.addView(world, new FrameLayout.LayoutParams(-1, -1));
 
         info = new ScrollView(context);
         info.setId(R.id.companion_info);
@@ -142,7 +144,7 @@ public final class CompanionPane extends LinearLayout {
 
     /** Unknown persisted IDs safely fall back to Map; unchanged selection does not notify again. */
     public void setTab(String tab) {
-        String next = INFO.equals(tab) ? INFO : CONNECTIONS.equals(tab) ? CONNECTIONS : MAP;
+        String next = INFO.equals(tab) ? INFO : WORLD.equals(tab) || LEGACY_CONNECTIONS.equals(tab) ? WORLD : MAP;
         if (selected.equals(next)) return;
         selected = next;
         updateSelection();
@@ -212,12 +214,12 @@ public final class CompanionPane extends LinearLayout {
         boolean mapSelected = isMapSelected();
         mapTab.setSelected(mapSelected);
         infoTab.setSelected(INFO.equals(selected));
-        connectionsTab.setSelected(CONNECTIONS.equals(selected));
-        connectionsTab.setTextColor(CONNECTIONS.equals(selected) ? Color.WHITE : Color.BLACK);
+        worldTab.setSelected(WORLD.equals(selected));
+        worldTab.setTextColor(WORLD.equals(selected) ? Color.WHITE : Color.BLACK);
         mapTab.setTextColor(mapSelected ? Color.WHITE : Color.BLACK);
         infoTab.setTextColor(INFO.equals(selected) ? Color.WHITE : Color.BLACK);
         map.setVisibility(mapSelected ? View.VISIBLE : View.GONE);
         info.setVisibility(INFO.equals(selected) ? View.VISIBLE : View.GONE);
-        connections.setVisibility(CONNECTIONS.equals(selected) ? View.VISIBLE : View.GONE);
+        world.setVisibility(WORLD.equals(selected) ? View.VISIBLE : View.GONE);
     }
 }
