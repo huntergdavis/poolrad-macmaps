@@ -11,8 +11,9 @@ Works offline. No root or account needed.
 [Download the 0.90.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
 for **Android 5.0 or later**.
 
-Source version 0.91 also avoids redrawing an unchanged combat overview.
-Its APK has not been published yet. [What changed](docs/COMBAT_REDRAW.md).
+Source version 0.91 skips [unchanged combat redraws](docs/COMBAT_REDRAW.md).
+Version 0.92 adds an optional [original map tile size](docs/MAP_SCALE.md).
+Their APKs have not been published yet.
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -36,6 +37,10 @@ disks before uninstalling or clearing app data.
 - Turn on **fog of war** in **Info → Options** to hide unwalked squares.
   Fog and footprint settings are remembered for each area.
 - Tap the map header to highlight your party's square.
+- **Original area tile size (1:1)** in **Info → Options** keeps map squares at
+  32 screen pixels (source 0.92). Drag to see the rest; tap the header to bring
+  your party back into view. Leave it off to fit the whole map on screen.
+  [See the map size option](docs/MAP_SCALE.md).
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
 - Open **Info → Map legend** for the symbols.
 - **Connections** shows passages between areas you have visited.
@@ -131,14 +136,12 @@ illustrated manual lookup as a fallback.
 
 <img src="docs/images/readme-save-preview.png" width="760" alt="Quick-save preview with capture time and the requirement for matching disks">
 
-*Screenshots from the running app. Game artwork belongs to its respective owners.*
+*Screenshot from the running app. Game artwork belongs to its respective owners.*
 
 On launch, the app tries to resume your last completed snapshot. Its disks must
 match and its notebook must still exist. Otherwise, the Mac boots normally.
 Choose **Start normally** to skip the attempt, or turn it off in **Info → Options**.
 That page also controls compact party rows and larger game messages.
-
-<img src="docs/images/readme-options.png" width="760" alt="Options for compact party rows, larger messages, launch restore and five-minute autosaves">
 
 **Snapshots restore the running Mac, not its disk contents.** Loading requires
 the mounted disks to match exactly; a mismatch leaves your current game intact.
