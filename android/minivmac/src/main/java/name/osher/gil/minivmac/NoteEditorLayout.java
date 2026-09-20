@@ -8,17 +8,22 @@ import android.text.TextUtils;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
-import android.widget.HorizontalScrollView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
-/** One compact, touch-only control strip; all remaining space belongs to the paper. */
+/**
+ * Compact, touch-only controls in two fixed rows; all remaining space belongs
+ * to the paper. Drawing tools on the first row, page actions on the second,
+ * and Close & save standing beside both. Nothing scrolls: every control is
+ * visible at once, which the owner asked for after the single strip grew a
+ * scrollbar (2026-09-20).
+ */
 public final class NoteEditorLayout extends LinearLayout {
     public final InkSheetView sheet;
     public final TextView heading, status;
     public final Button pen, eraser, undo, redo, symbol, journal, template, fit, delete, close;
     private final LinearLayout header, identity;
-    private final HorizontalScrollView tools;
+    private final LinearLayout tools, drawingRow, pageRow;
 
     public NoteEditorLayout(Context context, String title) {
         super(context);
@@ -36,19 +41,17 @@ public final class NoteEditorLayout extends LinearLayout {
         identity.addView(status, new LayoutParams(-1, -2));
         header.addView(identity, new LayoutParams(dp(160), -2));
 
-        LinearLayout row = new LinearLayout(context); row.setGravity(Gravity.CENTER_VERTICAL);
-        pen = button(row, "Pen", 48); eraser = button(row, "Eraser", 56);
-        undo = button(row, "Undo", 48); redo = button(row, "Redo", 48);
-        symbol = button(row, "Symbol", 72); journal = button(row, "Journal", 68);
-        template = button(row, "Template", 68);
-        fit = button(row, "Fit page", 64);
-        delete = button(row, "Delete…", 60);
-        tools = new HorizontalScrollView(context); tools.setFillViewport(false);
-        tools.setHorizontalScrollBarEnabled(true); tools.setScrollbarFadingEnabled(false);
-        tools.setOverScrollMode(OVER_SCROLL_NEVER); tools.setFocusable(false);
-        tools.addView(row, new HorizontalScrollView.LayoutParams(-2, -1));
-        header.addView(tools, new LayoutParams(0, dp(48), 1));
-        close = button(header, "Close & save", 88);
+        drawingRow = row(context); pageRow = row(context);
+        pen = tool(drawingRow, "Pen"); eraser = tool(drawingRow, "Eraser");
+        undo = tool(drawingRow, "Undo"); redo = tool(drawingRow, "Redo");
+        symbol = tool(drawingRow, "Symbol");
+        journal = tool(pageRow, "Journal"); template = tool(pageRow, "Template");
+        fit = tool(pageRow, "Fit page"); delete = tool(pageRow, "Delete…");
+        tools = new LinearLayout(context); tools.setOrientation(VERTICAL); tools.setFocusable(false);
+        tools.addView(drawingRow, new LayoutParams(-1, dp(ROW_DP)));
+        tools.addView(pageRow, new LayoutParams(-1, dp(ROW_DP)));
+        header.addView(tools, new LayoutParams(0, -2, 1));
+        close = button(header, "Close & save", 88, 2 * ROW_DP);
         close.setContentDescription("Close and save this handwritten note");
         addView(header, new LayoutParams(-1, -2));
 
@@ -65,7 +68,27 @@ public final class NoteEditorLayout extends LinearLayout {
         return text;
     }
 
-    private Button button(LinearLayout parent, String value, int width) {
+    /** Each tool row is 48dp: the touch-target height the notes have always promised. */
+    public static final int ROW_DP = 48;
+
+    private LinearLayout row(Context context) {
+        LinearLayout row = new LinearLayout(context); row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setFocusable(false); return row;
+    }
+
+    /** A row tool shares its row equally with its neighbours; no tool is ever off screen. */
+    private Button tool(LinearLayout row, String value) {
+        Button button = styled(value);
+        row.addView(button, new LayoutParams(0, dp(ROW_DP), 1)); return button;
+    }
+
+    private Button button(LinearLayout parent, String value, int width, int heightDp) {
+        Button button = styled(value);
+        int readableWidth = Math.max(dp(width), (int) Math.ceil(button.getPaint().measureText(value)) + dp(12));
+        parent.addView(button, new LayoutParams(readableWidth, dp(heightDp))); return button;
+    }
+
+    private Button styled(String value) {
         Button button = new Button(getContext()); button.setText(value); button.setAllCaps(false);
         button.setTextSize(11); button.setSingleLine(true); button.setEllipsize(TextUtils.TruncateAt.END);
         button.setMinWidth(0); button.setMinimumWidth(0);
@@ -73,14 +96,13 @@ public final class NoteEditorLayout extends LinearLayout {
         button.setTextColor(new ColorStateList(new int[][]{{-android.R.attr.state_enabled}, {}},
                 new int[]{Color.GRAY, Color.BLACK}));
         button.setFocusable(false); button.setFocusableInTouchMode(false);
-        int readableWidth = Math.max(dp(width), (int) Math.ceil(button.getPaint().measureText(value)) + dp(12));
-        parent.addView(button, new LayoutParams(readableWidth, dp(48))); return button;
+        return button;
     }
 
     @Override protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
         int width = MeasureSpec.getSize(widthMeasureSpec) - getPaddingLeft() - getPaddingRight();
-        // Close never scrolls away. Narrow devices scroll the same tools instead
-        // of acquiring a second toolbar, menu or a smaller drawing allocation.
+        // Close never moves. The tools share two fixed rows at every width; only
+        // the title column gives way on narrow devices.
         int wanted = width >= dp(640) ? dp(160) : width >= dp(420) ? dp(120)
                 : width >= dp(280) ? dp(88) : 0;
         wanted = Math.min(wanted, Math.max(0, width - close.getLayoutParams().width - dp(48)));

@@ -63,9 +63,11 @@ public final class NoteEditorLayoutCheck {
         run("one compact header doubles the old tablet sketch allocation", () -> {
             NoteEditorLayout editor = create(context, dp(960), dp(416));
             check(editor.getChildCount() == 2, "Expected only one header and the existing paper View");
-            check(editor.sheet.getTop() <= dp(56), "Extra title, hint, status or footer consumed sketch height");
+            check(editor.sheet.getTop() <= dp(4 + 2 * NoteEditorLayout.ROW_DP + 8), "More than the two tool rows consumed sketch height");
             float previous = 213 * density / 1.25f;
-            check(editor.sheet.getHeight() >= previous * 2, "Sketch is not twice the measured old 213px allocation");
+            check(editor.sheet.getHeight() >= previous * 1.75f, "Sketch fell below the two-row allocation (old 213px allocation × 1.75)");
+            check(editor.sheet.getBottom() >= editor.getHeight() - editor.getPaddingBottom() - dp(1), "Space below the paper went unused");
+            twoRowsAllVisible(editor);
             InkSheetLayout paper = paper(editor);
             check(Math.abs(paper.width / paper.height - 8f / 3f) < .0001f, "Composite page was stretched");
             System.out.println("METRICS density=" + density + " pane=" + editor.getWidth() + "x" + editor.getHeight()
@@ -75,29 +77,24 @@ public final class NoteEditorLayoutCheck {
             visibleClose(editor); checkSimpleControls(editor);
         });
 
-        run("narrow tools scroll while Close remains fixed and visible", () -> {
+        run("narrow tools keep two fixed rows with every tool visible and Close fixed", () -> {
             NoteEditorLayout editor = create(context, dp(320), dp(300));
-            HorizontalScrollView tools = scroll(editor); check(tools != null, "Missing bounded tool strip");
-            check(tools.getChildAt(0).getWidth() > tools.getWidth(), "Narrow tools were shrunk instead of scrollable");
-            Rect before = bounds(editor, editor.close);
-            tools.scrollTo(tools.getChildAt(0).getWidth(), 0);
-            check(tools.getScrollX() > 0, "Tool strip cannot reach its trailing actions");
-            check(before.equals(bounds(editor, editor.close)), "Close moved with the scrolling tools");
+            check(scroll(editor) == null, "A scrolling tool strip came back");
+            twoRowsAllVisible(editor);
             visibleClose(editor); checkSimpleControls(editor);
-            check(editor.sheet.getHeight() >= dp(240), "A second control row shrank the narrow sheet");
+            check(editor.sheet.getHeight() >= dp(300 - 2 * NoteEditorLayout.ROW_DP - 12), "The narrow sheet lost more than the two rows");
         });
 
-        run("the journal link action joins the scrolling tools without taking sketch height", () -> {
+        run("the journal link action sits in the page row without taking sketch height", () -> {
             NoteEditorLayout wide = create(context, dp(960), dp(416));
             int reference = wide.sheet.getHeight();
             check(wide.journal.getText().toString().equals("Journal"), "Journal action is missing its label");
             check(bounds(wide, wide.journal).height() >= dp(48), "Journal target is smaller than the other tools");
-            HorizontalScrollView tools = scroll(wide);
-            check(tools != null && contains(tools, wide.journal), "Journal escaped the bounded scrolling tool strip");
-            check(!contains(wide.sheet, wide.journal), "Journal was placed over the paper");
-            check(reference >= 213 * density / 1.25f * 2, "Journal cost the sketch its 0.13.0 allocation");
+            check(scroll(wide) == null && !contains(wide.sheet, wide.journal), "Journal left the fixed rows or sat over the paper");
+            check(bounds(wide, wide.journal).top >= bounds(wide, wide.pen).bottom - dp(1), "Journal is not on the second row below the drawing tools");
+            check(reference >= 213 * density / 1.25f * 1.75f, "Journal cost the sketch its two-row allocation");
 
-            // A linked count must not push Close away or add a second row.
+            // A linked count must not push Close away or change the rows.
             Rect close = bounds(wide, wide.close);
             wide.journal.setText("Journal 8");
             resize(wide, dp(960), dp(416));
@@ -107,16 +104,16 @@ public final class NoteEditorLayoutCheck {
 
             NoteEditorLayout narrow = create(context, dp(320), dp(300));
             narrow.journal.setText("Journal 8"); resize(narrow, dp(320), dp(300));
-            check(narrow.sheet.getHeight() >= dp(240), "Journal shrank the narrow sheet");
-            visibleClose(narrow); checkSimpleControls(narrow);
+            check(narrow.sheet.getHeight() >= dp(300 - 2 * NoteEditorLayout.ROW_DP - 12), "Journal shrank the narrow sheet");
+            twoRowsAllVisible(narrow); visibleClose(narrow); checkSimpleControls(narrow);
         });
 
-        run("template action stays in the compact scrolling toolbar", () -> {
+        run("template action stays in the fixed page row", () -> {
             for(int width:new int[]{320,960}) {
                 NoteEditorLayout editor=create(context,dp(width),dp(416));
                 check(editor.template.getText().toString().equals("Template"),"Missing template action");
-                check(contains(scroll(editor),editor.template),"Template escaped toolbar");
-                check(editor.sheet.getTop()<=dp(56),"Template shrank writing height");
+                check(scroll(editor)==null && bounds(editor,editor.template).top >= bounds(editor,editor.pen).bottom - dp(1),"Template left the page row");
+                check(editor.sheet.getTop()<=dp(4 + 2 * NoteEditorLayout.ROW_DP + 8),"Template shrank writing height");
                 visibleClose(editor);checkSimpleControls(editor);
             }
         });
@@ -175,6 +172,17 @@ public final class NoteEditorLayoutCheck {
     private static Rect bounds(NoteEditorLayout editor, View child) {
         Rect bounds = new Rect(); child.getDrawingRect(bounds); editor.offsetDescendantRectToMyCoords(child, bounds); return bounds;
     }
+    /** Two rows of 48dp, every tool fully inside the editor, none clipped or scrolled. */
+    private static void twoRowsAllVisible(NoteEditorLayout editor) {
+        Button[] drawing = {editor.pen, editor.eraser, editor.undo, editor.redo, editor.symbol};
+        Button[] page = {editor.journal, editor.template, editor.fit, editor.delete};
+        Rect first = bounds(editor, drawing[0]), second = bounds(editor, page[0]);
+        check(second.top >= first.bottom - dp(1), "Page actions are not on a second row");
+        for (Button b : drawing) { Rect r = bounds(editor, b); check(r.top == first.top && r.height() >= dp(48), "Drawing row uneven: " + b.getText()); check(r.left >= 0 && r.right <= editor.getWidth() && r.width() > 0, "Drawing tool clipped: " + b.getText()); }
+        for (Button b : page) { Rect r = bounds(editor, b); check(r.top == second.top && r.height() >= dp(48), "Page row uneven: " + b.getText()); check(r.left >= 0 && r.right <= editor.getWidth() && r.width() > 0, "Page action clipped: " + b.getText()); }
+        check(bounds(editor, editor.close).height() >= dp(2 * NoteEditorLayout.ROW_DP) - dp(1), "Close does not span both rows");
+    }
+
     private static void visibleClose(NoteEditorLayout editor) {
         Rect close = bounds(editor, editor.close);
         check(close.left >= 0 && close.right <= editor.getWidth() && close.top >= 0

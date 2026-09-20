@@ -8,6 +8,10 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- 0.112.0: journal tool strip is two fixed rows (`NoteEditorLayout`, no
+  `HorizontalScrollView`); the device check `NoteEditorLayoutCheck` encodes it.
+  Sandbox lesson: after a clean Finder Shut Down the relaunched app mounts no
+  disk (blinking "?"); insert disk1 from the toolbar floppy menu before `boot`.
 - 0.111.0: quick save at fight start (`FightStart` → `quickSave`), logged as
   `PoolRad.FightSave`; the fight-end save is unchanged.
 - 0.109.0: bounded companion dialogs are not touch-modal

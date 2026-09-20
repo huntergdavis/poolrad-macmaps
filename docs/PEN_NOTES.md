@@ -15,7 +15,7 @@ The original game stays unchanged. These controls affect only your own map notes
   stylus taps retain precise tile selection. Canceling the chooser creates nothing.
 - The title and autosave status share one compact row with the drawing tools,
   **Fit page** and **Close & save**. Touch targets remain at least 48dp high;
-  the middle tools scroll horizontally on narrow windows and Close stays
+  the tools sit in two fixed rows and nothing scrolls; Close stays
   visible. Separate hint/input rows, the stock dialog footer and Save PNG are
   gone so the drawing sheet receives the freed height. Notes and pickers still
   open without a fade/slide and stay above the original game.

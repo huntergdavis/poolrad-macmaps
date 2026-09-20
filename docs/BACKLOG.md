@@ -5,7 +5,7 @@ Updated 2026-09-19. This is the authoritative feature queue. The earlier
 steps; this page supersedes its old exclusions of notes and party information.
 Research and feature rationale: [FEATURE_RESEARCH.md](FEATURE_RESEARCH.md).
 
-Current published release: **0.111.0**. Releases 0.71–0.82 delivered F89, F79,
+Current published release: **0.112.0**. Releases 0.71–0.82 delivered F89, F79,
 F66, F35, F80, F29, F47, F42, F43, F72, F67 and F48, individually. F46 Money
 is verified for 0.83.0. F97 is next: require the new disk-verified format and
 refuse older snapshots, following the owner's pre-1.0 decision. F33/F86 below
@@ -1793,6 +1793,11 @@ Mac has stopped working — it keeps running underneath. In priority order:
   time and memorizes. The app writes none of these bytes. Fixed what was ours:
   the party-details reminder now names the working path and the two traps.
   See [SPELL_READINESS.md](SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
+- [x] **Journal tools in two rows (0.112.0, user requested 2026-09-20).** The
+  note editor's nine-button strip scrolled; it is now two fixed 48 dp rows
+  (drawing: Pen, Eraser, Undo, Redo, Symbol; page: Journal, Template, Fit page,
+  Delete…) with Close & save spanning both. Nothing scrolls at any width.
+  `tools/render-check.sh NoteEditorLayoutCheck` asserts the contract on-device.
 - [x] **Quick save at fight start (0.111.0).** `FightStart` fires on the
   transition into combat from a named mode; the fragment requests a quick save
   at once, so a party wipe can Quick load back to the moment the fight began.
