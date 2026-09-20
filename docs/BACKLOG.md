@@ -1595,6 +1595,16 @@ quick-flag write.
   map before crossing. Only that notebook's explored squares appear, with an
   observed arrival marker. Remembered geometry stays in notebook backups.
   See [NEIGHBOR_PREVIEW.md](NEIGHBOR_PREVIEW.md).
+- [ ] **F105 — Replace Connections with a browsable World tab.** Owner: F58's
+  Connections tab is an internal idea — arrows and coordinates nobody but the
+  developer asked for. What a player actually wants is to see how the areas
+  they've found fit together as one map they can scroll and pan, with
+  distinct places (Sokal Keep, the overworld, New Phlan, the Slums, etc.)
+  each selectable as their own map within that view. Build "World" from the
+  same recorded travel data Connections already keeps, but present it as a
+  connected, explorable world rather than a diagram. Retire the Connections
+  tab once World replaces it, or fold it in as a detail view. Queued for
+  Claude, after the current bugfix release.
 
 ### The party list
 
