@@ -1556,7 +1556,11 @@ quick-flag write.
   directionally. Deliberately not shading: shading does not hold up on e-ink.
 - [x] **F60 (delivered 0.52.0) — Tap the header to ping your own square,** for finding yourself on
   a large map.
-- [ ] **F75 — A 1:1 option** drawing the map at the game's own grid scale.
+- [x] **F75 — A 1:1 option** — duplicate of the original area tile size option
+  shipped in **0.92.0** (the completed map-scale entry below). Reverified live
+  on 0.97.0: Info → Options toggles between fit and 32-pixel tiles; scrolling
+  and header return-to-party work. No code change or new release.
+  See [MAP_SCALE.md](MAP_SCALE.md).
 - [x] **F58 (delivered 0.88.0) — An area-connection map.** Connections beside
   Map records observed travel between identified areas, with arrows only for
   directions traveled and per-passage coordinates. Reloads never create links;
