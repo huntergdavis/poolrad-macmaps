@@ -1,6 +1,6 @@
 # PoolRad Mac Maps
 
-[![Build and test](https://github.com/huntergdavis/poolrad-macmaps/actions/workflows/ci.yml/badge.svg)](https://github.com/huntergdavis/poolrad-macmaps/actions/workflows/ci.yml)
+[Build status](https://github.com/huntergdavis/poolrad-macmaps/actions/workflows/ci.yml)
 
 **Play Macintosh Pool of Radiance on Android, with a live map above the game.**
 
@@ -12,10 +12,6 @@ Works offline. No root or account needed.
 
 [Download the 0.103.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.103.0/poolrad-macmaps-0.103.0.apk)
 for **Android 5.0 or later**.
-
-**Info → Options → Auto-skip informational messages** skips supported routine
-notices when enabled; it is off by default. Story prompts, choices and
-confirmations still wait for you. [Details and verification](docs/AUTO_SKIP_MESSAGES.md).
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -138,6 +134,10 @@ messages collect in your notebook; a **Read** notice opens a new citation.
 
 **Info → Message log** keeps the latest 200 distinct messages the app observed
 in the current notebook.
+
+Turn on **Info → Options → Auto-skip informational messages** to dismiss
+supported routine notices. It starts off. Story prompts, choices and
+confirmations still wait for you. [Which notices it skips](docs/AUTO_SKIP_MESSAGES.md).
 
 The Info tab also has spells, weapons and armor, and class progression tables.
 Code-wheel prompts are answered automatically when recognized, with an
