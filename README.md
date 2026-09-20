@@ -158,6 +158,9 @@ audio work. **Walking Sounds** controls footsteps.
 ## Save and resume
 
 - **PoolRad → Quick save** keeps your ten latest quick snapshots.
+- When the app detects a fight starting, it requests a quick save so you can
+  retry from early in the battle. These saves share the same ten slots.
+  [Fight-start saves and limits](docs/SAVE_STATES.md#quick-save-when-a-fight-starts-2026-09-20).
 - After a fight's results and treasure screens, the app bandages Dying party
   members if someone is still standing, then takes a quick save. Bandaged
   characters remain Unconscious at zero hit points. A quick save is taken

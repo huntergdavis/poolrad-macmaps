@@ -350,14 +350,18 @@ The unused restart-loader plumbing has since been removed.
 
 ## Quick save when a fight starts (2026-09-20)
 
-A quick save now lands the moment the mode turns to combat, beside the
-fight-end save from 0.99.0. If the party dies, Quick load returns to the
-start of that fight rather than to whatever came before. The capture is the
-first combat frame the companion observes: the machine is already in the
-fight, which is the earliest state there is to save. Both saves rotate in the
-normal ten-deep quick history, so a session of fights keeps its five most
-recent fights' starts and ends. The since-rest tally and the autosave gate
-see it as any other quick save.
+Since 0.111.0, the app requests a quick save when it first detects a transition
+into combat. The fight has already begun; this does not guarantee a snapshot
+before anyone acts.
+
+- Fight-start, fight-end and manual quick saves share the ten newest slots.
+- **Quick load** restores the newest successful quick save. Use **Load…** to
+  choose an older fight-start save if a newer quick save has replaced it.
+- A save/load already in progress, or a machine not ready to save, can prevent
+  the request. This path does not queue a retry.
+- Starting observation while already in combat does not count as a new fight.
+- The since-rest tally and autosave activity tracking treat a successful
+  capture like any other quick save.
 
 Live on the disposable sandbox, 2026-09-20: a Slums fight began and the log
 read "fight started: quick save requested" then "Saved QUICK" two seconds
