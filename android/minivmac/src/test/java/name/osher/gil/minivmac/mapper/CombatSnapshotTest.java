@@ -26,6 +26,42 @@ public class CombatSnapshotTest {
         {2, 21, 13}, {2, 19, 11}, {2, 22, 14}, {2, 19, 12},
     };
 
+    @Test public void displayEqualityIncludesMovementOrderSidesAndRosterSize() {
+        byte[] original = packet(BATTLE);
+        CombatSnapshot battle = CombatSnapshot.parse(original);
+        assertTrue(battle.sameDisplay(CombatSnapshot.parse(original.clone())));
+        assertFalse(battle.sameDisplay(null));
+        for (int at : new int[]{9, 10, 8 + 6 * 4 + 1, 8 + 6 * 4 + 2}) {
+            byte[] moved = original.clone(); moved[at]++;
+            assertFalse(battle.sameDisplay(CombatSnapshot.parse(moved)));
+        }
+        byte[] side = original.clone(); side[8] = 2;
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(side)));
+        int[][] reordered = BATTLE.clone(); reordered[0] = BATTLE[1]; reordered[1] = BATTLE[0];
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(packet(reordered))));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(packet(Arrays.copyOf(BATTLE, 9)))));
+    }
+
+    @Test public void displayEqualityIncludesActorAndOppositionEvenWithoutMovement() {
+        byte[] original = withFoes(withActor(packet(BATTLE), "Arax"), "GOBLIN", 4);
+        CombatSnapshot battle = CombatSnapshot.parse(original);
+        assertTrue(battle.sameDisplay(CombatSnapshot.parse(original.clone())));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(withActor(packet(BATTLE), "Lara"))));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(withFoes(withActor(packet(BATTLE), "Lara"), "GOBLIN", 4))));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(withFoes(withActor(packet(BATTLE), "Arax"), "ORC", 4))));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(withFoes(withActor(packet(BATTLE), "Arax"), "GOBLIN", 3))));
+        assertFalse(battle.sameDisplay(CombatSnapshot.parse(withActor(packet(BATTLE), "Arax"))));
+    }
+
+    @Test public void onlyConditionsThatChangeTheOverviewBreakDisplayEquality() {
+        CombatSnapshot standing = CombatSnapshot.parse(packetOf(new int[][]{{1, 10, 10, 0}}));
+        assertTrue(standing.sameDisplay(CombatSnapshot.parse(packetOf(new int[][]{{1, 10, 10, 2}}))));
+        CombatSnapshot dying = CombatSnapshot.parse(packetOf(new int[][]{{4, 10, 10, 5}}));
+        assertFalse(standing.sameDisplay(dying));
+        assertTrue(dying.sameDisplay(CombatSnapshot.parse(packetOf(new int[][]{{4, 10, 10, 4}}))));
+        assertFalse(dying.sameDisplay(CombatSnapshot.parse(packetOf(new int[][]{{4, 10, 10, 6}}))));
+    }
+
     @Test public void everySquareTheGameDrewIsReadBack() {
         CombatSnapshot snapshot = CombatSnapshot.parse(packet(BATTLE));
         assertNotNull(snapshot);

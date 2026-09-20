@@ -39,7 +39,7 @@ import name.osher.gil.minivmac.notebook.NoteIcon;
 import name.osher.gil.minivmac.notebook.ExplorationTrail;
 
 /** Static black-on-white cartography: no animation, blink, or network access. */
-public final class LiveMapView extends View {
+public class LiveMapView extends View {
     private final Paint ink = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Path glyph = new Path();
     // Original Macintosh class-string order, not a modern D&D class list.
@@ -356,9 +356,11 @@ public final class LiveMapView extends View {
         // The battlefield is the worst offender: a fight rewrites these records
         // continuously, so without a hold it can blink several times a second.
         if (mode == MapMode.COMBAT && !combatHold.accept(next != null, now())) return;
-        boolean had = combat != null;
-        if (next == null && !had) return;
+        boolean same = combat == null ? next == null : combat.sameDisplay(next);
         combat = next;
+        // Good repeats still renew the hold above, but do not redraw or
+        // rebuild accessibility text when the displayed battle is unchanged.
+        if (same) return;
         refreshDescription(); invalidate();
     }
 

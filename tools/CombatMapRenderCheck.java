@@ -26,6 +26,16 @@ import name.osher.gil.minivmac.mapper.ReadingHold;
 public final class CombatMapRenderCheck {
     private static int passed;
 
+    private static final class CountingMap extends LiveMapView {
+        int redraws, descriptions;
+        CountingMap(Context context) { super(context, null); }
+        @Override public void invalidate() { redraws++; super.invalidate(); }
+        @Override public void setContentDescription(CharSequence text) {
+            descriptions++; super.setContentDescription(text);
+        }
+        void resetCounts() { redraws = descriptions = 0; }
+    }
+
     public static void main(String[] args) {
         try { checks(args.length == 0 ? "com.hunterdavis.poolradmacmaps.ii" : args[0]); }
         catch (Throwable failure) { failure.printStackTrace(System.err); System.exit(1); }
@@ -231,6 +241,76 @@ public final class CombatMapRenderCheck {
         Context system = (Context) activityThread.getMethod("getSystemContext").invoke(thread);
         Context app = system.createPackageContext(packageName, Context.CONTEXT_IGNORE_SECURITY);
         Context context = new ContextThemeWrapper(app, android.R.style.Theme_Material_Light_NoActionBar);
+
+        run("Identical combat polls request no redraw or accessibility rebuild", () -> {
+            CountingMap view = new CountingMap(context);
+            view.layout(0, 0, 1440, 684);
+            byte[] party = partyPacket(6), battle = combatPacket(BATTLE);
+            view.showPartySample(party);
+            view.showSample(mapPacket(2, 5));
+            view.showCombatSample(battle);
+            Bitmap before = draw(view);
+            view.resetCounts();
+            for (int i = 0; i < 100; i++) {
+                view.showSample(mapPacket(2, 5));
+                view.showPartySample(party.clone());
+                view.showCombatSample(battle.clone());
+            }
+            check(view.redraws == 0 && view.descriptions == 0,
+                    "Repeated readings refreshed the map: " + view.redraws + "/" + view.descriptions);
+            check(before.sameAs(draw(view)), "Identical readings changed pixels");
+
+            // Movement within unchanged bounds must still repaint.
+            battle[9]++;
+            view.showCombatSample(battle);
+            check(view.redraws == 1 && !before.sameAs(draw(view)), "Movement did not repaint immediately");
+            before = draw(view); view.resetCounts();
+            byte[] actor = "Arax".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            System.arraycopy(actor, 0, battle, CombatSnapshot.ENTRIES_SIZE, actor.length);
+            view.showCombatSample(battle);
+            check(view.redraws == 1 && !before.sameAs(draw(view)), "Acting marker did not repaint immediately");
+            check(String.valueOf(view.getContentDescription()).contains("Arax (acting)"), "Acting text is stale");
+
+            before = draw(view); view.resetCounts();
+            party[8 + 16]--; // HP changes while battlefield remains identical.
+            view.showPartySample(party);
+            view.showCombatSample(battle.clone());
+            check(view.redraws == 1 && !before.sameAs(draw(view)), "HP change was swallowed by combat equality");
+            check(String.valueOf(view.getContentDescription()).contains("6 of 20 HP"), "HP text is stale");
+
+            before = draw(view); view.resetCounts();
+            battle[8] = 4; battle[11] = 5;
+            view.showCombatSample(battle);
+            check(view.redraws == 1 && !before.sameAs(draw(view)), "Fallen marker did not repaint immediately");
+            before = draw(view); view.resetCounts();
+            battle[CombatSnapshot.FOES_OUT] = 1;
+            byte[] foe = "GOBLIN".getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+            System.arraycopy(foe, 0, battle, CombatSnapshot.FOES_OUT + 1, foe.length);
+            battle[CombatSnapshot.FOES_OUT + 1 + CombatSnapshot.FOE_NAME] = 4;
+            view.showCombatSample(battle);
+            check(view.redraws == 1 && !before.sameAs(draw(view)), "Foe header did not repaint immediately");
+        });
+
+        run("An identical good reading renews the unreadable-frame hold", () -> {
+            CountingMap view = new CountingMap(context);
+            view.layout(0, 0, 900, 520);
+            byte[] battle = combatPacket(BATTLE);
+            view.showSample(mapPacket(2, 5)); view.showCombatSample(battle);
+            idle(ReadingHold.HOLD_MS / 2 + 100);
+            view.resetCounts(); view.showCombatSample(battle.clone());
+            check(view.redraws == 0, "Good repeat redrew the overview");
+            refuseUntil(view, ReadingHold.HOLD_MS / 2 + 100, (byte[]) null);
+            check(view.redraws == 0 && String.valueOf(view.getContentDescription()).contains("Battle overview"),
+                    "Skipping the redraw failed to renew the hold");
+            refuseUntil(view, ReadingHold.HOLD_MS / 2 + 100, (byte[]) null);
+            check(view.redraws == 1 && !String.valueOf(view.getContentDescription()).contains("Battle overview"),
+                    "Expired reading did not clear exactly once");
+            view.showCombatSample(battle);
+            check(view.redraws == 2, "Returning reading did not restore immediately");
+            view.showSample(mapPacket(3, 2)); view.resetCounts();
+            view.showCombatSample(battle);
+            check(view.redraws == 0, "Out-of-combat reading redrew the view");
+        });
 
         run("Game clock draws in the header and clears on loading or pane reset", () -> {
             for (int width : new int[]{1440,480}) {

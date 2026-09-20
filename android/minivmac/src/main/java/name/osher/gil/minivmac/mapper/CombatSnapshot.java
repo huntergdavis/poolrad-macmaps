@@ -98,6 +98,27 @@ public final class CombatSnapshot {
     }
 
     /**
+     * Everything the overview draws or announces, including roster order
+     * (which ties party markers to their rows). Health and condition words
+     * arrive separately through PartyState; here conditions only change the
+     * fallen marker's shape and the down/lost counts.
+     */
+    public boolean sameDisplay(CombatSnapshot other) {
+        if (other == null || !java.util.Objects.equals(acting, other.acting)
+                || spots.size() != other.spots.size() || foes.size() != other.foes.size()) return false;
+        for (int i = 0; i < spots.size(); i++) {
+            Spot a = spots.get(i), b = other.spots.get(i);
+            if (a.party != b.party || a.fallen != b.fallen || a.x != b.x || a.y != b.y
+                    || (a.fallen && a.savable() != b.savable())) return false;
+        }
+        for (int i = 0; i < foes.size(); i++) {
+            Foe a = foes.get(i), b = other.foes.get(i);
+            if (!a.name.equals(b.name) || a.standing != b.standing) return false;
+        }
+        return true;
+    }
+
+    /**
      * The name field, or null if it is not one.
      *
      * An empty field is nobody acting and reads as "". A field that is not a

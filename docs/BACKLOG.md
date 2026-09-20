@@ -1707,11 +1707,14 @@ Mac has stopped working — it keeps running underneath. In priority order:
   backgrounded. Give it a real, reliable wait that still wakes promptly for
   resume, shutdown, and any pending operation. No visible gameplay change; this
   is pure waste removal.
-- [ ] **F101 — Skip redrawing combat when nothing changed.** Combat samples
-  invalidate the view on every accepted update even when nothing visible
-  moved (`LiveMapView.java:321`). Compare the displayed state first — acting
-  character, positions, everything the overview actually shows — and only
-  redraw on a real change.
+- [x] **F101 (delivered 0.91.0) — Skip redrawing combat when nothing changed.**
+  Compare combat positions/order, sides, fallen markers, acting character and
+  enemy names/counts before redrawing or rebuilding accessibility text. Good
+  repeats still renew the unreadable-frame hold; health updates remain
+  independent. Verified in a real emulator fight: movement, damage and turn
+  changes stay current, while a quiet turn's 10 accepted updates cause zero
+  map draws. All 722 Java tests and 19 Android combat rendering checks pass.
+  [Verification](COMBAT_REDRAW.md).
 - [ ] **F102 — Pause the guest automatically while the player is just
   reading or writing a note, transparent to the player.** Owner: this must not
   be a mode switch the player has to notice or turn on — no visible toggle, no
