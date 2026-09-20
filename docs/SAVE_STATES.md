@@ -328,7 +328,6 @@ measurement was made.
 
 ## F36 — the game's own save prompts (2026-09-19)
 
-<<<<<<< HEAD
 The companion's save and load actions do not open the game's save or overwrite
 prompts. F36 was closed without an app change.
 
@@ -338,43 +337,15 @@ prompts. F36 was closed without an app change.
 - **Withdrawn loader:** `SaveBackupController` no longer offers its
   restart-based load option. `EmulatorFragment.loadSavedGame()` has no caller;
   its `LoadSequence` and `sendCommandKey()` plumbing remains unused.
-- **Live check:** A quick save and a load completed on the sandbox while the
-  game showed its treasure screen. Only the treasure animation changed.
+- **Live check:** A quick save and a load completed on the sandbox
+  (`Saved QUICK`, `Restore completed: true`) while the game showed its treasure
+  screen. Only the treasure animation changed.
   No game dialog, prompt or message appeared.
 - **Player choices:** The game's own Save Current Game, Camp → Save,
   overwrite and quit confirmations remain the player's to answer. F61 ruled
   out answering these choices on the player's behalf.
 
 Removing the unused restart-loader plumbing would be separate cleanup.
-=======
-Question: now that the companion has its own save system, does the game still
-put its save-and-overwrite questions in front of the player on any path, and
-should the companion answer them?
-
-Answer: no path the companion drives reaches them, so nothing was built.
-
-- **Code.** Every companion save (Quick save, named Save…, the five-minute
-  autosave, the fight-end quick save) and every restore (Load…, Quick load,
-  launch restore) is an emulator snapshot: `SaveStateController` and the native
-  capture, never a game menu. The only guest input the companion generates is
-  the boot dialog's Return (F30), the code-wheel answer plus Return, the V key
-  for a character sheet the player asked for (F43), the party-selection click
-  (F89) and the player's own keyboard and trackpad. `sendCommandKey` exists
-  only for `LoadSequence`, the withdrawn F86 restart-based loader, whose entry
-  point `loadSavedGame` has no caller. Nothing sends Cmd-S or the camp's Save.
-- **Live.** On the sandbox, with the game showing its treasure screen, a Quick
-  save and then a Load… of that save each completed (`Saved QUICK`,
-  `Restore completed: true`) while the guest screen stayed the same apart from
-  the treasure pile's own animation; no dialog, no prompt, no Message text.
-- **What remains the player's.** File → Save Current Game…, Camp → Save, the
-  Standard File "Replace existing?" and "Do you really want to quit?" appear
-  only when the player chooses those commands. Answering them on the player's
-  behalf was ruled out when F61 was dropped: that is the player answering the
-  game, not the helper acting for them.
-
-Follow-up worth its own item: `LoadSequence` and `loadSavedGame` are dead
-code since F86 was withdrawn and could be removed.
->>>>>>> 36203cc (Close F36: no companion path reaches the game's own save prompts)
 
 ## How this relates to the game's own save format
 
