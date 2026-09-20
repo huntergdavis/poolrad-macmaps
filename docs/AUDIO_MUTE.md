@@ -9,6 +9,12 @@ native-to-Java audio transfers. **Walking Sounds** filters footsteps while
 Sounds remains on; other effects still work. This follows the game's existing
 rules, including when its walking checkbox remains checked with Sounds off.
 
+![The game's Options menu with Sounds off and Walking Sounds still checked](images/game-sounds-off.png)
+
+*Test-build capture from 0.95. The menu shows the settings; the checks below
+verify that audio work stops.
+Source: `poolrad-macmaps-for-codex/scratch/f99-final-options-muted.png`.*
+
 The emulator reads the verified v1.1 preferences once per emulated tick.
 It never writes guest RAM or preferences. Before a verified game setting is
 seen, audio behaves normally. Once observed, the game’s choice stays in force
