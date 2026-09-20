@@ -87,10 +87,12 @@ no game → party" flicker as a load, and the count restarted. That reset is
 removed; only the load screen, a clock rewind or a restore starts over. The
 corrected detector is covered by `RestTallyTest`, not re-run live.
 
-Not verified live: **spells cast**. In this emulated build every rest emptied
-the chosen slots without a "has memorized" message, so no character ever held
-a ready spell to cast; the cast rule rests on the documented slot semantics and
-unit tests. Also not verified live: a `.rest` sidecar round trip.
+Not verified live: **spells cast**. Every rest in that session emptied the
+chosen slots without a "has memorized" message, so no character ever held a
+ready spell to cast. That turned out to be the game's own rule (only Magic →
+Rest memorizes; the timed rest and leaving camp forget chosen spells; see
+[SPELL_READINESS.md](SPELL_READINESS.md)), not a reader fault. The cast rule
+rests on the documented slot semantics and unit tests. Also not verified live: a `.rest` sidecar round trip.
 
 Process note: one APK install happened after the shutdown helper's OCR failed
 to confirm the Finder and a fallback proceeded anyway, so the sandbox guest

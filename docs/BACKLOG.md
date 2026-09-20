@@ -1731,6 +1731,13 @@ Mac has stopped working — it keeps running underneath. In priority order:
   again. The hard part flagged in the audit: detecting "waiting on the player"
   automatically is real work, harder than an explicit toggle — build the
   automatic version, not a settings switch.
+- [x] **F104 (delivered 0.96.0) — "Resting clears chosen spells" investigated.**
+  Reproduced with RAM captures and read from CODE 4: the game itself forgets
+  chosen spells on entering and leaving camp, the timed Camp → Rest never sets
+  the rest-hours byte so it cannot memorize, and only Magic → Rest computes the
+  time and memorizes. The app writes none of these bytes. Fixed what was ours:
+  the party-details reminder now names the working path and the two traps.
+  See [SPELL_READINESS.md](SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
 - [x] **F103 (delivered 0.93.0) — Skip autosaves that have nothing new to
   protect.** The five-minute tick now asks `AutosaveGate` first. Activity is
   any guest key or mouse press, a party, map or message sample that differs

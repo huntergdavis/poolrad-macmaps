@@ -30,6 +30,9 @@ public class PartySpellTest {
         assertEquals(3, m.spellsReadyTotal());
         assertEquals(3, m.spellsAwaitingRestTotal());
         assertTrue(m.restWouldMemorize());
+        assertTrue("the reminder must name the path that actually memorizes",
+                PartyState.Member.REST_REMINDER.contains("Magic \u2192 Rest"));
+        assertTrue(PartyState.Member.REST_REMINDER.contains("leaving camp forgets"));
         assertEquals("Ready to cast: level 1 × 2, level 2 × 1", m.spellsReadyLabel());
         assertEquals("Awaiting rest: level 3 × 3", m.spellsAwaitingRestLabel());
     }

@@ -8,6 +8,11 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- F104 shipped in 0.96.0: "rest clears chosen spells" is the game's rule
+  (camp entry/exit forget pending; only Magic → Rest memorizes). Reminder text
+  fixed; code sites in docs/SPELL_READINESS.md. `scratch/f98/venv` has
+  capstone/macresources/machfs; `scratch/f98/game.rsrc` is the app's resource
+  fork from the private boot disk copy (do not commit).
 - F103 shipped in 0.93.0: `AutosaveGate` skips a five-minute autosave when no
   guest input, sample change or disk change happened since the last snapshot
   or restore; `PoolRad.Autosave` logs each skip/request.

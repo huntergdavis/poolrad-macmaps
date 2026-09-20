@@ -29,7 +29,7 @@ public final class PartyDetailsDialog {
         if (member.spellsAvailable()) {
             line(activity, column, member.spellsAwaitingRestLabel(), 18);
             if (member.restWouldMemorize()) line(activity, column,
-                    "Resting in the original game would finish memorizing these.", 14);
+                    PartyState.Member.REST_REMINDER, 14);
         }
         line(activity, column, member.readiedWeaponLabel(), 18);
         line(activity, column, member.readiedArmorLabel(), 18);

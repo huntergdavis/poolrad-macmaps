@@ -6,12 +6,44 @@ which ones they chose that still need rest, counted per spell level.
 
 - `Ready to cast: level 1 × 2, level 2 × 1`
 - `Awaiting rest: level 1 × 1` and, when anything is waiting,
-  *Resting in the original game would finish memorizing these.*
+  *To memorize these, use Magic → Rest in this camp. The timed Camp → Rest
+  does not memorize, and leaving camp forgets them.* (Corrected 2026-09-19;
+  see "How memorizing actually works" below.)
 - `No spells ready to cast` / `Nothing waiting on rest` for a character who has
   none, which is different from `Spell readiness unavailable`.
 
 This app never memorizes, casts, rests or restores anything. It reports what the
 game already recorded. There is no mana gauge: Pool of Radiance has none.
+
+## How memorizing actually works (2026-09-19)
+
+Reported as "resting clears a character's chosen spells instead of memorizing
+them". Reproduced on the disposable emulator with RAM captures around each
+step, then read from the game's own CODE 4. The app writes none of these
+bytes; this is the original game's behaviour, and the app's reminder text was
+wrong about it.
+
+| Observation | Capture / code |
+| --- | --- |
+| Choosing two spells at Magic → Memorize writes `84 95` into slots 19–20 of the array at `+0x17` (bit 7 set, ids 4 and 0x15); Yes/No only confirms. | `scratch/f98/e1.ram`, `e2.ram` |
+| The timed Camp → Rest (Days/Hours/Mins dialog) leaves the character's rest-hours byte at `+0x2c` at 0. | `e3.ram`, `g1.ram` |
+| After that rest is interrupted (city watch, five minutes) both slots read `00`. | `g2.ram` |
+| **Entering camp and leaving camp both call the forget-pending routine.** The camp loop (`CODE4 +0x1c2a`) calls `+0x0288` right after printing "The party makes camp..." (`+0x1c96`) and again on exit (`+0x1db0`); `+0x0288` walks the party calling `+0x01c0`, which zeroes every slot above `0x7f` and clears `+0x2c`. | disassembly |
+| The rest loop's five-minute memorize path cannot fire: `+0x2bfa` clears each member's countdown at `A5-0x371e`, and `+0x2a7e` decrements before testing, so it wraps to `0xff`. | disassembly |
+| Memorizing therefore happens only through the hourly path (`+0x2b38`): while `+0x2c` > 0 it counts down once an hour; at 0 it memorizes the first pending spell (`+0x27c6` adds `0x80`, prints "has memorized") and arms the countdown at level × 3 ticks. | disassembly |
+| `+0x2c` is set only by the rest-time routine (`+0x0004`): 4 hours (6 if a level-3 spell is pending) plus 15 minutes per spell level, computed per member and maximised by the **Magic → Rest** handler (`+0x07dc`), which then starts the rest itself. The timed Camp → Rest dialog never calls it. | disassembly |
+
+So a player who chooses spells, rests with the timed dialog, or exits camp
+before resting, loses the choice with no message. The only sequence that
+memorizes is Memorize → Yes → **Magic → Rest**, uninterrupted, within one camp
+session. The companion now says so beside the awaiting count. Nothing here
+changes the guest; the reader's slot semantics were confirmed byte for byte.
+
+Not done live: a completed Magic → Rest with a "has memorized" message. The
+council guard interrupted the last attempt in New Phlan, and the Slums walk
+ran out of session time; the code path is read, not watched. `tools/` has
+no memorize script yet; `scratch/f98/harness/slots.c` dumps the slot array
+from a RAM capture.
 
 ## Macintosh v1.1 evidence
 

@@ -179,6 +179,14 @@ public final class PartyState {
         }
         /** True only when the game itself is holding spells that rest would finish. */
         public boolean restWouldMemorize() { return spellsAwaitingRestTotal() > 0; }
+        /**
+         * What actually finishes memorizing in Mac v1.1, read from CODE 4: only
+         * Magic → Rest computes the needed time and memorizes; the timed
+         * Camp → Rest never does, and entering or leaving camp forgets chosen
+         * spells. See docs/SPELL_READINESS.md.
+         */
+        public static final String REST_REMINDER = "To memorize these, use Magic \u2192 Rest in this camp. "
+                + "The timed Camp \u2192 Rest does not memorize, and leaving camp forgets them.";
         private static String byLevel(Member member, boolean waiting) {
             StringBuilder out = new StringBuilder();
             for (int level = 1; level <= SPELL_LEVELS; level++) {
