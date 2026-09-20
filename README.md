@@ -41,7 +41,9 @@ disks before uninstalling or clearing app data.
   32 screen pixels. With it enabled, **1:1** replaces **Fit** and resets that
   scale. Tap the header to bring your party back into view.
   [See the map size option](docs/MAP_SCALE.md).
-- Tap **⏎** in the map's lower-right corner to press Return in the game.
+- Tap **⏎** to press Return in the game. **Info → Options → Enter shortcut**
+  puts it in either lower corner of the map or game screen, or turns it off.
+  It starts at the map's lower right. [Placement guide](docs/ENTER_SHORTCUT.md).
 - Open **Info → Map legend** for the symbols.
 - **Connections** shows passages between areas you have visited.
   Arrows record only the directions you traveled.

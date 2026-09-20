@@ -1,6 +1,8 @@
 # Enter shortcut placement
 
-**Info → Options → Enter shortcut** offers, in order:
+Tap **⏎** to press Return without opening the keyboard.
+
+Since 0.110.0, **Info → Options → Enter shortcut** lets you choose:
 
 - Bottom right of the map (default).
 - Bottom right of the screen.
@@ -8,17 +10,21 @@
 - Bottom left of the screen.
 - Off.
 
-The setting applies immediately and persists globally. It relocates the existing
-F18 Return shortcut rather than adding a second key. The visible key is 26dp
-with a 48dp touch target. Map placements belong to the companion map, including
-the combat overview; they disappear when another tab is selected or the map is
-hidden. Map-left shifts the zoom controls right so the targets cannot overlap.
+The choice takes effect immediately and is remembered across app restarts.
 
-Screen placements are Android views layered over the guest frame, above both
-touchscreen and trackpad input. They stay inside the app's usable screen bounds
-and above an open keyboard. The trackpad fullscreen button moves up when Enter
-occupies its corner. Outside the Enter target, guest mouse input is unchanged.
-Off removes both the drawing and touch target.
+- **Map corners:** the button appears on the map and combat overview. It hides
+  when you change tabs or hide the map. Choosing the left corner moves the
+  zoom controls aside.
+- **Screen corners:** the button sits over the game and stays above an open
+  keyboard. The trackpad's fullscreen button moves aside when needed.
+- **Off:** removes the button.
+
+![Enter shortcut chooser with four corner positions and Off](images/enter-placement.png)
+
+*Development-build capture for 0.110.0, taken before the version bump from
+0.109.0. The default is the map's lower-right corner.*
+
+## Implementation
 
 Both routes call `EmulatorFragment.pressGuestReturn`: the same translated Return
 scancode down/up used by the established map shortcut. No guest memory writes,

@@ -15,6 +15,8 @@ The page contains:
   Applies immediately and is saved globally.
 - One-line party rows.
 - Large message text.
+- Auto-skip informational messages, off by default. Story prompts, choices
+  and confirmations stay manual. [Which notices it skips](AUTO_SKIP_MESSAGES.md).
 - Auto-save every five minutes, retaining the latest 20 automatic states. A
   tick with nothing new since the last snapshot is skipped (F103).
 
