@@ -6,10 +6,6 @@ Built for an e-ink tablet, with party details, handwritten notes and the
 adventurer's journal close at hand. Runs in a fork of Mini vMac.
 Works offline. No root or account needed.
 
-<img src="docs/images/readme-map.png" width="760" alt="Live map of New Phlan, game time and party health above the original Macintosh game">
-
-*Screenshots from the running app. Game artwork belongs to its respective owners.*
-
 ## Install
 
 [Download the 0.86.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.86.0/poolrad-macmaps-0.86.0.apk)
@@ -39,6 +35,11 @@ disks before uninstalling or clearing app data.
 - Tap the map header to highlight your party's square.
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
 - Open **Info → Map legend** for the symbols.
+- **Connections** (new in 0.88; APK not yet published) shows passages between
+  areas you have visited. Arrows record only the directions you traveled.
+  Tap an area to browse its neighbors; **Current area** returns the view to
+  your party. Routes stay with your notebook and its backups. Loading a save
+  adds no route. [See the Connections view](docs/AREA_CONNECTIONS.md).
 
 When your position is unavailable, the app hides the party arrow and labels any
 retained map as a reference. Combat has its own overview.
@@ -58,6 +59,8 @@ The heading counts anyone hurt, down, waiting for rest or ready to train.
 - **Info → Marching order** lists everyone from first to last.
 
 <img src="docs/images/readme-marching-order.png" width="760" alt="Marching order lists the six party members from first to last">
+
+*Screenshots from the running app. Game artwork belongs to its respective owners.*
 
 **Info → Money** shows each purse, party coin totals and their gold value.
 Gems and jewelry are counted separately. Open the coin converter from this page.

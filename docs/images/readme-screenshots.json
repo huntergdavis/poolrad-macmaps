@@ -1,9 +1,4 @@
 {
-  "docs/images/readme-map.png": {
-    "captured_at": "2026-09-19T21:07:21.616638+00:00",
-    "release": "0.84.0",
-    "sha256": "c2a28eaff167054b1adeb4cb509efdbca0bf82f874c8aedaf385f7a290f45d38"
-  },
   "docs/images/readme-marching-order.png": {
     "captured_at": "2026-09-19T21:08:00.174155+00:00",
     "release": "0.84.0",
