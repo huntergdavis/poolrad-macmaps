@@ -8,12 +8,8 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.90.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
+[Download the 0.93.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.93.0/poolrad-macmaps-0.93.0.apk)
 for **Android 5.0 or later**.
-
-Source version 0.91 skips [unchanged combat redraws](docs/COMBAT_REDRAW.md).
-Version 0.92 adds an optional [original map tile size](docs/MAP_SCALE.md).
-Their APKs have not been published yet.
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -38,7 +34,7 @@ disks before uninstalling or clearing app data.
   Fog and footprint settings are remembered for each area.
 - Tap the map header to highlight your party's square.
 - **Original area tile size (1:1)** in **Info → Options** keeps map squares at
-  32 screen pixels (source 0.92). Drag to see the rest; tap the header to bring
+  32 screen pixels. Drag to see the rest; tap the header to bring
   your party back into view. Leave it off to fit the whole map on screen.
   [See the map size option](docs/MAP_SCALE.md).
 - Tap **⏎** in the map's lower-right corner to press Return in the game.
@@ -131,8 +127,11 @@ illustrated manual lookup as a fallback.
   will fit. Use **Load… → Delete…** to remove an old save.
   [See the Saves page](docs/SAVE_STATES.md#f98--info--saves).
 - Each snapshot remembers its notebook.
-- **Info → Options** controls five-minute autosaves, which keep the latest 20
-  automatic snapshots while a party is in the world.
+- **Info → Options** turns on autosaves. The app checks every five minutes
+  while a party is in the world and keeps the latest 20 automatic snapshots.
+  It skips a check if it has seen no activity since the last successful snapshot
+  or restore. Game input, changes to the party, map or messages, and disk
+  activity all count. [Autosave details](docs/SAVE_STATES.md#f103--autosaves-that-have-nothing-to-protect).
 
 <img src="docs/images/readme-save-preview.png" width="760" alt="Quick-save preview with capture time and the requirement for matching disks">
 

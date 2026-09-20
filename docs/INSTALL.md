@@ -1,14 +1,14 @@
 # Install PoolRad Mac Maps
 
 This is an Android APK, not a website. Download the
-[0.90.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.90.0)
+[0.93.0 prototype](https://github.com/huntergdavis/poolrad-macmaps/releases/tag/v0.93.0)
 or build from source below. No ROM, Mac system disk, game disk, or save is supplied.
 The universal Mac II APK supports ARM64, ARMv7, x86, and x86_64 on Android 5.0+.
 
 ## On your tablet
 
 1. **Get the APK onto the tablet.** Download
-   [`poolrad-macmaps-0.90.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.90.0/poolrad-macmaps-0.90.0.apk)
+   [`poolrad-macmaps-0.93.0.apk`](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.93.0/poolrad-macmaps-0.93.0.apk)
    directly, copy it to Downloads using USB, or browse your
    computer's SMB share with [Material Files](https://f-droid.org/packages/me.zhanghai.android.files/).
 2. **Tap the APK and install.** If Android asks, allow installation from that
@@ -50,6 +50,10 @@ When recognized party records are available, names, current/max HP and black
 health bars appear beside the map. Unknown health is not guessed or retained.
 
 **Info → Options** controls visited-only fog and directional footprints.
+It also offers **Original area tile size (1:1)**. Turn it on for 32-pixel
+map squares, then drag to scroll or tap the header to find your party.
+Leave it off to fit the whole map on screen. [Map size guide](MAP_SCALE.md).
+
 **Info → Exploration trail** lists recent return directions. The full map is
 the default; walked tiles are remembered per notebook and area. Turning in
 place is not walking. Missing observations start separate segments, never
