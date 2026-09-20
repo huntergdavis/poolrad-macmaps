@@ -8,18 +8,8 @@ Works offline. No root or account needed.
 
 ## Install
 
-[Download the 0.99.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.99.0/poolrad-macmaps-0.99.0.apk)
+[Download the 0.101.0 APK](https://github.com/huntergdavis/poolrad-macmaps/releases/download/v0.101.0/poolrad-macmaps-0.101.0.apk)
 for **Android 5.0 or later**.
-
-The source includes two changes **not yet in the published APK**:
-
-- **Automatic idle:** after five quiet seconds at a recognized player prompt,
-  the game sleeps while you read or write notes. Your next game action wakes it.
-  Timed rest and automatic combat keep running. [Details](docs/AUTOMATIC_IDLE.md).
-- **PoolRad → Rest until healed:** preview and confirm full healing, waking
-  Unconscious or Dying members, and memorizing chosen spells outside combat.
-  It does not advance time, cure poison, revive the dead or save your game.
-  [Rest helper guide and limits](docs/REST_UNTIL_HEALED.md).
 
 1. Tap the APK and allow installation from your file manager when prompted.
 2. Open **Pool of Radiance** and select your own matching Macintosh II ROM.
@@ -75,9 +65,15 @@ The heading counts anyone hurt, down, waiting for rest or ready to train.
 - **T** marks someone eligible to train. They still need a suitable training hall.
 - **NPC** marks a non-player party member.
 - **Info → Marching order** lists everyone from first to last.
-- To memorize chosen spells, use **Magic → Rest** before leaving camp.
+- In the original game, memorize chosen spells with **Magic → Rest** before
+  leaving camp.
   Timed **Camp → Rest** does not memorize them. Leaving camp clears those
   choices. [Memorizing steps and verification](docs/SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
+
+**PoolRad → Rest until healed** previews full healing, waking Unconscious or
+Dying members, and memorizing chosen spells. Confirm it to apply those changes
+outside combat. It does not advance time, cure poison, revive the dead or save
+your game. [Rest helper guide and limits](docs/REST_UNTIL_HEALED.md).
 
 **Info → Money** shows each purse, party coin totals and their gold value.
 Gems and jewelry are counted separately. Open the coin converter from this page.
@@ -122,6 +118,10 @@ opened page. [How notes follow your party](docs/AREA_NOTE_FOLLOW.md).
   fog and footprint settings in one file. It includes notes, trails and journal history.
   Game saves, emulator snapshots and disks need separate backups.
 
+After five quiet seconds at a recognized player prompt, the game sleeps while
+you read or write notes. Your next game action wakes it. Timed rest and
+automatic combat keep running. [Idle behavior and verification](docs/AUTOMATIC_IDLE.md).
+
 [Handwriting guide](docs/NOTEBOOK.md) · [Notebook backups](docs/NOTEBOOK_BACKUPS.md)
 
 ## Read without leaving the game
@@ -159,6 +159,7 @@ audio work. **Walking Sounds** controls footsteps.
 - Each snapshot remembers its notebook.
 - **Info → Options** turns on autosaves. The app checks every five minutes
   while a party is in the world and keeps the latest 20 automatic snapshots.
+  A check due during automatic idle waits until the game wakes.
   It skips a check if it has seen no activity since the last successful snapshot
   or restore. Game input, changes to the party, map or messages, and disk
   activity all count. [Autosave details](docs/SAVE_STATES.md#f103--autosaves-that-have-nothing-to-protect).

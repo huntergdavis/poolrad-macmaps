@@ -1,6 +1,6 @@
 # Rest until healed
 
-**Available in source; not yet in the published 0.99 APK.**
+**Included in the published 0.101 APK.**
 
 Open **PoolRad → Rest until healed** outside a fight. Review the preview, then
 choose **Rest** to apply it or **Cancel** to leave the party alone.
