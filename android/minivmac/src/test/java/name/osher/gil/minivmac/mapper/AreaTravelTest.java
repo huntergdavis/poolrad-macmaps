@@ -53,17 +53,29 @@ public class AreaTravelTest {
         recorder.observe(parse(packet(0,64,1,0,0,0)),100);
         recorder.observe(null,350);
         assertNull(recorder.observe(parse(packet(20,79,1,2,0,64)),600));
-        // ...and polling that stops for longer than 1.25 seconds.
+        // ...and polling that stops for longer than the slowest pace allows.
         recorder=new ConnectionRecorder();
         recorder.observe(parse(packet(0,64,1,0,0,0)),100);
         recorder.observe(null,350);
-        recorder.observe(null,1700);
-        assertNull(recorder.observe(parse(packet(20,79,1,1,0,64)),1900));
+        recorder.observe(null,350+ConnectionRecorder.MAX_GAP_MS+1);
+        assertNull(recorder.observe(parse(packet(20,79,1,1,0,64)),600+ConnectionRecorder.MAX_GAP_MS));
+    }
+    @Test public void aPartyRestingAtTheGateStillGetsItsCrossingRecorded() {
+        // Standing still for a while drops the poller to its 3 s resting pace;
+        // the live log showed exactly that before the New Phlan → Slums step.
+        ConnectionRecorder recorder=new ConnectionRecorder();
+        long now=100;
+        recorder.observe(parse(packet(0,64,1,0,0,0)),now);
+        for(int i=0;i<8;i++) { now+=PollingPace.RESTING_MS; assertNull(recorder.observe(parse(packet(0,64,1,0,0,0)),now)); }
+        now+=PollingPace.RESTING_MS;
+        byte[] busy=packet(20,79,1,1,0,64); busy[26]=0;   // first frame in the new area, not yet settled
+        assertNull(recorder.observe(parse(busy),now));
+        assertEquals(new AreaConnections.Edge(0,64,20,79),recorder.observe(parse(packet(20,79,1,1,0,64)),now+250));
     }
     @Test public void pollingGapNeverConnectsAndProcessingCanBridgeContinuousLoading() {
         ConnectionRecorder recorder=new ConnectionRecorder();
         recorder.observe(parse(packet(0,64,1,0,0,0)),100);
-        assertNull(recorder.observe(parse(packet(20,79,1,1,0,64)),2000));
+        assertNull(recorder.observe(parse(packet(20,79,1,1,0,64)),100+ConnectionRecorder.MAX_GAP_MS+1));
         recorder=new ConnectionRecorder();recorder.observe(parse(packet(0,64,1,0,0,0)),100);
         byte[] busy=packet(20,79,1,1,0,64);busy[26]=0;
         assertNull(recorder.observe(parse(busy),400));

@@ -8,10 +8,13 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
-- Connections fix in 0.105.0: `ConnectionRecorder` bridges unreadable frames
-  (real crossings show Position unavailable mid-load). Not watched live yet;
-  `PoolRad.Travel` logs per-sample epoch/serial/from/to. If a live crossing
-  shows the epoch changing, look at `poolrad_travel_update` in POOLRAD.h.
+- 0.109.0: bounded companion dialogs are not touch-modal
+  (`CompanionDialogBounds.prepare`), so the guest stays usable under a page.
+- Connections fix in 0.105.0 + 0.108.0: the real blocker was the recorder's
+  1.25 s gap rule against the 3 s resting poll pace at the gate; the rule now
+  follows `PollingPace.RESTING_MS` + 1 s. `ConnectionRecorder` also bridges
+  unreadable frames. `PoolRad.Travel` logs per-sample epoch/serial/from/to;
+  a live crossing showed the native epoch steady and the serial 0 → 1.
   Note: `sendCommandKey`/`sendGuestLine` are JDWP entry points for
   tools/GuestCommand.java; never remove them again.
 - F36 closed as not needed in 0.102.0: no companion path drives the game's

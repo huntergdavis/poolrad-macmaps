@@ -1,10 +1,20 @@
 package name.osher.gil.minivmac.notebook;
 
 import name.osher.gil.minivmac.mapper.AreaTravel;
+import name.osher.gil.minivmac.mapper.PollingPace;
 import name.osher.gil.minivmac.mapper.PoolRadState;
 
 /** UI-thread observation chain. Persistence receives only immutable edges. */
 public final class ConnectionRecorder {
+    /**
+     * The longest silence between samples that still counts as continuous
+     * polling. The poller slows to {@link PollingPace#RESTING_MS} when the
+     * party has stood still for a while, which is exactly what happens at a
+     * gate before stepping through; a threshold below that pace discarded the
+     * departure on every resting sample and lost every unhurried crossing.
+     * Backgrounding stops polling for far longer than this and still breaks it.
+     */
+    public static final long MAX_GAP_MS = PollingPace.RESTING_MS + 1000;
     private long epoch, serial, lastTime;
     private int area=-1;
     public void interrupt() { area=-1; epoch=0; }
@@ -19,11 +29,11 @@ public final class ConnectionRecorder {
      */
     public AreaConnections.Edge observe(AreaTravel travel,long now) {
         if(travel==null) {
-            if(now<=lastTime || now-lastTime>1250) interrupt();
+            if(now<=lastTime || now-lastTime>MAX_GAP_MS) interrupt();
             lastTime=now;
             return null;
         }
-        if(now<=lastTime || now-lastTime>1250 || epoch!=travel.epoch) interrupt();
+        if(now<=lastTime || now-lastTime>MAX_GAP_MS || epoch!=travel.epoch) interrupt();
         lastTime=now;
         epoch=travel.epoch;
         PoolRadState position=travel.position;

@@ -1785,14 +1785,20 @@ Mac has stopped working — it keeps running underneath. In priority order:
   time and memorizes. The app writes none of these bytes. Fixed what was ours:
   the party-details reminder now names the working path and the two traps.
   See [SPELL_READINESS.md](SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
-- [x] **F58 fix (0.105.0) — Connections never recorded a real crossing.** The
-  recorder discarded the departure on any unreadable frame, and a real gate
-  crossing shows Position unavailable while the next map loads. Unreadable
-  frames now bridge like busy frames; the epoch, serial, source and 1.25 s
-  polling guards are unchanged. Unit-tested against the crossing as the probe
-  reports it; the live New Phlan → Slums walk was not completed on this build
-  (sandbox stuck behind the code wheel). `PoolRad.Travel` logs each
-  travel-sample change so the first real crossing is self-evident.
+- [x] **Fix (0.109.0) — companion pages blocked the game beneath them.** The
+  bounded dialogs were touch-modal, so a touch on the guest while a page was
+  open was swallowed. `CompanionDialogBounds.prepare` now sets the
+  not-touch-modal flag for every bounded page; keys still go to the page and
+  outside taps still do not close it. Live: Look clicked under the open Saves
+  page changed the Message window and the clock. See [TABS.md](TABS.md).
+- [x] **F58 fix (0.105.0 + 0.108.0) — Connections never recorded a real
+  crossing.** The live travel log of a New Phlan → Slums crossing showed the
+  epoch unchanged and the serial 0 → 1 with departure 0@64; what broke it was
+  the recorder's 1.25 s gap rule against the poller's 3 s resting pace after
+  standing at the gate. The gap rule now follows the slowest pace plus a second
+  (`ConnectionRecorder.MAX_GAP_MS`); unreadable frames also bridge (0.105.0).
+  The epoch, serial and source guards are unchanged. `PoolRad.Travel` logs
+  each travel-sample change. See [AREA_CONNECTIONS.md](AREA_CONNECTIONS.md).
 - [x] **F103 (delivered 0.93.0) — Skip autosaves that have nothing new to
   protect.** The five-minute tick now asks `AutosaveGate` first. Activity is
   any guest key or mouse press, a party, map or message sample that differs

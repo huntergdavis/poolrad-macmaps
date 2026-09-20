@@ -31,13 +31,21 @@ No guest RAM, game disk or save is changed by connection tracking.
 
 Both endpoints must independently pass the existing area fingerprint check.
 Java requires the same travel epoch, exactly one native area change, a matching
-source ID, and continuous polling with gaps no longer than 1.25 seconds. Busy
-local frames and unreadable frames can bridge an area load; neither can supply
-an endpoint. (Corrected 2026-09-20: the recorder used to discard the departure
-on any unreadable frame, and a real gate crossing shows Position unavailable
-while the next map loads and is authenticated, so no genuine crossing was ever
-recorded. The epoch, serial and source guards were always the real protection
-and are unchanged.) The
+source ID, and continuous polling: no silence between samples longer than the
+poller's slowest pace plus a second (`ConnectionRecorder.MAX_GAP_MS`, four
+seconds). Busy local frames and unreadable frames can bridge an area load;
+neither can supply an endpoint.
+
+Corrected 2026-09-20, in two steps. The recorder's gap rule was 1.25 seconds,
+but the poller drops to a 3-second resting pace once the party has stood still
+for fifteen seconds, which is exactly what happens at a gate before stepping
+through; every resting sample then discarded the departure, and no unhurried
+crossing was ever recorded. The live log of a real New Phlan → Slums crossing
+showed the travel epoch unchanged, the serial going 0 → 1 with departure 0@64
+and arrival area 20, and a 28-second pause at the gate. Unreadable frames also
+no longer discard the departure (they did not appear on that crossing, but the
+probe does report them around area loads). The epoch, serial and source guards
+were always the real protection and are unchanged. The
 native tick observer counts intermediate GEO changes even between Java reads.
 Unknown areas, wilderness, camp/combat, backgrounding, invalid samples and
 missed transitions cannot invent a shortcut. This is sampled observation, not
@@ -115,3 +123,14 @@ in MAP_MEMORY.md was also corroborated by recalled agent session
 teleports were not individually traversed in this acceptance run; their
 recording policy is exercised through native relocation and Java transition
 fixtures.
+
+## Live acceptance of the fix — 2026-09-20
+
+Disposable sandbox emulator-5586, 0.108.0 build, `f97guard` loaded through the
+original game's picker. The party walked from 15,1 to the gate at 0,4 in New
+Phlan, stood there for 25 seconds so the poller reached its resting pace, and
+stepped west. `PoolRad.Travel` logged `epoch=14 serial=1 from=0@64 to=20`
+followed by `EDGE 0@64 -> 20@79`, and the Connections tab showed
+"Slums of Phlan ← New Phlan" with "Crossings recorded: New Phlan 0,4 → Slums
+of Phlan 15,4". Before the fix the same walk on the previous build logged the
+identical travel fields and no edge.
