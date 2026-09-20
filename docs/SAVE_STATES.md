@@ -348,6 +348,24 @@ prompts. F36 was closed without an app change.
 
 The unused restart-loader plumbing has since been removed.
 
+## Quick save when a fight starts (2026-09-20)
+
+A quick save now lands the moment the mode turns to combat, beside the
+fight-end save from 0.99.0. If the party dies, Quick load returns to the
+start of that fight rather than to whatever came before. The capture is the
+first combat frame the companion observes: the machine is already in the
+fight, which is the earliest state there is to save. Both saves rotate in the
+normal ten-deep quick history, so a session of fights keeps its five most
+recent fights' starts and ends. The since-rest tally and the autosave gate
+see it as any other quick save.
+
+Live on the disposable sandbox, 2026-09-20: a Slums fight began and the log
+read "fight started: quick save requested" then "Saved QUICK" two seconds
+later, with Info → Saves naming that quick save (9:44:30 AM) as the active
+save; when the fight ended and exploration resumed, the fight-end pass logged
+"fight ended: bandaged=0 refused=0; quick save requested" and a second
+"Saved QUICK" (9:55). Both saves sit in the quick history.
+
 ## How this relates to the game's own save format
 
 The record and save-file work already done (F77, F78, F82, F85) is **not

@@ -936,6 +936,20 @@ public class EmulatorFragment extends Fragment
         if (isAdded()) android.widget.Toast.makeText(requireContext(), message, android.widget.Toast.LENGTH_SHORT).show();
     }
 
+    private final name.osher.gil.minivmac.mapper.FightStart mFightStart = new name.osher.gil.minivmac.mapper.FightStart();
+    /**
+     * A quick save the moment a fight begins, so a party that dies can Quick
+     * load back to the start of that fight instead of losing everything since
+     * the last save. The capture is the first combat frame the companion sees;
+     * the machine is already in the fight, which is the earliest state that
+     * exists to save. It rotates in the normal ten-deep quick history beside
+     * the fight-end save.
+     */
+    private void atFightStart(Core core) {
+        if (core == null || core != mCore || !core.isReady()) return;
+        Log.i("PoolRad.FightSave", "fight started: quick save requested");
+        saveState().quickSave();
+    }
     private final name.osher.gil.minivmac.mapper.FightEnd mFightEnd = new name.osher.gil.minivmac.mapper.FightEnd();
     /**
      * F40: when a fight ends, bandage anyone the game left Dying (Unconscious at
@@ -1138,6 +1152,7 @@ public class EmulatorFragment extends Fragment
                         logRestTally(seen);
                         gateObserveMap(seen);
                         logMapMode(seen);
+                        if (mFightStart.observe(seen.mode)) atFightStart(mapCore);
                         if (mFightEnd.observe(seen.mode)) afterFight(mapCore);
                     }
                 });

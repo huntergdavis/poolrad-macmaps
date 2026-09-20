@@ -1793,6 +1793,11 @@ Mac has stopped working — it keeps running underneath. In priority order:
   time and memorizes. The app writes none of these bytes. Fixed what was ours:
   the party-details reminder now names the working path and the two traps.
   See [SPELL_READINESS.md](SPELL_READINESS.md#how-memorizing-actually-works-2026-09-19).
+- [x] **Quick save at fight start (0.111.0).** `FightStart` fires on the
+  transition into combat from a named mode; the fragment requests a quick save
+  at once, so a party wipe can Quick load back to the moment the fight began.
+  Pairs with the fight-end save (F40); both rotate in the quick history.
+  See [SAVE_STATES.md](SAVE_STATES.md#quick-save-when-a-fight-starts-2026-09-20).
 - [x] **Fix (0.109.0) — companion pages blocked the game beneath them.** The
   bounded dialogs were touch-modal, so a touch on the guest while a page was
   open was swallowed. `CompanionDialogBounds.prepare` now sets the

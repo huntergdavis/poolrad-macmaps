@@ -8,6 +8,8 @@ answer cannot be inferred, leave that item pending and work on another.
 **Remove `dunk d6` only after the entire backlog is complete.** This supersedes
 the older d4 reference below for the active run.
 
+- 0.111.0: quick save at fight start (`FightStart` → `quickSave`), logged as
+  `PoolRad.FightSave`; the fight-end save is unchanged.
 - 0.109.0: bounded companion dialogs are not touch-modal
   (`CompanionDialogBounds.prepare`), so the guest stays usable under a page.
 - Connections fix in 0.105.0 + 0.108.0: the real blocker was the recorder's
