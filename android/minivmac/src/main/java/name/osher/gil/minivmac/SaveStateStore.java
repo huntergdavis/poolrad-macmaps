@@ -99,6 +99,14 @@ public final class SaveStateStore {
     /** Publish a new quick save before retiring any previous one. Clock rollback is harmless. */
     public File writeQuick(byte[] rawState, long capturedAt, DiskSnapshotGuard.Fingerprint disks) throws IOException {
         if (rawState == null || rawState.length < 16) throw new IOException("Empty save state");
+        File target = reserveQuick(capturedAt);
+        write(target, rawState, disks);
+        finishQuick(target, capturedAt);
+        return target;
+    }
+
+    /** Reserve the next quick name so disk changes can be written before the state is published. */
+    File reserveQuick(long capturedAt) throws IOException {
         File dir = quickDirectory();
         if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Could not make quick-save history");
         List<File> existing = quickSaves();
@@ -110,12 +118,14 @@ public final class SaveStateStore {
                 sequence = parts[0] + 1;
             }
         }
-        File target = new File(dir, String.format(Locale.US, "q%020d_%013d.prqs", sequence, Math.max(0, capturedAt)));
-        write(target, rawState, disks);
+        return new File(dir, String.format(Locale.US, "q%020d_%013d.prqs", sequence, Math.max(0, capturedAt)));
+    }
+
+    /** Called only after the machine image and matching disk changes both exist. */
+    void finishQuick(File target, long capturedAt) {
         target.setLastModified(Math.max(0, capturedAt));
         List<File> quick = quickSaves();
         for (int i = QUICK_KEEP; i < quick.size(); i++) delete(quick.get(i));
-        return target;
     }
 
     private static long[] quickParts(String name) {
@@ -165,7 +175,8 @@ public final class SaveStateStore {
             else if (label(f).startsWith(AUTO_PREFIX)) auto++;
             else named++;
         }
-        totalBytes += folderBytes(directory) + folderBytes(quickDirectory());
+        totalBytes += folderBytes(directory) + folderBytes(quickDirectory())
+                + folderBytes(new File(directory, "disk-bases"));
         return new Usage(quick, auto, named, saveBytes, totalBytes);
     }
 
@@ -269,12 +280,17 @@ public final class SaveStateStore {
 
     /** A new named save gets its own file; existing names are never clobbered. */
     public File write(String label, byte[] rawState, DiskSnapshotGuard.Fingerprint disks) throws IOException {
+        File target = reserveNamed(label);
+        write(target, rawState, disks);
+        return target;
+    }
+
+    File reserveNamed(String label) {
         String base = safe(label);
         // Legacy quick/auto names are reserved; a manually named save never rotates.
         if (base.equals("quick") || base.startsWith(AUTO_PREFIX)) base = "Named " + base;
         File target = new File(directory, base + EXTENSION);
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
-        write(target, rawState, disks);
         return target;
     }
 
@@ -284,14 +300,21 @@ public final class SaveStateStore {
      * touches the quick slot or a save the player named.
      */
     public File writeAuto(String label, byte[] rawState, int keep, DiskSnapshotGuard.Fingerprint disks) throws IOException {
+        File target = reserveAuto(label);
+        write(target, rawState, disks);
+        finishAuto(keep);
+        return target;
+    }
+
+    File reserveAuto(String label) {
         String base = safe(label);
         if (!base.startsWith(AUTO_PREFIX)) base = AUTO_PREFIX + base;
         File target = new File(directory, base + EXTENSION);
         for (int n = 2; target.exists(); n++) target = new File(directory, base + " " + n + EXTENSION);
-        write(target, rawState, disks);
-        pruneAuto(keep);
         return target;
     }
+
+    void finishAuto(int keep) { pruneAuto(keep); }
 
     /** Every automatic save, newest first. */
     public List<File> autoSaves() {
@@ -425,6 +448,7 @@ public final class SaveStateStore {
         bindingFile(save).delete();
         previewFile(save).delete();
         new File(save.getPath() + TALLY_SUFFIX).delete();
+        new File(save.getPath() + DiskCheckpointStore.SUFFIX).delete();
         return true;
     }
 

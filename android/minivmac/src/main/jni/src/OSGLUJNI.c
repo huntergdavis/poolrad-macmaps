@@ -1614,6 +1614,7 @@ LOCALPROC DeliverSaveState(void)
 LOCALPROC DeliverRestoreState(void)
 {
 	jboolean restored = JNI_FALSE;
+	jboolean reported = JNI_FALSE;
 	if (atomic_exchange(&WantRestoreState, 0) == 0) return;
 	if (gRestoreBuf != nullpr) {
 		if ((*jEnv)->MonitorEnter(jEnv, mCore) == JNI_OK) {
@@ -1627,11 +1628,19 @@ LOCALPROC DeliverRestoreState(void)
 				restored = JNI_TRUE;
 				NeedWholeScreenDraw = trueblnr;
 			}
+			free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
+			/* Commit or roll back recovered disk files before another Core call can
+			 * mount, eject, or write a disk, and before the next guest tick. */
+			(*jEnv)->CallVoidMethod(jEnv, mCore, jStateRestored, restored);
+			reported = JNI_TRUE;
 			(*jEnv)->MonitorExit(jEnv, mCore);
 		} else (*jEnv)->ExceptionClear(jEnv);
-		free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
+		if (gRestoreBuf != nullpr) {
+			free(gRestoreBuf); gRestoreBuf = nullpr; gRestoreLen = 0;
+		}
 	}
-	(*jEnv)->CallVoidMethod(jEnv, mCore, jStateRestored, restored);
+	if (!reported)
+		(*jEnv)->CallVoidMethod(jEnv, mCore, jStateRestored, restored);
 }
 
 GLOBALFUNC jboolean requestRamSnapshot(void)

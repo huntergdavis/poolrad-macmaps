@@ -340,8 +340,18 @@ public class Core {
 	private static final class RestoreRequest {
 		final RestoreListener listener;
 		final DiskSnapshotGuard.Verified disks;
+		final DiskCheckpointStore.Prepared recovery;
+		DiskRestoreSwap swap;
+		RandomAccessFile[] oldFiles, newFiles;
+		String[] oldPaths;
+		DiskSnapshotGuard.Drive[] oldDrives;
+		int oldCount;
+		boolean switched;
 		RestoreRequest(RestoreListener listener, DiskSnapshotGuard.Verified disks) {
-			this.listener = listener; this.disks = disks;
+			this.listener = listener; this.disks = disks; this.recovery = null;
+		}
+		RestoreRequest(RestoreListener listener, DiskCheckpointStore.Prepared recovery) {
+			this.listener = listener; this.disks = null; this.recovery = recovery;
 		}
 	}
 	private final java.util.concurrent.atomic.AtomicReference<RestoreRequest> restoreRequest =
@@ -363,19 +373,128 @@ public class Core {
 		restoreRequest.compareAndSet(request, null);
 		return false;
 	}
+	/** Queue a checked disk recovery; files switch only while native holds this monitor. */
+	public synchronized boolean restoreState(byte[] state, DiskCheckpointStore.Prepared recovery,
+			RestoreListener listener) {
+		if (!initOk || state == null || recovery == null || listener == null) {
+			if (recovery != null) recovery.close();
+			return false;
+		}
+		RestoreRequest request = new RestoreRequest(listener, recovery);
+		if (!restoreRequest.compareAndSet(null, request)) { recovery.close(); return false; }
+		cancelPartySelection();
+		quickQueue.clear();
+		if (requestRestoreStateNative(state)) return true;
+		restoreRequest.compareAndSet(request, null);
+		recovery.close();
+		return false;
+	}
 	private static native boolean requestRestoreStateNative(byte[] state);
 
 	/** JNI holds this Core's monitor from this check through the RAM/CPU restore. */
 	@SuppressWarnings("unused")
 	public boolean canRestoreState() {
 		RestoreRequest request = restoreRequest.get();
-		return request != null && snapshotDisks.isCurrent(request.disks);
+		if (request == null) return false;
+		if (request.recovery == null) return snapshotDisks.isCurrent(request.disks);
+		try {
+			switchToRecoveredDisks(request);
+			return true;
+		} catch (IOException | RuntimeException failure) {
+			Log.e(TAG, "Could not install recovered disks", failure);
+			return false;
+		}
 	}
 
 	@SuppressWarnings("unused")
-	public void onStateRestored(boolean restored) {
+	public synchronized void onStateRestored(boolean restored) {
 		RestoreRequest request = restoreRequest.getAndSet(null);
-		if (request != null) request.listener.completed(restored);
+		if (request == null) return;
+		if (request.recovery != null) {
+			if (request.switched) {
+				if (restored) {
+					closeHandles(request.oldFiles);
+					request.swap.commit();
+				} else {
+					try {
+						request.swap.rollback();
+						System.arraycopy(request.oldFiles, 0, diskFile, 0, diskFile.length);
+						System.arraycopy(request.oldPaths, 0, diskPath, 0, diskPath.length);
+						numInsertedDisks = request.oldCount;
+						snapshotDisks.replaceMounted(request.oldDrives);
+					} catch (IOException | RuntimeException failure) {
+						Log.e(TAG, "Could not roll back rejected disk recovery", failure);
+						diskCloseFailed = true;
+						DiskAccessGate.GLOBAL.poison();
+						setForceMacOff();
+					}
+					closeHandles(request.newFiles);
+				}
+			}
+			request.recovery.close();
+		}
+		request.listener.completed(restored);
+	}
+
+	private void switchToRecoveredDisks(RestoreRequest request) throws IOException {
+		if (request.switched) throw new IOException("Recovered disks already installed");
+		if (diskFile == null || diskPath == null || diskFile.length != diskPath.length)
+			throw new IOException("Emulator disk slots are unavailable");
+		request.oldFiles = diskFile.clone();
+		request.oldPaths = diskPath.clone();
+		request.oldCount = numInsertedDisks;
+		request.oldDrives = snapshotDisks.capture().drives();
+		request.newFiles = new RandomAccessFile[diskFile.length];
+		String[] newPaths = new String[diskPath.length];
+		DiskSnapshotGuard.Drive[] replacements =
+				new DiskSnapshotGuard.Drive[request.recovery.disks.size()];
+		int index = 0;
+		try {
+			for (DiskCheckpointStore.Prepared.Disk disk : request.recovery.disks) {
+				if (disk.slot < 0 || disk.slot >= diskFile.length || request.newFiles[disk.slot] != null)
+					throw new IOException("Recovered disk slot is invalid");
+				RandomAccessFile file = new RandomAccessFile(disk.staged, disk.writable ? "rw" : "r");
+				request.newFiles[disk.slot] = file;
+				newPaths[disk.slot] = disk.target.getAbsolutePath();
+				replacements[index++] = new DiskSnapshotGuard.Drive(
+						disk.slot, file, disk.writable, disk.target);
+			}
+			request.swap = new DiskRestoreSwap(request.recovery);
+			request.swap.begin();
+			System.arraycopy(request.newFiles, 0, diskFile, 0, diskFile.length);
+			System.arraycopy(newPaths, 0, diskPath, 0, diskPath.length);
+			numInsertedDisks = index;
+			snapshotDisks.replaceMounted(replacements);
+			request.switched = true;
+		} catch (IOException | RuntimeException failure) {
+			if (request.swap != null) {
+				try { request.swap.rollback(); }
+				catch (IOException rollback) { failure.addSuppressed(rollback); }
+			}
+			System.arraycopy(request.oldFiles, 0, diskFile, 0, diskFile.length);
+			System.arraycopy(request.oldPaths, 0, diskPath, 0, diskPath.length);
+			numInsertedDisks = request.oldCount;
+			snapshotDisks.replaceMounted(request.oldDrives);
+			closeHandles(request.newFiles);
+			if (failure.getSuppressed().length > 0) {
+				diskCloseFailed = true;
+				DiskAccessGate.GLOBAL.poison();
+				setForceMacOff();
+			}
+			throw failure;
+		}
+	}
+
+	private void closeHandles(RandomAccessFile[] files) {
+		if (files == null) return;
+		for (RandomAccessFile file : files) if (file != null) {
+			try { file.close(); }
+			catch (IOException failure) {
+				diskCloseFailed = true;
+				DiskAccessGate.GLOBAL.poison();
+				Log.e(TAG, "Could not close a replaced disk handle", failure);
+			}
+		}
 	}
 
 	/** JNI holds Core's monitor across the machine copy and this disk ticket. */
@@ -836,7 +955,7 @@ public class Core {
 		}
 		
 		// Register before native insertion so every captured drive has a matching handle.
-		snapshotDisks.mounted(driveNum, diskFile[driveNum], mode.equals("rw"));
+		snapshotDisks.mounted(driveNum, diskFile[driveNum], mode.equals("rw"), f);
 		notifyDiskInserted(driveNum, !f.canWrite());
 		diskPath[driveNum] = f.getAbsolutePath();
 		numInsertedDisks++;

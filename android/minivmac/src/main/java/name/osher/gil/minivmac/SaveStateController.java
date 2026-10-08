@@ -43,10 +43,11 @@ public final class SaveStateController {
     private static final String TAG = "PoolRad.SaveState";
     /** Automatic saves kept, newest first; the Info → Saves page quotes this. */
     static final int AUTO_KEEP = 20;
-    private static final String LOAD_WARNING = "Replaces the running session; unsaved progress is lost. The mounted disks must match the snapshot. Older snapshots are unsupported.";
+    private static final String LOAD_WARNING = "Replaces the running session and disk contents; unsaved progress is lost. New saves can recover their matching disks after reboot. Older snapshots still need matching mounted disks.";
     private final Activity activity;
     private final CoreAccess access;
     private final SaveStateStore store;
+    private final DiskCheckpointStore checkpoints;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final SaveRequestGate requests = new SaveRequestGate();
@@ -69,7 +70,10 @@ public final class SaveStateController {
 
     public SaveStateController(Activity activity, CoreAccess access) {
         this.activity = activity; this.access = access;
-        store = new SaveStateStore(new File(activity.getFilesDir(), "savestates"));
+        File directory = new File(activity.getFilesDir(), "savestates");
+        store = new SaveStateStore(directory);
+        checkpoints = new DiskCheckpointStore(directory,
+                FileManager.getInstance().getDisksDir(), FileManager.getInstance().getDownloadDir());
     }
     public void setNotebookLink(NotebookLink link) { notebook = link; }
     private String currentNotebookId() {
@@ -99,13 +103,22 @@ public final class SaveStateController {
             io.execute(() -> {
                 long began = SystemClock.elapsedRealtime();
                 try {
-                    DiskSnapshotGuard.Fingerprint fingerprint = disks.fingerprint();
                     File written;
-                    if (request.kind == SaveRequestGate.Kind.QUICK) written = store.writeQuick(state, capturedAt, fingerprint);
+                    if (request.kind == SaveRequestGate.Kind.QUICK) written = store.reserveQuick(capturedAt);
                     else if (request.kind == SaveRequestGate.Kind.AUTO) {
                         String stamp = new SimpleDateFormat("MMM d h-mm-ss a", Locale.US).format(new Date(capturedAt));
-                        written = store.writeAuto(SaveStateStore.AUTO_PREFIX + stamp, state, AUTO_KEEP, fingerprint);
-                    } else written = store.write(request.label, state, fingerprint);
+                        written = store.reserveAuto(SaveStateStore.AUTO_PREFIX + stamp);
+                    } else written = store.reserveNamed(request.label);
+                    try {
+                        DiskSnapshotGuard.Fingerprint fingerprint = checkpoints.capture(disks, written);
+                        store.write(written, state, fingerprint);
+                        if (request.kind == SaveRequestGate.Kind.QUICK) store.finishQuick(written, capturedAt);
+                        else if (request.kind == SaveRequestGate.Kind.AUTO) store.finishAuto(AUTO_KEEP);
+                    } catch (IOException | RuntimeException failure) {
+                        checkpoints.sidecar(written).delete();
+                        written.delete();
+                        throw failure;
+                    }
                     store.writeBinding(written, request.notebook);
                     if (request.tally != null && !store.writeSidecar(written, SaveStateStore.TALLY_SUFFIX, request.tally))
                         Log.w(TAG, "State saved; since-rest tally sidecar unavailable");
@@ -333,14 +346,22 @@ public final class SaveStateController {
         io.execute(() -> readForLoad(file, core, null));
     }
 
-    /** Shared manual/launch path: exact disk verification before any notebook transition. */
+    /** Shared manual/launch path: verify or reconstruct disks before a notebook transition. */
     private void readForLoad(File file, Core core, StartupLoad launch) {
+        LoadDisks disks = null;
         try {
             SaveStateStore.Snapshot snapshot = store.readSnapshot(file);
-            DiskSnapshotGuard.Verified disks = core.verifySnapshotDisks(snapshot.disks);
+            try {
+                disks = new LoadDisks(core.verifySnapshotDisks(snapshot.disks), null);
+            } catch (IOException mismatch) {
+                if (!checkpoints.hasCheckpoint(file)) throw mismatch;
+                disks = new LoadDisks(null, checkpoints.prepare(file, snapshot.disks));
+            }
             String binding = store.readBinding(file);
-            main.post(() -> prepareLoad(file, core, snapshot, disks, binding, launch));
+            LoadDisks ready = disks;
+            main.post(() -> prepareLoad(file, core, snapshot, ready, binding, launch));
         } catch (IOException | RuntimeException failure) {
+            if (disks != null) disks.close();
             main.post(() -> {
                 if (launch != null) launch.cancel("Auto-load skipped: " + failure.getMessage());
                 else { loading = false; toast("Could not load: " + failure.getMessage()); }
@@ -348,25 +369,40 @@ public final class SaveStateController {
         }
     }
 
+    private static final class LoadDisks {
+        final DiskSnapshotGuard.Verified matching;
+        final DiskCheckpointStore.Prepared recovered;
+        LoadDisks(DiskSnapshotGuard.Verified matching, DiskCheckpointStore.Prepared recovered) {
+            this.matching = matching; this.recovered = recovered;
+        }
+        void close() { if (recovered != null) recovered.close(); }
+        boolean restore(Core core, byte[] state, Core.RestoreListener completed) {
+            return recovered == null ? core.restoreState(state, matching, completed)
+                    : core.restoreState(state, recovered, completed);
+        }
+    }
+
     private void prepareLoad(File file, Core core, SaveStateStore.Snapshot snapshot,
-            DiskSnapshotGuard.Verified disks, String binding, StartupLoad launch) {
-        if (launch != null && !launch.active()) { launch.cancel(null); return; }
-        if (!alive() || core != access.current()) { loading = false; return; }
+            LoadDisks disks, String binding, StartupLoad launch) {
+        if (launch != null && !launch.active()) { disks.close(); launch.cancel(null); return; }
+        if (!alive() || core != access.current()) { disks.close(); loading = false; return; }
         if (notebook == null || (launch != null && !notebook.readyForLoad())) {
             if (launch != null) main.postDelayed(
                     () -> prepareLoad(file, core, snapshot, disks, binding, launch), 100);
-            else { loading = false; toast("Open the companion notebook before loading."); }
+            else { disks.close(); loading = false; toast("Open the companion notebook before loading."); }
             return;
         }
         java.util.function.Consumer<NotebookRestore> ready = transition -> {
-            if (launch != null && !launch.active()) { launch.cancel(null); return; }
+            if (launch != null && !launch.active()) { disks.close(); launch.cancel(null); return; }
             if (transition == null || !alive() || core != access.current()) {
+                disks.close();
                 if (launch != null) launch.cancel("Auto-load skipped: notebook unavailable. Load the snapshot manually to choose its campaign.");
                 else loading = false;
                 return;
             }
-            if (launch != null && !launch.gate.beginApply()) return;
+            if (launch != null && !launch.gate.beginApply()) { disks.close(); return; }
             if (!transition.begin()) {
+                disks.close();
                 if (launch != null) launch.queued();
                 loading = false; return;
             }
@@ -388,7 +424,7 @@ public final class SaveStateController {
                     } else toast("Snapshot refused: the machine or mounted disks changed. Try loading an original game save.");
                 });
             });
-            if (!core.restoreState(snapshot.state, disks, completed)) completed.completed(false);
+            if (!disks.restore(core, snapshot.state, completed)) completed.completed(false);
             if (launch != null) launch.queued();
         };
         if (launch == null) notebook.prepareLoad(binding, ready);

@@ -10,6 +10,12 @@ deadline also releases a stalled verification. Late callbacks cannot apply a
 cancelled attempt. The native event loop still services the queued restore
 while the guest is held.
 
+From 0.115.0 onward, new snapshots include disk checkpoints. A launch or
+manual load may reconstruct and install the snapshot's exact disk bytes even
+if no disk was mounted at boot or the mounted image changed. The recovered
+files are checked against the PRQS4 fingerprint before native application.
+Older snapshots still require matching mounted disks.
+
 The launch attempt uses the most recently completed quick, named or automatic
 snapshot. A synced, atomically replaced relative-path record preserves ordering
 across wall-clock changes. Existing saves without that record use the browser's

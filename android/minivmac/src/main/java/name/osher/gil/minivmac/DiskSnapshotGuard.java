@@ -2,6 +2,7 @@ package name.osher.gil.minivmac;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -13,7 +14,7 @@ import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.TreeMap;
 
-/** Binds a stopped RAM capture to the exact mounted disk contents, without copying disks.
+/** Binds a stopped RAM capture to the exact mounted disk contents.
  * Core serializes mount/write/eject and the final native restore with its own monitor.
  * Hashing uses positional reads on the mounted handles on the save/load worker thread.
  */
@@ -26,20 +27,37 @@ public final class DiskSnapshotGuard {
     public synchronized long revisionCount() { return revisionCount; }
     private boolean stopped;
 
-    private static final class Drive {
+    static final class Drive {
         final int slot;
         final RandomAccessFile file;
         final boolean writable;
-        Drive(int slot, RandomAccessFile file, boolean writable) {
-            this.slot = slot; this.file = file; this.writable = writable;
+        final File path;
+        Drive(int slot, RandomAccessFile file, boolean writable, File path) {
+            this.slot = slot; this.file = file; this.writable = writable; this.path = path;
         }
     }
 
     public synchronized void mounted(int slot, RandomAccessFile file, boolean writable) {
+        mounted(slot, file, writable, null);
+    }
+
+    public synchronized void mounted(int slot, RandomAccessFile file, boolean writable, File path) {
         if (stopped || slot < 0 || slot >= MAX_DRIVES || file == null)
             throw new IllegalArgumentException("Invalid mounted disk");
         revision = new Object(); revisionCount++;
-        drives.put(slot, new Drive(slot, file, writable));
+        drives.put(slot, new Drive(slot, file, writable, path));
+    }
+
+    /** Replace the Java handles at the native restore boundary. The caller owns their validation. */
+    synchronized void replaceMounted(Drive[] replacement) {
+        if (stopped) throw new IllegalStateException("The emulator has stopped");
+        drives.clear();
+        for (Drive drive : replacement) {
+            if (drive.slot < 0 || drive.slot >= MAX_DRIVES || drive.file == null
+                    || drives.put(drive.slot, drive) != null)
+                throw new IllegalArgumentException("Invalid restored disk set");
+        }
+        revision = new Object(); revisionCount++;
     }
 
     /** Invalidate before attempting a write, including a write that fails part way. */
@@ -63,6 +81,8 @@ public final class DiskSnapshotGuard {
         }
         /** Worker only. Refuses a capture if any mount or write intervened. */
         public Fingerprint fingerprint() throws IOException { return owner.fingerprint(this); }
+        Drive[] drives() { return drives.clone(); }
+        void requireCurrent() throws IOException { owner.requireCurrent(this); }
     }
 
     public synchronized Ticket capture() {
@@ -150,6 +170,28 @@ public final class DiskSnapshotGuard {
         private final Entry[] entries;
         private Fingerprint(Entry[] entries) { this.entries = entries.clone(); }
         public static Fingerprint empty() { return new Fingerprint(new Entry[0]); }
+        static Fingerprint of(int[] slots, boolean[] writable, long[] lengths, byte[][] hashes) {
+            if (slots.length != writable.length || slots.length != lengths.length
+                    || slots.length != hashes.length || slots.length > MAX_DRIVES)
+                throw new IllegalArgumentException("Invalid disk fingerprint fields");
+            Entry[] entries = new Entry[slots.length];
+            int previous = -1;
+            for (int i = 0; i < entries.length; i++) {
+                if (slots[i] <= previous || slots[i] >= MAX_DRIVES || lengths[i] < 0
+                        || hashes[i] == null || hashes[i].length != 32)
+                    throw new IllegalArgumentException("Invalid disk fingerprint entry");
+                entries[i] = new Entry(slots[i], writable[i], lengths[i], hashes[i]);
+                previous = slots[i];
+            }
+            return new Fingerprint(entries);
+        }
+        int size() { return entries.length; }
+        boolean matches(int index, int slot, boolean writable, long length, byte[] sha256) {
+            if (index < 0 || index >= entries.length) return false;
+            Entry e = entries[index];
+            return e.slot == slot && e.writable == writable && e.length == length
+                    && Arrays.equals(e.sha256, sha256);
+        }
         public void writeTo(OutputStream stream) throws IOException {
             DataOutputStream out = new DataOutputStream(stream);
             out.writeByte(entries.length);

@@ -5,6 +5,37 @@ and required mounted-disk verification. PRQS1, PRQS2 and PRQS3 emulator
 snapshots are unsupported. Original-game saves are unaffected.
 [Automatic launch restore](AUTO_LOAD.md) describes F34 and its acceptance checks.
 
+## 0.115.0 — recover the matching disks after reboot
+
+Every new quick, named, and automatic snapshot includes a small `.disks`
+sidecar. The first save of each mounted disk writes one shared compressed base
+under `savestates/disk-bases/`; later saves store only the 4 KiB blocks that
+changed from that base. The existing RAM reference/diff format is unchanged.
+Quick save publishes the disk changes and machine state together before
+rotating old saves. Deleting a save removes its own sidecar; the shared base
+stays because other saves may still use it.
+
+Quick load still selects the newest completed quick save with one tap. If the
+current mounted disks match, loading proceeds directly. If they differ or no
+disk is mounted, loading reconstructs the saved disk bytes from the shared
+base and that save's block changes, checks each reconstructed SHA-256 against
+the machine snapshot, then installs the files at the native restore boundary.
+The guest cannot run with saved RAM and newer disk contents. A rejected native
+restore puts the previous disk files and handles back before another guest
+tick. New saves can also resume on first boot without manually mounting a
+disk. Snapshots made before 0.115.0 have no disk bytes and retain the exact
+mounted-disk requirement.
+
+Storage depends on how much of the disk changes. Local 12–64 MiB fixtures
+compressed to 4.4–13.1 MiB for the one-time shared base. In the unit fixture,
+a later save with two changed blocks had a `.disks` sidecar under 20 KiB.
+Broad disk rewrites can make an individual sidecar larger; the size is the
+compressed set of changed blocks, not a fixed 20 MiB disk copy per save.
+The shared base also has a block-hash index, so later saves can find changes
+without decompressing the entire base. In a disposable Android emulator a
+later 12 MiB-disk save wrote a 121-byte disk sidecar and took about two seconds
+on the background worker. The first base capture took about five seconds.
+
 The earlier sections retain the implementation history; F97 below describes
 the disk-consistency requirements. F34 testing found that the old OS-glue
 coordinator did not see model-specific device flags, so its VIA/RTC calls were

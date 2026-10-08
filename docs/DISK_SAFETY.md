@@ -11,6 +11,15 @@ F34 (0.85.0) extends the native machine body in PRQS4 and rejects PRQS1–3.
 The disk-fingerprint layout and verification described below are retained.
 See [AUTO_LOAD.md](AUTO_LOAD.md) for fresh-process and disk-I/O acceptance.
 
+0.115.0 adds recoverable disk checkpoints for all new snapshots. The PRQS4
+fingerprint remains the authority: a `.disks` sidecar names a private disk
+path and contains compressed changed blocks against one shared compressed
+base. Loading reconstructs into a temporary file and checks its SHA-256,
+length, slot and write protection against PRQS4 before swapping any disk.
+The native restore and disk commit/rollback run under one Core monitor before
+the next guest tick. Saves without a sidecar still follow F97's exact-match
+rule. The historical sections below describe the earlier refusal-only design.
+
 ## Verified format (published 0.84.0)
 
 PRQS3 stores a bounded disk fingerprint before the existing full/diff mode and
