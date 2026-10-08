@@ -1292,7 +1292,7 @@ public class LiveMapView extends View {
         float column = p.columnLeft(index);
         float right = column + p.columnWidth - 10 * unit;
         float size = 16 * unit;
-        float top = oneLineParty
+        float top = p.oneLineRows
                 ? p.rowTop(index) + (p.rowHeight - size) / 2
                 : p.rowTop(index) + (p.rowHeight - 48 * unit) / 2;
         into.set(right - size, top, right, top + size);
@@ -1362,7 +1362,7 @@ public class LiveMapView extends View {
             boolean slowed = party.slowedByLoad(member);
             float column=p.columnLeft(i);
             float left=column+44*unit, right=column+p.columnWidth-10*unit;
-            if (oneLineParty) { drawOneLineRow(canvas, p, i, member, slowed, unit, column); continue; }
+            if (p.oneLineRows) { drawOneLineRow(canvas, p, i, member, slowed, unit, column); continue; }
             float top=p.rowTop(i)+(p.rowHeight-48*unit)/2;
             if (member.badge().isEmpty()) drawClassSymbol(canvas, member, column+9*unit, top+8*unit, 27*unit);
             else drawConditionBadge(canvas,member.badge(),column+9*unit,top+8*unit,27*unit);

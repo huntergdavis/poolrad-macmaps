@@ -42,7 +42,8 @@ public class MapViewportTest {
     @Test public void scrollClampsAndLastTileRemainsReachableWithoutHittingCaption() {
         MapViewport v = new MapViewport(300,250,1,true,9999,9999);
         assertEquals(260, v.scrollX, 0);
-        assertEquals(326, v.scrollY, 0);
+        assertEquals(352, v.scrollY, 0);
+        assertEquals(202, v.top + 16 * v.cell, 0);
         assertEquals(255, v.tileAt(v.left+15.5f*32,v.top+15.5f*32));
         assertEquals(-1, v.tileAt(100,41));
         assertEquals(-1, v.tileAt(100,228));
@@ -50,6 +51,19 @@ public class MapViewportTest {
         MapViewport first = new MapViewport(300,250,1,true,-999,-999);
         assertEquals(0,first.scrollX,0); assertEquals(0,first.scrollY,0);
         assertEquals(0,first.tileAt(first.left+16,first.top+16));
+    }
+    @Test public void zoomedLastRowCanClearTheBottomControls() {
+        MapViewport v = new MapViewport(1008, 684, 2, false, 9999, 9999, 2);
+        assertTrue(v.maxScrollY > 0);
+        assertEquals(684 - 48 * 2, v.top + 16 * v.cell, .01f);
+        assertEquals(255, v.tileAt(v.left + 15.5f * v.cell, v.top + 15.5f * v.cell));
+    }
+    @Test public void fittedMapDoesNotDrawUnderFooterControls() {
+        for (int[] pane : new int[][]{{300, 350}, {1008, 684}}) {
+            float density = pane[0] == 300 ? 1.25f : 2f;
+            MapViewport v = new MapViewport(pane[0], pane[1], density);
+            assertTrue(v.top + 16 * v.cell <= pane[1] - 48 * density + .01f);
+        }
     }
     @Test public void clippedFlagsDoNotBecomeNearbyTapTargets() {
         MapViewport v = new MapViewport(300,250,1,true,32,32);
@@ -183,7 +197,7 @@ public class MapViewportTest {
     }
 
     private static MapViewport integerGrid() {
-        MapViewport grid = new MapViewport(560, 592, 1);
+        MapViewport grid = new MapViewport(560, 602, 1);
         assertEquals(32, grid.cell, 0);
         return grid;
     }

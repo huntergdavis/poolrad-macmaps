@@ -452,6 +452,22 @@ public final class CombatMapRenderCheck {
                     "A rejected packet was announced as an overview");
         });
 
+        run("A bad optional foe name leaves battle positions visible", () -> {
+            LiveMapView view = map(context, 900, 520);
+            view.showSample(mapPacket(2, 5));
+            byte[] battle = combatPacket(BATTLE);
+            battle[CombatSnapshot.FOES_OUT] = 1;
+            battle[CombatSnapshot.FOES_OUT + 1] = 7; // not a printable name
+            view.showCombatSample(battle);
+            check(String.valueOf(view.getContentDescription()).contains("4 others"),
+                    "Invalid foe name hid the battle overview");
+            Bitmap drawn = draw(view);
+            float[] at = spotCentre(view, new CombatSnapshotGeometry(BATTLE), 27, 12);
+            int x = Math.round(at[0]), y = Math.round(at[1]);
+            check(inkPixels(drawn, x - 3, y - 3, x + 4, y + 4) > 0,
+                    "Invalid foe name hid a party marker");
+        });
+
         run("The overview stays inside the map pane at a narrow size", () -> {
             LiveMapView view = map(context, 380, 300);
             view.showSample(mapPacket(2, 5));

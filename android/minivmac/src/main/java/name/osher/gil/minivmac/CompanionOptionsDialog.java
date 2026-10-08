@@ -53,7 +53,7 @@ final class CompanionOptionsDialog {
         list.addView(placement, new LinearLayout.LayoutParams(-1, -2));
         label(activity, list, "Party and messages");
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_ONELINE_PARTY,
-                "One-line party rows", false, changed);
+                "Always use one-line party rows", false, changed);
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_MIRROR_MESSAGE,
                 "Large message text", false, changed);
         preference(activity, list, prefs, SettingsFragment.KEY_PREF_AUTO_SKIP_MESSAGES,

@@ -32,6 +32,11 @@ static const unsigned char *entry(unsigned index) {
     return out + 1 + index * (POOLRAD_COMBAT_FOE_NAME + 1);
 }
 
+static int empty_tail(void) {
+    for (size_t i = 0; i < sizeof out; i++) if (out[i] != 0) return 0;
+    return 1;
+}
+
 /* The probe itself is exercised by test-combat-probe; referenced here only so
  * that including the header does not trip the unused-function warning. */
 static void unused(void) { (void) poolrad_combat_probe; }
@@ -72,18 +77,21 @@ int main(void) {
     ram[records[3]] = 0x01;
     poolrad_combat_foes(ram, kinds, records, 8, out);
     expect(out[0] == 0, "a control byte in a name reports nothing at all");
+    expect(empty_tail(), "an invalid name leaves no stale foe bytes");
     place(records[3], "ORC");
 
     /* An unterminated name likewise. */
     memset(ram + records[3], 'X', POOLRAD_COMBAT_FOE_NAME);
     poolrad_combat_foes(ram, kinds, records, 8, out);
     expect(out[0] == 0, "a name filling its whole field reports nothing at all");
+    expect(empty_tail(), "an unterminated name leaves no stale foe bytes");
     place(records[3], "ORC");
 
     /* An empty name likewise. */
     memset(ram + records[3], 0, POOLRAD_COMBAT_FOE_NAME);
     poolrad_combat_foes(ram, kinds, records, 8, out);
     expect(out[0] == 0, "an empty name reports nothing at all");
+    expect(empty_tail(), "an empty name leaves no stale foe bytes");
     place(records[3], "ORC");
 
     /* More kinds than the packet holds: none rather than some, so a partial
@@ -99,6 +107,7 @@ int main(void) {
         }
         poolrad_combat_foes(ram, many, manyRecords, 16, out);
         expect(out[0] == 0, "more kinds than the packet holds reports none");
+        expect(empty_tail(), "too many kinds leave no stale foe bytes");
         poolrad_combat_foes(ram, many, manyRecords, POOLRAD_COMBAT_FOES_MAX, out);
         expect(out[0] == POOLRAD_COMBAT_FOES_MAX, "exactly as many as it holds is fine");
     }

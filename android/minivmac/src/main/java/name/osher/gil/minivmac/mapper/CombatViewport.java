@@ -9,7 +9,7 @@ public final class CombatViewport {
         clipLeft = 26 * density;
         clipTop = 44 * density;
         clipRight = Math.max(clipLeft, width - 26 * density);
-        clipBottom = Math.max(clipTop, height - 32 * density);
+        clipBottom = Math.max(clipTop, height - 48 * density);
         this.zoom = Float.isNaN(zoom) ? 1 : Math.max(1, Math.min(8, zoom));
         float fit = Math.min((clipRight - clipLeft) / CombatSnapshot.ARENA_WIDTH,
                 (clipBottom - clipTop) / CombatSnapshot.ARENA_HEIGHT);

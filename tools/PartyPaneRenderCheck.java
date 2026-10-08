@@ -205,14 +205,14 @@ public final class PartyPaneRenderCheck {
             }
         });
 
-        run("an eight-member NPC party keeps every row instead of losing the sidebar", () -> {
+        run("a very short eight-member pane keeps every row in two columns", () -> {
             byte[] sample = packet(true);
             sample[4] = 8;
             for (int i = MEMBERS; i < 8; i++) {
                 System.arraycopy(sample, 8, sample, 8 + i*20, 20);
                 sample[8 + i*20] = (byte) ('U' + i);
             }
-            LiveMapView view = view(sample, 960, 352);
+            LiveMapView view = view(sample, 960, 240);
             PartyPaneLayout pane = pane(view, 8);
             check(pane.rows > 0, "Eight members lost the whole sidebar");
             check(pane.columns == 2 && pane.rows == 4, "Eight members did not use two columns of four");
@@ -236,7 +236,7 @@ public final class PartyPaneRenderCheck {
             check(view.getContentDescription().toString().contains("HP"), "Eight-member pane lost its accessible text");
         });
 
-        run("one-line rows keep a big party in one column and give the map its width (F69)", () -> {
+        run("a big party automatically uses one-line rows to keep the map wide", () -> {
             byte[] sample = packet(true);
             sample[4] = 8;
             for (int i = MEMBERS; i < 8; i++) {
@@ -244,15 +244,15 @@ public final class PartyPaneRenderCheck {
                 sample[8 + i*20] = (byte) ('U' + i);
             }
             LiveMapView view = view(sample, 960, 352);
-            // In two-line mode this same pane must fall back to two columns.
-            PartyPaneLayout twoLine = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 8, 1f, false);
-            check(twoLine.columns == 2, "Fixture is meant to be a two-column case in two-line mode");
-            // One-line keeps a single column, so the map keeps its full width.
+            PartyPaneLayout automatic = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 8, 1f, false);
+            check(automatic.columns == 1 && automatic.oneLineRows,
+                    "The default did not keep eight members in one compact column");
+            // The preference still lets people keep compact rows at every party size.
             view.setOneLineParty(true);
             PartyPaneLayout oneLine = new PartyPaneLayout(view.getWidth(), view.getHeight(), density, 8, 1f, true);
             check(oneLine.columns == 1 && oneLine.rows == 8, "One-line did not keep eight members in one column");
             check(oneLine.visibleMembers() == 8, "One-line dropped a member");
-            check(oneLine.mapWidth >= twoLine.mapWidth, "One-line gave the map less width than two-line");
+            check(oneLine.mapWidth == automatic.mapWidth, "The default gave the map less width");
             check(oneLine.rowHeight < 48 * density, "One-line rows are not compact");
             check(oneLine.headerHeight + oneLine.rows * oneLine.rowHeight <= oneLine.partyHeight + 0.5f,
                     "One-line rows overflow the party region");
@@ -519,7 +519,7 @@ public final class PartyPaneRenderCheck {
             // attachment/selected-node behavior is not inferred from this software probe.
             AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();
             view.onInitializeAccessibilityNodeInfo(info);
-            List<AccessibilityNodeInfo.AccessibilityAction> actions=info.getActionList();
+            List<AccessibilityNodeInfo.AccessibilityAction> actions=partyAccessibilityActions(info);
             check(actions.size()==2*MEMBERS,"Expected details and game-sheet actions per member");
             int action=actions.get(2).getId();
             check(actions.get(2).getLabel().toString().contains(NAMES[2]),"Missing member label on accessible action");
@@ -530,7 +530,7 @@ public final class PartyPaneRenderCheck {
             // Gone past the hold, not merely missed once; see the tap check above.
             info.recycle();refusePartyUntil(view, ReadingHold.HOLD_MS + 500);
             info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
-            check(info.getActionList().isEmpty(),"A party gone past the hold retained stale detail actions");info.recycle();
+            check(partyAccessibilityActions(info).isEmpty(),"A party gone past the hold retained stale detail actions");info.recycle();
             check(!view.isFocusable(),"Details stole physical-key focus from the guest");
         });
 
@@ -662,12 +662,12 @@ public final class PartyPaneRenderCheck {
             });
             PartyPaneLayout p=pane(view,MEMBERS);float x=p.partyLeft+p.partyWidth/2f,y=p.rowTop(0)+p.rowHeight/2;
             AccessibilityNodeInfo info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
-            int oldAction=info.getActionList().get(0).getId();info.recycle();
+            int oldAction=partyAccessibilityActions(info).get(0).getId();info.recycle();
             event(view,MotionEvent.ACTION_DOWN,x,y);sample[168]=4;sample[169]=3;view.showPartySample(sample);
             event(view,MotionEvent.ACTION_UP,x,y);
             check(selected.isEmpty()&&!view.performAccessibilityAction(oldAction,null),"A stale gesture exposed old conditions");
             info=AccessibilityNodeInfo.obtain();view.onInitializeAccessibilityNodeInfo(info);
-            AccessibilityNodeInfo.AccessibilityAction action=info.getActionList().get(0);
+            AccessibilityNodeInfo.AccessibilityAction action=partyAccessibilityActions(info).get(0);
             check(action.getLabel().toString().contains("Unconscious")&&action.getLabel().toString().contains("Poisoned"),
                     "New detail action omits actual conditions/effects");
             check(view.performAccessibilityAction(action.getId(),null)&&selected.size()==1
@@ -1474,6 +1474,16 @@ public final class PartyPaneRenderCheck {
     private static void checkMonochrome(Bitmap bitmap) {
         for (int color : pixels(bitmap)) check(Color.alpha(color)==255 && Color.red(color)==Color.green(color)
                 && Color.green(color)==Color.blue(color), "Unexpected color or transparent pixel in monochrome pane");
+    }
+
+    private static List<AccessibilityNodeInfo.AccessibilityAction> partyAccessibilityActions(AccessibilityNodeInfo info) {
+        List<AccessibilityNodeInfo.AccessibilityAction> party = new ArrayList<>();
+        for (AccessibilityNodeInfo.AccessibilityAction action : info.getActionList()) {
+            CharSequence label = action.getLabel();
+            if (label != null && (label.toString().startsWith("Details for ")
+                    || label.toString().startsWith("Open game sheet for "))) party.add(action);
+        }
+        return party;
     }
 
     private static void equal(Bitmap before, Bitmap after, String message) { check(changedPixels(before,after)==0,message); }

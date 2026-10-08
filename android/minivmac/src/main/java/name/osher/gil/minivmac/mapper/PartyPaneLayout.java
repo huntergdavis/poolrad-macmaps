@@ -10,6 +10,8 @@ public final class PartyPaneLayout {
      * the rows with this, not with the device's own scale.
      */
     public final float appliedScale;
+    /** Whether this layout draws compact rows, including an automatic fallback. */
+    public final boolean oneLineRows;
     /** Columns narrower than this, in dp, drop the armour-class readout. */
     public static final float COMPACT_COLUMN = 150;
     private final int members;
@@ -63,6 +65,7 @@ public final class PartyPaneLayout {
         float requested = Math.max(1, fontScale);
         float scale = requested;
         int wanted = 0, perColumn = 0, chosen = 0;
+        boolean chosenOneLine = oneLine;
         int stripColumns = 0, stripRows = 0;
         float stripWidth = 0, stripHeight = 0;
         float header = 0, mapFloor = 280 * density;
@@ -73,16 +76,24 @@ public final class PartyPaneLayout {
             header = 24 * density * scale;
             float minimumRow = (oneLine ? ONE_LINE_ROW : 48) * density * scale;
             wanted = 0; perColumn = 0; chosen = 0;
+            chosenOneLine = oneLine;
             stripColumns = 0; stripRows = 0; stripWidth = 0; stripHeight = 0;
             for (int tryColumns = 1; tryColumns <= 2 && wanted == 0; tryColumns++) {
                 int rowsPerColumn = (count + tryColumns - 1) / tryColumns;
                 if (count == 0 || rowsPerColumn == 0) break;
-                if (height < header + rowsPerColumn * minimumRow) continue;
+                // Keep one sidebar column when a large party cannot fit in
+                // two-line rows. Only use two columns if compact rows cannot
+                // fit either; the narrower map hides its far edge otherwise.
+                boolean compact = oneLine || (tryColumns == 1
+                        && height < header + rowsPerColumn * minimumRow);
+                float rowMinimum = (compact ? ONE_LINE_ROW : 48) * density * scale;
+                if (height < header + rowsPerColumn * rowMinimum) continue;
                 int room = (int) Math.min(width - mapFloor, width * 0.55f);
                 if (room <= 0) continue;
                 int columnWidth = Math.min(preferred, room / tryColumns);
                 if (columnWidth < narrowest) continue;
                 wanted = tryColumns; perColumn = rowsPerColumn; chosen = columnWidth;
+                chosenOneLine = compact;
             }
 
             /*
@@ -117,6 +128,7 @@ public final class PartyPaneLayout {
             if (wanted > 0 || stripColumns > 0 || scale <= 1) break;
         }
         appliedScale = scale;
+        oneLineRows = wanted > 0 ? chosenOneLine : oneLine;
 
         if (wanted == 0 && stripColumns > 0) {
             columns=stripColumns;rows=stripRows;columnWidth=stripWidth;
@@ -134,7 +146,7 @@ public final class PartyPaneLayout {
             partyWidth=chosen*wanted;partyHeight=height;
             mapWidth=width-partyWidth;mapHeight=height;partyLeft=mapWidth;partyTop=0;
             headerHeight=header;
-            rowHeight=Math.min((oneLine ? ONE_LINE_ROW : 64)*density*scale, (height-header)/perColumn);
+            rowHeight=Math.min((oneLineRows ? ONE_LINE_ROW : 64)*density*scale, (height-header)/perColumn);
         }
     }
 

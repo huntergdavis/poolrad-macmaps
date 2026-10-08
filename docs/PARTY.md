@@ -22,11 +22,14 @@ rectangle. The details explicitly describe a **snapshot when opened**: close
 and reopen to refresh. Unknown details remain unavailable, and zero HP alone
 does not imply death. Nothing in this panel edits the character.
 
-When the window is too narrow/short, or large text would crowd its rows, the
-sidebar collapses and the map regains the full upper pane. Guest and keyboard
-space never depend on party size. Named accessibility detail actions remain
-available on the map; stale actions or touches cannot open a different member
-after a health sample, party reorder, resize or cancellation.
+When a larger party would need two sidebar columns, the rows become compact
+one-line rows automatically so the map keeps its width. The options dialog can
+keep one-line rows on for smaller parties too. A window too short for even
+compact rows can use two columns; a pane too narrow for a sidebar puts the party
+under the map. Guest and keyboard space never depend on party size. Named
+accessibility detail actions remain available on the map; stale actions or
+touches cannot open a different member after a health sample, party reorder,
+resize or cancellation.
 
 ## What is proved
 

@@ -122,8 +122,8 @@ public final class CombatSnapshot {
      *
      * An empty field is nobody acting and reads as "". A field that is not a
      * name at all -- control bytes, or anything written after the terminator --
-     * rejects the whole packet, the way every other reader here rejects rather
-     * than half-decodes: if that field is wrong, the rest is suspect too.
+     * makes the optional actor unavailable. The independently validated grid
+     * must remain visible when a message name cannot be read.
      */
     private static String readActor(byte[] packet) {
         int length = 0;
@@ -238,10 +238,9 @@ public final class CombatSnapshot {
         // Rows past the declared count belong to no one.
         for (int at = 8 + count * 4; at < ENTRIES_SIZE; at++) if (packet[at] != 0) return null;
         String actor = readActor(packet);
-        if (actor == null) return null;
         List<Foe> foes = readFoes(packet);
-        if (foes == null) return null;
-        return new CombatSnapshot(spots, actor.isEmpty() ? null : actor, foes);
+        return new CombatSnapshot(spots, actor == null || actor.isEmpty() ? null : actor,
+                foes == null ? Collections.emptyList() : foes);
     }
 
     /** Plain wording for the header; never a tactical suggestion. */

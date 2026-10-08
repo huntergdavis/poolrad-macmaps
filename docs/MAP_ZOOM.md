@@ -3,6 +3,8 @@
 Use **−** and **+** at the lower left of the map to see more of the area or
 enlarge details. Drag the enlarged map to look around. Notes, flags, footprints,
 fog, and the party marker stay aligned as you zoom.
+Area and battle maps fit above the bottom controls, including their last row.
+At higher zoom, drag to bring any clipped edge into view.
 
 Exploration starts at the existing selected scale. **Fit** restores the fitted
 map; with **Original area tile size (1:1)** enabled, the reset button reads

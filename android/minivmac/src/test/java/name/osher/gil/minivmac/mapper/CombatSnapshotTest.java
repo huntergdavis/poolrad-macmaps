@@ -128,15 +128,17 @@ public class CombatSnapshotTest {
         assertFalse(battle.isActing(null));
     }
 
-    @Test public void aNameThatIsNotOneIsRefused() {
+    @Test public void aBadOptionalActorDoesNotHidePositions() {
         byte[] p = packetOf(new int[][]{{1, 10, 10, 0}});
         // Control bytes are not a name.
         byte[] bad = p.clone(); bad[CombatSnapshot.ENTRIES_SIZE] = 7;
-        assertNull(CombatSnapshot.parse(bad));
+        assertEquals(1, CombatSnapshot.parse(bad).size());
+        assertNull(CombatSnapshot.parse(bad).acting);
         // Nor is anything written after the terminator.
         byte[] trailing = withActor(p, "Arax");
         trailing[CombatSnapshot.ENTRIES_SIZE + 9] = 'x';
-        assertNull(CombatSnapshot.parse(trailing));
+        assertEquals(1, CombatSnapshot.parse(trailing).size());
+        assertNull(CombatSnapshot.parse(trailing).acting);
         // A name filling the field with no room to terminate is still a name.
         assertEquals(16, CombatSnapshot.ACTOR_BYTES);
         byte[] full = withActor(p, "Sixteen chars!!!");
@@ -229,22 +231,23 @@ public class CombatSnapshotTest {
         assertEquals("1 other", battle.opposition());
     }
 
-    @Test public void aFoeListThatDoesNotCheckOutRejectsTheWholePacket() {
+    @Test public void aBadOptionalFoeListDoesNotHidePositions() {
         byte[] good = packetOf(new int[][]{{1, 10, 10, 0}, {2, 20, 10, 0}});
         // A control byte in a name.
         byte[] bad = withFoes(good, "ORC", 1);
         bad[CombatSnapshot.FOES_OUT + 1] = 7;
-        assertNull(CombatSnapshot.parse(bad));
+        assertEquals(2, CombatSnapshot.parse(bad).size());
+        assertEquals("1 other", CombatSnapshot.parse(bad).opposition());
         // A tally of nobody.
-        assertNull(CombatSnapshot.parse(withFoes(good, "ORC", 0)));
+        assertEquals("1 other", CombatSnapshot.parse(withFoes(good, "ORC", 0)).opposition());
         // More kinds than the packet holds.
         byte[] tooMany = good.clone();
         tooMany[CombatSnapshot.FOES_OUT] = (byte) (CombatSnapshot.FOES_MAX + 1);
-        assertNull(CombatSnapshot.parse(tooMany));
+        assertEquals("1 other", CombatSnapshot.parse(tooMany).opposition());
         // Anything written past the kinds reported.
         byte[] trailing = withFoes(good, "ORC", 3);
         trailing[CombatSnapshot.FOES_OUT + 1 + 2 * (CombatSnapshot.FOE_NAME + 1)] = 'x';
-        assertNull(CombatSnapshot.parse(trailing));
+        assertEquals("1 other", CombatSnapshot.parse(trailing).opposition());
     }
 
     private static byte[] packetOf(int[][] rows) {

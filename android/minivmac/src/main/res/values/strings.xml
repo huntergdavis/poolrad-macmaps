@@ -78,8 +78,8 @@
 	<string name="pref_scale_summ">Fit target screen to host screen</string>
 	<string name="pref_scroll">Scroll</string>
 	<string name="pref_scroll_summ">Use the arrow keys to scroll the screen</string>
-	<string name="pref_oneline_party">One-line party rows</string>
-	<string name="pref_oneline_party_summ">Compact rows so a large party keeps one column and the map keeps its width</string>
+	<string name="pref_oneline_party">Always use one-line party rows</string>
+	<string name="pref_oneline_party_summ">Compact rows for small parties too; larger parties compact automatically to keep the map wide</string>
 	<string name="pref_mirror_message">Large message text</string>
 	<string name="pref_mirror_message_summ">Mirror the game\'s message window in larger type over the map</string>
 	<string name="pref_autosave">Auto-save</string>

@@ -23,9 +23,11 @@ public final class MapViewport {
         clipLeft = 24 * density;
         clipTop = 42 * density;
         clipRight = Math.max(clipLeft, width - 24 * density);
-        clipBottom = Math.max(clipTop, height - 22 * density);
+        // Footer controls have 48dp touch targets. The last map row belongs
+        // above them even when the whole area is fitted on screen.
+        clipBottom = Math.max(clipTop, height - 48 * density);
         cell = (original ? ORIGINAL_TILE_PIXELS
-                : Math.min((width - 48 * density) / 16f, (height - clipTop - 22 * density) / 16f)) * zoom;
+                : Math.min((width - 48 * density) / 16f, (clipBottom - clipTop) / 16f)) * zoom;
         maxScrollX = Math.max(0, cell * 16 - (clipRight - clipLeft));
         maxScrollY = Math.max(0, cell * 16 - (clipBottom - clipTop));
         scrollX = clamp(x, maxScrollX);

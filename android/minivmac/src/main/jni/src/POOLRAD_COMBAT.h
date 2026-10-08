@@ -157,7 +157,9 @@ static int poolrad_combat_roster(const unsigned char *ram, size_t size, uint32_t
 static void poolrad_combat_foes(const unsigned char *ram, const unsigned char *kinds,
                                 const uint32_t *records, unsigned count, unsigned char *out) {
     unsigned kinds_found = 0, i, k;
-    out[0] = 0;
+    /* A failed grouping must leave an entirely empty optional tail. Java
+     * validates unused bytes; leaving earlier names here hid the whole grid. */
+    memset(out, 0, 1 + POOLRAD_COMBAT_FOES_MAX * (POOLRAD_COMBAT_FOE_NAME + 1));
     for (i = 0; i < count; i++) {
         const unsigned char *name;
         unsigned char letter;
@@ -168,10 +170,16 @@ static void poolrad_combat_foes(const unsigned char *ram, const unsigned char *k
          * it is not a name and the whole grouping is abandoned rather than
          * half reported. */
         while (length < POOLRAD_COMBAT_FOE_NAME && (letter = name[length]) != 0) {
-            if (letter < 0x20 || letter >= 0x7f) { out[0] = 0; return; }
+            if (letter < 0x20 || letter >= 0x7f) {
+                memset(out, 0, 1 + POOLRAD_COMBAT_FOES_MAX * (POOLRAD_COMBAT_FOE_NAME + 1));
+                return;
+            }
             length++;
         }
-        if (length == 0 || length == POOLRAD_COMBAT_FOE_NAME) { out[0] = 0; return; }
+        if (length == 0 || length == POOLRAD_COMBAT_FOE_NAME) {
+            memset(out, 0, 1 + POOLRAD_COMBAT_FOES_MAX * (POOLRAD_COMBAT_FOE_NAME + 1));
+            return;
+        }
         for (k = 0; k < kinds_found; k++) {
             unsigned char *entry = out + 1 + k * (POOLRAD_COMBAT_FOE_NAME + 1);
             unsigned same = 1, c;
@@ -185,7 +193,10 @@ static void poolrad_combat_foes(const unsigned char *ram, const unsigned char *k
         if (k < kinds_found) continue;
         /* More kinds than the packet holds: report none rather than some, so a
          * partial list is never mistaken for the whole opposition. */
-        if (kinds_found >= POOLRAD_COMBAT_FOES_MAX) { out[0] = 0; return; }
+        if (kinds_found >= POOLRAD_COMBAT_FOES_MAX) {
+            memset(out, 0, 1 + POOLRAD_COMBAT_FOES_MAX * (POOLRAD_COMBAT_FOE_NAME + 1));
+            return;
+        }
         {
             unsigned char *entry = out + 1 + kinds_found * (POOLRAD_COMBAT_FOE_NAME + 1);
             unsigned c;

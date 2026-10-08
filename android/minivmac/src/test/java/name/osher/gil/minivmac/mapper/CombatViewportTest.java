@@ -53,4 +53,13 @@ public class CombatViewportTest {
             visible(v,battle(new int[][]{edge}));
         }
     }
+    @Test public void lastBattleRowCanClearTheBottomControls() {
+        CombatViewport v = new CombatViewport(950, 460, 1.25f, 8, 1000, 1000);
+        assertEquals(460 - 48 * 1.25f, v.top + 25 * v.cell, .01f);
+        visible(v, battle(new int[][]{{49, 24}}));
+    }
+    @Test public void fittedBattleDoesNotDrawUnderFooterControls() {
+        CombatViewport v = new CombatViewport(950, 460, 1.25f, 1, 25, 12.5f);
+        assertTrue(v.top + 25 * v.cell <= 460 - 48 * 1.25f + .01f);
+    }
 }
