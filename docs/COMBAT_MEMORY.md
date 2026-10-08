@@ -12,14 +12,18 @@ whole arena. The fixed arena dimensions researched below still apply.
 
     A5-0x46e8            count, zero whenever no battle is running
     A5-0x46e4 + i*4      { i, flag, x, y } for i in 0..count-1
-    A5-0x46e4 + count*4  a sentinel entry whose x and y are both zero
+    A5-0x46e4 + count*4  bytes after the last combatant (not validated)
 
 Entry `i` is the `i`-th combatant of the roster chain, so the party members
 come first and the party/other split needs no new field. Each entry states its
 own index, which makes the table self-checking: the reader refuses it if any
-entry disagrees, if the sentinel is missing, or if the count disagrees with the
-chain length. Confirmed on two live battles (sixteen combatants and
-thirty-five) and on camp, walking and an area arrival, where the count is zero.
+entry disagrees or if the count disagrees with the chain length. Earlier
+captures had zero coordinates just after the last entry, but an October 2026
+tablet fight showed that this is not guaranteed (`Combat probe 7/0` in the
+diagnostic build). The reader now validates only the counted entries, then
+cross-checks the count against the roster. The table was confirmed on two live
+battles (sixteen combatants and thirty-five) and on camp, walking and an area
+arrival, where the count is zero.
 
 **The input question is answered: in combat the party moves with the numeric
 keypad**, the mirror of exploration, where it moves with the number keys. The

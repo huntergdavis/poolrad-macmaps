@@ -105,6 +105,7 @@ public class LiveMapView extends View {
     private boolean positionAvailable;
     /** Set only while the game is in combat; null at every other moment. */
     private CombatSnapshot combat;
+    private String combatRefusal;
     /**
      * The battle grid as it was last drawn, so a tap can be mapped back to the
      * combatant under it. Zero cell means nothing is tappable there.
@@ -236,6 +237,7 @@ public class LiveMapView extends View {
      */
     public void clearReadings() {
         mapHold.reset(); partyHold.reset(); combatHold.reset();
+        combat = null; combatRefusal = null;
         showSample(null); showPartySample(null);
     }
     public PartyState partySnapshot() { return party; }
@@ -451,16 +453,28 @@ public class LiveMapView extends View {
      */
     public void showCombatSample(byte[] sample) {
         CombatSnapshot next = mode == MapMode.COMBAT ? CombatSnapshot.parse(sample) : null;
+        String refusal = next == null && mode == MapMode.COMBAT ? combatRefusal(sample) : null;
         // The battlefield is the worst offender: a fight rewrites these records
         // continuously, so without a hold it can blink several times a second.
         if (mode == MapMode.COMBAT && !combatHold.accept(next != null, now())) return;
-        boolean same = combat == null ? next == null : combat.sameDisplay(next);
+        boolean same = (combat == null ? next == null : combat.sameDisplay(next))
+                && java.util.Objects.equals(combatRefusal, refusal);
         combat = next;
+        combatRefusal = refusal;
         // Good repeats still renew the hold above, but do not redraw or
         // rebuild accessibility text when the displayed battle is unchanged.
         if (same) return;
         if (combat != null) battleViewport();
         refreshDescription(); invalidate();
+    }
+
+    private static String combatRefusal(byte[] sample) {
+        if (sample == null) return "No combat packet";
+        if (sample.length != CombatSnapshot.PACKET_SIZE) return "Combat packet size " + sample.length;
+        if (sample[0] != 'P' || sample[1] != 'R' || sample[2] != 'C' || sample[3] != '3')
+            return "Combat packet signature";
+        if ((sample[4] & 255) != 255) return "Combat packet validation";
+        return "Combat probe " + (sample[6] & 255) + "/" + (sample[7] & 255);
     }
 
     public void showSample(byte[] sample) {
@@ -527,7 +541,7 @@ public class LiveMapView extends View {
             if (where != null) listener.onAmbush(where, state.y * 16 + state.x);
         }
         if (nextMode != MapMode.COMBAT) {
-            combat = null; combatHold.reset(); battleNeedsFocus = true;
+            combat = null; combatRefusal = null; combatHold.reset(); battleNeedsFocus = true;
             // A lit row must not outlive the grid that explained it.
             highlightedMember = -1; highlightUntil = 0; combatCell = 0;
         }
@@ -1022,7 +1036,8 @@ public class LiveMapView extends View {
         ink.setTextSize(11 * density);
         if (battle == null) {
             combatCell = 0;
-            canvas.drawText(fitHeaderText(MapMode.COMBAT.explanation(), available),
+            canvas.drawText(fitHeaderText(combatRefusal == null
+                            ? MapMode.COMBAT.explanation() : combatRefusal, available),
                     pane.mapWidth / 2f, pane.mapHeight / 2f, ink);
             return;
         }

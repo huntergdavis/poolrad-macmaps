@@ -44,7 +44,7 @@ static void fixture(unsigned party, unsigned others) {
         e[0] = (unsigned char) i; e[1] = i == 0 ? 0 : 1;
         e[2] = expected_x(i); e[3] = expected_y(i);
     }
-    /* The sentinel one past the end is part of the contract. */
+    /* Earlier captures happened to have a zeroed entry past the table. */
     memset(ram + g_table + total * POOLRAD_COMBAT_STRIDE, 0, POOLRAD_COMBAT_STRIDE);
     for (i = 0; i < total; i++) {
         uint32_t rec = 0x20000 + i * 0x200, handle = 0x10000 + i * 8;
@@ -80,6 +80,7 @@ int main(void) {
     fixture(6, 10);
     ram[g_a5 - POOLRAD_COMBAT_COUNT_BACK] = 0;
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+    assert(out[POOLRAD_COMBAT_REASON_OUT] == 3 && out[POOLRAD_COMBAT_DETAIL_OUT] == 0);
 
     /* A count that disagrees with the roster is refused in both directions. */
     for (int delta = -2; delta <= 2; delta++) {
@@ -88,6 +89,7 @@ int main(void) {
         ram[g_a5 - POOLRAD_COMBAT_COUNT_BACK] = (unsigned char)(16 + delta);
         assert(poolrad_combat_probe(ram, sizeof ram, out));
         unavailable();
+        assert(out[POOLRAD_COMBAT_REASON_OUT] == 5 || out[POOLRAD_COMBAT_REASON_OUT] == 9);
     }
 
     /* Every entry states its own index; one that lies rejects the table. */
@@ -95,6 +97,7 @@ int main(void) {
         fixture(6, 10);
         ram[g_table + i * POOLRAD_COMBAT_STRIDE] = (unsigned char)(i + 1);
         assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+        assert(out[POOLRAD_COMBAT_REASON_OUT] == 5 && out[POOLRAD_COMBAT_DETAIL_OUT] == i);
     }
 
     /* The flag byte is carried, not interpreted, but only 0 and 1 are known. */
@@ -122,23 +125,28 @@ int main(void) {
         assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
     }
 
-    /* A missing sentinel means the table did not end where the count said. */
+    /* The bytes after the counted entries are not needed when the roster
+     * independently confirms the count. This is the reported 7/0 case. */
     for (unsigned axis = 2; axis <= 3; axis++) {
         fixture(6, 10);
-        ram[g_table + 16 * POOLRAD_COMBAT_STRIDE + axis] = 1;
-        assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+        ram[g_table + 16 * POOLRAD_COMBAT_STRIDE + axis] = 255;
+        assert(poolrad_combat_probe(ram, sizeof ram, out));
+        assert(out[POOLRAD_COMBAT_STATUS_OUT] == POOLRAD_COMBAT_PRESENT);
+        assert(out[POOLRAD_COMBAT_COUNT_OUT] == 16);
     }
 
     /* A broken roster chain takes the whole sample with it. */
     fixture(6, 10);
     put32(g_a5 - POOLRAD_PARTY_HEAD_BACK, 0);
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+    assert(out[POOLRAD_COMBAT_REASON_OUT] == 8 && out[POOLRAD_COMBAT_DETAIL_OUT] == 2);
     fixture(6, 10);
     put32(g_records[7] + POOLRAD_PARTY_NEXT_OFFSET, 0x10000); // a cycle
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
     fixture(6, 10);
     put32(g_records[3] - 8, 0x70000000); // wrong heap tag
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
+    assert(out[POOLRAD_COMBAT_REASON_OUT] == 8 && out[POOLRAD_COMBAT_DETAIL_OUT] == 5);
     fixture(6, 10);
     ram[g_records[2] + POOLRAD_PARTY_SLOT_OFFSET] = 0xff; // unassigned slot
     assert(poolrad_combat_probe(ram, sizeof ram, out)); unavailable();
@@ -313,6 +321,6 @@ int main(void) {
         assert(out[POOLRAD_COMBAT_ACTOR_OUT] == 0);
     }
 
-    puts("Combat probe: roster-checked grid table, index and sentinel guards, bounds passed.");
+    puts("Combat probe: roster-checked grid table, index and bounds passed.");
     return 0;
 }
